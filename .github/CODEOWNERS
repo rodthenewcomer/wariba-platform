@@ -1,0 +1,6 @@
+# WARIBA CODEOWNERS
+# One owner group for the foundation phase. Split by module (trading, policy-risk,
+# performance-payout, control, ...) once those directories carry real code —
+# see AGENTS.md §7 (Modules métier).
+
+* @rodthenewcomer
