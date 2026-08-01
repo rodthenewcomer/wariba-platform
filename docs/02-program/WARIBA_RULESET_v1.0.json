@@ -1,0 +1,1282 @@
+{
+  "document": {
+    "id": "WARIBA-RULESET",
+    "title": "WARIBA Ruleset",
+    "version": "1.0.0",
+    "status": "candidate_private_beta",
+    "language": "fr-FR",
+    "brand": "WARIBA",
+    "domain": "wariba.app",
+    "generated_at": "2026-08-01T16:32:00Z",
+    "authoritative_human_source": "docs/02-program/WARIBA_Program_Rulebook_v1.0.md",
+    "decision_log_source": "docs/00-decisions/DECISION_LOG.md",
+    "runtime_use": "sandbox_private_beta_only",
+    "public_launch_approved": false,
+    "real_money_enabled": false,
+    "numeric_encoding": "decimal_string",
+    "timezone": "UTC"
+  },
+  "governance": {
+    "immutability": {
+      "published_policy_is_immutable": true,
+      "retroactive_rule_changes_forbidden": true,
+      "account_pinned_to_policy_version": true,
+      "policy_hash_required_before_publication": true,
+      "human_document_hash_required_before_publication": true
+    },
+    "policy_lifecycle": [
+      "draft",
+      "reviewed",
+      "approved",
+      "published",
+      "retired"
+    ],
+    "current_policy_status": "draft",
+    "requires_human_approval_before_publish": true,
+    "requires_decision_log_for_material_change": true,
+    "change_control": {
+      "requires_product_review": true,
+      "requires_risk_review": true,
+      "requires_finance_review_when_economics_change": true,
+      "requires_engineering_review": true,
+      "requires_security_review_when_controls_change": true
+    }
+  },
+  "platform": {
+    "environment": "simulated_trading",
+    "supported_products": [
+      "WARIBA_ONE",
+      "WARIBA_PERFORMANCE",
+      "WARIBA_REVIEW"
+    ],
+    "supported_symbols": [
+      "EURUSD",
+      "GBPUSD",
+      "USDJPY",
+      "XAUUSD",
+      "NAS100"
+    ],
+    "base_currency": "USD",
+    "commercial_currency": "XOF",
+    "native_app_enabled": false,
+    "pwa_enabled": true,
+    "copy_trading_enabled": false,
+    "crypto_enabled": false,
+    "futures_enabled": false,
+    "public_api_enabled": false,
+    "live_capital_enabled": false,
+    "automated_trading_advice_enabled": false
+  },
+  "commercial_offers": {
+    "feature_flags": {
+      "product_5k_enabled": true,
+      "product_10k_enabled": true,
+      "product_25k_enabled": false
+    },
+    "offers": {
+      "WARIBA_ONE_5K": {
+        "program": "WARIBA_ONE",
+        "nominal_balance": "5000",
+        "currency": "USD",
+        "price": "14900",
+        "price_currency": "XOF",
+        "activation_fee": "0",
+        "status": "candidate"
+      },
+      "WARIBA_ONE_10K": {
+        "program": "WARIBA_ONE",
+        "nominal_balance": "10000",
+        "currency": "USD",
+        "price": "27900",
+        "price_currency": "XOF",
+        "activation_fee": "0",
+        "status": "candidate",
+        "primary_offer": true
+      },
+      "WARIBA_ONE_25K": {
+        "program": "WARIBA_ONE",
+        "nominal_balance": "25000",
+        "currency": "USD",
+        "price": "59900",
+        "price_currency": "XOF",
+        "activation_fee": "0",
+        "status": "experiment",
+        "requires_feature_flag": "product_25k_enabled"
+      }
+    },
+    "commercial_constraints": {
+      "no_time_limit": true,
+      "no_subscription_required": true,
+      "simulated_account_disclosure_required_before_payment": true,
+      "policy_version_disclosure_required_before_payment": true,
+      "refund_policy_status": "open_decision",
+      "maximum_active_evaluations_per_user": null,
+      "repurchase_policy": null
+    }
+  },
+  "symbol_specifications": {
+    "specification_set_id": "WARIBA-SANDBOX-SYMBOLS-1.0.0",
+    "status": "sandbox_candidate",
+    "publication_required_before_use": true,
+    "symbols": {
+      "EURUSD": {
+        "asset_class": "forex_major",
+        "leverage": "50",
+        "leverage_by_program": {
+          "WARIBA_ONE": "50",
+          "WARIBA_PERFORMANCE": "30"
+        },
+        "weekend_hold_allowed": false,
+        "overnight_hold_allowed": true,
+        "precision": null,
+        "contract_size": null,
+        "minimum_quantity": null,
+        "maximum_quantity": null,
+        "quantity_step": null,
+        "commission_model": "open_decision",
+        "swap_model": "open_decision",
+        "weekend_cutoff": "open_decision",
+        "stale_threshold_ms": null
+      },
+      "GBPUSD": {
+        "asset_class": "forex_major",
+        "leverage": "50",
+        "leverage_by_program": {
+          "WARIBA_ONE": "50",
+          "WARIBA_PERFORMANCE": "30"
+        },
+        "weekend_hold_allowed": false,
+        "overnight_hold_allowed": true,
+        "precision": null,
+        "contract_size": null,
+        "minimum_quantity": null,
+        "maximum_quantity": null,
+        "quantity_step": null,
+        "commission_model": "open_decision",
+        "swap_model": "open_decision",
+        "weekend_cutoff": "open_decision",
+        "stale_threshold_ms": null
+      },
+      "USDJPY": {
+        "asset_class": "forex_major",
+        "leverage": "50",
+        "leverage_by_program": {
+          "WARIBA_ONE": "50",
+          "WARIBA_PERFORMANCE": "30"
+        },
+        "weekend_hold_allowed": false,
+        "overnight_hold_allowed": true,
+        "precision": null,
+        "contract_size": null,
+        "minimum_quantity": null,
+        "maximum_quantity": null,
+        "quantity_step": null,
+        "commission_model": "open_decision",
+        "swap_model": "open_decision",
+        "weekend_cutoff": "open_decision",
+        "stale_threshold_ms": null
+      },
+      "XAUUSD": {
+        "asset_class": "metal",
+        "leverage": "20",
+        "leverage_by_program": {
+          "WARIBA_ONE": "20",
+          "WARIBA_PERFORMANCE": "10"
+        },
+        "weekend_hold_allowed": false,
+        "overnight_hold_allowed": true,
+        "precision": null,
+        "contract_size": null,
+        "minimum_quantity": null,
+        "maximum_quantity": null,
+        "quantity_step": null,
+        "commission_model": "open_decision",
+        "swap_model": "open_decision",
+        "weekend_cutoff": "open_decision",
+        "stale_threshold_ms": null
+      },
+      "NAS100": {
+        "asset_class": "index_cfd_simulated",
+        "leverage": "20",
+        "leverage_by_program": {
+          "WARIBA_ONE": "20",
+          "WARIBA_PERFORMANCE": "10"
+        },
+        "weekend_hold_allowed": false,
+        "overnight_hold_allowed": true,
+        "precision": null,
+        "contract_size": null,
+        "minimum_quantity": null,
+        "maximum_quantity": null,
+        "quantity_step": null,
+        "commission_model": "open_decision",
+        "swap_model": "open_decision",
+        "weekend_cutoff": "open_decision",
+        "stale_threshold_ms": null
+      }
+    }
+  },
+  "shared_calculation_rules": {
+    "money": {
+      "typescript_runtime": "Decimal.js",
+      "database_type": "numeric",
+      "api_serialization": "string",
+      "rounding_mode": "must_be_explicit_per_calculation"
+    },
+    "time": {
+      "storage": "UTC",
+      "daily_reset_time": "00:00:00",
+      "daily_reset_timezone": "UTC",
+      "clock_injection_required": true
+    },
+    "equity": {
+      "formula": "balance + unrealized_pnl - accrued_costs",
+      "authoritative_side": "server"
+    },
+    "realized_net_profit": {
+      "formula": "realized_pnl - commissions - swaps - other_published_trading_costs",
+      "includes_unrealized_pnl": false
+    },
+    "trading_day": {
+      "definition": "a UTC calendar day containing at least one accepted fill",
+      "finalized_only_after_day_close": true
+    },
+    "qualified_day": {
+      "definition": "a finalized UTC trading day whose realized_net_profit is greater than or equal to the account-specific threshold",
+      "unrealized_pnl_counted": false
+    },
+    "consistency": {
+      "formula": "best_profitable_finalized_day_realized_net_profit / total_realized_net_profit_in_scope",
+      "scope_isolation_required": true,
+      "evaluation_scope": "entire_evaluation",
+      "performance_scope": "current_performance_cycle_only",
+      "when_total_realized_net_profit_lte_zero": {
+        "ratio": null,
+        "status": "not_eligible"
+      },
+      "breach_capable": false,
+      "eligibility_only": true
+    },
+    "daily_loss": {
+      "start_of_day_equity_formula": "balance_at_daily_reset + unrealized_pnl_at_daily_reset - accrued_costs_at_daily_reset",
+      "current_adjusted_equity_formula": "current_balance + current_unrealized_pnl - current_accrued_costs",
+      "used_formula": "max(0, start_of_day_equity - current_adjusted_equity)",
+      "soft_lock_only": true,
+      "hard_breach_only_if_maximum_loss_floor_is_reached": true
+    },
+    "maximum_loss": {
+      "floor_formula": "nominal_balance * (1 - maximum_loss_rate)",
+      "reference": "current_equity",
+      "static": true,
+      "trailing": false,
+      "hard_breach": true
+    }
+  },
+  "programs": {
+    "WARIBA_ONE": {
+      "program_code": "WARIBA_ONE",
+      "program_version": "1.0.0",
+      "status": "candidate_private_beta",
+      "phase_count": 1,
+      "account_type": "evaluation",
+      "profit_target": {
+        "rate": "0.08",
+        "basis": "nominal_balance",
+        "required_profit_formula": "nominal_balance * 0.08",
+        "recognized_profit": "realized_net_profit_only",
+        "open_positions_must_be_zero_to_pass": true,
+        "pending_orders_must_be_zero_to_pass": true
+      },
+      "daily_loss_limit": {
+        "rate": "0.04",
+        "basis": "nominal_balance",
+        "amount_formula": "nominal_balance * 0.04",
+        "action_at_threshold": "soft_lock",
+        "new_or_increased_exposure_allowed_after_lock": false,
+        "reduce_or_close_exposure_allowed_after_lock": true,
+        "reset": "next_daily_reset"
+      },
+      "maximum_loss": {
+        "rate": "0.08",
+        "basis": "nominal_balance",
+        "floor_formula": "nominal_balance * 0.92",
+        "action_at_or_below_floor": "hard_breach",
+        "terminal": true,
+        "close_positions_on_breach": true,
+        "cancel_pending_orders_on_breach": true
+      },
+      "consistency": {
+        "maximum_ratio": "0.40",
+        "comparison": "less_than_or_equal",
+        "breach_capable": false,
+        "blocks_pass_when_non_compliant": true
+      },
+      "minimum_trading_days": 4,
+      "qualified_days": {
+        "required_count": 3,
+        "minimum_daily_profit_rate": "0.0020",
+        "minimum_daily_profit_formula": "nominal_balance * 0.0020",
+        "must_be_finalized": true
+      },
+      "time_limit": null,
+      "inactivity": {
+        "maximum_calendar_days": 30,
+        "reference_event": "last_trading_activity",
+        "action": "inactive_review_or_close_according_to_published_policy"
+      },
+      "holding_rules": {
+        "overnight_allowed": true,
+        "weekend_allowed": false,
+        "weekend_cutoff": "open_decision"
+      },
+      "news_rules": {
+        "high_impact_news_trading_allowed": true,
+        "new_exposure_restriction_window_before_minutes": "0",
+        "new_exposure_restriction_window_after_minutes": "0"
+      },
+      "pass_requirements": [
+        "profit_target_reached_with_realized_net_profit",
+        "minimum_trading_days_reached",
+        "qualified_days_reached",
+        "consistency_compliant",
+        "no_open_positions",
+        "no_pending_orders",
+        "no_hard_breach",
+        "no_blocking_review"
+      ],
+      "pass_effects": {
+        "evaluation_account_becomes_read_only": true,
+        "performance_account_created_idempotently": true,
+        "evaluation_profit_transferred": false
+      }
+    },
+    "WARIBA_PERFORMANCE": {
+      "program_code": "WARIBA_PERFORMANCE",
+      "program_version": "1.0.0",
+      "status": "candidate_private_beta",
+      "account_type": "simulated_performance",
+      "maximum_paid_cycles_before_review": 5,
+      "permanent_profit_target": null,
+      "daily_loss_limit": {
+        "rate": "0.03",
+        "basis": "nominal_balance",
+        "amount_formula": "nominal_balance * 0.03",
+        "action_at_threshold": "soft_lock",
+        "new_or_increased_exposure_allowed_after_lock": false,
+        "reduce_or_close_exposure_allowed_after_lock": true,
+        "reset": "next_daily_reset"
+      },
+      "maximum_loss": {
+        "rate": "0.06",
+        "basis": "nominal_balance",
+        "floor_formula": "nominal_balance * 0.94",
+        "action_at_or_below_floor": "hard_breach",
+        "terminal": true,
+        "close_positions_on_breach": true,
+        "cancel_pending_orders_on_breach": true
+      },
+      "consistency": {
+        "maximum_ratio": "0.40",
+        "comparison": "less_than_or_equal",
+        "scope": "current_cycle",
+        "breach_capable": false,
+        "blocks_payout_when_non_compliant": true
+      },
+      "qualified_days": {
+        "required_count": 5,
+        "minimum_daily_profit_rate": "0.0030",
+        "minimum_daily_profit_formula": "nominal_balance * 0.0030",
+        "must_be_finalized": true
+      },
+      "cycle_thresholds": {
+        "1": {
+          "rate": "0.04",
+          "required_profit_formula": "nominal_balance * 0.04"
+        },
+        "2": {
+          "rate": "0.03",
+          "required_profit_formula": "nominal_balance * 0.03"
+        },
+        "3": {
+          "rate": "0.03",
+          "required_profit_formula": "nominal_balance * 0.03"
+        },
+        "4": {
+          "rate": "0.03",
+          "required_profit_formula": "nominal_balance * 0.03"
+        },
+        "5": {
+          "rate": "0.03",
+          "required_profit_formula": "nominal_balance * 0.03"
+        }
+      },
+      "holding_rules": {
+        "overnight_allowed": true,
+        "weekend_allowed": false,
+        "weekend_cutoff": "open_decision"
+      },
+      "news_rules": {
+        "high_impact_news_trading_allowed": "restricted",
+        "new_or_increased_exposure_restriction_window_before_minutes": "2",
+        "new_or_increased_exposure_restriction_window_after_minutes": "2",
+        "existing_positions_may_remain_open": true,
+        "reducing_or_closing_exposure_allowed": true,
+        "news_provider": "open_decision"
+      },
+      "payout_eligibility_requirements": [
+        "active_performance_account",
+        "active_cycle",
+        "cycle_threshold_reached_with_realized_net_profit",
+        "five_qualified_days",
+        "consistency_compliant",
+        "no_open_positions",
+        "no_pending_orders",
+        "not_soft_locked",
+        "not_hard_breached",
+        "kyc_status_eligible",
+        "payout_method_eligible",
+        "no_open_payout_request",
+        "no_blocking_dispute",
+        "no_blocking_integrity_review",
+        "audit_data_complete"
+      ],
+      "payout_request_effects": {
+        "freeze_trading": true,
+        "freeze_cycle_snapshot": true,
+        "re_evaluate_eligibility_transactionally": true,
+        "one_open_request_per_cycle": true
+      },
+      "after_paid_payout": {
+        "debit_full_payout_base_from_simulated_balance": true,
+        "close_cycle": true,
+        "create_next_cycle_after_cycles_1_to_4": true,
+        "create_review_case_after_cycle_5": true,
+        "automatic_live_allocation": false
+      }
+    },
+    "WARIBA_REVIEW": {
+      "program_code": "WARIBA_REVIEW",
+      "program_version": "1.0.0",
+      "status": "candidate_private_beta",
+      "trigger": "fifth_payout_paid",
+      "automatic_live_allocation": false,
+      "possible_outcomes": [
+        "performance_plus_or_future_offer",
+        "continued_observation",
+        "continued_simulated_performance",
+        "motivated_closure",
+        "future_live_allocation_only_if_separately_approved"
+      ],
+      "final_criteria": "open_decision",
+      "service_level": "open_decision"
+    }
+  },
+  "payouts": {
+    "calculation": {
+      "cycle_profit": "realized_net_profit_in_current_cycle",
+      "proportional_limit_rate": "0.50",
+      "proportional_limit_formula": "max(0, cycle_profit) * 0.50",
+      "payout_base_formula": "min(proportional_limit, applicable_cap)",
+      "trader_cash_formula": "payout_base * trader_split_rate",
+      "wariba_share_formula": "payout_base - trader_cash",
+      "unrealized_profit_included": false,
+      "negative_payout_allowed": false,
+      "calculation_version_required": true
+    },
+    "splits": {
+      "1": {
+        "trader_rate": "0.80",
+        "wariba_rate": "0.20"
+      },
+      "2": {
+        "trader_rate": "0.80",
+        "wariba_rate": "0.20"
+      },
+      "3": {
+        "trader_rate": "0.80",
+        "wariba_rate": "0.20"
+      },
+      "4": {
+        "trader_rate": "0.80",
+        "wariba_rate": "0.20"
+      },
+      "5": {
+        "trader_rate": "0.90",
+        "wariba_rate": "0.10"
+      }
+    },
+    "caps": {
+      "5000": {
+        "1": "100",
+        "2": "100",
+        "3": "150",
+        "4": "150",
+        "5": "250"
+      },
+      "10000": {
+        "1": "200",
+        "2": "200",
+        "3": "300",
+        "4": "300",
+        "5": "500"
+      },
+      "25000": {
+        "1": "400",
+        "2": "400",
+        "3": "600",
+        "4": "600",
+        "5": "1000"
+      }
+    },
+    "currency": "USD",
+    "provider_fees": {
+      "status": "open_decision",
+      "must_be_disclosed_before_request": true,
+      "must_not_change_payout_base_formula": true
+    },
+    "foreign_exchange": {
+      "status": "open_decision",
+      "rate_source_must_be_recorded": true,
+      "rate_timestamp_must_be_recorded": true,
+      "spread_or_fee_must_be_disclosed": true
+    },
+    "idempotency": {
+      "request_key_scope": "account_id_and_cycle_id",
+      "provider_transfer_key_format": "wariba-payout:{payout_request_id}",
+      "duplicate_request_forbidden": true,
+      "duplicate_transfer_forbidden": true
+    }
+  },
+  "reserve_governance": {
+    "coverage_formula": "available_payout_reserve / projected_payouts_next_30_days",
+    "zones": [
+      {
+        "name": "normal",
+        "minimum_inclusive": "2.0",
+        "maximum_exclusive": null,
+        "actions": [
+          "normal_operations"
+        ]
+      },
+      {
+        "name": "prudence",
+        "minimum_inclusive": "1.5",
+        "maximum_exclusive": "2.0",
+        "actions": [
+          "review_promotions",
+          "review_25k_availability",
+          "increase_monitoring"
+        ]
+      },
+      {
+        "name": "defensive",
+        "minimum_inclusive": "1.2",
+        "maximum_exclusive": "1.5",
+        "actions": [
+          "disable_25k",
+          "pause_promotions",
+          "limit_future_sales",
+          "fund_reserve"
+        ]
+      },
+      {
+        "name": "critical",
+        "minimum_inclusive": "0",
+        "maximum_exclusive": "1.2",
+        "actions": [
+          "disable_25k",
+          "suspend_or_reduce_future_sales",
+          "fund_reserve",
+          "executive_review"
+        ]
+      }
+    ],
+    "retroactive_reduction_of_earned_payout_forbidden": true,
+    "may_change_future_offers_only": true
+  },
+  "state_machines": {
+    "purchase_order": {
+      "initial": "created",
+      "terminal": [
+        "fulfilled",
+        "cancelled",
+        "refunded"
+      ],
+      "transitions": {
+        "created": [
+          "pending_payment",
+          "cancelled"
+        ],
+        "pending_payment": [
+          "paid",
+          "payment_failed",
+          "cancelled"
+        ],
+        "payment_failed": [
+          "pending_payment",
+          "cancelled"
+        ],
+        "paid": [
+          "fulfilled",
+          "refunded"
+        ],
+        "fulfilled": [
+          "refunded"
+        ],
+        "cancelled": [],
+        "refunded": []
+      }
+    },
+    "evaluation_account": {
+      "initial": "pending_activation",
+      "terminal": [
+        "passed",
+        "breached",
+        "closed"
+      ],
+      "transitions": {
+        "pending_activation": [
+          "active",
+          "closed"
+        ],
+        "active": [
+          "soft_locked",
+          "pass_pending",
+          "inactive",
+          "breached",
+          "closed"
+        ],
+        "soft_locked": [
+          "active",
+          "breached",
+          "closed"
+        ],
+        "pass_pending": [
+          "passed",
+          "active",
+          "breached"
+        ],
+        "inactive": [
+          "active",
+          "closed"
+        ],
+        "passed": [],
+        "breached": [],
+        "closed": []
+      }
+    },
+    "performance_account": {
+      "initial": "pending_activation",
+      "terminal": [
+        "breached",
+        "review",
+        "closed"
+      ],
+      "transitions": {
+        "pending_activation": [
+          "active",
+          "closed"
+        ],
+        "active": [
+          "soft_locked",
+          "payout_eligible",
+          "breached",
+          "closed"
+        ],
+        "soft_locked": [
+          "active",
+          "breached",
+          "closed"
+        ],
+        "payout_eligible": [
+          "payout_frozen",
+          "active",
+          "breached"
+        ],
+        "payout_frozen": [
+          "active",
+          "review",
+          "breached",
+          "closed"
+        ],
+        "review": [
+          "active",
+          "closed"
+        ],
+        "breached": [],
+        "closed": []
+      }
+    },
+    "performance_cycle": {
+      "initial": "active",
+      "terminal": [
+        "paid",
+        "cancelled",
+        "closed_without_payout"
+      ],
+      "transitions": {
+        "active": [
+          "eligible",
+          "closed_without_payout"
+        ],
+        "eligible": [
+          "payout_requested",
+          "active"
+        ],
+        "payout_requested": [
+          "under_review",
+          "cancelled"
+        ],
+        "under_review": [
+          "approved",
+          "action_required",
+          "rejected"
+        ],
+        "action_required": [
+          "under_review",
+          "rejected",
+          "cancelled"
+        ],
+        "approved": [
+          "processing"
+        ],
+        "processing": [
+          "paid",
+          "failed",
+          "returned"
+        ],
+        "failed": [
+          "processing",
+          "rejected"
+        ],
+        "returned": [
+          "processing",
+          "rejected"
+        ],
+        "rejected": [
+          "active",
+          "closed_without_payout"
+        ],
+        "paid": [],
+        "cancelled": [],
+        "closed_without_payout": []
+      }
+    },
+    "payout_request": {
+      "initial": "received",
+      "terminal": [
+        "paid",
+        "rejected",
+        "cancelled"
+      ],
+      "transitions": {
+        "received": [
+          "automatic_checks",
+          "cancelled"
+        ],
+        "automatic_checks": [
+          "human_review",
+          "action_required",
+          "rejected"
+        ],
+        "human_review": [
+          "approved",
+          "action_required",
+          "rejected"
+        ],
+        "action_required": [
+          "human_review",
+          "rejected",
+          "cancelled"
+        ],
+        "approved": [
+          "processing"
+        ],
+        "processing": [
+          "paid",
+          "failed",
+          "returned"
+        ],
+        "failed": [
+          "processing",
+          "rejected"
+        ],
+        "returned": [
+          "processing",
+          "rejected"
+        ],
+        "paid": [],
+        "rejected": [],
+        "cancelled": []
+      }
+    }
+  },
+  "enforcement": {
+    "soft_lock": {
+      "new_orders_increasing_exposure": "blocked",
+      "position_increase": "blocked",
+      "reduce_position": "allowed",
+      "close_position": "allowed",
+      "view_account": "allowed",
+      "open_support_ticket": "allowed"
+    },
+    "hard_breach": {
+      "new_orders": "blocked",
+      "positions": "close_or_closed_according_to_policy",
+      "account_mode": "read_only",
+      "evidence_required": true,
+      "dispute_allowed": true,
+      "repurchase_cta_priority": "below_evidence_and_explanation"
+    },
+    "market_data_stale": {
+      "new_orders": "blocked",
+      "increase_exposure": "blocked",
+      "reduce_or_close_exposure": "allowed_only_if_safe_price_and_policy_allow",
+      "must_display_last_update": true,
+      "must_not_substitute_zero_or_old_price_as_current": true
+    }
+  },
+  "reason_codes": {
+    "RISK_DAILY_LOSS_LOCK": {
+      "category": "risk",
+      "severity": "warning",
+      "effect": "soft_lock"
+    },
+    "RISK_MAXIMUM_LOSS_BREACH": {
+      "category": "risk",
+      "severity": "critical",
+      "effect": "hard_breach"
+    },
+    "RISK_CONSISTENCY_NON_COMPLIANT": {
+      "category": "eligibility",
+      "severity": "information",
+      "effect": "blocks_pass_or_payout",
+      "breach": false
+    },
+    "RISK_TARGET_NOT_REALIZED": {
+      "category": "eligibility",
+      "severity": "information",
+      "effect": "blocks_pass"
+    },
+    "RISK_TRADING_DAYS_INSUFFICIENT": {
+      "category": "eligibility",
+      "severity": "information",
+      "effect": "blocks_pass"
+    },
+    "RISK_QUALIFIED_DAYS_INSUFFICIENT": {
+      "category": "eligibility",
+      "severity": "information",
+      "effect": "blocks_pass_or_payout"
+    },
+    "RISK_OPEN_POSITIONS_BLOCK_TRANSITION": {
+      "category": "eligibility",
+      "severity": "information",
+      "effect": "blocks_pass_or_payout"
+    },
+    "RISK_PENDING_ORDERS_BLOCK_TRANSITION": {
+      "category": "eligibility",
+      "severity": "information",
+      "effect": "blocks_pass_or_payout"
+    },
+    "MARKET_STALE": {
+      "category": "market_data",
+      "severity": "warning",
+      "effect": "reject_new_exposure"
+    },
+    "MARKET_CLOSED": {
+      "category": "market",
+      "severity": "information",
+      "effect": "reject_order"
+    },
+    "MARKET_WEEKEND_RESTRICTION": {
+      "category": "market",
+      "severity": "warning",
+      "effect": "reject_or_force_pre_cutoff_action_according_to_policy"
+    },
+    "MARKET_NEWS_RESTRICTION": {
+      "category": "market",
+      "severity": "warning",
+      "effect": "reject_new_or_increased_exposure"
+    },
+    "ORDER_DUPLICATE_IDEMPOTENCY_KEY": {
+      "category": "execution",
+      "severity": "information",
+      "effect": "return_original_result"
+    },
+    "ORDER_ACCOUNT_NOT_ACTIVE": {
+      "category": "execution",
+      "severity": "warning",
+      "effect": "reject_order"
+    },
+    "ORDER_QUANTITY_INVALID": {
+      "category": "execution",
+      "severity": "warning",
+      "effect": "reject_order"
+    },
+    "ORDER_INSUFFICIENT_MARGIN": {
+      "category": "execution",
+      "severity": "warning",
+      "effect": "reject_order"
+    },
+    "PAYOUT_NOT_ELIGIBLE": {
+      "category": "payout",
+      "severity": "information",
+      "effect": "reject_request_creation"
+    },
+    "PAYOUT_ALREADY_OPEN": {
+      "category": "payout",
+      "severity": "warning",
+      "effect": "return_existing_request"
+    },
+    "PAYOUT_OPEN_POSITION": {
+      "category": "payout",
+      "severity": "information",
+      "effect": "blocks_request"
+    },
+    "PAYOUT_OPEN_ORDER": {
+      "category": "payout",
+      "severity": "information",
+      "effect": "blocks_request"
+    },
+    "PAYOUT_KYC_REQUIRED": {
+      "category": "payout",
+      "severity": "information",
+      "effect": "action_required"
+    },
+    "PAYOUT_INTEGRITY_REVIEW": {
+      "category": "payout",
+      "severity": "warning",
+      "effect": "human_review"
+    },
+    "PAYOUT_PROVIDER_FAILED": {
+      "category": "payout",
+      "severity": "error",
+      "effect": "reconciliation_required"
+    },
+    "PAYMENT_WEBHOOK_INVALID": {
+      "category": "payment",
+      "severity": "critical",
+      "effect": "reject_event"
+    },
+    "PAYMENT_AMOUNT_MISMATCH": {
+      "category": "payment",
+      "severity": "critical",
+      "effect": "do_not_fulfill"
+    },
+    "PAYMENT_CURRENCY_MISMATCH": {
+      "category": "payment",
+      "severity": "critical",
+      "effect": "do_not_fulfill"
+    },
+    "POLICY_VERSION_MISSING": {
+      "category": "policy",
+      "severity": "critical",
+      "effect": "fail_closed"
+    },
+    "POLICY_HASH_MISMATCH": {
+      "category": "policy",
+      "severity": "critical",
+      "effect": "fail_closed"
+    }
+  },
+  "idempotency_requirements": {
+    "purchase_order_create": true,
+    "payment_initiate": true,
+    "payment_webhook": true,
+    "order_fulfillment": true,
+    "evaluation_activation": true,
+    "order_submit": true,
+    "close_all": true,
+    "daily_finalization": true,
+    "evaluation_pass": true,
+    "performance_creation": true,
+    "payout_request": true,
+    "payout_approval": true,
+    "payout_transfer": true,
+    "next_cycle_creation": true,
+    "critical_notification": true
+  },
+  "audit_requirements": {
+    "append_only": true,
+    "required_fields": [
+      "actor_type",
+      "actor_id",
+      "role",
+      "permission",
+      "action",
+      "target_type",
+      "target_id",
+      "before",
+      "after",
+      "reason",
+      "source",
+      "correlation_id",
+      "occurred_at"
+    ],
+    "events_requiring_audit": [
+      "policy_publish",
+      "symbol_spec_publish",
+      "payment_confirmation",
+      "account_activation",
+      "order_acceptance",
+      "order_rejection",
+      "fill_creation",
+      "soft_lock",
+      "hard_breach",
+      "evaluation_pass",
+      "performance_creation",
+      "payout_request",
+      "payout_decision",
+      "payout_transfer",
+      "cycle_close",
+      "review_case_creation",
+      "feature_flag_change",
+      "kill_switch_change",
+      "permission_change",
+      "authorized_adjustment",
+      "dispute_decision"
+    ]
+  },
+  "test_vectors": [
+    {
+      "id": "TV-ONE-001",
+      "description": "10K target reached in two trading days",
+      "program": "WARIBA_ONE",
+      "nominal_balance": "10000",
+      "realized_net_profit": "800",
+      "trading_days": 2,
+      "qualified_days": 2,
+      "best_day_profit": "400",
+      "expected": {
+        "target_reached": true,
+        "consistency_ratio": "0.50",
+        "passed": false,
+        "reason_codes": [
+          "RISK_TRADING_DAYS_INSUFFICIENT",
+          "RISK_QUALIFIED_DAYS_INSUFFICIENT",
+          "RISK_CONSISTENCY_NON_COMPLIANT"
+        ]
+      }
+    },
+    {
+      "id": "TV-ONE-002",
+      "description": "10K daily loss exact threshold",
+      "program": "WARIBA_ONE",
+      "nominal_balance": "10000",
+      "start_of_day_equity": "10000",
+      "current_adjusted_equity": "9600",
+      "expected": {
+        "daily_loss_used": "400",
+        "soft_locked": true,
+        "hard_breached": false,
+        "reason_codes": [
+          "RISK_DAILY_LOSS_LOCK"
+        ]
+      }
+    },
+    {
+      "id": "TV-ONE-003",
+      "description": "10K maximum loss exact floor",
+      "program": "WARIBA_ONE",
+      "nominal_balance": "10000",
+      "current_equity": "9200",
+      "expected": {
+        "hard_breached": true,
+        "reason_codes": [
+          "RISK_MAXIMUM_LOSS_BREACH"
+        ]
+      }
+    },
+    {
+      "id": "TV-ONE-004",
+      "description": "Target exists only as unrealized profit",
+      "program": "WARIBA_ONE",
+      "nominal_balance": "10000",
+      "realized_net_profit": "700",
+      "unrealized_pnl": "100",
+      "expected": {
+        "target_reached": false,
+        "passed": false,
+        "reason_codes": [
+          "RISK_TARGET_NOT_REALIZED"
+        ]
+      }
+    },
+    {
+      "id": "TV-PERF-001",
+      "description": "10K first payout cycle base calculation",
+      "program": "WARIBA_PERFORMANCE",
+      "nominal_balance": "10000",
+      "cycle_number": 1,
+      "cycle_profit": "500",
+      "expected": {
+        "proportional_limit": "250",
+        "cap": "200",
+        "payout_base": "200",
+        "trader_split_rate": "0.80",
+        "trader_cash": "160",
+        "wariba_share": "40"
+      }
+    },
+    {
+      "id": "TV-PERF-002",
+      "description": "10K fifth payout cycle base calculation",
+      "program": "WARIBA_PERFORMANCE",
+      "nominal_balance": "10000",
+      "cycle_number": 5,
+      "cycle_profit": "1500",
+      "expected": {
+        "proportional_limit": "750",
+        "cap": "500",
+        "payout_base": "500",
+        "trader_split_rate": "0.90",
+        "trader_cash": "450",
+        "wariba_share": "50",
+        "review_case_after_paid": true
+      }
+    },
+    {
+      "id": "TV-PERF-003",
+      "description": "Performance consistency above 40 percent",
+      "program": "WARIBA_PERFORMANCE",
+      "nominal_balance": "10000",
+      "cycle_profit": "400",
+      "best_day_profit": "200",
+      "expected": {
+        "consistency_ratio": "0.50",
+        "hard_breached": false,
+        "payout_eligible": false,
+        "reason_codes": [
+          "RISK_CONSISTENCY_NON_COMPLIANT"
+        ]
+      }
+    }
+  ],
+  "open_decisions": [
+    {
+      "id": "OPEN-P0-001",
+      "topic": "final_commission_and_swap_formulas",
+      "blocks": "trading_core_final"
+    },
+    {
+      "id": "OPEN-P0-002",
+      "topic": "exact_weekend_cutoff",
+      "blocks": "production_trading_rules"
+    },
+    {
+      "id": "OPEN-P0-003",
+      "topic": "advanced_pending_orders_scope",
+      "blocks": "trading_scope"
+    },
+    {
+      "id": "OPEN-P0-004",
+      "topic": "maximum_active_evaluations_per_user",
+      "blocks": "paid_commerce"
+    },
+    {
+      "id": "OPEN-P0-005",
+      "topic": "reset_and_repurchase_policy",
+      "blocks": "public_commerce"
+    },
+    {
+      "id": "OPEN-P0-006",
+      "topic": "real_kyc_provider_and_workflow",
+      "blocks": "real_payouts"
+    },
+    {
+      "id": "OPEN-P0-007",
+      "topic": "real_payment_service_provider",
+      "blocks": "paid_beta"
+    },
+    {
+      "id": "OPEN-P0-008",
+      "topic": "real_payout_rails",
+      "blocks": "real_payouts"
+    },
+    {
+      "id": "OPEN-P0-009",
+      "topic": "licensed_market_data_provider",
+      "blocks": "public_launch"
+    },
+    {
+      "id": "OPEN-P0-010",
+      "topic": "local_legal_opinion",
+      "blocks": "public_paid_launch"
+    },
+    {
+      "id": "OPEN-P0-011",
+      "topic": "refund_policy",
+      "blocks": "paid_beta"
+    },
+    {
+      "id": "OPEN-P0-012",
+      "topic": "wariba_review_final_criteria",
+      "blocks": "post_fifth_real_payout"
+    },
+    {
+      "id": "OPEN-P0-013",
+      "topic": "data_retention_policy",
+      "blocks": "production"
+    },
+    {
+      "id": "OPEN-P0-014",
+      "topic": "hosting_provider_and_region",
+      "blocks": "staging"
+    },
+    {
+      "id": "OPEN-P0-015",
+      "topic": "observability_provider",
+      "blocks": "private_beta"
+    },
+    {
+      "id": "OPEN-P0-016",
+      "topic": "dual_approval_threshold",
+      "blocks": "real_payouts"
+    }
+  ],
+  "release_gates": {
+    "private_beta": {
+      "real_payments_allowed": false,
+      "real_payouts_allowed": false,
+      "sandbox_market_data_required": true,
+      "sandbox_payment_provider_required": true,
+      "sandbox_payout_provider_required": true,
+      "critical_security_findings_allowed": 0,
+      "high_security_findings_allowed": 0,
+      "s0_bugs_allowed": 0,
+      "s1_bugs_allowed": 0,
+      "restore_test_required": true,
+      "rls_tests_required": true,
+      "ledger_reconciliation_required": true
+    },
+    "paid_beta": {
+      "legal_gate_required": true,
+      "psp_contract_required": true,
+      "refund_policy_required": true,
+      "payment_reconciliation_required": true,
+      "production_secrets_required": true,
+      "support_ready_required": true
+    },
+    "real_payouts": {
+      "kyc_required": true,
+      "beneficiary_match_required": true,
+      "payout_provider_required": true,
+      "finance_rbac_required": true,
+      "dual_approval_policy_required": true,
+      "reserve_funded_required": true,
+      "reconciliation_required": true,
+      "failure_simulation_required": true
+    },
+    "public_launch": {
+      "licensed_market_data_required": true,
+      "legal_approval_required": true,
+      "security_audit_required": true,
+      "load_test_required": true,
+      "status_page_required": true,
+      "support_required": true,
+      "privacy_and_retention_required": true,
+      "brand_conflict_resolved": true,
+      "reserve_coverage_review_required": true
+    }
+  }
+}
