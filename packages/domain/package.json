@@ -1,0 +1,18 @@
+{
+  "name": "@wariba/domain",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Business domain modules: identity, commerce, trading, policy-risk, performance-payout, support, operations.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "lint": "eslint --config ../../eslint.config.mjs .",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
