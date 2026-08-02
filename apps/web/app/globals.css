@@ -1,11 +1,18 @@
+@import 'tailwindcss';
+@import '@wariba/design-tokens/tokens.css';
+
+/* @wariba/ui lives outside this app's directory (pnpm workspace symlink) —
+   Tailwind's automatic content detection won't walk into it without this. */
+@source '../../../packages/ui/src';
+
 /*
- * Minimal reset only. WARIBA Design System tokens land in Prompt 02 —
- * see docs/05-design/WARIBA_Design_System_v1.0.md and WARIBA_Prompt_Pack_v1.0.md.
+ * WARIBA Design System — base layer.
+ * Tokens: docs/05-design/WARIBA_Design_System_v1.0.md, docs/05-design/tokens.json.
+ * Everything below reads from the CSS custom properties tokens.css defines —
+ * no hardcoded colors. See scripts/check-tokens.mjs (pnpm --filter @wariba/web check:tokens).
  */
 
-*,
-*::before,
-*::after {
+* {
   box-sizing: border-box;
 }
 
@@ -15,6 +22,50 @@ body {
   padding: 0;
 }
 
+html {
+  color-scheme: light dark;
+}
+
 body {
-  font-family: system-ui, sans-serif;
+  background: var(--wariba-background-canvas);
+  color: var(--wariba-text-primary);
+  /* --wariba-font-sans-loaded is set by next/font (app/fonts.ts) on <body>;
+     falls back to the token's named stack if that variable is ever unset. */
+  font-family: var(--wariba-font-sans-loaded), var(--wariba-font-sans);
+  font-size: var(--wariba-font-size-body-md);
+  line-height: var(--wariba-line-height-body-md);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Tabular figures everywhere a number can appear — Design System §13.1 */
+.wariba-data,
+[data-wariba-numeric] {
+  font-family: var(--wariba-font-mono-loaded), var(--wariba-font-mono);
+  font-variant-numeric: var(--wariba-font-numeric-tabular, tabular-nums)
+    var(--wariba-font-numeric-slashed-zero, slashed-zero);
+}
+
+/* Visible focus everywhere — Design System §41.1, UX Architecture §46 */
+:focus-visible {
+  outline: var(--wariba-border-width-focus) solid var(--wariba-border-focus);
+  outline-offset: 2px;
+  border-radius: var(--wariba-radius-xs);
+}
+
+/* Reduced motion — Design System §41.2 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: var(--wariba-motion-duration-reduced, 1ms) !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: var(--wariba-motion-duration-reduced, 1ms) !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+::selection {
+  background: var(--wariba-background-selected);
+  color: var(--wariba-text-primary);
 }
