@@ -940,6 +940,8 @@ pnpm db:test
 pnpm ci
 ```
 
+`pnpm ci` doit être invoqué comme `pnpm run ci` — pnpm réserve `ci` comme commande interne (équivalent de `npm ci`) et ignore silencieusement le script du même nom sans le préfixe `run`.
+
 Ne pas inventer des commandes concurrentes sans raison.
 
 ---

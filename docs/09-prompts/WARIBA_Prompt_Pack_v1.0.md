@@ -334,7 +334,7 @@ SCOPE AUTORISÉ
    - pnpm db:start
    - pnpm db:reset
    - pnpm db:test
-   - pnpm ci
+   - pnpm run ci
 8. Initialiser Supabase local sans table métier financière complète.
 9. Créer une première migration non destructive pour les fondations techniques nécessaires.
 10. Créer les health endpoints Web, Realtime et Worker.
@@ -404,12 +404,12 @@ TESTS OBLIGATOIRES
 - migration from zero ;
 - test import boundaries ;
 - secret scan ;
-- `pnpm ci`.
+- `pnpm run ci`.
 
 CRITÈRES D’ACCEPTATION
 
 - le dépôt se clone et s’installe avec une procédure documentée ;
-- `pnpm ci` réussit ;
+- `pnpm run ci` réussit ;
 - aucune dépendance cyclique interdite ;
 - aucun secret ;
 - aucune logique métier inventée ;
@@ -437,7 +437,7 @@ Ne construis ni auth réelle, ni commerce, ni trading, ni payout dans cette bran
 
 ## Exit gate
 
-- `pnpm ci` vert ;
+- `pnpm run ci` vert ;
 - CI GitHub verte ;
 - preview possible ;
 - structure validée ;
@@ -593,7 +593,7 @@ TESTS
 - theme tests ;
 - no hardcoded color scan ;
 - build ;
-- `pnpm ci`.
+- `pnpm run ci`.
 
 LIVRABLES
 
@@ -2799,7 +2799,7 @@ RÈGLES
 - ne change aucune règle métier ;
 - ajoute un test qui échoue avant la correction ;
 - applique la correction minimale robuste ;
-- exécute les tests ciblés puis `pnpm ci` ;
+- exécute les tests ciblés puis `pnpm run ci` ;
 - documente la cause racine ;
 - ne masque pas le problème ;
 - ne supprime pas le contrôle.
@@ -2886,7 +2886,7 @@ Après approbation :
 - teste données ;
 - génère les types ;
 - vérifie le diff ;
-- exécute `pnpm db:test` et `pnpm ci`.
+- exécute `pnpm db:test` et `pnpm run ci`.
 
 Ne crée jamais une table financière sans contraintes et audit.
 ```

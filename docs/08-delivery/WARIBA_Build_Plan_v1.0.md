@@ -559,7 +559,7 @@ Configurer preview sans production.
 
 ## Exit gate Semaine 1
 
-- `pnpm ci` vert ;
+- `pnpm run ci` vert ;
 - CI GitHub verte ;
 - preview disponible ;
 - aucun `any` critique ;

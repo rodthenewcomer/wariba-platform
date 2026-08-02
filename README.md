@@ -34,7 +34,7 @@ pnpm lint
 pnpm format:check
 pnpm typecheck
 pnpm test:unit
-pnpm ci            # tout ce qui tourne en CI, dans l'ordre
+pnpm run ci        # tout ce qui tourne en CI, dans l'ordre (pnpm réserve "ci", "run" est obligatoire)
 ```
 
 ## Structure
