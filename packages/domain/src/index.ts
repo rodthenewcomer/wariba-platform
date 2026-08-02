@@ -1,10 +1,21 @@
 /**
  * @wariba/domain — Business domain modules: identity, commerce, trading, policy-risk, performance-payout, support, operations.
  *
- * Scaffolded in Prompt 01 (Repository Foundation) per WARIBA Prompt Pack v1.0.
- * Prompt 01's scope is limited to creating the package structure — real
- * implementation is out of scope here and lands in Prompts 03-08 — identity, commerce, trading, policy-risk, performance-payout modules.
- * See WARIBA_Prompt_Pack_v1.0.md and WARIBA_System_Architecture_v1.0.md §10.
+ * Prompt 03 (Identity, Commerce & Activation) adds Money, the purchase-order
+ * and evaluation-account state machines, and DomainError. Trading/policy-risk/
+ * performance-payout domain logic lands in later prompts.
  */
 
 export const PACKAGE_NAME = '@wariba/domain';
+
+export { Money } from './money.js';
+export { DomainError } from './errors.js';
+export {
+  assertPurchaseOrderTransition,
+  assertEvaluationAccountTransition,
+  InvalidTransitionError,
+  PURCHASE_ORDER_TERMINAL_STATUSES,
+  EVALUATION_ACCOUNT_TERMINAL_STATUSES,
+  type PurchaseOrderStatus,
+  type EvaluationAccountStatus,
+} from './state-machines.js';
