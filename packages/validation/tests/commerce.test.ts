@@ -43,10 +43,14 @@ describe('sandboxWebhookEventSchema', () => {
 
   it('rejects an amount with wrong decimal shape (e.g. a bare float-looking string)', () => {
     expect(sandboxWebhookEventSchema.safeParse({ ...valid, amount: '27900' }).success).toBe(false);
-    expect(sandboxWebhookEventSchema.safeParse({ ...valid, amount: '27900.5' }).success).toBe(false);
+    expect(sandboxWebhookEventSchema.safeParse({ ...valid, amount: '27900.5' }).success).toBe(
+      false,
+    );
   });
 
   it('rejects an unknown event type', () => {
-    expect(sandboxWebhookEventSchema.safeParse({ ...valid, eventType: 'payment.pending' }).success).toBe(false);
+    expect(
+      sandboxWebhookEventSchema.safeParse({ ...valid, eventType: 'payment.pending' }).success,
+    ).toBe(false);
   });
 });

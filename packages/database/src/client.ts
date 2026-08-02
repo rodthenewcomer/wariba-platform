@@ -1,6 +1,6 @@
 import { Kysely, PostgresDialect } from 'kysely';
 import pg from 'pg';
-import type { Database } from './schema.js';
+import type { Database } from './schema';
 
 /**
  * Engineering Constitution §13.5: decimals serialize as strings, never
@@ -20,4 +20,4 @@ export function createDbClient(connectionString: string): Kysely<Database> {
 }
 
 export type Db = Kysely<Database>;
-export type { Database } from './schema.js';
+export type { Database } from './schema';

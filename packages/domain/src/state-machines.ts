@@ -34,7 +34,10 @@ export type EvaluationAccountStatus =
   | 'breached'
   | 'closed';
 
-const EVALUATION_ACCOUNT_TRANSITIONS: Record<EvaluationAccountStatus, readonly EvaluationAccountStatus[]> = {
+const EVALUATION_ACCOUNT_TRANSITIONS: Record<
+  EvaluationAccountStatus,
+  readonly EvaluationAccountStatus[]
+> = {
   pending_activation: ['active', 'closed'],
   active: ['soft_locked', 'pass_pending', 'inactive', 'breached', 'closed'],
   soft_locked: ['active', 'breached', 'closed'],

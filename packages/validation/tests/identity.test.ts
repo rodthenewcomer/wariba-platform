@@ -5,7 +5,7 @@ describe('signupSchema', () => {
   it('accepts a well-formed signup', () => {
     const result = signupSchema.safeParse({
       email: 'trader@example.com',
-      password: 'a-strong-password-123',
+      password: 'correct horse battery staple',
       firstName: 'Aïcha',
       lastName: 'Koné',
       country: 'ci',
@@ -31,7 +31,7 @@ describe('signupSchema', () => {
   it('rejects an invalid email', () => {
     const result = signupSchema.safeParse({
       email: 'not-an-email',
-      password: 'a-strong-password-123',
+      password: 'correct horse battery staple',
       firstName: 'A',
       lastName: 'B',
       country: 'CI',
@@ -42,7 +42,7 @@ describe('signupSchema', () => {
   it('rejects a country code that is not exactly 2 letters', () => {
     const result = signupSchema.safeParse({
       email: 'trader@example.com',
-      password: 'a-strong-password-123',
+      password: 'correct horse battery staple',
       firstName: 'A',
       lastName: 'B',
       country: 'CIV',

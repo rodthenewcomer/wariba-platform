@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Db } from './client.js';
+import type { Db } from './client';
 
 export interface ActivateEvaluationAccountParams {
   purchaseOrderId: string;
@@ -67,7 +67,10 @@ export async function activateEvaluationAccount(
       .where('status', '=', 'published')
       .orderBy('effective_from', 'desc')
       .executeTakeFirstOrThrow(
-        () => new Error('No published WARIBA_ONE policy version — cannot activate an account without one.'),
+        () =>
+          new Error(
+            'No published WARIBA_ONE policy version — cannot activate an account without one.',
+          ),
       );
 
     const symbolSpecSet = await trx
@@ -75,7 +78,10 @@ export async function activateEvaluationAccount(
       .select('id')
       .where('status', '=', 'sandbox_candidate')
       .executeTakeFirstOrThrow(
-        () => new Error('No sandbox symbol spec set published — cannot activate an account without one.'),
+        () =>
+          new Error(
+            'No sandbox symbol spec set published — cannot activate an account without one.',
+          ),
       );
 
     const publicId = `EVAL-${params.nominalBalance.split('.')[0]}-${randomUUID().slice(0, 8).toUpperCase()}`;

@@ -1,4 +1,4 @@
-import type { Db } from './client.js';
+import type { Db } from './client';
 
 export interface RecordPaymentEventParams {
   provider: string;

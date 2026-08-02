@@ -8,8 +8,8 @@
 
 export const PACKAGE_NAME = '@wariba/domain';
 
-export { Money } from './money.js';
-export { DomainError } from './errors.js';
+export { Money } from './money';
+export { DomainError } from './errors';
 export {
   assertPurchaseOrderTransition,
   assertEvaluationAccountTransition,
@@ -18,4 +18,4 @@ export {
   EVALUATION_ACCOUNT_TERMINAL_STATUSES,
   type PurchaseOrderStatus,
   type EvaluationAccountStatus,
-} from './state-machines.js';
+} from './state-machines';

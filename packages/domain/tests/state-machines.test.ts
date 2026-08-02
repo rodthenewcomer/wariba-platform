@@ -19,11 +19,15 @@ describe('purchase order state machine', () => {
   });
 
   it('rejects skipping straight from created to fulfilled', () => {
-    expect(() => assertPurchaseOrderTransition('created', 'fulfilled')).toThrow(InvalidTransitionError);
+    expect(() => assertPurchaseOrderTransition('created', 'fulfilled')).toThrow(
+      InvalidTransitionError,
+    );
   });
 
   it('rejects any transition out of a terminal status except fulfilled->refunded', () => {
-    expect(() => assertPurchaseOrderTransition('cancelled', 'pending_payment')).toThrow(InvalidTransitionError);
+    expect(() => assertPurchaseOrderTransition('cancelled', 'pending_payment')).toThrow(
+      InvalidTransitionError,
+    );
     expect(() => assertPurchaseOrderTransition('refunded', 'paid')).toThrow(InvalidTransitionError);
     expect(() => assertPurchaseOrderTransition('fulfilled', 'refunded')).not.toThrow();
   });
@@ -44,11 +48,15 @@ describe('evaluation account state machine', () => {
   });
 
   it('rejects reactivating a breached account', () => {
-    expect(() => assertEvaluationAccountTransition('breached', 'active')).toThrow(InvalidTransitionError);
+    expect(() => assertEvaluationAccountTransition('breached', 'active')).toThrow(
+      InvalidTransitionError,
+    );
   });
 
   it('rejects skipping straight to passed without pass_pending', () => {
-    expect(() => assertEvaluationAccountTransition('active', 'passed')).toThrow(InvalidTransitionError);
+    expect(() => assertEvaluationAccountTransition('active', 'passed')).toThrow(
+      InvalidTransitionError,
+    );
   });
 
   it('terminal statuses match the RULESET.json source of truth', () => {

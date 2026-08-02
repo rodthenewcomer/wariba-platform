@@ -19,7 +19,7 @@ export {
   type PasswordResetRequestInput,
   type ProfileUpdateInput,
   type ConsentInput,
-} from './identity.js';
+} from './identity';
 
 export {
   productCodeSchema,
@@ -28,4 +28,4 @@ export {
   type ProductCode,
   type CheckoutInput,
   type SandboxWebhookEvent,
-} from './commerce.js';
+} from './commerce';

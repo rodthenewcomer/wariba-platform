@@ -49,7 +49,11 @@ describeIfDb('activateEvaluationAccount — real database', () => {
     const productVersion = await db
       .selectFrom('app.product_versions')
       .innerJoin('app.products', 'app.products.id', 'app.product_versions.product_id')
-      .select(['app.product_versions.id', 'app.products.nominal_balance', 'app.products.nominal_currency'])
+      .select([
+        'app.product_versions.id',
+        'app.products.nominal_balance',
+        'app.products.nominal_currency',
+      ])
       .where('app.products.code', '=', '10K')
       .executeTakeFirstOrThrow();
 
@@ -78,11 +82,21 @@ describeIfDb('activateEvaluationAccount — real database', () => {
       .where('source_purchase_order_id', '=', purchaseOrderId)
       .executeTakeFirst();
     if (account) {
-      await db.deleteFrom('app.trading_ledger_entries').where('account_id', '=', account.id).execute();
-      await db.deleteFrom('app.account_state_transitions').where('account_id', '=', account.id).execute();
+      await db
+        .deleteFrom('app.trading_ledger_entries')
+        .where('account_id', '=', account.id)
+        .execute();
+      await db
+        .deleteFrom('app.account_state_transitions')
+        .where('account_id', '=', account.id)
+        .execute();
+      await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', account.id).execute();
       await db.deleteFrom('app.trading_accounts').where('id', '=', account.id).execute();
     }
-    await db.deleteFrom('app.payment_events').where('purchase_order_id', '=', purchaseOrderId).execute();
+    await db
+      .deleteFrom('app.payment_events')
+      .where('purchase_order_id', '=', purchaseOrderId)
+      .execute();
     await db.deleteFrom('app.purchase_orders').where('id', '=', purchaseOrderId).execute();
     await deleteTestUser(userId);
     await db.destroy();
@@ -115,7 +129,10 @@ describeIfDb('activateEvaluationAccount — real database', () => {
       .where('account_id', '=', result.id)
       .execute();
     expect(transitions).toHaveLength(1);
-    expect(transitions[0]).toMatchObject({ from_status: 'pending_activation', to_status: 'active' });
+    expect(transitions[0]).toMatchObject({
+      from_status: 'pending_activation',
+      to_status: 'active',
+    });
 
     const outboxEvents = await db
       .selectFrom('app.outbox_events')
@@ -167,11 +184,36 @@ describeIfDb('activateEvaluationAccount — real database', () => {
 
   it('stays at exactly one account under real concurrent activation calls', async () => {
     const results = await Promise.all([
-      activateEvaluationAccount(db, { purchaseOrderId, userId, nominalBalance: '10000.00', currency: 'USD' }),
-      activateEvaluationAccount(db, { purchaseOrderId, userId, nominalBalance: '10000.00', currency: 'USD' }),
-      activateEvaluationAccount(db, { purchaseOrderId, userId, nominalBalance: '10000.00', currency: 'USD' }),
-      activateEvaluationAccount(db, { purchaseOrderId, userId, nominalBalance: '10000.00', currency: 'USD' }),
-      activateEvaluationAccount(db, { purchaseOrderId, userId, nominalBalance: '10000.00', currency: 'USD' }),
+      activateEvaluationAccount(db, {
+        purchaseOrderId,
+        userId,
+        nominalBalance: '10000.00',
+        currency: 'USD',
+      }),
+      activateEvaluationAccount(db, {
+        purchaseOrderId,
+        userId,
+        nominalBalance: '10000.00',
+        currency: 'USD',
+      }),
+      activateEvaluationAccount(db, {
+        purchaseOrderId,
+        userId,
+        nominalBalance: '10000.00',
+        currency: 'USD',
+      }),
+      activateEvaluationAccount(db, {
+        purchaseOrderId,
+        userId,
+        nominalBalance: '10000.00',
+        currency: 'USD',
+      }),
+      activateEvaluationAccount(db, {
+        purchaseOrderId,
+        userId,
+        nominalBalance: '10000.00',
+        currency: 'USD',
+      }),
     ]);
 
     const uniqueAccountIds = new Set(results.map((r) => r.id));
@@ -220,7 +262,11 @@ describeIfDb('recordPaymentEvent — real database', () => {
     });
     expect(duplicate.isNewEvent).toBe(false);
 
-    const rows = await db.selectFrom('app.payment_events').selectAll().where('event_id', '=', eventId).execute();
+    const rows = await db
+      .selectFrom('app.payment_events')
+      .selectAll()
+      .where('event_id', '=', eventId)
+      .execute();
     expect(rows).toHaveLength(1); // the unique constraint, not just application logic, prevented a duplicate row
   }, 15000);
 

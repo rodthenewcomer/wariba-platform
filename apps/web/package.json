@@ -2,7 +2,7 @@
   "name": "@wariba/web",
   "version": "0.0.0",
   "private": true,
-  "description": "WARIBA Web/BFF — Next.js app (foundation: shells + health only, no auth/commerce/trading yet).",
+  "description": "WARIBA Web/BFF — Next.js app. Prompt 03 adds Auth, Commerce checkout, and sandbox activation.",
   "type": "module",
   "scripts": {
     "dev": "next dev",
@@ -14,13 +14,20 @@
     "visual-verify": "node scripts/visual-verify.mjs"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.47.10",
+    "@wariba/adapters": "workspace:*",
+    "@wariba/application": "workspace:*",
     "@wariba/config": "workspace:*",
     "@wariba/design-tokens": "workspace:*",
+    "@wariba/domain": "workspace:*",
     "@wariba/observability": "workspace:*",
     "@wariba/ui": "workspace:*",
+    "@wariba/validation": "workspace:*",
     "next": "^15.1.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "server-only": "^0.0.1",
     "zod": "^3.24.1"
   },
   "devDependencies": {
