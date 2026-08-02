@@ -11,3 +11,8 @@ pnpm-lock.yaml
 # not reformatted by tooling.
 docs/**
 AGENTS.md
+
+# Generated from docs/05-design/tokens.json by packages/design-tokens/scripts/build.mjs —
+# machine-formatted output, not hand-edited.
+packages/design-tokens/src/tokens.css
+packages/design-tokens/src/tokens.generated.ts

@@ -10,3 +10,7 @@ coverage
 .DS_Store
 *.tsbuildinfo
 .supabase
+# Playwright screenshots from apps/web/scripts/visual-verify.mjs — regenerate locally, not checked in.
+.visual-verify
+test-results
+playwright-report
