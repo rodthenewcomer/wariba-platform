@@ -68,17 +68,21 @@
     "automated_trading_advice_enabled": false
   },
   "commercial_offers": {
+    "price_status": "candidate_pending_actuarial_model",
     "feature_flags": {
       "product_5k_enabled": true,
       "product_10k_enabled": true,
-      "product_25k_enabled": false
+      "product_25k_enabled": false,
+      "product_50k_enabled": false,
+      "product_100k_enabled": false
     },
     "offers": {
       "WARIBA_ONE_5K": {
         "program": "WARIBA_ONE",
         "nominal_balance": "5000",
         "currency": "USD",
-        "price": "14900",
+        "price": "22500",
+        "founder_price": "16900",
         "price_currency": "XOF",
         "activation_fee": "0",
         "status": "candidate"
@@ -87,7 +91,8 @@
         "program": "WARIBA_ONE",
         "nominal_balance": "10000",
         "currency": "USD",
-        "price": "27900",
+        "price": "39900",
+        "founder_price": "34900",
         "price_currency": "XOF",
         "activation_fee": "0",
         "status": "candidate",
@@ -97,11 +102,34 @@
         "program": "WARIBA_ONE",
         "nominal_balance": "25000",
         "currency": "USD",
-        "price": "59900",
+        "price": "84900",
+        "founder_price": "74900",
         "price_currency": "XOF",
         "activation_fee": "0",
-        "status": "experiment",
+        "status": "candidate",
         "requires_feature_flag": "product_25k_enabled"
+      },
+      "WARIBA_ONE_50K": {
+        "program": "WARIBA_ONE",
+        "nominal_balance": "50000",
+        "currency": "USD",
+        "price": "144900",
+        "founder_price": "124900",
+        "price_currency": "XOF",
+        "activation_fee": "0",
+        "status": "candidate",
+        "requires_feature_flag": "product_50k_enabled"
+      },
+      "WARIBA_ONE_100K": {
+        "program": "WARIBA_ONE",
+        "nominal_balance": "100000",
+        "currency": "USD",
+        "price": "259900",
+        "founder_price": "229900",
+        "price_currency": "XOF",
+        "activation_fee": "0",
+        "status": "candidate",
+        "requires_feature_flag": "product_100k_enabled"
       }
     },
     "commercial_constraints": {
@@ -111,7 +139,12 @@
       "policy_version_disclosure_required_before_payment": true,
       "refund_policy_status": "open_decision",
       "maximum_active_evaluations_per_user": null,
-      "repurchase_policy": null
+      "repurchase_policy": null,
+      "founder_price_must_have_real_cohort": true,
+      "fake_countdown_forbidden": true,
+      "permanent_discount_forbidden": true,
+      "settlement_currency": "XOF",
+      "exchange_rate_exposure_borne_by": "WARIBA"
     }
   },
   "symbol_specifications": {
