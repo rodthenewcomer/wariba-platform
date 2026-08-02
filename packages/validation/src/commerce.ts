@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const productCodeSchema = z.enum(['5K', '10K', '25K']);
+export const productCodeSchema = z.enum(['5K', '10K', '25K', '50K', '100K']);
 export type ProductCode = z.infer<typeof productCodeSchema>;
 
 /**

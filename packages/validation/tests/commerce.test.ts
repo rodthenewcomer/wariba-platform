@@ -10,9 +10,19 @@ describe('checkoutInputSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts each of the five candidate tiers', () => {
+    for (const productCode of ['5K', '10K', '25K', '50K', '100K']) {
+      const result = checkoutInputSchema.safeParse({
+        productCode,
+        idempotencyKey: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+      });
+      expect(result.success).toBe(true);
+    }
+  });
+
   it('rejects an unknown product code', () => {
     const result = checkoutInputSchema.safeParse({
-      productCode: '50K',
+      productCode: '1M',
       idempotencyKey: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
     });
     expect(result.success).toBe(false);

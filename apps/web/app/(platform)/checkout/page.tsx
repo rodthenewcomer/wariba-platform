@@ -8,6 +8,8 @@ const PRODUCT_LABELS: Record<string, string> = {
   '5K': '5 000 USD',
   '10K': '10 000 USD',
   '25K': '25 000 USD',
+  '50K': '50 000 USD',
+  '100K': '100 000 USD',
 };
 
 export default function CheckoutPage() {

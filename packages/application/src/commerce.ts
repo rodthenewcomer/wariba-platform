@@ -16,12 +16,17 @@ export interface ProductDTO {
   priceCurrency: string;
 }
 
-// Prompt 03 scope: only product_25k_enabled exists, and it's off by
-// default. Flag evaluation is a hardcoded record here rather than a real
-// feature-flag service, which is explicitly later scope (System
-// Architecture §68) — this is not a shortcut around the invariant, it's
-// an honest placeholder for a system that doesn't exist yet.
-const FEATURE_FLAGS: Record<string, boolean> = { product_25k_enabled: false };
+// Mirrors RULESET.json commercial_offers.feature_flags. Flag evaluation is a
+// hardcoded record here rather than a real feature-flag service, which is
+// explicitly later scope (System Architecture §68) — this is not a shortcut
+// around the invariant, it's an honest placeholder for a system that
+// doesn't exist yet. 5K/10K are commercially enabled; 25K/50K/100K are
+// implemented but disabled by default (DECISION_LOG OFFER-021).
+const FEATURE_FLAGS: Record<string, boolean> = {
+  product_25k_enabled: false,
+  product_50k_enabled: false,
+  product_100k_enabled: false,
+};
 
 function isPurchasable(featureFlagKey: string | null): boolean {
   return featureFlagKey === null || FEATURE_FLAGS[featureFlagKey] === true;

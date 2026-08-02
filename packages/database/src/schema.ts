@@ -61,7 +61,7 @@ export interface SymbolSpecSetsTable {
 
 export interface ProductsTable {
   id: Generated<string>;
-  code: '5K' | '10K' | '25K';
+  code: '5K' | '10K' | '25K' | '50K' | '100K';
   nominal_balance: string;
   nominal_currency: string;
   created_at: GeneratedTimestamp;
@@ -71,6 +71,9 @@ export interface ProductVersionsTable {
   id: Generated<string>;
   product_id: string;
   price_amount: string;
+  // Not yet exposed via the API — no cohort-gating mechanism exists yet
+  // (RULESET commercial_constraints.founder_price_must_have_real_cohort).
+  founder_price_amount: string | null;
   price_currency: string;
   activation_fee: string;
   feature_flag_key: string | null;
