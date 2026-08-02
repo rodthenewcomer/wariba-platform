@@ -671,24 +671,31 @@ SCOPE IDENTITY
 10. Appareils/sessions metadata minimales.
 11. RLS et tests d’isolation.
 
-SCOPE COMMERCE
+SCOPE COMMERCE — v1.1
 
 1. Product versions :
    - 5K
    - 10K
    - 25K désactivé par feature flag
-2. Prix candidats :
-   - 5K : 14 900 FCFA
-   - 10K : 27 900 FCFA
-   - 25K : 59 900 FCFA, non achetable par défaut
-3. Pages offre.
-4. Purchase order state machine.
-5. Payment attempt.
-6. PSP sandbox adapter.
-7. Signed sandbox webhook.
-8. Replay protection.
-9. Receipt sandbox.
-10. Refund state placeholder documenté, sans fausse politique.
+   - 50K désactivé par feature flag
+   - 100K désactivé par feature flag
+2. Prix candidats (FCFA — voir Program Rulebook §7, statut `CANDIDATE_PENDING_ACTUARIAL_MODEL`) :
+   - 5K : 22 500 FCFA
+   - 10K : 39 900 FCFA
+   - 25K : 84 900 FCFA, non achetable par défaut
+   - 50K : 144 900 FCFA, non achetable par défaut
+   - 100K : 259 900 FCFA, non achetable par défaut
+3. Chaque taille utilise un feature flag commercial indépendant.
+4. Ne jamais exposer le prix fondateur sans cohorte explicitement activée.
+5. Ne pas activer publiquement le 25K, le 50K ou le 100K par défaut.
+6. Pages offre.
+7. Purchase order state machine.
+8. Payment attempt.
+9. PSP sandbox adapter.
+10. Signed sandbox webhook.
+11. Replay protection.
+12. Receipt sandbox.
+13. Refund state placeholder documenté, sans fausse politique.
 
 SCOPE ACTIVATION
 
@@ -1690,6 +1697,16 @@ CAPS
 - P3–P4 600 USD
 - P5 1 000 USD
 - 25K remains feature-flagged off.
+
+PRIX CANDIDATS POUR SIMULATION — v1.1
+
+The payout and reserve simulation must use the candidate commercial prices (FCFA, see Program Rulebook §7):
+- 5K 22 500 FCFA
+- 10K 39 900 FCFA
+- 25K 84 900 FCFA
+- 50K 144 900 FCFA
+- 100K 259 900 FCFA
+Do not treat these prices as financially approved until the WARIBA Actuarial & Risk Model v1.0 stress model passes.
 
 ELIGIBILITY
 

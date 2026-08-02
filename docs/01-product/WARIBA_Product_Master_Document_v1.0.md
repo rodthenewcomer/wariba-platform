@@ -103,11 +103,21 @@ Différé : capital live, futures, crypto, app native, copy trading, affiliation
 - Split 80/20 pour #1–4 ; 90/10 pour #5.
 - Cinq payouts, puis WARIBA Review.
 
-### Produits et prix de travail
+### Architecture tarifaire — v1.1
 
-- 5K : 14 900 FCFA.
-- 10K : 27 900 FCFA.
-- 25K : 59 900 FCFA, limité ou après bêta.
+WARIBA utilise une grille progressive correspondant à la taille nominale, à l’exposition autorisée et au plafond potentiel de payout. Le FCFA (XOF) est la devise commerciale et de règlement principale ; l’USD n’est qu’un équivalent informatif pour la comparaison internationale ou la diaspora.
+
+| Produit | Prix public candidat |
+|---|---:|
+| WARIBA 5K | 22 500 FCFA |
+| WARIBA 10K | 39 900 FCFA |
+| WARIBA 25K | 84 900 FCFA |
+| WARIBA 50K | 144 900 FCFA |
+| WARIBA 100K | 259 900 FCFA |
+
+Le 10K constitue l’offre principale d’acquisition. Le 5K sert de point d’entrée accessible. Les comptes 25K, 50K et 100K augmentent progressivement la valeur commerciale, l’exposition potentielle et les obligations de réserve — chacun reste contrôlé par un feature flag indépendant et peut être retardé si la réserve est insuffisante.
+
+Les prix restent `CANDIDATE_PENDING_ACTUARIAL_MODEL` jusqu’à la validation du WARIBA Actuarial & Risk Model.
 
 ### Instruments de lancement
 

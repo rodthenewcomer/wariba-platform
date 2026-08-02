@@ -108,9 +108,9 @@ Un prompt, une maquette ou un agent IA ne peut jamais modifier une règle métie
 | Règles 8 % / 4 % / 8 % | `CANDIDATE` |
 | Consistance à 40 %, non-breach | `CANDIDATE` |
 | WARIBA Performance avec cinq cycles de payout | `CANDIDATE` |
-| Prix 5K, 10K et 25K | `CANDIDATE` |
+| Prix 5K, 10K, 25K, 50K et 100K | `CANDIDATE_PENDING_ACTUARIAL_MODEL` |
 | Caps de payout | `CANDIDATE` |
-| Compte 25K au lancement | `EXPERIMENT` |
+| Comptes 25K, 50K et 100K au lancement | `DEFERRED` — activables par feature flag indépendant |
 | Capital réel automatique après cinq payouts | `REJECTED_V1` |
 | Frais d’activation | `REJECTED_V1` |
 | Trailing drawdown | `REJECTED_V1` |
@@ -323,25 +323,65 @@ Les critères exacts de Live restent `DEFERRED` tant que le capital, le cadre ju
 
 ---
 
-# 7. Tailles et prix de travail
+# 7. Tailles et prix de travail — v1.1
 
-| Taille nominale | Prix de travail | Statut |
-|---:|---:|---|
-| 5 000 USD | 14 900 FCFA | `CANDIDATE` |
-| 10 000 USD | 27 900 FCFA | `CANDIDATE` — offre principale |
-| 25 000 USD | 59 900 FCFA | `EXPERIMENT` — limité ou post-bêta |
+Les prix ci-dessous constituent la grille commerciale candidate avant validation du modèle actuariel et des simulations de cohortes. Le FCFA (XOF) est la devise commerciale principale — voir §7.2.
+
+| Compte | Balance simulée | Prix public candidat | Prix fondateur candidat |
+|---|---:|---:|---:|
+| WARIBA 5K | 5 000 USD | 22 500 FCFA | 16 900 FCFA |
+| WARIBA 10K | 10 000 USD | 39 900 FCFA | 34 900 FCFA |
+| WARIBA 25K | 25 000 USD | 84 900 FCFA | 74 900 FCFA |
+| WARIBA 50K | 50 000 USD | 144 900 FCFA | 124 900 FCFA |
+| WARIBA 100K | 100 000 USD | 259 900 FCFA | 229 900 FCFA |
+
+Équivalents USD indicatifs (≈575 FCFA/USD, arrondis à des seuils psychologiques plutôt qu’à la conversion exacte) : 5K ≈ 39 USD · 10K ≈ 69 USD · 25K ≈ 148 USD · 50K ≈ 252 USD · 100K ≈ 452 USD. Ces équivalents sont informatifs uniquement — voir §7.2.
+
+### Statut des prix
+
+```text
+PRICE_STATUS = CANDIDATE_PENDING_ACTUARIAL_MODEL
+```
+
+Les prix pourront être ajustés avant le lancement commercial selon :
+
+- le taux de réussite des évaluations ;
+- le taux de construction du buffer Performance ;
+- le taux d’accès aux payouts ;
+- le payout moyen ;
+- les frais de paiement ;
+- les chargebacks ;
+- les coûts de support ;
+- la réserve disponible ;
+- les résultats des scénarios Conservative, Base, Aggressive et Stress.
 
 ## 7.1 Principes commerciaux
 
-- Aucun frais d’activation.
-- Aucun abonnement obligatoire en V1.
+- Aucun frais d’activation après réussite.
+- Aucun abonnement mensuel obligatoire.
 - Aucun coût caché.
 - Le prix payé n’est pas un dépôt de trading.
-- Le 25K doit être désactivable par feature flag.
-- Les prix définitifs dépendent du modèle financier stressé.
-- Une promotion ne modifie jamais les règles d’un compte.
+- Le prix fondateur n’est pas un prix permanent.
+- Chaque taille de compte reste contrôlée par un feature flag indépendant.
+- WARIBA peut retarder l’ouverture du 50K ou du 100K si la réserve est insuffisante.
+- Une promotion ne modifie jamais les règles d’un compte et doit correspondre à une cohorte réelle et identifiable.
+- Les prix définitifs dépendent du modèle actuariel et des simulations de cohortes (Conservative, Base, Aggressive, Stress).
 
-## 7.2 Resets et repurchases
+## 7.2 Devise commerciale
+
+Le marché principal est l’Afrique francophone ; les paiements se font surtout via Wave, Orange Money et Mobile Money. Afficher uniquement en dollars serait une erreur.
+
+```text
+Commercial currency: XOF
+Settlement currency: XOF
+Primary displayed price: FCFA
+USD equivalent: informational only
+Exchange-rate exposure: borne by WARIBA
+```
+
+Le montant final du checkout est figé en FCFA, sans conversion surprise.
+
+## 7.3 Resets et repurchases
 
 Statut : `OPEN`.
 
