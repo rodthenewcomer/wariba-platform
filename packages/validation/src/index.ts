@@ -1,10 +1,31 @@
 /**
  * @wariba/validation — Shared Zod schemas validated at system boundaries.
  *
- * Scaffolded in Prompt 01 (Repository Foundation) per WARIBA Prompt Pack v1.0.
- * Prompt 01's scope is limited to creating the package structure — real
- * implementation is out of scope here and lands in introduced incrementally alongside the first real API boundary (Prompt 03).
- * See WARIBA_Prompt_Pack_v1.0.md and WARIBA_System_Architecture_v1.0.md §10.
+ * Prompt 03 adds identity (signup/login/profile/consent) and commerce
+ * (checkout/webhook) schemas — the first real API boundaries.
  */
 
 export const PACKAGE_NAME = '@wariba/validation';
+
+export {
+  signupSchema,
+  loginSchema,
+  passwordResetRequestSchema,
+  profileUpdateSchema,
+  consentTypeSchema,
+  consentInputSchema,
+  type SignupInput,
+  type LoginInput,
+  type PasswordResetRequestInput,
+  type ProfileUpdateInput,
+  type ConsentInput,
+} from './identity';
+
+export {
+  productCodeSchema,
+  checkoutInputSchema,
+  sandboxWebhookEventSchema,
+  type ProductCode,
+  type CheckoutInput,
+  type SandboxWebhookEvent,
+} from './commerce';

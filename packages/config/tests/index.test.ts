@@ -9,17 +9,17 @@ import {
 
 describe('loadConfig', () => {
   it('returns parsed config when the source is valid', () => {
-    const config = loadConfig(baseEnvironmentSchema, { NODE_ENV: 'local', LOG_LEVEL: 'debug' });
-    expect(config).toEqual({ NODE_ENV: 'local', LOG_LEVEL: 'debug' });
+    const config = loadConfig(baseEnvironmentSchema, { APP_ENV: 'local', LOG_LEVEL: 'debug' });
+    expect(config).toEqual({ APP_ENV: 'local', LOG_LEVEL: 'debug' });
   });
 
   it('applies defaults for optional fields', () => {
-    const config = loadConfig(baseEnvironmentSchema, { NODE_ENV: 'local' });
+    const config = loadConfig(baseEnvironmentSchema, { APP_ENV: 'local' });
     expect(config.LOG_LEVEL).toBe('info');
   });
 
   it('throws ConfigValidationError with readable issues on invalid input', () => {
-    expect(() => loadConfig(baseEnvironmentSchema, { NODE_ENV: 'not-an-env' })).toThrow(
+    expect(() => loadConfig(baseEnvironmentSchema, { APP_ENV: 'not-an-env' })).toThrow(
       ConfigValidationError,
     );
   });

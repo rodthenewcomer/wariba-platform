@@ -63,7 +63,16 @@ export function assertNotSandboxInProduction({
   }
 }
 
+/**
+ * Deliberately NOT named NODE_ENV: Next.js (and Node tooling generally) owns
+ * that variable and forces it to 'development' under `next dev` and
+ * 'production' under any build/start — never 'local'/'preview'/'staging',
+ * and it cannot be overridden via .env files. Carrying WARIBA's own 4-way
+ * deploy-target concept through NODE_ENV would make `next dev` fail
+ * validation every time, and would make staging/preview silently misreport
+ * as 'production' once deployed — dangerous for assertNotSandboxInProduction.
+ */
 export const baseEnvironmentSchema = z.object({
-  NODE_ENV: environmentSchema,
+  APP_ENV: environmentSchema,
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error', 'fatal']).default('info'),
 });
