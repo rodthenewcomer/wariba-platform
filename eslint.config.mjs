@@ -14,10 +14,26 @@ export default tseslint.config(
       '**/coverage/**',
       '**/*.config.*',
       '**/next-env.d.ts',
+      // Generated from docs/05-design/tokens.json — see packages/design-tokens/scripts/build.mjs.
+      '**/tokens.generated.ts',
     ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  {
+    // Standalone Node scripts (e.g. packages/*/scripts/*.mjs) run outside any
+    // tsconfig lib scope, so plain js.configs.recommended has no globals for
+    // them — declare the handful actually used instead of pulling in a new
+    // `globals` package dependency for this.
+    files: ['**/*.mjs'],
+    languageOptions: {
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        URL: 'readonly',
+      },
+    },
+  },
   {
     rules: {
       // Engineering Constitution §8.2 — no unjustified `any`.
