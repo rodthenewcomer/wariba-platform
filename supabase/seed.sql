@@ -1,0 +1,5 @@
+-- WARIBA local seed data.
+-- Empty in the foundation phase: no accounts, symbols or policies exist yet
+-- (AGENTS.md §33 — scope V1; Prompt Pack Prompt 01 — no business tables).
+-- Seed scenarios are added incrementally starting Prompt 03
+-- (System Architecture §113 — Seed data scenarios).

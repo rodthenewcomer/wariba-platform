@@ -1,0 +1,13 @@
+node_modules
+.turbo
+dist
+build
+.next
+coverage
+pnpm-lock.yaml
+*.tsbuildinfo
+
+# WARIBA reference documents are hand-authored source of truth (AGENTS.md §2) —
+# not reformatted by tooling.
+docs/**
+AGENTS.md

@@ -2298,6 +2298,8 @@ pnpm db:test
 pnpm ci
 ```
 
+`pnpm ci` s'invoque en pratique via `pnpm run ci` : pnpm réserve `ci` comme commande interne et le script du même nom est ignoré silencieusement sans `run`. Voir DECISION_LOG ENG-026.
+
 Une commande ne doit pas avoir un comportement surprenant.
 
 ---

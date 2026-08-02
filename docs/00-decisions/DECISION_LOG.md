@@ -401,6 +401,7 @@ Révision:
 | ENG-018 | `LOCKED` | Les formules financières restent hors React/UI. | Séparation des responsabilités. |
 | ENG-019 | `LOCKED` | Les décimales sont sérialisées en chaînes. | Éviter perte de précision. |
 | ENG-020 | `LOCKED` | Les erreurs exposent un code stable et correlation ID. | Support et audit. |
+| ENG-026 | `LOCKED` | Le script `ci` (package.json) s'invoque via `pnpm run ci`, jamais `pnpm ci` seul. | pnpm réserve `ci` comme commande interne (équivalent `npm ci`) et ignore silencieusement le script du même nom sans `run` — trouvé lors de la vérification réelle de Prompt 01 (build agent), corrigé dans AGENTS.md, Engineering Constitution, Build Plan, Prompt Pack et README (2026-08-02). |
 
 ---
 

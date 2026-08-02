@@ -1,0 +1,10 @@
+/**
+ * @wariba/test-utils — Deterministic clocks, ID generators, fixture builders and scenario packs for tests.
+ *
+ * Scaffolded in Prompt 01 (Repository Foundation) per WARIBA Prompt Pack v1.0.
+ * Prompt 01's scope is limited to creating the package structure — real
+ * implementation is out of scope here and lands in introduced alongside the first tests that need deterministic fixtures (Prompt 03+).
+ * See WARIBA_Prompt_Pack_v1.0.md and WARIBA_System_Architecture_v1.0.md §10.
+ */
+
+export const PACKAGE_NAME = '@wariba/test-utils';
