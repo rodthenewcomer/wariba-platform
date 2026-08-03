@@ -133,11 +133,15 @@ equity <= maximum_loss_floor
 
 ## 6. Levier, exposition et marge
 
-| Classe | Levier maximal |
-|---|---:|
-| Forex | 1:100 |
-| XAUUSD | Jusqu’à 1:50, dynamique selon l’exposition agrégée |
-| NAS100 | Jusqu’à 1:20 |
+TRD-018 (verrouillé, jamais supersédé) : le levier WARIBA Performance reste
+inférieur à WARIBA ONE. TRD-029 reconduit les ratios de TRD-018 (0,60× Forex,
+0,50× XAUUSD/NAS100) sur les nouveaux plafonds Evaluation v1.1.
+
+| Classe | WARIBA ONE (Evaluation) | WARIBA Performance |
+|---|---:|---:|
+| Forex | 1:100 | 1:60 |
+| XAUUSD | Jusqu’à 1:50, dynamique selon l’exposition agrégée | Jusqu’à 1:25, même modèle dynamique |
+| NAS100 | Jusqu’à 1:20 | Jusqu’à 1:10 |
 
 | Compte | Forex agrégé | XAUUSD | NAS100 |
 |---|---:|---:|---:|

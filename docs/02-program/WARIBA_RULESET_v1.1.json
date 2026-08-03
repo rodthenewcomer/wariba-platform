@@ -179,7 +179,7 @@
         "leverage": "100",
         "leverage_by_program": {
           "WARIBA_ONE": "100",
-          "WARIBA_PERFORMANCE": "100"
+          "WARIBA_PERFORMANCE": "60"
         },
         "weekend_hold_allowed": false,
         "overnight_hold_allowed": true,
@@ -198,7 +198,7 @@
         "leverage": "100",
         "leverage_by_program": {
           "WARIBA_ONE": "100",
-          "WARIBA_PERFORMANCE": "100"
+          "WARIBA_PERFORMANCE": "60"
         },
         "weekend_hold_allowed": false,
         "overnight_hold_allowed": true,
@@ -217,7 +217,7 @@
         "leverage": "100",
         "leverage_by_program": {
           "WARIBA_ONE": "100",
-          "WARIBA_PERFORMANCE": "100"
+          "WARIBA_PERFORMANCE": "60"
         },
         "weekend_hold_allowed": false,
         "overnight_hold_allowed": true,
@@ -236,7 +236,7 @@
         "leverage": "50",
         "leverage_by_program": {
           "WARIBA_ONE": "50",
-          "WARIBA_PERFORMANCE": "50"
+          "WARIBA_PERFORMANCE": "25"
         },
         "weekend_hold_allowed": false,
         "overnight_hold_allowed": true,
@@ -256,7 +256,7 @@
         "leverage": "20",
         "leverage_by_program": {
           "WARIBA_ONE": "20",
-          "WARIBA_PERFORMANCE": "20"
+          "WARIBA_PERFORMANCE": "10"
         },
         "weekend_hold_allowed": false,
         "overnight_hold_allowed": true,

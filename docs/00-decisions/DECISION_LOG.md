@@ -315,11 +315,12 @@ Révision:
 | TRD-021 | `LOCKED` | Aucun fill partiel au niveau ordre en V1 : un ordre marché accepté est entièrement rempli en un seul fill. | Le marché sandbox déterministe a toujours une liquidité suffisante ; `partially_filled` reste une valeur de state machine valide mais non atteinte tant qu'un scénario de liquidité limitée n'est pas requis. |
 | TRD-022 | `LOCKED` | Aucune exécution automatique de Stop Loss / Take Profit en V1 : ce sont des paramètres de risque stockés et modifiables sur une position, pas des ordres en attente déclenchés par le marché. | TRD-005 (pending orders avancés) reste `OPEN` ; le marché sandbox ne surveille pas les positions pour un déclenchement automatique tant que ce périmètre n'est pas validé séparément. |
 | TRD-023 | `LOCKED` | `account_sequence` (WebSocket gap detection par compte) réutilise `trading_accounts.version` (déjà le compteur de concurrence optimiste du row lock) plutôt qu'une séquence dédiée. | Chaque écriture transactionnelle de trading incrémente déjà `version` sous verrou ; réutiliser cette valeur évite un générateur de séquence redondant. |
-| TRD-024 | `LOCKED` | Levier Forex maximal 1:100 en Evaluation et Performance. | Compétitivité encadrée par l’exposition agrégée. |
-| TRD-025 | `LOCKED` | XAUUSD jusqu’à 1:50 avec modèle dynamique selon l’exposition agrégée. | Attractivité avec contrôle du volume. |
-| TRD-026 | `LOCKED` | NAS100 jusqu’à 1:20. | Compromis attractivité/risque. |
+| TRD-024 | `SUPERSEDED` par TRD-029 | Levier Forex maximal 1:100 en Evaluation et Performance. | Contredisait TRD-018 (toujours `LOCKED`, jamais supersédé) sans le mentionner — `WARIBA_RULESET_v1.1.json` et `symbol_specs` avaient encodé le même levier pour les deux programmes. |
+| TRD-025 | `SUPERSEDED` par TRD-029 | XAUUSD jusqu’à 1:50 avec modèle dynamique selon l’exposition agrégée, sans distinction de programme. | Même lacune que TRD-024 — implémenté à levier identique pour Evaluation et Performance. |
+| TRD-026 | `SUPERSEDED` par TRD-029 | NAS100 jusqu’à 1:20, sans distinction de programme. | Même lacune que TRD-024/025. |
 | TRD-027 | `LOCKED` | Limites d’exposition agrégées par taille de compte. | Le levier seul ne contrôle pas l’exposition. |
 | TRD-028 | `LOCKED` | Marge utilisée maximale : 30 % Evaluation, 25 % Performance. | Protection de l’equity. |
+| TRD-029 | `LOCKED` | Réaffirme TRD-018 sur les valeurs v1.1 : levier Evaluation inchangé (Forex 1:100, XAUUSD 1:50, NAS100 1:20) ; levier Performance abaissé à Forex 1:60, XAUUSD 1:25, NAS100 1:10 (mêmes ratios que TRD-018 : 0,60× Forex, 0,50× XAUUSD/NAS100, appliqués aux nouveaux plafonds Evaluation v1.1). | Trouvé lors de l'audit préparatoire du Prompt 05 : `symbol_specs`/`WARIBA_RULESET_v1.1.json` encodaient le même levier pour les deux programmes, contredisant TRD-018 sans jamais le superséder explicitement. Rod confirme le principe (Performance doit rester inférieur) ; les ratios de TRD-018 sont reconduits plutôt qu'un nouveau jugement de risque. |
 
 ---
 
@@ -624,6 +625,10 @@ Ces décisions ne bloquent pas toutes la fondation, mais bloqueront des phases p
 ---
 
 # 25. Historique des versions
+
+## v1.6 — 2026-08-05
+
+Correction du levier WARIBA Performance (TRD-029, remplace TRD-024/025/026) : `WARIBA_RULESET_v1.1.json` et `app.symbol_specs` encodaient le même levier pour Evaluation et Performance, contredisant silencieusement TRD-018 (jamais supersédé). Rod confirme le principe — Performance doit rester inférieur à Evaluation — et les ratios de TRD-018 sont reconduits sur les nouveaux plafonds v1.1 : Performance passe à Forex 1:60, XAUUSD 1:25, NAS100 1:10 (Evaluation inchangé : 1:100/1:50/1:20).
 
 ## v1.5 — 2026-08-03
 
