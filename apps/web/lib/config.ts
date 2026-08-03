@@ -10,6 +10,15 @@ const webEnvSchema = baseEnvironmentSchema.extend({
   DATABASE_URL: z.string().min(1),
   PAYMENT_PROVIDER: z.string().min(1),
   SANDBOX_WEBHOOK_SECRET: z.string().min(1),
+  // Read by client components as literal `process.env.NEXT_PUBLIC_...`
+  // references (Next.js only inlines NEXT_PUBLIC_ vars into the browser
+  // bundle for statically-analyzable literal references, never through a
+  // config object) — validated here too so the server still fails fast if
+  // one is missing. The anon key is designed to be public (RLS enforces
+  // the real boundary) — this is not a secret duplicated unsafely.
+  NEXT_PUBLIC_REALTIME_WS_URL: z.string().url(),
+  NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
 });
 
 export type WebConfig = z.infer<typeof webEnvSchema>;

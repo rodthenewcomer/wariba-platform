@@ -1,8 +1,9 @@
 /**
  * State machines mirrored exactly from WARIBA_RULESET_v1.0.json `state_machines`
- * (purchase_order, evaluation_account) — the machine-readable source of truth.
- * A transition not listed here is invalid by construction; no code path can
- * silently move an order or account into an unlisted state.
+ * (purchase_order, evaluation_account, trade_order, position) — the
+ * machine-readable source of truth. A transition not listed here is invalid
+ * by construction; no code path can silently move an order or account into
+ * an unlisted state.
  */
 
 export type PurchaseOrderStatus =
@@ -95,3 +96,44 @@ export const EVALUATION_ACCOUNT_TERMINAL_STATUSES: readonly EvaluationAccountSta
   'breached',
   'closed',
 ];
+
+/**
+ * TRD-021: no order-level partial fills in V1 — a deterministic sandbox
+ * market always has sufficient liquidity, so an accepted market order fills
+ * completely in exactly one fill. 'partially_filled' is therefore not a
+ * reachable status; it is deliberately absent rather than modeled-but-unused.
+ */
+export type TradeOrderStatus =
+  'received' | 'validated' | 'accepted' | 'filled' | 'rejected' | 'cancelled';
+
+const TRADE_ORDER_TRANSITIONS: Record<TradeOrderStatus, readonly TradeOrderStatus[]> = {
+  received: ['validated', 'rejected', 'cancelled'],
+  validated: ['accepted', 'rejected', 'cancelled'],
+  accepted: ['filled', 'rejected', 'cancelled'],
+  filled: [],
+  rejected: [],
+  cancelled: [],
+};
+
+export type PositionStatus = 'open' | 'closed';
+
+const POSITION_TRANSITIONS: Record<PositionStatus, readonly PositionStatus[]> = {
+  open: ['closed'],
+  closed: [],
+};
+
+export function assertTradeOrderTransition(from: TradeOrderStatus, to: TradeOrderStatus): void {
+  assertTransition(TRADE_ORDER_TRANSITIONS, 'trade_order', from, to);
+}
+
+export function assertPositionTransition(from: PositionStatus, to: PositionStatus): void {
+  assertTransition(POSITION_TRANSITIONS, 'position', from, to);
+}
+
+export const TRADE_ORDER_TERMINAL_STATUSES: readonly TradeOrderStatus[] = [
+  'filled',
+  'rejected',
+  'cancelled',
+];
+
+export const POSITION_TERMINAL_STATUSES: readonly PositionStatus[] = ['closed'];

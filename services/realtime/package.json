@@ -13,13 +13,22 @@
     "test:unit": "vitest run"
   },
   "dependencies": {
+    "@fastify/websocket": "^11.0.2",
+    "@supabase/supabase-js": "^2.47.10",
+    "@wariba/adapters": "workspace:*",
     "@wariba/config": "workspace:*",
+    "@wariba/contracts": "workspace:*",
+    "@wariba/database": "workspace:*",
+    "@wariba/domain": "workspace:*",
     "@wariba/observability": "workspace:*",
+    "decimal.js": "^10.4.3",
     "fastify": "^5.2.0",
+    "ws": "^8.18.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "@types/ws": "^8.5.13",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"

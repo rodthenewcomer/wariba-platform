@@ -842,6 +842,46 @@
         "rejected": [],
         "cancelled": []
       }
+    },
+    "trade_order": {
+      "initial": "received",
+      "terminal": [
+        "filled",
+        "rejected",
+        "cancelled"
+      ],
+      "transitions": {
+        "received": [
+          "validated",
+          "rejected",
+          "cancelled"
+        ],
+        "validated": [
+          "accepted",
+          "rejected",
+          "cancelled"
+        ],
+        "accepted": [
+          "filled",
+          "rejected",
+          "cancelled"
+        ],
+        "filled": [],
+        "rejected": [],
+        "cancelled": []
+      }
+    },
+    "position": {
+      "initial": "open",
+      "terminal": [
+        "closed"
+      ],
+      "transitions": {
+        "open": [
+          "closed"
+        ],
+        "closed": []
+      }
     }
   },
   "enforcement": {

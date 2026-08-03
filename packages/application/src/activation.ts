@@ -1,6 +1,7 @@
 import type { Db } from '@wariba/database';
 
 export interface TradingAccountDTO {
+  id: string;
   publicId: string;
   nominalBalance: string;
   nominalCurrency: string;
@@ -33,6 +34,7 @@ export async function getLatestAccountForUser(
 
   return account
     ? {
+        id: account.id,
         publicId: account.public_id,
         nominalBalance: account.nominal_balance,
         nominalCurrency: account.currency,

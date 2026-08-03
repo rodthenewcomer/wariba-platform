@@ -1,0 +1,837 @@
+import {
+  assertTradeOrderTransition,
+  assertPositionTransition,
+  computeFillPrice,
+  computeRealizedPnl,
+  computeCommission,
+  openingAveragePrice,
+  isQuantityWithinBounds,
+  isStale,
+  isPartialCloseQuantityValid,
+  subtractQuantity,
+  addRealizedPnl,
+  type OrderSide,
+} from '@wariba/domain';
+import type { Db } from './client';
+import type { TradableSymbol } from './schema';
+
+export interface MarketSnapshot {
+  bid: string;
+  ask: string;
+  timestamp: string;
+  sequence: string;
+}
+
+export interface TradeOrderOutcome {
+  orderId: string;
+  status: 'filled' | 'rejected';
+  rejectionCode: string | null;
+  accountSequence: string | null;
+  alreadyExisted: boolean;
+}
+
+export interface PositionSummary {
+  id: string;
+  symbol: TradableSymbol;
+  side: OrderSide;
+  openQuantity: string;
+  averageOpenPrice: string;
+  realizedPnl: string;
+  stopLoss: string | null;
+  takeProfit: string | null;
+  status: 'open' | 'closed';
+  openedAt: Date;
+  closedAt: Date | null;
+}
+
+export interface FillSummary {
+  id: string;
+  price: string;
+  quantity: string;
+  commission: string;
+  realizedPnl: string;
+  occurredAt: Date;
+}
+
+export interface TradeCommandResult {
+  order: TradeOrderOutcome;
+  position: PositionSummary | null;
+  fill: FillSummary | null;
+}
+
+const REJECTION = {
+  ACCOUNT_NOT_ACTIVE: 'account_not_active',
+  STALE_MARKET_DATA: 'stale_market_data',
+  INVALID_QUANTITY: 'invalid_quantity',
+  UNKNOWN_SYMBOL_SPEC: 'unknown_symbol_spec',
+  POSITION_NOT_FOUND: 'position_not_found',
+  POSITION_ALREADY_CLOSED: 'position_already_closed',
+} as const;
+
+/**
+ * Locks the account row for the duration of the transaction (TRD-012: one
+ * financial command per account is serialized), reloads it under that lock,
+ * and returns the freshly-read row. Every trading write function calls this
+ * first — Engineering Constitution §37/§73: lock -> reload -> validate ->
+ * execute -> ledger/position -> outbox -> commit, and the market snapshot
+ * (bid/ask) must already have been fetched by the caller *before* this
+ * transaction opens, never inside it.
+ */
+async function lockAccount(trx: Db, accountId: string) {
+  return trx
+    .selectFrom('app.trading_accounts')
+    .selectAll()
+    .where('id', '=', accountId)
+    .forUpdate()
+    .executeTakeFirstOrThrow();
+}
+
+async function loadSymbolSpec(trx: Db, symbolSpecSetId: string, symbol: TradableSymbol) {
+  return trx
+    .selectFrom('app.symbol_specs')
+    .selectAll()
+    .where('symbol_spec_set_id', '=', symbolSpecSetId)
+    .where('symbol', '=', symbol)
+    .executeTakeFirst();
+}
+
+async function findExistingOrder(trx: Db, accountId: string, idempotencyKey: string) {
+  return trx
+    .selectFrom('app.trade_orders')
+    .selectAll()
+    .where('account_id', '=', accountId)
+    .where('idempotency_key', '=', idempotencyKey)
+    .executeTakeFirst();
+}
+
+async function loadPositionSummary(trx: Db, positionId: string): Promise<PositionSummary> {
+  const row = await trx
+    .selectFrom('app.positions')
+    .selectAll()
+    .where('id', '=', positionId)
+    .executeTakeFirstOrThrow();
+  return {
+    id: row.id,
+    symbol: row.symbol,
+    side: row.side,
+    openQuantity: row.open_quantity,
+    averageOpenPrice: row.average_open_price,
+    realizedPnl: row.realized_pnl,
+    stopLoss: row.stop_loss,
+    takeProfit: row.take_profit,
+    status: row.status,
+    openedAt: row.opened_at,
+    closedAt: row.closed_at,
+  };
+}
+
+async function loadFillSummary(trx: Db, orderId: string): Promise<FillSummary> {
+  const row = await trx
+    .selectFrom('app.fills')
+    .selectAll()
+    .where('order_id', '=', orderId)
+    .executeTakeFirstOrThrow();
+  return {
+    id: row.id,
+    price: row.price,
+    quantity: row.quantity,
+    commission: row.commission,
+    realizedPnl: row.realized_pnl,
+    occurredAt: row.occurred_at,
+  };
+}
+
+async function replayExistingOrder(
+  trx: Db,
+  existing: {
+    id: string;
+    status: string;
+    position_id: string | null;
+    rejection_code: string | null;
+    account_sequence: string | null;
+  },
+): Promise<TradeCommandResult> {
+  const order: TradeOrderOutcome = {
+    orderId: existing.id,
+    status: existing.status === 'filled' ? 'filled' : 'rejected',
+    rejectionCode: existing.rejection_code,
+    accountSequence: existing.account_sequence,
+    alreadyExisted: true,
+  };
+  if (existing.status !== 'filled') {
+    return { order, position: null, fill: null };
+  }
+  const position = existing.position_id
+    ? await loadPositionSummary(trx, existing.position_id)
+    : null;
+  const fill = await loadFillSummary(trx, existing.id);
+  return { order, position, fill };
+}
+
+async function insertRejectedOrder(
+  trx: Db,
+  params: {
+    accountId: string;
+    idempotencyKey: string;
+    orderType: 'market_open' | 'partial_close' | 'full_close' | 'modify_sl' | 'modify_tp';
+    symbol: TradableSymbol | null;
+    side: OrderSide | null;
+    positionId: string | null;
+    requestedQuantity: string | null;
+    rejectionCode: string;
+    now: Date;
+  },
+): Promise<TradeCommandResult> {
+  const order = await trx
+    .insertInto('app.trade_orders')
+    .values({
+      account_id: params.accountId,
+      idempotency_key: params.idempotencyKey,
+      order_type: params.orderType,
+      symbol: params.symbol,
+      side: params.side,
+      position_id: params.positionId,
+      requested_quantity: params.requestedQuantity,
+      status: 'rejected',
+      rejection_code: params.rejectionCode,
+      received_at: params.now,
+      completed_at: params.now,
+    })
+    .returning(['id'])
+    .executeTakeFirstOrThrow();
+  return {
+    order: {
+      orderId: order.id,
+      status: 'rejected',
+      rejectionCode: params.rejectionCode,
+      accountSequence: null,
+      alreadyExisted: false,
+    },
+    position: null,
+    fill: null,
+  };
+}
+
+export interface OpenPositionParams {
+  accountId: string;
+  idempotencyKey: string;
+  symbol: TradableSymbol;
+  side: OrderSide;
+  quantity: string;
+  stopLoss?: string;
+  takeProfit?: string;
+  market: MarketSnapshot;
+  now: Date;
+}
+
+export async function openPosition(
+  db: Db,
+  params: OpenPositionParams,
+): Promise<TradeCommandResult> {
+  return db.transaction().execute(async (trx) => {
+    // Lock BEFORE checking idempotency: two concurrent calls with the same
+    // key must not both read "no existing order" before either commits.
+    // Serializing on the account row lock first closes that race — only one
+    // of them can be past this point at a time for a given account.
+    const account = await lockAccount(trx, params.accountId);
+
+    const existing = await findExistingOrder(trx, params.accountId, params.idempotencyKey);
+    if (existing) {
+      return replayExistingOrder(trx, existing);
+    }
+
+    const reject = (code: string) =>
+      insertRejectedOrder(trx, {
+        accountId: params.accountId,
+        idempotencyKey: params.idempotencyKey,
+        orderType: 'market_open',
+        symbol: params.symbol,
+        side: params.side,
+        positionId: null,
+        requestedQuantity: params.quantity,
+        rejectionCode: code,
+        now: params.now,
+      });
+
+    if (account.status !== 'active') {
+      return reject(REJECTION.ACCOUNT_NOT_ACTIVE);
+    }
+
+    const spec = await loadSymbolSpec(trx, account.symbol_spec_set_id, params.symbol);
+    if (!spec) {
+      return reject(REJECTION.UNKNOWN_SYMBOL_SPEC);
+    }
+
+    if (
+      isStale({
+        tickTimestamp: params.market.timestamp,
+        now: params.now,
+        staleThresholdMs: spec.stale_threshold_ms,
+      })
+    ) {
+      return reject(REJECTION.STALE_MARKET_DATA);
+    }
+
+    if (
+      !isQuantityWithinBounds({
+        quantity: params.quantity,
+        minimumQuantity: spec.minimum_quantity,
+        maximumQuantity: spec.maximum_quantity,
+        quantityStep: spec.quantity_step,
+      })
+    ) {
+      return reject(REJECTION.INVALID_QUANTITY);
+    }
+
+    const fillPrice = computeFillPrice({
+      bid: params.market.bid,
+      ask: params.market.ask,
+      positionSide: params.side,
+      action: 'open',
+      slippagePoints: spec.slippage_points,
+      pricePrecision: spec.price_precision,
+    });
+    const commission = computeCommission({
+      quantity: params.quantity,
+      commissionPerLot: spec.commission_per_lot,
+    });
+    const nextSequence = account.version + 1;
+
+    await trx
+      .updateTable('app.trading_accounts')
+      .set({ version: nextSequence, updated_at: params.now })
+      .where('id', '=', account.id)
+      .where('version', '=', account.version)
+      .execute();
+
+    const order = await trx
+      .insertInto('app.trade_orders')
+      .values({
+        account_id: params.accountId,
+        idempotency_key: params.idempotencyKey,
+        order_type: 'market_open',
+        symbol: params.symbol,
+        side: params.side,
+        position_id: null,
+        requested_quantity: params.quantity,
+        filled_quantity: params.quantity,
+        requested_stop_loss: params.stopLoss ?? null,
+        requested_take_profit: params.takeProfit ?? null,
+        status: 'accepted',
+        account_sequence: String(nextSequence),
+        received_at: params.now,
+        accepted_at: params.now,
+      })
+      .returning(['id'])
+      .executeTakeFirstOrThrow();
+
+    const position = await trx
+      .insertInto('app.positions')
+      .values({
+        account_id: params.accountId,
+        symbol: params.symbol,
+        side: params.side,
+        opening_quantity: params.quantity,
+        open_quantity: params.quantity,
+        average_open_price: openingAveragePrice(fillPrice),
+        stop_loss: params.stopLoss ?? null,
+        take_profit: params.takeProfit ?? null,
+        status: 'open',
+        account_sequence: String(nextSequence),
+        opened_at: params.now,
+      })
+      .returning(['id'])
+      .executeTakeFirstOrThrow();
+
+    const fill = await trx
+      .insertInto('app.fills')
+      .values({
+        order_id: order.id,
+        account_id: params.accountId,
+        position_id: position.id,
+        symbol: params.symbol,
+        side: params.side,
+        fill_type: 'open',
+        quantity: params.quantity,
+        price: fillPrice,
+        spread_points: spec.spread_points,
+        slippage_points: spec.slippage_points,
+        commission,
+        market_sequence: params.market.sequence,
+        account_sequence: String(nextSequence),
+        occurred_at: params.now,
+      })
+      .returning(['id', 'price', 'quantity', 'commission', 'realized_pnl', 'occurred_at'])
+      .executeTakeFirstOrThrow();
+
+    assertTradeOrderTransition('accepted', 'filled');
+    await trx
+      .updateTable('app.trade_orders')
+      .set({ status: 'filled', completed_at: params.now, position_id: position.id })
+      .where('id', '=', order.id)
+      .execute();
+
+    if (commission !== '0.00') {
+      await trx
+        .insertInto('app.trading_ledger_entries')
+        .values({
+          account_id: params.accountId,
+          entry_type: 'commission',
+          amount: `-${commission}`,
+          reference_type: 'fill',
+          reference_id: fill.id,
+          occurred_at: params.now,
+        })
+        .execute();
+    }
+
+    await trx
+      .insertInto('app.outbox_events')
+      .values({
+        aggregate_type: 'position',
+        aggregate_id: position.id,
+        event_type: 'position.opened',
+        payload: JSON.stringify({
+          accountId: params.accountId,
+          orderId: order.id,
+          positionId: position.id,
+        }),
+        occurred_at: params.now,
+      })
+      .execute();
+
+    return {
+      order: {
+        orderId: order.id,
+        status: 'filled',
+        rejectionCode: null,
+        accountSequence: String(nextSequence),
+        alreadyExisted: false,
+      },
+      position: await loadPositionSummary(trx, position.id),
+      fill: {
+        id: fill.id,
+        price: fill.price,
+        quantity: fill.quantity,
+        commission: fill.commission,
+        realizedPnl: fill.realized_pnl,
+        occurredAt: fill.occurred_at,
+      },
+    };
+  });
+}
+
+export interface ClosePositionParams {
+  accountId: string;
+  idempotencyKey: string;
+  positionId: string;
+  mode: 'partial' | 'full';
+  quantity?: string;
+  market: MarketSnapshot;
+  now: Date;
+}
+
+export async function closePosition(
+  db: Db,
+  params: ClosePositionParams,
+): Promise<TradeCommandResult> {
+  return db.transaction().execute(async (trx) => {
+    // Lock BEFORE checking idempotency — see openPosition for why.
+    const account = await lockAccount(trx, params.accountId);
+
+    const existing = await findExistingOrder(trx, params.accountId, params.idempotencyKey);
+    if (existing) {
+      return replayExistingOrder(trx, existing);
+    }
+
+    const orderType = params.mode === 'partial' ? 'partial_close' : 'full_close';
+
+    // positionId is explicit (not closed over params.positionId) because the
+    // not-found case must record null — trade_orders.position_id is a real
+    // FK, and the client-supplied id doesn't exist in that case.
+    const reject = (
+      code: string,
+      symbol: TradableSymbol | null,
+      side: OrderSide | null,
+      positionId: string | null,
+    ) =>
+      insertRejectedOrder(trx, {
+        accountId: params.accountId,
+        idempotencyKey: params.idempotencyKey,
+        orderType,
+        symbol,
+        side,
+        positionId,
+        requestedQuantity: params.quantity ?? null,
+        rejectionCode: code,
+        now: params.now,
+      });
+
+    const position = await trx
+      .selectFrom('app.positions')
+      .selectAll()
+      .where('id', '=', params.positionId)
+      .where('account_id', '=', params.accountId)
+      .executeTakeFirst();
+
+    if (!position) {
+      return reject(REJECTION.POSITION_NOT_FOUND, null, null, null);
+    }
+    if (position.status !== 'open') {
+      return reject(REJECTION.POSITION_ALREADY_CLOSED, position.symbol, position.side, position.id);
+    }
+    if (account.status !== 'active') {
+      return reject(REJECTION.ACCOUNT_NOT_ACTIVE, position.symbol, position.side, position.id);
+    }
+
+    const spec = await loadSymbolSpec(trx, account.symbol_spec_set_id, position.symbol);
+    if (!spec) {
+      return reject(REJECTION.UNKNOWN_SYMBOL_SPEC, position.symbol, position.side, position.id);
+    }
+    if (
+      isStale({
+        tickTimestamp: params.market.timestamp,
+        now: params.now,
+        staleThresholdMs: spec.stale_threshold_ms,
+      })
+    ) {
+      return reject(REJECTION.STALE_MARKET_DATA, position.symbol, position.side, position.id);
+    }
+
+    let closeQuantity: string;
+    if (params.mode === 'full') {
+      closeQuantity = position.open_quantity;
+    } else {
+      if (
+        !params.quantity ||
+        !isPartialCloseQuantityValid({
+          requestedQuantity: params.quantity,
+          openQuantity: position.open_quantity,
+        })
+      ) {
+        return reject(REJECTION.INVALID_QUANTITY, position.symbol, position.side, position.id);
+      }
+      closeQuantity = params.quantity;
+    }
+
+    const fillPrice = computeFillPrice({
+      bid: params.market.bid,
+      ask: params.market.ask,
+      positionSide: position.side,
+      action: 'close',
+      slippagePoints: spec.slippage_points,
+      pricePrecision: spec.price_precision,
+    });
+    const realizedPnl = computeRealizedPnl({
+      openPrice: position.average_open_price,
+      closePrice: fillPrice,
+      quantity: closeQuantity,
+      contractSize: spec.contract_size,
+      positionSide: position.side,
+    });
+    const commission = computeCommission({
+      quantity: closeQuantity,
+      commissionPerLot: spec.commission_per_lot,
+    });
+    const remainingQuantity = subtractQuantity(position.open_quantity, closeQuantity);
+    const newPositionStatus = remainingQuantity === '0.0000' ? 'closed' : 'open';
+    if (newPositionStatus === 'closed') {
+      assertPositionTransition('open', 'closed');
+    }
+
+    const nextSequence = account.version + 1;
+    await trx
+      .updateTable('app.trading_accounts')
+      .set({ version: nextSequence, updated_at: params.now })
+      .where('id', '=', account.id)
+      .where('version', '=', account.version)
+      .execute();
+
+    const order = await trx
+      .insertInto('app.trade_orders')
+      .values({
+        account_id: params.accountId,
+        idempotency_key: params.idempotencyKey,
+        order_type: orderType,
+        symbol: position.symbol,
+        side: position.side,
+        position_id: position.id,
+        requested_quantity: params.mode === 'partial' ? closeQuantity : null,
+        filled_quantity: closeQuantity,
+        status: 'accepted',
+        account_sequence: String(nextSequence),
+        received_at: params.now,
+        accepted_at: params.now,
+      })
+      .returning(['id'])
+      .executeTakeFirstOrThrow();
+
+    await trx
+      .updateTable('app.positions')
+      .set({
+        open_quantity: remainingQuantity,
+        realized_pnl: addRealizedPnl(position.realized_pnl, realizedPnl),
+        status: newPositionStatus,
+        account_sequence: String(nextSequence),
+        closed_at: newPositionStatus === 'closed' ? params.now : null,
+        version: position.version + 1,
+      })
+      .where('id', '=', position.id)
+      .where('version', '=', position.version)
+      .execute();
+
+    const fill = await trx
+      .insertInto('app.fills')
+      .values({
+        order_id: order.id,
+        account_id: params.accountId,
+        position_id: position.id,
+        symbol: position.symbol,
+        side: position.side,
+        fill_type: 'close',
+        quantity: closeQuantity,
+        price: fillPrice,
+        spread_points: spec.spread_points,
+        slippage_points: spec.slippage_points,
+        commission,
+        realized_pnl: realizedPnl,
+        market_sequence: params.market.sequence,
+        account_sequence: String(nextSequence),
+        occurred_at: params.now,
+      })
+      .returning(['id', 'price', 'quantity', 'commission', 'realized_pnl', 'occurred_at'])
+      .executeTakeFirstOrThrow();
+
+    assertTradeOrderTransition('accepted', 'filled');
+    await trx
+      .updateTable('app.trade_orders')
+      .set({ status: 'filled', completed_at: params.now })
+      .where('id', '=', order.id)
+      .execute();
+
+    await trx
+      .insertInto('app.trading_ledger_entries')
+      .values({
+        account_id: params.accountId,
+        entry_type: 'realized_pnl',
+        amount: realizedPnl,
+        reference_type: 'fill',
+        reference_id: fill.id,
+        occurred_at: params.now,
+      })
+      .execute();
+
+    if (commission !== '0.00') {
+      await trx
+        .insertInto('app.trading_ledger_entries')
+        .values({
+          account_id: params.accountId,
+          entry_type: 'commission',
+          amount: `-${commission}`,
+          reference_type: 'fill',
+          reference_id: fill.id,
+          occurred_at: params.now,
+        })
+        .execute();
+    }
+
+    await trx
+      .insertInto('app.outbox_events')
+      .values({
+        aggregate_type: 'position',
+        aggregate_id: position.id,
+        event_type:
+          newPositionStatus === 'closed' ? 'position.closed' : 'position.partially_closed',
+        payload: JSON.stringify({
+          accountId: params.accountId,
+          orderId: order.id,
+          positionId: position.id,
+        }),
+        occurred_at: params.now,
+      })
+      .execute();
+
+    return {
+      order: {
+        orderId: order.id,
+        status: 'filled',
+        rejectionCode: null,
+        accountSequence: String(nextSequence),
+        alreadyExisted: false,
+      },
+      position: await loadPositionSummary(trx, position.id),
+      fill: {
+        id: fill.id,
+        price: fill.price,
+        quantity: fill.quantity,
+        commission: fill.commission,
+        realizedPnl: fill.realized_pnl,
+        occurredAt: fill.occurred_at,
+      },
+    };
+  });
+}
+
+export interface CloseAllPositionsParams {
+  accountId: string;
+  idempotencyKeyPrefix: string;
+  marketBySymbol: Record<TradableSymbol, MarketSnapshot>;
+  now: Date;
+}
+
+export async function closeAllPositions(
+  db: Db,
+  params: CloseAllPositionsParams,
+): Promise<TradeCommandResult[]> {
+  const openPositions = await db
+    .selectFrom('app.positions')
+    .select(['id', 'symbol'])
+    .where('account_id', '=', params.accountId)
+    .where('status', '=', 'open')
+    .execute();
+
+  const results: TradeCommandResult[] = [];
+  for (const position of openPositions) {
+    const market = params.marketBySymbol[position.symbol];
+    if (!market) continue;
+    const result = await closePosition(db, {
+      accountId: params.accountId,
+      idempotencyKey: `${params.idempotencyKeyPrefix}:${position.id}`,
+      positionId: position.id,
+      mode: 'full',
+      market,
+      now: params.now,
+    });
+    results.push(result);
+  }
+  return results;
+}
+
+export interface ModifyPositionRiskParams {
+  accountId: string;
+  idempotencyKey: string;
+  positionId: string;
+  field: 'stop_loss' | 'take_profit';
+  value: string | null;
+  now: Date;
+}
+
+export async function modifyPositionRisk(
+  db: Db,
+  params: ModifyPositionRiskParams,
+): Promise<TradeCommandResult> {
+  return db.transaction().execute(async (trx) => {
+    // Lock BEFORE checking idempotency — see openPosition for why.
+    const account = await lockAccount(trx, params.accountId);
+
+    const existing = await findExistingOrder(trx, params.accountId, params.idempotencyKey);
+    if (existing) {
+      return replayExistingOrder(trx, existing);
+    }
+
+    const orderType = params.field === 'stop_loss' ? 'modify_sl' : 'modify_tp';
+
+    const reject = (
+      code: string,
+      symbol: TradableSymbol | null,
+      side: OrderSide | null,
+      positionId: string | null,
+    ) =>
+      insertRejectedOrder(trx, {
+        accountId: params.accountId,
+        idempotencyKey: params.idempotencyKey,
+        orderType,
+        symbol,
+        side,
+        positionId,
+        requestedQuantity: null,
+        rejectionCode: code,
+        now: params.now,
+      });
+
+    const position = await trx
+      .selectFrom('app.positions')
+      .selectAll()
+      .where('id', '=', params.positionId)
+      .where('account_id', '=', params.accountId)
+      .executeTakeFirst();
+
+    if (!position) {
+      return reject(REJECTION.POSITION_NOT_FOUND, null, null, null);
+    }
+    if (position.status !== 'open') {
+      return reject(REJECTION.POSITION_ALREADY_CLOSED, position.symbol, position.side, position.id);
+    }
+    if (account.status !== 'active') {
+      return reject(REJECTION.ACCOUNT_NOT_ACTIVE, position.symbol, position.side, position.id);
+    }
+
+    const nextSequence = account.version + 1;
+    await trx
+      .updateTable('app.trading_accounts')
+      .set({ version: nextSequence, updated_at: params.now })
+      .where('id', '=', account.id)
+      .where('version', '=', account.version)
+      .execute();
+
+    const order = await trx
+      .insertInto('app.trade_orders')
+      .values({
+        account_id: params.accountId,
+        idempotency_key: params.idempotencyKey,
+        order_type: orderType,
+        symbol: position.symbol,
+        side: position.side,
+        position_id: position.id,
+        requested_stop_loss: params.field === 'stop_loss' ? params.value : null,
+        requested_take_profit: params.field === 'take_profit' ? params.value : null,
+        status: 'filled',
+        account_sequence: String(nextSequence),
+        received_at: params.now,
+        accepted_at: params.now,
+        completed_at: params.now,
+      })
+      .returning(['id'])
+      .executeTakeFirstOrThrow();
+
+    await trx
+      .updateTable('app.positions')
+      .set({
+        [params.field]: params.value,
+        account_sequence: String(nextSequence),
+        version: position.version + 1,
+      })
+      .where('id', '=', position.id)
+      .where('version', '=', position.version)
+      .execute();
+
+    await trx
+      .insertInto('app.outbox_events')
+      .values({
+        aggregate_type: 'position',
+        aggregate_id: position.id,
+        event_type: 'position.risk_modified',
+        payload: JSON.stringify({
+          accountId: params.accountId,
+          orderId: order.id,
+          positionId: position.id,
+          field: params.field,
+          value: params.value,
+        }),
+        occurred_at: params.now,
+      })
+      .execute();
+
+    return {
+      order: {
+        orderId: order.id,
+        status: 'filled',
+        rejectionCode: null,
+        accountSequence: String(nextSequence),
+        alreadyExisted: false,
+      },
+      position: await loadPositionSummary(trx, position.id),
+      fill: null,
+    };
+  });
+}
