@@ -2,16 +2,28 @@
 
 WARIBA — plateforme francophone d’évaluation, de trading simulé et de progression pour traders.
 
-> Statut : fondation du dépôt (Prompt 01). Aucune logique métier (auth, commerce,
-> trading, risk, payout) n'est encore implémentée.
+> Statut : Prompts 01 à 04 implémentés — fondation, design system/app shell,
+> identité/commerce/activation sandbox et Trading Core déterministe. Les Prompts
+> 05 à 13 restent à construire et auditer selon leur séquence.
+
+Les cinq tailles WARIBA ONE (5K, 10K, 25K, 50K et 100K) sont actives dans le
+catalogue, le checkout et l'activation de la bêta sandbox privée. Cela
+n'autorise pas une vente publique. Les règles 10/3/10, les caps Performance et
+la grille FCFA sont versionnés en v1.1 ; les prix et caps restent candidats
+jusqu'à validation actuarielle et financière.
+
+Le terminal de trading s'appelle **WariX**. Le site public expose les routes
+`/programme`, `/warix`, `/offres`, `/aide` et `/support`.
 
 ## Sources de vérité
 
-Lire `AGENTS.md` avant toute tâche. Tous les documents de référence sont dans `docs/`.
+Lire `AGENTS.md` avant toute tâche. Les addenda v1.1 du Product Master et du
+Program Rulebook, le ruleset v1.1, le modèle financier v1.1 et le modèle
+actuariel complètent les baselines v1.0 dans `docs/`.
 
 ## Prérequis
 
-- Node.js 20 LTS (voir `.nvmrc`)
+- Node.js 24 LTS (voir `.nvmrc`)
 - pnpm via Corepack (`corepack enable`)
 - Docker (pour Supabase local)
 - [Supabase CLI](https://supabase.com/docs/guides/cli)
@@ -34,6 +46,8 @@ pnpm lint
 pnpm format:check
 pnpm typecheck
 pnpm test:unit
+pnpm test:integration
+pnpm test:rls
 pnpm run ci        # tout ce qui tourne en CI, dans l'ordre (pnpm réserve "ci", "run" est obligatoire)
 ```
 

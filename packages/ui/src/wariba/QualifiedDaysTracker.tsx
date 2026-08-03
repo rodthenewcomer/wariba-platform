@@ -16,7 +16,7 @@ export interface QualifiedDaysTrackerProps {
   days: QualifiedDay[];
 }
 
-/** Design System §25.5 — distinguishes "profitable" from "qualified" (UX Architecture §21.3). */
+/** Legacy component name; Rules v1.1 uses it for finalized Performance Days only. */
 export function QualifiedDaysTracker({
   requiredCount,
   qualifiedCount,
@@ -27,7 +27,7 @@ export function QualifiedDaysTracker({
     <div className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between">
         <span className="text-[length:var(--wariba-font-size-label-md)] font-semibold text-[color:var(--wariba-text-primary)]">
-          Journées qualifiées
+          Performance Days
         </span>
         <span className="wariba-data text-[length:var(--wariba-font-size-data-md)] font-medium text-[color:var(--wariba-text-primary)]">
           {qualifiedCount} / {requiredCount}

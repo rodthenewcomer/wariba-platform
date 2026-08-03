@@ -6,6 +6,7 @@ import {
   computeRealizedPnl,
   computeCommission,
   isQuantityWithinBounds,
+  isAggregateExposureAllowed,
   isStale,
   isPartialCloseQuantityValid,
   subtractQuantity,
@@ -169,6 +170,28 @@ describe('isQuantityWithinBounds', () => {
 
   it('rejects a quantity not on the step', () => {
     expect(isQuantityWithinBounds({ ...bounds, quantity: '0.105' })).toBe(false);
+  });
+});
+
+describe('isAggregateExposureAllowed — Rules v1.1', () => {
+  it('accepts the exact aggregate account-size limit', () => {
+    expect(
+      isAggregateExposureAllowed({
+        currentOpenQuantities: ['0.10', '0.20'],
+        requestedQuantity: '0.30',
+        maximumAggregateQuantity: '0.60',
+      }),
+    ).toBe(true);
+  });
+
+  it('rejects exposure above the account-size limit without float arithmetic', () => {
+    expect(
+      isAggregateExposureAllowed({
+        currentOpenQuantities: ['0.10', '0.20'],
+        requestedQuantity: '0.3001',
+        maximumAggregateQuantity: '0.60',
+      }),
+    ).toBe(false);
   });
 });
 

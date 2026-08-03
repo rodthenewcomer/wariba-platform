@@ -20,13 +20,20 @@ export interface LoadedSymbolSpec {
  * execution transaction will independently re-read for itself.
  */
 export async function loadSymbolSpecs(db: Db): Promise<Record<TradableSymbol, LoadedSymbolSpec>> {
+  const latestSet = await db
+    .selectFrom('app.symbol_spec_sets')
+    .select('id')
+    .where('status', '=', 'sandbox_candidate')
+    .orderBy('published_at', 'desc')
+    .executeTakeFirst();
+  if (!latestSet) {
+    throw new Error(
+      'No sandbox symbol spec set found — run the trading-core and Rules v1.1 migrations.',
+    );
+  }
+
   const specs = await db
     .selectFrom('app.symbol_specs')
-    .innerJoin(
-      'app.symbol_spec_sets',
-      'app.symbol_spec_sets.id',
-      'app.symbol_specs.symbol_spec_set_id',
-    )
     .select([
       'app.symbol_specs.symbol',
       'app.symbol_specs.price_precision',
@@ -35,12 +42,12 @@ export async function loadSymbolSpecs(db: Db): Promise<Record<TradableSymbol, Lo
       'app.symbol_specs.contract_size',
       'app.symbol_specs.commission_per_lot',
     ])
-    .where('app.symbol_spec_sets.set_id', '=', 'WARIBA-SANDBOX-SYMBOLS-1.0.0')
+    .where('app.symbol_specs.symbol_spec_set_id', '=', latestSet.id)
     .execute();
 
   if (specs.length === 0) {
     throw new Error(
-      'No symbol_specs found for WARIBA-SANDBOX-SYMBOLS-1.0.0 — run the trading-core migration.',
+      'No sandbox symbol_specs found — run the trading-core and Rules v1.1 migrations.',
     );
   }
 

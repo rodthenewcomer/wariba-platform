@@ -84,7 +84,7 @@ describeIfDb('trading — real database', () => {
     db = createDbClient(DATABASE_URL as string);
     userId = await createTestUser(`trading-test-${Date.now()}@wariba-test.invalid`);
     accountId = await createActiveAccount();
-  }, 30000);
+  }, 60000);
 
   afterAll(async () => {
     for (const id of cleanupAccountIds) {
@@ -121,7 +121,7 @@ describeIfDb('trading — real database', () => {
     }
     await deleteTestUser(userId);
     await db.destroy();
-  }, 30000);
+  }, 60000);
 
   it('opens a position with the ask price for a buy, charges commission, and bumps account_sequence', async () => {
     const before = await db
@@ -237,6 +237,21 @@ describeIfDb('trading — real database', () => {
     });
     expect(result.order.status).toBe('rejected');
     expect(result.order.rejectionCode).toBe('stale_market_data');
+  }, 15000);
+
+  it('rejects a Forex order that would exceed the 10K aggregate exposure limit', async () => {
+    const result = await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'USDJPY',
+      side: 'buy',
+      quantity: '0.50',
+      market: { bid: '150.100', ask: '150.120', timestamp: FRESH_TICK, sequence: '14' },
+      now: NOW,
+    });
+
+    expect(result.order.status).toBe('rejected');
+    expect(result.order.rejectionCode).toBe('exposure_limit_exceeded');
   }, 15000);
 
   it('rejects opening a position on an inactive account', async () => {
@@ -454,12 +469,26 @@ describeIfDb('trading — real database', () => {
       NAS100: { bid: '17990.0', ask: '17992.0', timestamp: FRESH_TICK, sequence: '13' },
     };
 
-    await closeAllPositions(db, {
+    const idempotencyKeyPrefix = `close-all-${randomUUID()}`;
+    const first = await closeAllPositions(db, {
       accountId,
-      idempotencyKeyPrefix: `close-all-${randomUUID()}`,
+      idempotencyKeyPrefix,
       marketBySymbol,
       now: NOW,
     });
+
+    const retry = await closeAllPositions(db, {
+      accountId,
+      idempotencyKeyPrefix,
+      marketBySymbol,
+      now: NOW,
+    });
+
+    expect(first.length).toBeGreaterThan(0);
+    expect(retry.map((result) => result.order.orderId)).toEqual(
+      first.map((result) => result.order.orderId),
+    );
+    expect(retry.every((result) => result.order.alreadyExisted)).toBe(true);
 
     const remainingOpen = await db
       .selectFrom('app.positions')
@@ -468,5 +497,5 @@ describeIfDb('trading — real database', () => {
       .where('status', '=', 'open')
       .execute();
     expect(remainingOpen).toHaveLength(0);
-  }, 20000);
+  }, 60000);
 });

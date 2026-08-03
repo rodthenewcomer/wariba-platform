@@ -7,6 +7,7 @@ import { getOrderForUser } from '@wariba/application';
 import { createSupabaseServerClient } from '../../../../../lib/supabase/server';
 import { getDb } from '../../../../../lib/db';
 import { loadWebConfig } from '../../../../../lib/config';
+import { hasTrustedMutationOrigin } from '../../../../../lib/request-security';
 
 const bodySchema = z.object({
   orderId: z.string().uuid(),
@@ -25,6 +26,21 @@ const bodySchema = z.object({
 export async function POST(request: Request) {
   const correlationId = correlationIdFromHeaders(Object.fromEntries(request.headers.entries()));
   const headers = { [CORRELATION_ID_HEADER]: correlationId };
+  const config = loadWebConfig();
+
+  if (!hasTrustedMutationOrigin(request, config.APP_BASE_URL)) {
+    return NextResponse.json(
+      {
+        error: {
+          code: 'ORIGIN_NOT_ALLOWED',
+          message: 'Origine de requête refusée.',
+          retryable: false,
+        },
+        meta: { correlationId },
+      },
+      { status: 403, headers },
+    );
+  }
 
   const supabase = await createSupabaseServerClient();
   const {
@@ -68,7 +84,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const config = loadWebConfig();
   const provider = new SandboxPaymentProvider(config.SANDBOX_WEBHOOK_SECRET);
 
   const eventBody = JSON.stringify({
@@ -81,15 +96,18 @@ export async function POST(request: Request) {
   });
   const signature = provider.signWebhookBody(eventBody);
 
-  const webhookResponse = await fetch(new URL('/api/v1/webhooks/payments/sandbox', request.url), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-wariba-signature': signature,
-      [CORRELATION_ID_HEADER]: correlationId,
+  const webhookResponse = await fetch(
+    new URL('/api/v1/webhooks/payments/sandbox', config.APP_BASE_URL),
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-wariba-signature': signature,
+        [CORRELATION_ID_HEADER]: correlationId,
+      },
+      body: eventBody,
     },
-    body: eventBody,
-  });
+  );
 
   if (!webhookResponse.ok) {
     return NextResponse.json(

@@ -22,6 +22,7 @@ export function toPositionDTO(accountId: string, p: PositionSummary): PositionDT
 export function toOrderDTO(params: {
   accountId: string;
   orderId: string;
+  idempotencyKey: string;
   orderType: OrderType;
   symbol: TradableSymbol | null;
   side: OrderSide | null;
@@ -35,6 +36,7 @@ export function toOrderDTO(params: {
   return {
     id: params.orderId,
     accountId: params.accountId,
+    idempotencyKey: params.idempotencyKey,
     orderType: params.orderType,
     symbol: params.symbol,
     side: params.side,

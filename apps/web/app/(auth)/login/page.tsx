@@ -1,14 +1,16 @@
 'use client';
 
-import { useActionState } from 'react';
+import { Suspense, useActionState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Alert, Button, Card, Input, Text } from '@wariba/ui';
 import { signInAction, type ActionResult } from '../actions';
 
 const initialState: ActionResult = {};
 
-export default function LoginPage() {
+function LoginForm() {
   const [state, formAction, pending] = useActionState(signInAction, initialState);
+  const searchParams = useSearchParams();
 
   return (
     <main>
@@ -23,6 +25,7 @@ export default function LoginPage() {
         </div>
 
         <form action={formAction} className="flex flex-col gap-4">
+          <input type="hidden" name="next" value={searchParams.get('next') ?? '/hub'} />
           <Input label="Adresse email" type="email" name="email" autoComplete="email" required />
           <Input
             label="Mot de passe"
@@ -58,5 +61,13 @@ export default function LoginPage() {
         </div>
       </Card>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-96" aria-label="Chargement de la connexion" />}>
+      <LoginForm />
+    </Suspense>
   );
 }

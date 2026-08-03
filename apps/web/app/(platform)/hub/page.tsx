@@ -1,83 +1,98 @@
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import {
   AccountContext,
   Alert,
-  EmptyState,
-  MissionProgress,
-  PolicyVersionChip,
-  RiskRibbon,
-  Text,
   buttonClassNames,
+  Card,
+  EmptyState,
+  PolicyVersionChip,
+  Text,
 } from '@wariba/ui';
-import Link from 'next/link';
+import { getLatestAccountForUser } from '@wariba/application';
+import { createSupabaseServerClient } from '../../../lib/supabase/server';
+import { getDb } from '../../../lib/db';
 
-export default function HubPage() {
-  return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
-      <Alert level="information" title="Aucun compte réel — shell de fondation">
-        Ce Hub affiche la structure visuelle avec des données DEMO explicites. La création de
-        compte, l&apos;activation et la Mission réelle arrivent avec Prompt 03 et Prompt 06.
-      </Alert>
+export const dynamic = 'force-dynamic';
 
-      <AccountContext
-        program="WARIBA ONE"
-        nominalFormatted="10 000 USD"
-        publicId="DEMO-10K-001"
-        statusLabel="Actif"
-        statusVariant="success"
-      />
+function formatUsd(amount: string): string {
+  return `${Number.parseInt(amount, 10).toLocaleString('fr-FR')} USD`;
+}
 
-      <div className="flex items-center justify-between">
-        <Text as="h1" variant="heading-lg">
-          Votre mission
-        </Text>
-        <PolicyVersionChip version="1.0.0" status="draft" effectiveDateLabel="non publiée" />
-      </div>
+const STATUS = {
+  active: { label: 'Actif', variant: 'success' },
+  soft_locked: { label: 'Verrou souple', variant: 'warning' },
+  pass_pending: { label: 'Passage en revue', variant: 'information' },
+  inactive: { label: 'Inactif', variant: 'neutral' },
+  passed: { label: 'Réussi', variant: 'success' },
+  breached: { label: 'Violation', variant: 'danger' },
+  closed: { label: 'Fermé', variant: 'neutral' },
+} as const;
 
-      <RiskRibbon
-        status="normal"
-        dailyLossRemaining="400 USD"
-        maximumLossRemaining="800 USD"
-        nextResetLabel="00:00 UTC"
-        connectionOk
-      />
+export default async function HubPage() {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login?next=/hub');
 
-      <MissionProgress
-        variant="evaluation"
-        state="active"
-        title="Objectif WARIBA ONE — 10 000 USD"
-        progressPercent={51}
-        conditions={[
-          { label: 'Objectif de profit (8 %)', detail: '408 / 800 USD', met: false },
-          { label: 'Jours de trading (min. 4)', detail: '2 / 4', met: false },
-          { label: 'Journées qualifiées (min. 3)', detail: '1 / 3', met: false },
-          { label: 'Consistance (≤ 40 %)', detail: '28 %', met: true },
-        ]}
-        nextAction={
-          <div className="flex items-center justify-between gap-4">
-            <Text variant="body-sm" color="secondary">
-              Prochaine action : continuer à trader jusqu&apos;à l&apos;objectif.
-            </Text>
-            <Link href="/trade" className={buttonClassNames({ size: 'sm' })}>
-              Ouvrir Trade
-            </Link>
-          </div>
-        }
-      />
-
-      <div>
-        <Text as="h2" variant="heading-sm" className="mb-3">
-          Activité récente
-        </Text>
+  const account = await getLatestAccountForUser(getDb(), { userId: user.id });
+  if (!account) {
+    return (
+      <div className="mx-auto max-w-3xl">
         <EmptyState
-          title="Aucun trade pour l'instant"
-          description="Votre historique apparaîtra ici après votre première exécution."
+          title="Aucun compte WARIBA ONE"
+          description="Choisissez une évaluation sandbox pour activer votre premier compte simulé."
           action={
-            <Link href="/trade" className={buttonClassNames({ variant: 'secondary' })}>
-              Ouvrir Trade
+            <Link href="/offres" className={buttonClassNames()}>
+              Voir les cinq offres
             </Link>
           }
         />
       </div>
+    );
+  }
+
+  const status = STATUS[account.status as keyof typeof STATUS] ?? {
+    label: account.status,
+    variant: 'neutral' as const,
+  };
+
+  return (
+    <div className="mx-auto flex max-w-3xl flex-col gap-6">
+      <AccountContext
+        program="WARIBA ONE"
+        nominalFormatted={formatUsd(account.nominalBalance)}
+        publicId={account.publicId}
+        statusLabel={status.label}
+        statusVariant={status.variant}
+      />
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Text as="h1" variant="heading-lg">
+          Votre compte sandbox
+        </Text>
+        <PolicyVersionChip version={account.policyVersion} status={account.policyStatus} />
+      </div>
+
+      <Alert level="information" title="Progression et risque au Prompt 05">
+        Le compte et sa policy sont réels dans la sandbox. Les calculs de target, DLL, perte
+        maximale, consistance et journées qualifiées ne sont pas affichés avant leur moteur serveur
+        — aucune donnée de progression n&apos;est inventée.
+      </Alert>
+
+      <Card padding="comfortable" className="flex flex-col gap-4">
+        <Text as="h2" variant="heading-sm">
+          Prochaine action disponible
+        </Text>
+        <Text variant="body-sm" color="secondary">
+          Le Trading Core déterministe est actif pour cinq instruments. Toute exécution reste
+          simulée, tarifée et enregistrée côté serveur.
+        </Text>
+        <Link href="/trade" className={buttonClassNames({ className: 'self-start' })}>
+          Ouvrir WariX
+        </Link>
+      </Card>
     </div>
   );
 }

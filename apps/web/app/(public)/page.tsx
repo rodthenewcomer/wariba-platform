@@ -1,177 +1,306 @@
-import {
-  Badge,
-  buttonClassNames,
-  ConsistencyMeter,
-  MissionProgress,
-  RiskRibbon,
-  Text,
-} from '@wariba/ui';
+import Image from 'next/image';
 import Link from 'next/link';
+import { Badge, buttonClassNames, Text } from '@wariba/ui';
 
-const STEPS = [
+const PROGRAMS = [
   {
-    title: 'Choisissez une taille',
-    body: 'WARIBA ONE : 5K, 10K ou 25K USD simulés. Une seule phase, un objectif clair, aucun frais d’activation.',
+    eyebrow: '01 — Evaluation',
+    title: 'Prouvez votre discipline.',
+    body: 'Une seule phase, un objectif de 10 % réalisé et des règles qui restent visibles avant chaque décision.',
+    status: 'Disponible en sandbox',
+    href: '/programme#evaluation',
+    className: 'bg-[color:var(--wariba-color-cobalt-900)]',
   },
   {
-    title: 'Démontrez votre discipline',
-    body: 'Tradez cinq instruments dans des limites de risque publiques. Le serveur exécute et calcule tout — jamais votre navigateur.',
+    eyebrow: '02 — Performance',
+    title: 'Construisez votre base.',
+    body: 'Un buffer permanent de 10 %, cinq nouvelles Performance Days et des caps progressifs.',
+    status: 'Construction Prompt 08',
+    href: '/programme#performance',
+    className: 'bg-[color:var(--wariba-color-success-700)]',
   },
   {
-    title: 'Progressez vers Performance',
-    body: 'Après réussite, un compte Performance simulé s’ouvre pour des cycles de payout décomposés en détail.',
+    eyebrow: '03 — Review',
+    title: 'Faites examiner vos preuves.',
+    body: 'Après cinq payouts sandbox conformes, le dossier entre en revue. Aucun Live n’est garanti.',
+    status: 'Parcours documenté',
+    href: '/programme#review',
+    className: 'bg-[color:var(--wariba-color-copper-900)]',
   },
 ] as const;
 
 const RULES = [
-  { label: 'Objectif de profit', value: '8 %' },
-  { label: 'Limite de perte quotidienne', value: '4 %' },
-  { label: 'Perte maximale', value: '8 %, statique' },
-  { label: 'Consistance', value: '≤ 40 %, jamais un breach' },
+  ['Objectif réalisé', '10 %'],
+  ['Perte quotidienne', '3 % · soft lock'],
+  ['Perte maximale', '10 % · EOD trailing'],
+  ['Best Day Rule', '50 % · non-breach'],
+  ['Minimum de jours', 'Aucun'],
+  ['Activation après réussite', '0 FCFA'],
+] as const;
+
+const SIZES = [
+  ['5K', '22 500 FCFA'],
+  ['10K', '39 900 FCFA'],
+  ['25K', '84 900 FCFA'],
+  ['50K', '144 900 FCFA'],
+  ['100K', '259 900 FCFA'],
 ] as const;
 
 export default function HomePage() {
   return (
     <>
-      <section className="mx-auto max-w-[var(--wariba-size-marketing-container-max)] px-4 py-16 sm:px-6 sm:py-24">
-        <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
-          <div className="flex flex-col gap-6">
-            <Badge variant="information">Bêta privée en préparation</Badge>
-            <Text as="h1" variant="display-lg">
-              Une infrastructure de progression pour traders disciplinés.
-            </Text>
-            <Text variant="body-lg" color="secondary">
-              WARIBA évalue votre discipline sur un compte de trading simulé, avec des règles
-              publiques et versionnées, une exécution serveur, et un payout entièrement décomposé —
-              jamais un chiffre unique.
-            </Text>
-            <div className="flex flex-wrap gap-3">
+      <section className="relative isolate min-h-[calc(100svh-64px)] overflow-hidden border-b border-[color:var(--wariba-color-ink-700)]">
+        <Image
+          src="/images/wariba-hero-abidjan.webp"
+          alt="Trader professionnel ouest-africain concentré dans un espace de travail contemporain à Abidjan"
+          fill
+          priority
+          sizes="100vw"
+          className="-z-20 object-cover object-[65%_center]"
+        />
+        <div className="absolute inset-0 -z-10 bg-[color:var(--wariba-color-ink-950)]/75" />
+        <div className="mx-auto flex min-h-[calc(100svh-64px)] max-w-[var(--wariba-size-marketing-container-max)] items-center px-4 py-16 sm:px-6">
+          <div className="max-w-3xl">
+            <Badge variant="information">Bêta privée · trading simulé</Badge>
+            <h1 className="mt-6 max-w-3xl text-[length:var(--wariba-font-size-display-lg)] font-semibold leading-[var(--wariba-line-height-display-lg)] tracking-[var(--wariba-letter-spacing-tight)] text-[color:var(--wariba-color-bone-50)] sm:text-[length:var(--wariba-font-size-display-xl)] sm:leading-[var(--wariba-line-height-display-xl)]">
+              Construisez votre discipline. Mesurez votre progression.
+            </h1>
+            <p className="mt-6 max-w-2xl text-[length:var(--wariba-font-size-body-lg)] leading-[var(--wariba-line-height-body-lg)] text-[color:var(--wariba-color-ink-100)]">
+              WARIBA est un parcours francophone d’évaluation et de performance dans un
+              environnement entièrement simulé, avec des règles versionnées et une exécution
+              contrôlée par le serveur.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link href="/offres" className={buttonClassNames({ size: 'lg' })}>
-                Voir les offres
+                Choisir une évaluation
               </Link>
               <Link
-                href="/regles"
+                href="/programme"
                 className={buttonClassNames({ size: 'lg', variant: 'secondary' })}
               >
-                Lire les règles
+                Voir comment ça marche
               </Link>
             </div>
-            <Text variant="body-sm" color="tertiary">
-              Compte 100% simulé. La taille nominale n&apos;est pas un dépôt vous appartenant.
-            </Text>
-          </div>
-
-          <div className="flex flex-col gap-4 rounded-[var(--wariba-radius-xl)] border border-[color:var(--wariba-border-subtle)] bg-[color:var(--wariba-background-surface)] p-5 shadow-[var(--wariba-shadow-sm)]">
-            <Text variant="label-sm" color="tertiary">
-              Aperçu Hub — compte DEMO-10K-001
-            </Text>
-            <RiskRibbon
-              status="normal"
-              dailyLossRemaining="400 USD"
-              maximumLossRemaining="800 USD"
-              nextResetLabel="00:00 UTC"
-              connectionOk
-            />
-            <MissionProgress
-              variant="evaluation"
-              state="active"
-              title="Objectif WARIBA ONE — 10 000 USD"
-              progressPercent={51}
-              conditions={[
-                { label: 'Objectif de profit (8 %)', detail: '408 / 800 USD', met: false },
-                { label: 'Jours de trading (min. 4)', detail: '2 / 4', met: false },
-                { label: 'Journées qualifiées (min. 3)', detail: '1 / 3', met: false },
-              ]}
-              nextAction={
-                <Text variant="body-sm" color="secondary">
-                  Prochaine action : continuer à trader jusqu&apos;à l&apos;objectif.
-                </Text>
-              }
-            />
+            <p className="mt-5 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-color-ink-200)]">
+              Prix principal en FCFA. Aucune conversion surprise au checkout. Aucun frais
+              d’activation après réussite.
+            </p>
           </div>
         </div>
       </section>
 
-      <section className="border-y border-[color:var(--wariba-border-subtle)] bg-[color:var(--wariba-background-subtle)]">
-        <div className="mx-auto max-w-[var(--wariba-size-marketing-container-max)] px-4 py-16 sm:px-6">
-          <Text as="h2" variant="heading-lg" className="mb-10">
-            Comment ça fonctionne
-          </Text>
-          <div className="grid gap-8 sm:grid-cols-3">
-            {STEPS.map((step, index) => (
-              <div key={step.title} className="flex flex-col gap-2">
-                <span className="wariba-data text-[length:var(--wariba-font-size-data-lg)] text-[color:var(--wariba-text-secondary)]">
-                  {String(index + 1).padStart(2, '0')}
-                </span>
-                <Text as="h3" variant="heading-sm">
-                  {step.title}
-                </Text>
-                <Text variant="body-sm" color="secondary">
-                  {step.body}
-                </Text>
-              </div>
+      <section aria-labelledby="parcours-title" className="bg-[color:var(--wariba-color-ink-950)]">
+        <div className="mx-auto max-w-[var(--wariba-size-marketing-container-max)] px-4 py-20 sm:px-6 lg:py-28">
+          <div className="mb-10 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
+            <div className="max-w-3xl">
+              <Text variant="label-sm" className="text-[color:var(--wariba-color-cobalt-300)]">
+                Un parcours en trois temps
+              </Text>
+              <h2
+                id="parcours-title"
+                className="mt-3 text-[length:var(--wariba-font-size-display-md)] font-semibold leading-[var(--wariba-line-height-display-md)] tracking-[var(--wariba-letter-spacing-tight)] text-[color:var(--wariba-color-bone-50)]"
+              >
+                Une progression exigeante, sans promesse facile.
+              </h2>
+            </div>
+            <Link
+              href="/programme"
+              className="text-[length:var(--wariba-font-size-label-md)] font-semibold text-[color:var(--wariba-color-cobalt-300)] hover:text-[color:var(--wariba-color-cobalt-200)]"
+            >
+              Explorer le programme
+            </Link>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-3">
+            {PROGRAMS.map((program) => (
+              <Link
+                key={program.title}
+                href={program.href}
+                className={`${program.className} flex min-h-[410px] flex-col rounded-[var(--wariba-radius-2xl)] border border-[color:var(--wariba-color-ink-600)] p-7 transition-transform hover:-translate-y-1 sm:p-9`}
+              >
+                <p className="text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase tracking-[var(--wariba-letter-spacing-caps)] text-[color:var(--wariba-color-bone-200)]">
+                  {program.eyebrow}
+                </p>
+                <h3 className="mt-5 text-[length:var(--wariba-font-size-heading-xl)] font-semibold leading-[var(--wariba-line-height-heading-xl)] text-[color:var(--wariba-color-bone-50)]">
+                  {program.title}
+                </h3>
+                <p className="mt-4 text-[length:var(--wariba-font-size-body-md)] leading-[var(--wariba-line-height-body-md)] text-[color:var(--wariba-color-bone-100)]">
+                  {program.body}
+                </p>
+                <p className="mt-auto border-t border-[color:var(--wariba-color-bone-300)]/50 pt-5 text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase tracking-[var(--wariba-letter-spacing-wide)] text-[color:var(--wariba-color-bone-100)]">
+                  {program.status}
+                </p>
+              </Link>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-[var(--wariba-size-marketing-container-max)] px-4 py-16 sm:px-6">
-        <div className="grid gap-12 lg:grid-cols-2 lg:items-start">
+      <section data-theme="light" className="bg-[color:var(--wariba-color-bone-50)]">
+        <div className="mx-auto grid max-w-[var(--wariba-size-marketing-container-max)] gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:py-28">
           <div>
-            <Text as="h2" variant="heading-lg" className="mb-6">
-              Les règles essentielles de WARIBA ONE
+            <Text variant="label-sm" color="secondary">
+              Pourquoi WARIBA
             </Text>
-            <dl className="grid grid-cols-2 gap-6">
-              {RULES.map((rule) => (
-                <div key={rule.label}>
-                  <dt className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
-                    {rule.label}
-                  </dt>
-                  <dd className="wariba-data mt-1 text-[length:var(--wariba-font-size-heading-sm)] font-semibold text-[color:var(--wariba-text-primary)]">
-                    {rule.value}
-                  </dd>
+            <h2 className="mt-3 text-[length:var(--wariba-font-size-display-md)] font-semibold leading-[var(--wariba-line-height-display-md)] tracking-[var(--wariba-letter-spacing-tight)] text-[color:var(--wariba-color-ink-950)]">
+              Le risque reste visible avant la performance.
+            </h2>
+            <p className="mt-5 text-[length:var(--wariba-font-size-body-lg)] leading-[var(--wariba-line-height-body-lg)] text-[color:var(--wariba-color-ink-600)]">
+              L’objectif n’est pas de multiplier les règles opaques. WariX expose le contexte du
+              compte, la policy appliquée, les limites restantes et la prochaine action utile.
+            </p>
+            <Link href="/warix" className={buttonClassNames({ size: 'lg', className: 'mt-8' })}>
+              Découvrir WariX
+            </Link>
+          </div>
+          <div className="overflow-hidden rounded-[var(--wariba-radius-2xl)] border border-[color:var(--wariba-color-bone-200)] bg-[color:var(--wariba-color-ink-950)] p-5 shadow-[var(--wariba-shadow-md)] sm:p-7">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--wariba-color-ink-700)] pb-4">
+              <p className="font-semibold text-[color:var(--wariba-color-bone-50)]">WariX</p>
+              <p className="text-[length:var(--wariba-font-size-label-sm)] uppercase tracking-[var(--wariba-letter-spacing-wide)] text-[color:var(--wariba-color-ink-300)]">
+                Aperçu sandbox · aucune donnée réelle
+              </p>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              {[
+                ['Policy', 'ONE 1.1'],
+                ['DLL restante', '3 % au reset'],
+                ['Max Loss', 'Floor EOD'],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  className="rounded-[var(--wariba-radius-lg)] border border-[color:var(--wariba-color-ink-700)] bg-[color:var(--wariba-color-ink-900)] p-4"
+                >
+                  <p className="text-[length:var(--wariba-font-size-label-sm)] uppercase tracking-[var(--wariba-letter-spacing-wide)] text-[color:var(--wariba-color-ink-300)]">
+                    {label}
+                  </p>
+                  <p className="wariba-data mt-2 text-[length:var(--wariba-font-size-data-md)] text-[color:var(--wariba-color-bone-50)]">
+                    {value}
+                  </p>
                 </div>
               ))}
-            </dl>
-            <Text variant="body-sm" color="tertiary" className="mt-6">
-              Paramètres candidats, soumis au modèle financier et à la bêta — voir{' '}
-              <Link href="/regles" className="text-[color:var(--wariba-text-link)] hover:underline">
-                les règles publiques et versionnées
-              </Link>
-              .
-            </Text>
-          </div>
-
-          <div className="rounded-[var(--wariba-radius-xl)] border border-[color:var(--wariba-border-subtle)] bg-[color:var(--wariba-background-surface)] p-5">
-            <Text variant="label-sm" color="tertiary" className="mb-4 block">
-              La consistance n&apos;est jamais une violation
-            </Text>
-            <ConsistencyMeter
-              ratioPercent={47}
-              limitPercent={40}
-              bestDayFormatted="376 USD"
-              totalProfitFormatted="800 USD"
-              requiredProfitFormatted="940 USD"
-            />
+            </div>
+            <div className="mt-4 rounded-[var(--wariba-radius-lg)] border border-[color:var(--wariba-color-ink-700)] p-4">
+              <div className="grid grid-cols-[1fr_auto_auto] gap-3 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-color-ink-200)]">
+                <span>Instrument</span>
+                <span>Bid</span>
+                <span>Ask</span>
+                <span className="text-[color:var(--wariba-color-bone-50)]">EURUSD</span>
+                <span className="wariba-data">1.08450</span>
+                <span className="wariba-data">1.08460</span>
+                <span className="text-[color:var(--wariba-color-bone-50)]">XAUUSD</span>
+                <span className="wariba-data">2 340.20</span>
+                <span className="wariba-data">2 340.50</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      <section
-        data-theme="dark"
-        className="border-t border-[color:var(--wariba-border-subtle)] bg-[color:var(--wariba-background-canvas)]"
-      >
-        <div className="mx-auto flex max-w-[var(--wariba-size-marketing-container-max)] flex-col items-start gap-6 px-4 py-16 sm:px-6 sm:py-20">
-          <Text as="h2" variant="heading-lg">
-            Commencez avec une évaluation transparente.
-          </Text>
-          <Text variant="body-md" color="secondary" className="max-w-lg">
-            Nature simulée, prix en FCFA, et politique de règles versionnée — visibles avant tout
-            paiement.
-          </Text>
-          <Link href="/offres" className={buttonClassNames({ size: 'lg' })}>
-            Voir les offres
-          </Link>
+      <section id="regles" className="bg-[color:var(--wariba-color-ink-900)] scroll-mt-20">
+        <div className="mx-auto max-w-[var(--wariba-size-marketing-container-max)] px-4 py-20 sm:px-6 lg:py-28">
+          <div className="grid gap-10 lg:grid-cols-[0.75fr_1.25fr]">
+            <div>
+              <Text variant="label-sm" className="text-[color:var(--wariba-color-copper-300)]">
+                WARIBA ONE v1.1
+              </Text>
+              <h2 className="mt-3 text-[length:var(--wariba-font-size-display-md)] font-semibold leading-[var(--wariba-line-height-display-md)] text-[color:var(--wariba-color-bone-50)]">
+                Des règles lisibles avant de commencer.
+              </h2>
+              <p className="mt-5 text-[length:var(--wariba-font-size-body-md)] text-[color:var(--wariba-color-ink-200)]">
+                Chaque compte conserve la version de policy acceptée. Une policy publiée n’est
+                jamais réécrite rétroactivement.
+              </p>
+            </div>
+            <dl className="grid gap-x-8 gap-y-7 sm:grid-cols-2">
+              {RULES.map(([label, value]) => (
+                <div
+                  key={label}
+                  className="border-t border-[color:var(--wariba-color-ink-600)] pt-4"
+                >
+                  <dt className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-color-ink-300)]">
+                    {label}
+                  </dt>
+                  <dd className="wariba-data mt-2 text-[length:var(--wariba-font-size-heading-sm)] font-semibold text-[color:var(--wariba-color-bone-50)]">
+                    {value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </div>
+      </section>
+
+      <section data-theme="light" className="bg-[color:var(--wariba-color-bone-100)]">
+        <div className="mx-auto max-w-[var(--wariba-size-marketing-container-max)] px-4 py-20 sm:px-6 lg:py-28">
+          <div className="flex flex-col justify-between gap-7 lg:flex-row lg:items-end">
+            <div className="max-w-3xl">
+              <Text variant="label-sm" color="secondary">
+                Cinq tailles actives en sandbox
+              </Text>
+              <h2 className="mt-3 text-[length:var(--wariba-font-size-display-md)] font-semibold leading-[var(--wariba-line-height-display-md)] text-[color:var(--wariba-color-ink-950)]">
+                Un prix final en FCFA, sans conversion surprise.
+              </h2>
+            </div>
+            <Link href="/offres" className={buttonClassNames({ size: 'lg' })}>
+              Comparer les offres
+            </Link>
+          </div>
+          <div className="mt-10 grid border-l border-t border-[color:var(--wariba-color-bone-300)] sm:grid-cols-5">
+            {SIZES.map(([size, price]) => (
+              <div
+                key={size}
+                className="border-b border-r border-[color:var(--wariba-color-bone-300)] bg-[color:var(--wariba-color-bone-50)] p-5"
+              >
+                <p className="wariba-data text-[length:var(--wariba-font-size-heading-md)] font-semibold text-[color:var(--wariba-color-ink-950)]">
+                  {size}
+                </p>
+                <p className="mt-2 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-color-ink-600)]">
+                  {price}
+                </p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-5 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-color-ink-600)]">
+            Prix candidats en attente de validation actuarielle. Vente publique non ouverte.
+          </p>
+        </div>
+      </section>
+
+      <section className="relative isolate overflow-hidden bg-[color:var(--wariba-color-ink-950)]">
+        <div className="mx-auto grid max-w-[var(--wariba-size-marketing-container-max)] gap-10 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:items-center lg:py-28">
+          <div className="overflow-hidden rounded-[var(--wariba-radius-2xl)] border border-[color:var(--wariba-color-ink-700)]">
+            <div className="relative aspect-[3/2]">
+              <Image
+                src="/images/wariba-support-team.webp"
+                alt="Deux professionnels ouest-africains examinent ensemble un plan de risque dans un bureau contemporain à Abidjan"
+                fill
+                sizes="(min-width: 1024px) 50vw, 100vw"
+                className="object-cover"
+              />
+            </div>
+          </div>
+          <div>
+            <Text variant="label-sm" className="text-[color:var(--wariba-color-cobalt-300)]">
+              Besoin de clarté
+            </Text>
+            <h2 className="mt-3 text-[length:var(--wariba-font-size-display-md)] font-semibold leading-[var(--wariba-line-height-display-md)] text-[color:var(--wariba-color-bone-50)]">
+              Les réponses importantes avant la première décision.
+            </h2>
+            <p className="mt-5 text-[length:var(--wariba-font-size-body-lg)] text-[color:var(--wariba-color-ink-200)]">
+              Consultez le centre d’aide pour comprendre le Maximum Loss EOD, la Best Day Rule, les
+              prix FCFA, WariX et la nature entièrement simulée du programme.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link href="/aide" className={buttonClassNames({ size: 'lg' })}>
+                Ouvrir le centre d’aide
+              </Link>
+              <Link
+                href="/support"
+                className={buttonClassNames({ size: 'lg', variant: 'secondary' })}
+              >
+                Contacter le support
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
     </>

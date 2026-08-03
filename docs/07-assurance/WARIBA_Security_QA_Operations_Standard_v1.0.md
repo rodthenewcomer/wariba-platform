@@ -26,6 +26,14 @@ next_documents:
 
 > **Aucun payout fiable sans sécurité. Aucune sécurité crédible sans tests. Aucun test utile sans opérations capables de répondre aux incidents.**
 
+> **Addendum QA Rules v1.1 — 2026-08-03**
+> Les gates ajoutent les preuves suivantes : plancher EOD déplacé uniquement
+> après clôture finalisée, jamais décroissant et verrouillé au nominal ; payout
+> nul au buffer ou sous le buffer ; débit limité à l'excédent ; Performance Days
+> non réutilisables ; cap net après split ; exposition 50K/100K ; levier XAUUSD
+> dynamique ; marge 30 % Evaluation et 25 % Performance. Une page marketing ne
+> peut jamais présenter un montant simulé comme dépôt, capital confié ou gain.
+
 ## Contrôle du document
 
 | Champ | Valeur |
@@ -43,8 +51,8 @@ next_documents:
 | Base | PostgreSQL / Supabase |
 | Auth | Supabase Auth |
 | CI | GitHub Actions |
-| Agent principal | Codex |
-| Audit secondaire futur | Claude Code |
+| Agents IA autorisés | Codex, Claude Code ou tout autre agent IA explicitement mandaté |
+| Rôles autorisés | Construction, modification, audit et documentation — voir AI-015 |
 | Statut | Baseline obligatoire avant bêta privée |
 
 ---
@@ -2228,7 +2236,7 @@ Obligatoire pour :
 
 ## 84.3 Actions
 
-- suspendre 25K ;
+- suspendre les nouvelles ventes des tailles à plus forte exposition ;
 - réduire promotions ;
 - limiter ventes ;
 - alimenter réserve.
@@ -2393,7 +2401,7 @@ Avant premier payout réel :
 - load test ;
 - vulnerability triage ;
 - policy/rules parity ;
-- 25K gate ;
+- gates commerciaux indépendants 5K/10K/25K/50K/100K ;
 - reserve coverage ;
 - no critical open bugs.
 
@@ -2416,6 +2424,14 @@ Avant premier payout réel :
 - CSP ;
 - headers ;
 - admin privilege tests.
+
+## 93.1 Preuve de construction Prompts 01 à 04 — 2026-08-03
+
+- `pnpm audit --prod` : aucune vulnérabilité connue après mise à niveau de Kysely 0.28.17 et overrides PostCSS 8.5.18 / Sharp 0.35.3 ;
+- secret scan : vert ;
+- tests RLS réels : 15/15 ;
+- tests WebSocket auth/isolation/reconnexion réels : 7/7 ;
+- aucune de ces preuves ne remplace l'audit indépendant Prompt 12 ni la sélection du scanner final SQO-006.
 
 ---
 
@@ -2803,9 +2819,9 @@ CI ou test vérifie :
 
 # 115. Agent IA controls
 
-## 115.1 Codex
+## 115.1 Agents IA mandatés
 
-Peut :
+Codex, Claude Code ou tout autre agent IA explicitement mandaté peut :
 
 - écrire code ;
 - écrire tests ;
@@ -2821,9 +2837,9 @@ Ne peut pas :
 - approuver payout ;
 - désactiver sécurité.
 
-## 115.2 Claude Code
+## 115.2 Audit indépendant
 
-Audit sur branche ou snapshot.
+Un agent IA distinct de l’implémentation auditée intervient sur branche ou snapshot lorsqu’un audit indépendant est requis.
 
 Aucun accès production.
 
@@ -2925,13 +2941,14 @@ Chaque statut possède des gates.
 | SQO-011 | Restore test avant public | `LOCKED` | Reprise |
 | SQO-012 | Runbooks avant bêta | `LOCKED` | Opérations |
 | SQO-013 | Pen test avant scale public | `CANDIDATE` | Assurance |
-| SQO-014 | 25K sous feature flag | `LOCKED` | Réserve |
+| SQO-014 | 25K désactivé par défaut | `SUPERSEDED` | Remplacé par SQO-021 / OFFER-023 |
 | SQO-015 | Aucun paiement réel en première bêta | `LOCKED` | Réduction risque |
 | SQO-016 | Aucun payout réel sans KYC/reconciliation | `LOCKED` | Finance |
 | SQO-017 | Sandbox interdit en production | `LOCKED` | Sécurité |
 | SQO-018 | Retention policy | `OPEN` | Juridique/privacy |
 | SQO-019 | Exact SLO production | `OPEN` | Mesure |
 | SQO-020 | Vulnerability disclosure | `CANDIDATE` | Public launch |
+| SQO-021 | Cinq tailles actives en sandbox, flags indépendants et révocables | `LOCKED` | Couverture E2E sans autorisation de vente publique |
 
 ---
 
@@ -3025,7 +3042,7 @@ Ce document est considéré complet lorsque :
 12. les gates bêta/public sont définis ;
 13. les responsabilités sont attribuées ;
 14. les décisions ouvertes sont enregistrées ;
-15. Codex peut implémenter les fondations sans inventer les contrôles.
+15. tout agent IA mandaté peut implémenter les fondations sans inventer les contrôles.
 
 ---
 

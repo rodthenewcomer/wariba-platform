@@ -13,6 +13,7 @@ import {
   accountOrdersChannel,
   accountPositionsChannel,
   marketSymbolChannel,
+  TRADABLE_SYMBOLS,
   type OrderResultMessage,
 } from '@wariba/contracts';
 import type { Logger } from '@wariba/observability';
@@ -266,17 +267,34 @@ async function sendInitialSnapshot(
   channel: string,
 ): Promise<void> {
   const accountMatch = /^account\.([0-9a-f-]+)\.state$/.exec(channel);
-  if (!accountMatch?.[1]) return;
-  const snapshot = await buildAccountSnapshot(db, accountMatch[1], market, symbolSpecs);
-  registry.send(
-    connectionId,
-    buildEnvelope({
-      type: 'account.snapshot',
-      sequence: snapshot.accountSequence,
-      correlationId: connectionId,
-      payload: snapshot,
-    }),
-  );
+  if (accountMatch?.[1]) {
+    const snapshot = await buildAccountSnapshot(db, accountMatch[1], market, symbolSpecs);
+    registry.send(
+      connectionId,
+      buildEnvelope({
+        type: 'account.snapshot',
+        sequence: snapshot.accountSequence,
+        correlationId: connectionId,
+        payload: snapshot,
+      }),
+    );
+    return;
+  }
+
+  const marketMatch = /^market\.symbol\.([A-Z0-9]+)$/.exec(channel);
+  const symbol = marketMatch?.[1];
+  if (symbol && TRADABLE_SYMBOLS.includes(symbol as TradableSymbol)) {
+    const tick = market.getSnapshot(symbol as TradableSymbol);
+    registry.send(
+      connectionId,
+      buildEnvelope({
+        type: 'market.tick',
+        sequence: tick.sequence,
+        correlationId: symbol,
+        payload: tick,
+      }),
+    );
+  }
 }
 
 function broadcastOrderResult(

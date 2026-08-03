@@ -9,7 +9,8 @@
   "scripts": {
     "lint": "eslint --config ../../eslint.config.mjs .",
     "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run --exclude 'tests/*.integration.test.ts'",
+    "test:integration": "vitest run tests/commerce.integration.test.ts"
   },
   "dependencies": {
     "@wariba/database": "workspace:*",

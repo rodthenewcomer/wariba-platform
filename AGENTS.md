@@ -14,8 +14,8 @@
 | Environnement V1 | Trading simulé |
 | Application | Web responsive + PWA |
 | App native | Non en V1 |
-| Agent principal | Claude Code (constructeur + auditeur) |
-| Auditeur secondaire | Aucun — voir DECISION_LOG AI-014 |
+| Agents IA autorisés | Codex, Claude Code ou tout autre agent IA explicitement mandaté |
+| Rôles autorisés | Construction, modification, audit et documentation — voir DECISION_LOG AI-015 |
 | Architecture | Modular monolith |
 | État initial | Dossier créé, aucun code produit commencé |
 
@@ -41,9 +41,14 @@ Avant toute grande tâche, lire dans cet ordre :
 
 ```text
 docs/00-decisions/DECISION_LOG.md
+docs/01-product/WARIBA_Product_Master_Document_v1.1.md
 docs/01-product/WARIBA_Product_Master_Document_v1.0.md
+docs/02-program/WARIBA_Program_Rulebook_v1.1.md
+docs/02-program/WARIBA_RULESET_v1.1.json
 docs/02-program/WARIBA_Program_Rulebook_v1.0.md
 docs/02-program/WARIBA_RULESET_v1.0.json
+docs/03-finance/WARIBA_Financial_Model_v1.1.xlsx
+docs/03-finance/WARIBA_Actuarial_Risk_Model_v1.0.md
 docs/03-finance/WARIBA_Financial_Model_v1.0.xlsx
 docs/04-ux/WARIBA_UX_Architecture_v1.0.md
 docs/05-design/WARIBA_Design_System_v1.0.md
@@ -446,38 +451,39 @@ Chaque compte conserve :
 - date d’acceptation ;
 - locale.
 
-### 11.2 Règles WARIBA ONE candidates
+### 11.2 Règles WARIBA ONE v1.1
 
 ```text
 1 phase
-Target : 8 %
-Daily Loss Limit : 4 %, soft lock
-Maximum Loss : 8 %, statique, hard breach
-Consistance : 40 %, non-breach
-Jours minimums : 4
-Journées qualifiées : 3
-Seuil journée qualifiée : 0,20 %
+Target : 10 % réalisé uniquement
+Daily Loss Limit : 3 %, soft lock
+Maximum Loss : 10 %, EOD trailing, hard breach
+Best Day Rule : 50 %, non-breach, bloque seulement le passage
+Jours minimums : 0
+Journées qualifiées : aucune en Evaluation
 Durée : illimitée
 Inactivité : 30 jours
 Overnight : autorisé
 Weekend : interdit
 News : autorisées
-Trailing drawdown : non
 Activation fee : non
 ```
 
-### 11.3 Règles Performance candidates
+Le plancher Maximum Loss est recalculé uniquement sur les balances EOD finalisées,
+ne baisse jamais et se verrouille au nominal. Le moteur surveille ensuite l'equity
+contre ce plancher versionné.
+
+### 11.3 Règles Performance v1.1
 
 ```text
 DLL : 3 %
-Maximum Loss : 6 %, statique
-Consistance : 40 % par cycle, non-breach
-Journées qualifiées : 5
-Seuil journée qualifiée : 0,30 %
-Threshold cycle 1 : 4 %
-Threshold cycles 2–5 : 3 %
-Maximum distribuable : 50 %
-Split cycles 1–4 : 80/20
+Maximum Loss : 10 %, EOD trailing
+Best Day Rule : 50 % par cycle, non-breach
+Performance Days : 5 nouvelles journées par payout
+Seuil Performance Day : 0,50 % du nominal réalisé
+Buffer permanent : 10 %, non retirable, construit une seule fois
+Payout : excédent réalisé au-dessus du buffer, limité par le cap applicable
+Split cycles 1–4 : 85/15
 Split cycle 5 : 90/10
 5 payouts maximum avant Review
 Aucun Live garanti
@@ -1129,7 +1135,7 @@ trading.global.close_only
 trading.symbol.{id}.paused
 payments.new_orders.disabled
 payouts.requests.disabled
-product.25k.disabled
+product.{5k|10k|25k|50k|100k}.disabled
 platform.maintenance
 ```
 
@@ -1231,7 +1237,7 @@ Prompt 03 — Identity, Commerce & Activation
 Prompt 04 — Trading Core
 Prompt 05 — Policy, Risk & Evaluation
 Prompt 06 — Trader Hub
-Prompt 07 — WARIBA Trade
+Prompt 07 — WariX
 Prompt 08 — Performance & Payout
 Prompt 09 — WARIBA Control
 Prompt 10 — Help, Support & Assist

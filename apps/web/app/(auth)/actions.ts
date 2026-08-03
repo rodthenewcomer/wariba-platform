@@ -6,6 +6,7 @@ import { createLogger } from '@wariba/observability';
 import { createUserProfile } from '@wariba/application';
 import { createSupabaseServerClient } from '../../lib/supabase/server';
 import { getDb } from '../../lib/db';
+import { safeInternalPath } from '../../lib/navigation';
 
 const logger = createLogger({ service: 'web', module: 'auth.actions' });
 
@@ -100,7 +101,7 @@ export async function signInAction(
     return { error: 'Adresse email ou mot de passe incorrect.' };
   }
 
-  redirect('/hub');
+  redirect(safeInternalPath(formData.get('next')));
 }
 
 export async function signOutAction(): Promise<void> {

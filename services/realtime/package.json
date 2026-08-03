@@ -10,7 +10,8 @@
     "start": "tsx src/index.ts",
     "lint": "eslint --config ../../eslint.config.mjs .",
     "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run --exclude 'tests/*.e2e.test.ts'",
+    "test:e2e": "vitest run tests/auth-isolation.e2e.test.ts"
   },
   "dependencies": {
     "@fastify/websocket": "^11.0.2",

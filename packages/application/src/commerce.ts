@@ -1,5 +1,5 @@
 import {
-  activateEvaluationAccount,
+  activateEvaluationAccountInTransaction,
   recordPaymentEvent,
   type Db,
   type ActivatedAccount,
@@ -16,20 +16,30 @@ export interface ProductDTO {
   priceCurrency: string;
 }
 
+export interface CheckoutContextDTO {
+  offer: ProductDTO;
+  policyVersion: string;
+}
+
 // Mirrors RULESET.json commercial_offers.feature_flags. Flag evaluation is a
 // hardcoded record here rather than a real feature-flag service, which is
 // explicitly later scope (System Architecture §68) — this is not a shortcut
 // around the invariant, it's an honest placeholder for a system that
-// doesn't exist yet. 5K/10K are commercially enabled; 25K/50K/100K are
-// implemented but disabled by default (DECISION_LOG OFFER-021).
-const FEATURE_FLAGS: Record<string, boolean> = {
-  product_25k_enabled: false,
-  product_50k_enabled: false,
-  product_100k_enabled: false,
+// doesn't exist yet. All five sizes are enabled for the private sandbox
+// journey by OFFER-023. These booleans remain independent kill switches and
+// do not authorize a public paid launch.
+export const SANDBOX_PRODUCT_FEATURE_FLAGS = {
+  product_25k_enabled: true,
+  product_50k_enabled: true,
+  product_100k_enabled: true,
 };
 
-function isPurchasable(featureFlagKey: string | null): boolean {
-  return featureFlagKey === null || FEATURE_FLAGS[featureFlagKey] === true;
+export function isSandboxProductFeatureEnabled(featureFlagKey: string | null): boolean {
+  return (
+    featureFlagKey === null ||
+    SANDBOX_PRODUCT_FEATURE_FLAGS[featureFlagKey as keyof typeof SANDBOX_PRODUCT_FEATURE_FLAGS] ===
+      true
+  );
 }
 
 /**
@@ -55,7 +65,7 @@ export async function listActiveProducts(db: Db): Promise<ProductDTO[]> {
     .execute();
 
   return rows
-    .filter((row) => isPurchasable(row.feature_flag_key))
+    .filter((row) => isSandboxProductFeatureEnabled(row.feature_flag_key))
     .map((row) => ({
       code: row.code,
       nominalBalance: row.nominal_balance,
@@ -64,6 +74,24 @@ export async function listActiveProducts(db: Db): Promise<ProductDTO[]> {
       priceAmount: row.price_amount,
       priceCurrency: row.price_currency,
     }));
+}
+
+export async function getCheckoutContext(
+  db: Db,
+  productCode: ProductCode,
+): Promise<CheckoutContextDTO | undefined> {
+  const [offers, policy] = await Promise.all([
+    listActiveProducts(db),
+    db
+      .selectFrom('app.policy_versions')
+      .select('semantic_version')
+      .where('program', '=', 'WARIBA_ONE')
+      .where('status', '=', 'published')
+      .orderBy('effective_from', 'desc')
+      .executeTakeFirst(),
+  ]);
+  const offer = offers.find((candidate) => candidate.code === productCode);
+  return offer && policy ? { offer, policyVersion: policy.semantic_version } : undefined;
 }
 
 export interface PurchaseOrderDTO {
@@ -83,6 +111,7 @@ export interface CreatePurchaseOrderParams {
 
 export type CreatePurchaseOrderResult =
   | { kind: 'product_not_available' }
+  | { kind: 'consent_required' }
   | { kind: 'created'; order: PurchaseOrderDTO }
   | { kind: 'existing'; order: PurchaseOrderDTO };
 
@@ -129,19 +158,29 @@ export async function createPurchaseOrder(
     .where('app.product_versions.retired_at', 'is', null)
     .executeTakeFirst();
 
-  if (!productVersion || !isPurchasable(productVersion.feature_flag_key)) {
+  if (!productVersion || !isSandboxProductFeatureEnabled(productVersion.feature_flag_key)) {
     return { kind: 'product_not_available' };
   }
 
-  const existing = await db
-    .selectFrom('app.purchase_orders')
-    .selectAll()
-    .where('user_id', '=', params.userId)
-    .where('idempotency_key', '=', params.idempotencyKey)
+  const publishedPolicy = await db
+    .selectFrom('app.policy_versions')
+    .select('semantic_version')
+    .where('program', '=', 'WARIBA_ONE')
+    .where('status', '=', 'published')
+    .orderBy('effective_from', 'desc')
     .executeTakeFirst();
-
-  if (existing) {
-    return { kind: 'existing', order: toPurchaseOrderDTO(existing) };
+  if (!publishedPolicy) {
+    return { kind: 'product_not_available' };
+  }
+  const consent = await db
+    .selectFrom('app.user_consents')
+    .select('id')
+    .where('user_id', '=', params.userId)
+    .where('consent_type', '=', 'simulated_account_disclosure')
+    .where('policy_version_id', '=', publishedPolicy.semantic_version)
+    .executeTakeFirst();
+  if (!consent) {
+    return { kind: 'consent_required' };
   }
 
   const created = await db
@@ -154,8 +193,19 @@ export async function createPurchaseOrder(
       total_amount: productVersion.price_amount,
       total_currency: productVersion.price_currency,
     })
+    .onConflict((oc) => oc.columns(['user_id', 'idempotency_key']).doNothing())
     .returningAll()
-    .executeTakeFirstOrThrow();
+    .executeTakeFirst();
+
+  if (!created) {
+    const existing = await db
+      .selectFrom('app.purchase_orders')
+      .selectAll()
+      .where('user_id', '=', params.userId)
+      .where('idempotency_key', '=', params.idempotencyKey)
+      .executeTakeFirstOrThrow();
+    return { kind: 'existing', order: toPurchaseOrderDTO(existing) };
+  }
 
   return { kind: 'created', order: toPurchaseOrderDTO(created) };
 }
@@ -195,7 +245,11 @@ export async function recordPaymentAttempt(
       amount: params.amount,
       currency: params.currency,
       provider_reference: params.providerReference,
+      attempt_key: params.purchaseOrderId,
     })
+    .onConflict((oc) =>
+      oc.columns(['provider', 'attempt_key']).where('attempt_key', 'is not', null).doNothing(),
+    )
     .execute();
 }
 
@@ -215,6 +269,7 @@ export type ProcessPaymentWebhookEventResult =
   | { kind: 'invalid_signature' }
   | { kind: 'unknown_order' }
   | { kind: 'amount_mismatch'; expected: string; received: string }
+  | { kind: 'ignored_order_state'; status: string }
   | { kind: 'failed_recorded' }
   | { kind: 'confirmed'; account: ActivatedAccount };
 
@@ -245,102 +300,120 @@ export async function processPaymentWebhookEvent(
   db: Db,
   params: ProcessPaymentWebhookEventParams,
 ): Promise<ProcessPaymentWebhookEventResult> {
-  const order = await db
-    .selectFrom('app.purchase_orders')
-    .selectAll()
-    .where('id', '=', params.purchaseOrderId)
-    .executeTakeFirst();
+  return db.transaction().execute(async (trx) => {
+    const timestamp = new Date();
+    const orderQuery = trx
+      .selectFrom('app.purchase_orders')
+      .selectAll()
+      .where('id', '=', params.purchaseOrderId);
+    const order = params.signatureValid
+      ? await orderQuery.forUpdate().executeTakeFirst()
+      : await orderQuery.executeTakeFirst();
 
-  const { isNewEvent } = await recordPaymentEvent(db, {
-    provider: params.provider,
-    eventId: params.eventId,
-    eventType: params.eventType,
-    payload: params.payload,
-    signatureValid: params.signatureValid,
-    purchaseOrderId: order ? order.id : null,
-  });
+    const { isNewEvent } = await recordPaymentEvent(trx, {
+      provider: params.provider,
+      eventId: params.eventId,
+      eventType: params.eventType,
+      payload: params.payload,
+      signatureValid: params.signatureValid,
+      purchaseOrderId: order ? order.id : null,
+    });
 
-  if (!isNewEvent) {
-    return { kind: 'duplicate' };
-  }
+    if (!isNewEvent) {
+      return { kind: 'duplicate' };
+    }
 
-  if (!params.signatureValid) {
-    return { kind: 'invalid_signature' };
-  }
-
-  if (!order) {
-    return { kind: 'unknown_order' };
-  }
-
-  // Server controls the amount/currency check — never trust the webhook
-  // body's amount over what the order actually says.
-  if (order.total_amount !== params.amount || order.total_currency !== params.currency) {
-    return {
-      kind: 'amount_mismatch',
-      expected: `${order.total_amount} ${order.total_currency}`,
-      received: `${params.amount} ${params.currency}`,
+    const markProcessed = async (): Promise<void> => {
+      await trx
+        .updateTable('app.payment_events')
+        .set({ processed_at: timestamp })
+        .where('provider', '=', params.provider)
+        .where('event_id', '=', params.eventId)
+        .execute();
     };
-  }
 
-  if (params.eventType === 'payment.failed') {
+    if (!params.signatureValid) {
+      await markProcessed();
+      return { kind: 'invalid_signature' };
+    }
+
+    if (!order) {
+      await markProcessed();
+      return { kind: 'unknown_order' };
+    }
+
+    if (order.total_amount !== params.amount || order.total_currency !== params.currency) {
+      await markProcessed();
+      return {
+        kind: 'amount_mismatch',
+        expected: `${order.total_amount} ${order.total_currency}`,
+        received: `${params.amount} ${params.currency}`,
+      };
+    }
+
+    if (params.eventType === 'payment.failed') {
+      if (order.status === 'pending_payment') {
+        assertPurchaseOrderTransition('pending_payment', 'payment_failed');
+        await trx
+          .updateTable('app.purchase_orders')
+          .set({ status: 'payment_failed', updated_at: timestamp })
+          .where('id', '=', order.id)
+          .where('status', '=', 'pending_payment')
+          .execute();
+        await trx
+          .updateTable('app.payment_attempts')
+          .set({ status: 'failed', updated_at: timestamp })
+          .where('purchase_order_id', '=', order.id)
+          .execute();
+      }
+      await markProcessed();
+      return { kind: 'failed_recorded' };
+    }
+
+    if (!['pending_payment', 'paid', 'fulfilled'].includes(order.status)) {
+      await markProcessed();
+      return { kind: 'ignored_order_state', status: order.status };
+    }
+
     if (order.status === 'pending_payment') {
-      assertPurchaseOrderTransition('pending_payment', 'payment_failed');
-      await db
+      assertPurchaseOrderTransition('pending_payment', 'paid');
+      await trx
         .updateTable('app.purchase_orders')
-        .set({ status: 'payment_failed', updated_at: new Date() })
+        .set({ status: 'paid', updated_at: timestamp })
         .where('id', '=', order.id)
         .where('status', '=', 'pending_payment')
         .execute();
+      await trx
+        .updateTable('app.payment_attempts')
+        .set({ status: 'confirmed', updated_at: timestamp })
+        .where('purchase_order_id', '=', order.id)
+        .execute();
+      await trx
+        .insertInto('app.receipts')
+        .values({
+          purchase_order_id: order.id,
+          amount: order.total_amount,
+          currency: order.total_currency,
+        })
+        .onConflict((oc) => oc.column('purchase_order_id').doNothing())
+        .execute();
     }
-    await db
-      .updateTable('app.payment_attempts')
-      .set({ status: 'failed', updated_at: new Date() })
-      .where('purchase_order_id', '=', order.id)
-      .execute();
-    return { kind: 'failed_recorded' };
-  }
 
-  // params.eventType === 'payment.confirmed'
-  if (order.status === 'pending_payment') {
-    assertPurchaseOrderTransition('pending_payment', 'paid');
-    await db
-      .updateTable('app.purchase_orders')
-      .set({ status: 'paid', updated_at: new Date() })
-      .where('id', '=', order.id)
-      .where('status', '=', 'pending_payment')
-      .execute();
-    await db
-      .updateTable('app.payment_attempts')
-      .set({ status: 'confirmed', updated_at: new Date() })
-      .where('purchase_order_id', '=', order.id)
-      .execute();
-    await db
-      .insertInto('app.receipts')
-      .values({
-        purchase_order_id: order.id,
-        amount: order.total_amount,
-        currency: order.total_currency,
-      })
-      .onConflict((oc) => oc.column('purchase_order_id').doNothing())
-      .execute();
-  }
-  // If status is already 'paid' or 'fulfilled', this is a retried/duplicate
-  // webhook past the first update — fall through to activation, which is
-  // itself idempotent (see activateEvaluationAccount).
+    const productVersion = await trx
+      .selectFrom('app.product_versions')
+      .innerJoin('app.products', 'app.products.id', 'app.product_versions.product_id')
+      .select(['app.products.nominal_balance', 'app.products.nominal_currency'])
+      .where('app.product_versions.id', '=', order.product_version_id)
+      .executeTakeFirstOrThrow();
 
-  const productVersion = await db
-    .selectFrom('app.product_versions')
-    .innerJoin('app.products', 'app.products.id', 'app.product_versions.product_id')
-    .select(['app.products.nominal_balance', 'app.products.nominal_currency'])
-    .where('app.product_versions.id', '=', order.product_version_id)
-    .executeTakeFirstOrThrow();
-
-  const account = await activateEvaluationAccount(db, {
-    purchaseOrderId: order.id,
-    userId: order.user_id,
-    nominalBalance: productVersion.nominal_balance,
-    currency: productVersion.nominal_currency,
+    const account = await activateEvaluationAccountInTransaction(trx, {
+      purchaseOrderId: order.id,
+      userId: order.user_id,
+      nominalBalance: productVersion.nominal_balance,
+      currency: productVersion.nominal_currency,
+      now: () => timestamp,
+    });
+    await markProcessed();
+    return { kind: 'confirmed', account };
   });
-
-  return { kind: 'confirmed', account };
 }

@@ -78,6 +78,7 @@ function buildResultMessage(
     order: toOrderDTO({
       accountId,
       orderId: result.order.orderId,
+      idempotencyKey,
       orderType,
       symbol: result.position?.symbol ?? null,
       side: result.position?.side ?? null,

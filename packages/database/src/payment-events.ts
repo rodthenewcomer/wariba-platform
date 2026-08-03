@@ -1,4 +1,4 @@
-import type { Db } from './client';
+import type { DbExecutor } from './client';
 
 export interface RecordPaymentEventParams {
   provider: string;
@@ -22,7 +22,7 @@ export interface RecordPaymentEventResult {
  * the caller returns the original result instead of reprocessing.
  */
 export async function recordPaymentEvent(
-  db: Db,
+  db: DbExecutor,
   params: RecordPaymentEventParams,
 ): Promise<RecordPaymentEventResult> {
   const result = await db

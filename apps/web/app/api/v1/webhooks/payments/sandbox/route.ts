@@ -125,6 +125,17 @@ export async function POST(request: Request) {
         { status: 409, headers },
       );
 
+    case 'ignored_order_state':
+      logger.warn('payment_webhook.ignored_order_state', {
+        correlationId,
+        orderId: event.purchaseOrderId,
+        status: result.status,
+      });
+      return NextResponse.json(
+        { data: { received: true, ignored: true }, meta: { correlationId } },
+        { headers },
+      );
+
     case 'failed_recorded':
       logger.info('payment.failed', { correlationId, orderId: event.purchaseOrderId });
       return NextResponse.json({ data: { received: true }, meta: { correlationId } }, { headers });

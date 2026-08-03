@@ -9,11 +9,13 @@
   "scripts": {
     "lint": "eslint --config ../../eslint.config.mjs .",
     "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run --exclude 'tests/*.integration.test.ts' --passWithNoTests",
+    "test:integration": "vitest run tests/activation.integration.test.ts tests/trading.integration.test.ts tests/trading-properties.integration.test.ts",
+    "test:rls": "vitest run --testTimeout=15000 tests/identity-commerce-rls.integration.test.ts tests/trading-rls.integration.test.ts"
   },
   "dependencies": {
     "@wariba/domain": "workspace:*",
-    "kysely": "^0.27.4",
+    "kysely": "^0.28.17",
     "pg": "^8.13.1"
   },
   "devDependencies": {

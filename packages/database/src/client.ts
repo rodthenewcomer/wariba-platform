@@ -1,4 +1,4 @@
-import { Kysely, PostgresDialect } from 'kysely';
+import { Kysely, PostgresDialect, type Transaction } from 'kysely';
 import pg from 'pg';
 import type { Database } from './schema';
 
@@ -20,4 +20,5 @@ export function createDbClient(connectionString: string): Kysely<Database> {
 }
 
 export type Db = Kysely<Database>;
+export type DbExecutor = Db | Transaction<Database>;
 export type { Database } from './schema';

@@ -6,10 +6,15 @@ import {
 } from '@wariba/observability';
 import { checkoutInputSchema } from '@wariba/validation';
 import { SandboxPaymentProvider } from '@wariba/adapters';
-import { createPurchaseOrder, recordPaymentAttempt } from '@wariba/application';
+import {
+  acceptSandboxDisclosure,
+  createPurchaseOrder,
+  recordPaymentAttempt,
+} from '@wariba/application';
 import { createSupabaseServerClient } from '../../../../lib/supabase/server';
 import { getDb } from '../../../../lib/db';
 import { loadWebConfig } from '../../../../lib/config';
+import { hasTrustedMutationOrigin } from '../../../../lib/request-security';
 
 const logger = createLogger({ service: 'web', module: 'orders' });
 
@@ -22,6 +27,21 @@ const logger = createLogger({ service: 'web', module: 'orders' });
 export async function POST(request: Request) {
   const correlationId = correlationIdFromHeaders(Object.fromEntries(request.headers.entries()));
   const headers = { [CORRELATION_ID_HEADER]: correlationId };
+  const config = loadWebConfig();
+
+  if (!hasTrustedMutationOrigin(request, config.APP_BASE_URL)) {
+    return NextResponse.json(
+      {
+        error: {
+          code: 'ORIGIN_NOT_ALLOWED',
+          message: 'Origine de requête refusée.',
+          retryable: false,
+        },
+        meta: { correlationId },
+      },
+      { status: 403, headers },
+    );
+  }
 
   const supabase = await createSupabaseServerClient();
   const {
@@ -60,6 +80,11 @@ export async function POST(request: Request) {
   }
 
   const db = getDb();
+  await acceptSandboxDisclosure(db, {
+    userId: user.id,
+    locale: 'fr',
+    correlationId,
+  });
   const result = await createPurchaseOrder(db, {
     userId: user.id,
     productCode: parsed.data.productCode,
@@ -80,12 +105,25 @@ export async function POST(request: Request) {
     );
   }
 
+  if (result.kind === 'consent_required') {
+    return NextResponse.json(
+      {
+        error: {
+          code: 'CONSENT_REQUIRED',
+          message: 'Acceptez la divulgation du compte simulé pour continuer.',
+          retryable: false,
+        },
+        meta: { correlationId },
+      },
+      { status: 409, headers },
+    );
+  }
+
   const { order } = result;
   if (result.kind === 'created') {
     logger.info('order.created', { correlationId, orderId: order.id, userId: user.id });
   }
 
-  const config = loadWebConfig();
   const provider = new SandboxPaymentProvider(config.SANDBOX_WEBHOOK_SECRET);
   const initiation = await provider.initiate({
     purchaseOrderId: order.id,

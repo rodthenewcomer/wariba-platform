@@ -11,7 +11,8 @@
     "lint": "eslint --config ../../eslint.config.mjs .",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run",
-    "visual-verify": "node scripts/visual-verify.mjs"
+    "visual-verify": "node scripts/visual-verify.mjs",
+    "test:visual": "node scripts/visual-verify.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

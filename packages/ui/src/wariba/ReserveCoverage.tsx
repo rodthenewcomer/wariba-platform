@@ -32,7 +32,7 @@ const ZONE_META: Record<ReserveZone, { label: string; tone: string }> = {
 const ZONE_ACTION: Record<ReserveZone, string> = {
   normal: 'Ventes et promotions normales.',
   prudence: 'Réduire les promotions, surveiller les cohortes.',
-  defensive: 'Suspendre le 25K, alimenter la réserve.',
+  defensive: 'Suspendre les nouvelles ventes à plus forte exposition, alimenter la réserve.',
   critical: 'Suspendre les nouvelles ventes, alimenter la réserve, revue exécutive.',
 };
 

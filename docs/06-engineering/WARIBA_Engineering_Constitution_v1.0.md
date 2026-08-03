@@ -26,6 +26,13 @@ next_documents:
 
 > **Le code sert le produit. Le produit sert les règles. Les règles ne sont jamais improvisées par le code.**
 
+> **Addendum Rules v1.1 — 2026-08-03**
+> Les nouvelles policies et symbol spec sets sont publiés en version 1.1 ; une
+> policy 1.0 déjà attachée n'est jamais modifiée. Les calculs EOD trailing,
+> buffer, Performance Days, caps nets et exposition agrégée demeurent
+> server-authoritative. La devise commerciale et de règlement est XOF ; les
+> balances, risques et payouts simulés restent comptabilisés en USD décimal.
+
 ## Contrôle du document
 
 | Champ | Valeur |
@@ -34,8 +41,8 @@ next_documents:
 | Domaine | `wariba.app` |
 | État réel du projet | Dossier créé, aucun code commencé |
 | Dépôt | GitHub privé `wariba-platform` |
-| Agent principal | Codex |
-| Auditeur secondaire futur | Claude Code |
+| Agents IA autorisés | Codex, Claude Code ou tout autre agent IA explicitement mandaté |
+| Rôles autorisés | Construction, modification, audit et documentation — voir AI-015 |
 | Architecture | Modular monolith |
 | Frontend | Next.js + React + TypeScript strict |
 | Backend | Node.js + Fastify ou intégration serveur équivalente validée |
@@ -78,8 +85,7 @@ Elle impose :
 
 Elle s’applique :
 
-- à Codex ;
-- à Claude Code ;
+- à tout agent IA explicitement mandaté, notamment Codex et Claude Code ;
 - aux développeurs humains ;
 - aux scripts ;
 - aux migrations ;
@@ -189,7 +195,7 @@ Aucun fallback silencieux ne fabrique une valeur métier.
 
 ## 4.1 Runtime
 
-- Node.js LTS au moment de l’initialisation ;
+- Node.js 24 LTS, conformément à ENG-027 ;
 - version épinglée dans le dépôt ;
 - même version en local, CI, staging et production.
 
@@ -1977,7 +1983,7 @@ Accès limité et audité.
 
 ## 53.1 Usage
 
-- 25K ;
+- tailles commerciales 5K, 10K, 25K, 50K et 100K ;
 - nouvelle fonction ;
 - rollout limité ;
 - incident ;
@@ -1994,6 +2000,8 @@ Les changements sensibles sont audités.
 ## 53.4 Safe default
 
 Flag inconnue = off.
+
+Pour la bêta sandbox régie par OFFER-023, les cinq flags commerciaux connus sont activés. Cette configuration n’autorise pas une vente publique et peut être coupée indépendamment par taille.
 
 ---
 
@@ -2198,13 +2206,13 @@ Pseudonymisés.
 
 # 62. AI Engineering Rules
 
-## 62.1 Codex
+## 62.1 Agents IA autorisés
 
-Constructeur principal.
+Codex, Claude Code ou tout autre agent IA explicitement mandaté peut construire, modifier, auditer et documenter le code.
 
-## 62.2 Claude Code
+## 62.2 Mandat et séparation des rôles
 
-Auditeur ponctuel futur.
+Les rôles ne sont pas exclusifs à un outil. Le mandat précise la tâche et la branche. Un audit déclaré indépendant est réalisé par un agent distinct de l’implémentation auditée.
 
 ## 62.3 Un agent, une branche
 
@@ -2685,7 +2693,7 @@ Sans blâme, avec actions.
 
 ---
 
-# 82. Branching avec Codex
+# 82. Branching avec un agent IA
 
 Workflow :
 
@@ -2694,7 +2702,7 @@ main
   ↓
 feat/foundation
   ↓
-Codex travaille
+agent IA mandaté travaille
   ↓
 tests locaux
   ↓
@@ -2709,13 +2717,13 @@ review humaine
 merge
 ```
 
-Codex ne décide pas seul de fusionner.
+Un agent IA ne décide pas seul de fusionner.
 
 ---
 
-# 83. Utilisation future de Claude Code
+# 83. Audit indépendant par un agent IA
 
-Claude Code est utilisé pour :
+Claude Code, Codex en mode audit distinct ou tout autre agent IA mandaté peut être utilisé pour :
 
 - audit architecture ;
 - sécurité ;
@@ -2724,9 +2732,9 @@ Claude Code est utilisé pour :
 - tests manquants ;
 - divergence spécifications/code.
 
-Il ne réécrit pas automatiquement tout le dépôt.
+L’agent auditeur ne réécrit pas automatiquement tout le dépôt.
 
-Ses findings sont triés avant correction.
+Ses findings sont triés avant correction. Les corrections peuvent être confiées à tout agent IA mandaté sur une branche appropriée.
 
 ---
 
@@ -3000,7 +3008,7 @@ Le premier prompt Foundation ne peut être exécuté que si :
 - dossier local relié ou prêt à être relié ;
 - aucune référence R1STER restante dans les documents actifs ;
 - marque WARIBA confirmée comme marque de travail ;
-- agent principal Codex confirmé.
+- autorisation multi-agent confirmée conformément à AI-015.
 
 Le System Architecture peut être finalisé avant ou pendant la préparation du Prompt Foundation, mais aucune logique métier ne doit être codée avant sa validation.
 
@@ -3024,8 +3032,8 @@ Le System Architecture peut être finalisé avant ou pendant la préparation du 
 | ENG-012 | GitHub privé | `LOCKED` | Source de vérité |
 | ENG-013 | CI obligatoire | `LOCKED` | Contrôle |
 | ENG-014 | Production manuelle | `LOCKED` | Réduction du risque |
-| ENG-015 | Codex constructeur principal | `LOCKED` | Workflow |
-| ENG-016 | Claude auditeur futur | `LOCKED` | Séparation |
+| ENG-015 | Tout agent IA explicitement mandaté peut construire et modifier | `LOCKED` | AI-015 |
+| ENG-016 | Audit indépendant par un agent distinct aux checkpoints requis | `LOCKED` | Séparation |
 | ENG-017 | Aucune branche develop | `LOCKED` | Simplicité |
 | ENG-018 | RLS obligatoire | `LOCKED` | Isolation |
 | ENG-019 | PWA, pas native | `LOCKED` | Scope V1 |
@@ -3154,6 +3162,6 @@ Le produit doit être construit comme un système financier simulé :
 
 La vitesse n’est pas l’absence de discipline.
 
-La bonne discipline permet à Codex de produire vite sans détruire la cohérence.
+La bonne discipline permet à tout agent IA mandaté de produire vite sans détruire la cohérence.
 
 Cette Constitution v1.0 devient obligatoire pour le futur dépôt. Tout agent, développeur, script ou prompt doit la respecter. Toute dérogation significative nécessite un Decision Log, une justification, des tests et une validation explicite.

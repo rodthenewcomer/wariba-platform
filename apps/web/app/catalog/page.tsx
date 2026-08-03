@@ -230,7 +230,7 @@ export default function CatalogPage() {
           <ExecutionState state="partially-filled" />
           <ExecutionState state="rejected" />
         </Stack>
-        <PolicyVersionChip version="1.0.0" status="published" effectiveDateLabel="1 août 2026" />
+        <PolicyVersionChip version="1.1.0" status="published" effectiveDateLabel="3 août 2026" />
       </Section>
 
       <Section title="WARIBA — RiskRibbon (all statuses)">
@@ -250,14 +250,17 @@ export default function CatalogPage() {
         </div>
       </Section>
 
-      <Section title="WARIBA — MissionProgress, ConsistencyMeter, QualifiedDaysTracker">
+      <Section title="WARIBA — MissionProgress, Best Day, Performance Days">
         <div className="w-96">
           <MissionProgress
             variant="evaluation"
             state="active"
             title="WARIBA ONE — 10 000 USD"
             progressPercent={72}
-            conditions={[{ label: 'Objectif (8%)', detail: '576/800 USD', met: false }]}
+            conditions={[
+              { label: 'Objectif réalisé (10 %)', detail: '720 / 1 000 USD', met: false },
+              { label: 'Best Day Rule (50 %)', detail: '48 %', met: true },
+            ]}
             nextAction={<Text variant="body-sm">Continuer.</Text>}
           />
         </div>
