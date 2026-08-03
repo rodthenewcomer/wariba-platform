@@ -14,6 +14,16 @@ const describeIfDb = DATABASE_URL ? describe : describe.skip;
 const NOW = new Date();
 const FRESH_TICK = NOW.toISOString();
 const EURUSD_MARKET = { bid: '1.08450', ask: '1.08460', timestamp: FRESH_TICK, sequence: '1' };
+// Used only for the post-trade risk evaluation's equity calc (fill pricing
+// always uses the per-call `market` param) — full 5-symbol coverage so an
+// account with positions in multiple symbols always gets an accurate check.
+const ALL_MARKETS = {
+  EURUSD: EURUSD_MARKET,
+  GBPUSD: { bid: '1.26000', ask: '1.26020', timestamp: FRESH_TICK, sequence: '900' },
+  USDJPY: { bid: '150.100', ask: '150.120', timestamp: FRESH_TICK, sequence: '900' },
+  XAUUSD: { bid: '2000.00', ask: '2000.30', timestamp: FRESH_TICK, sequence: '900' },
+  NAS100: { bid: '18000.0', ask: '18002.0', timestamp: FRESH_TICK, sequence: '900' },
+};
 
 describeIfDb('trading — real database', () => {
   let db: Db;
@@ -103,6 +113,10 @@ describeIfDb('trading — real database', () => {
         await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', p.id).execute();
       }
       await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', id).execute();
+      // risk_violations references both account_state_transitions and
+      // account_daily_snapshots — must be deleted before either.
+      await db.deleteFrom('app.risk_violations').where('account_id', '=', id).execute();
+      await db.deleteFrom('app.account_daily_snapshots').where('account_id', '=', id).execute();
       await db.deleteFrom('app.account_state_transitions').where('account_id', '=', id).execute();
       const account = await db
         .selectFrom('app.trading_accounts')
@@ -137,6 +151,7 @@ describeIfDb('trading — real database', () => {
       side: 'buy',
       quantity: '0.10',
       market: EURUSD_MARKET,
+      marketBySymbol: ALL_MARKETS,
       now: NOW,
     });
 
@@ -175,6 +190,7 @@ describeIfDb('trading — real database', () => {
       side: 'sell',
       quantity: '0.10',
       market: { bid: '1.26000', ask: '1.26020', timestamp: FRESH_TICK, sequence: '2' },
+      marketBySymbol: ALL_MARKETS,
       now: NOW,
     });
     const second = await openPosition(db, {
@@ -184,6 +200,7 @@ describeIfDb('trading — real database', () => {
       side: 'sell',
       quantity: '0.10',
       market: { bid: '1.26000', ask: '1.26020', timestamp: FRESH_TICK, sequence: '2' },
+      marketBySymbol: ALL_MARKETS,
       now: NOW,
     });
 
@@ -212,6 +229,7 @@ describeIfDb('trading — real database', () => {
       side: 'buy',
       quantity: '0.001',
       market: EURUSD_MARKET,
+      marketBySymbol: ALL_MARKETS,
       now: NOW,
     });
     expect(result.order.status).toBe('rejected');
@@ -233,6 +251,7 @@ describeIfDb('trading — real database', () => {
       side: 'buy',
       quantity: '0.10',
       market: { bid: '1.08450', ask: '1.08460', timestamp: staleTick, sequence: '3' },
+      marketBySymbol: ALL_MARKETS,
       now: NOW,
     });
     expect(result.order.status).toBe('rejected');
@@ -247,6 +266,7 @@ describeIfDb('trading — real database', () => {
       side: 'buy',
       quantity: '0.50',
       market: { bid: '150.100', ask: '150.120', timestamp: FRESH_TICK, sequence: '14' },
+      marketBySymbol: ALL_MARKETS,
       now: NOW,
     });
 
@@ -300,6 +320,7 @@ describeIfDb('trading — real database', () => {
         side: 'buy',
         quantity: '0.10',
         market: EURUSD_MARKET,
+        marketBySymbol: ALL_MARKETS,
         now: NOW,
       });
       expect(result.order.status).toBe('rejected');
@@ -331,6 +352,7 @@ describeIfDb('trading — real database', () => {
       side: 'buy',
       quantity: '0.10',
       market: { bid: '2000.00', ask: '2000.30', timestamp: FRESH_TICK, sequence: '4' },
+      marketBySymbol: ALL_MARKETS,
       now: NOW,
     });
     const positionId = open.position?.id as string;
@@ -342,6 +364,7 @@ describeIfDb('trading — real database', () => {
       mode: 'partial',
       quantity: '0.04',
       market: { bid: '2010.00', ask: '2010.30', timestamp: FRESH_TICK, sequence: '5' },
+      marketBySymbol: ALL_MARKETS,
       now: NOW,
     });
 
@@ -359,6 +382,7 @@ describeIfDb('trading — real database', () => {
       side: 'sell',
       quantity: '1',
       market: { bid: '18000.0', ask: '18002.0', timestamp: FRESH_TICK, sequence: '6' },
+      marketBySymbol: ALL_MARKETS,
       now: NOW,
     });
     const positionId = open.position?.id as string;
@@ -369,6 +393,7 @@ describeIfDb('trading — real database', () => {
       positionId,
       mode: 'full',
       market: { bid: '17990.0', ask: '17992.0', timestamp: FRESH_TICK, sequence: '7' },
+      marketBySymbol: ALL_MARKETS,
       now: NOW,
     });
 
@@ -391,6 +416,7 @@ describeIfDb('trading — real database', () => {
       positionId: randomUUID(),
       mode: 'full',
       market: EURUSD_MARKET,
+      marketBySymbol: ALL_MARKETS,
       now: NOW,
     });
     expect(result.order.status).toBe('rejected');
@@ -405,6 +431,7 @@ describeIfDb('trading — real database', () => {
       side: 'buy',
       quantity: '0.10',
       market: { bid: '150.100', ask: '150.120', timestamp: FRESH_TICK, sequence: '8' },
+      marketBySymbol: ALL_MARKETS,
       now: NOW,
     });
     const positionId = open.position?.id as string;
@@ -415,6 +442,7 @@ describeIfDb('trading — real database', () => {
       positionId,
       field: 'stop_loss',
       value: '149.500',
+      marketBySymbol: ALL_MARKETS,
       now: NOW,
     });
 
@@ -434,6 +462,7 @@ describeIfDb('trading — real database', () => {
           side: 'buy',
           quantity: '0.05',
           market: EURUSD_MARKET,
+          marketBySymbol: ALL_MARKETS,
           now: NOW,
         }),
       ),
@@ -450,6 +479,7 @@ describeIfDb('trading — real database', () => {
       side: 'buy',
       quantity: '0.10',
       market: { bid: '1.26000', ask: '1.26020', timestamp: FRESH_TICK, sequence: '9' },
+      marketBySymbol: ALL_MARKETS,
       now: NOW,
     });
 

@@ -8,7 +8,12 @@ import {
   type MarketSnapshot,
   type TradableSymbol,
 } from '@wariba/database';
-import type { SubmitOrderMessage, CloseAllMessage, OrderResultMessage } from '@wariba/contracts';
+import {
+  TRADABLE_SYMBOLS,
+  type SubmitOrderMessage,
+  type CloseAllMessage,
+  type OrderResultMessage,
+} from '@wariba/contracts';
 import type { SandboxMarketDataProvider } from '@wariba/adapters';
 import type { LoadedSymbolSpec } from './market';
 import { toOrderDTO, toPositionDTO, toFillDTO } from './dto-mappers';
@@ -32,6 +37,19 @@ function readMarketSnapshot(
     timestamp: tick.timestamp,
     sequence: String(tick.sequence),
   };
+}
+
+/**
+ * Prompt 05: every trade command now also runs a risk evaluation covering
+ * every open position on the account, not just the symbol being traded —
+ * so it always needs live quotes for all tradable symbols, not just one.
+ */
+function readAllMarkets(market: SandboxMarketDataProvider): Record<TradableSymbol, MarketSnapshot> {
+  const result = {} as Record<TradableSymbol, MarketSnapshot>;
+  for (const symbol of TRADABLE_SYMBOLS) {
+    result[symbol] = readMarketSnapshot(market, symbol);
+  }
+  return result;
 }
 
 export async function verifyAccountOwnership(
@@ -115,6 +133,7 @@ export async function handleSubmitOrder(
   }
 
   const now = new Date();
+  const marketBySymbol = readAllMarkets(market);
 
   if (msg.orderType === 'market_open') {
     const result = await openPosition(db, {
@@ -125,7 +144,8 @@ export async function handleSubmitOrder(
       quantity: msg.quantity,
       ...(msg.stopLoss !== undefined && { stopLoss: msg.stopLoss }),
       ...(msg.takeProfit !== undefined && { takeProfit: msg.takeProfit }),
-      market: readMarketSnapshot(market, msg.symbol),
+      market: marketBySymbol[msg.symbol],
+      marketBySymbol,
       now,
     });
     return {
@@ -142,7 +162,8 @@ export async function handleSubmitOrder(
       positionId: msg.positionId,
       mode: 'partial',
       quantity: msg.quantity,
-      market: readMarketSnapshot(market, symbol),
+      market: marketBySymbol[symbol],
+      marketBySymbol,
       now,
     });
     return {
@@ -158,7 +179,8 @@ export async function handleSubmitOrder(
       idempotencyKey: msg.idempotencyKey,
       positionId: msg.positionId,
       mode: 'full',
-      market: readMarketSnapshot(market, symbol),
+      market: marketBySymbol[symbol],
+      marketBySymbol,
       now,
     });
     return {
@@ -174,6 +196,7 @@ export async function handleSubmitOrder(
     positionId: msg.positionId,
     field: msg.orderType === 'modify_sl' ? 'stop_loss' : 'take_profit',
     value: msg.orderType === 'modify_sl' ? msg.stopLoss : msg.takeProfit,
+    marketBySymbol,
     now,
   });
   return {

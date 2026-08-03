@@ -2,7 +2,7 @@
   "name": "@wariba/worker",
   "version": "0.0.0",
   "private": true,
-  "description": "WARIBA Worker — background jobs process (foundation: health endpoint only, no jobs yet).",
+  "description": "WARIBA Worker — background jobs process (Prompt 05: daily policy-risk finalization job).",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -10,10 +10,12 @@
     "start": "tsx src/index.ts",
     "lint": "eslint --config ../../eslint.config.mjs .",
     "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run --exclude 'tests/*.integration.test.ts'",
+    "test:integration": "vitest run --no-file-parallelism tests/daily-finalization-job.integration.test.ts"
   },
   "dependencies": {
     "@wariba/config": "workspace:*",
+    "@wariba/database": "workspace:*",
     "@wariba/observability": "workspace:*",
     "zod": "^3.24.1"
   },

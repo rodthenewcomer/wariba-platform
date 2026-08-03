@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Transaction } from 'kysely';
 import type { Database, Db } from './client';
+import { loadPublishedPolicy } from './policy';
 
 export interface ActivateEvaluationAccountParams {
   purchaseOrderId: string;
@@ -87,18 +88,7 @@ export async function activateEvaluationAccountInTransaction(
     };
   }
 
-  const policyVersion = await trx
-    .selectFrom('app.policy_versions')
-    .select('id')
-    .where('program', '=', 'WARIBA_ONE')
-    .where('status', '=', 'published')
-    .orderBy('effective_from', 'desc')
-    .executeTakeFirstOrThrow(
-      () =>
-        new Error(
-          'No published WARIBA_ONE policy version — cannot activate an account without one.',
-        ),
-    );
+  const policyVersion = await loadPublishedPolicy(trx, 'WARIBA_ONE');
 
   const symbolSpecSet = await trx
     .selectFrom('app.symbol_spec_sets')
