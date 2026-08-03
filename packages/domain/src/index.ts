@@ -2,8 +2,9 @@
  * @wariba/domain — Business domain modules: identity, commerce, trading, policy-risk, performance-payout, support, operations.
  *
  * Prompt 03 (Identity, Commerce & Activation) adds Money, the purchase-order
- * and evaluation-account state machines, and DomainError. Trading/policy-risk/
- * performance-payout domain logic lands in later prompts.
+ * and evaluation-account state machines, and DomainError. Prompt 04
+ * (Trading Core) adds the trade-order and position state machines.
+ * Policy-risk/performance-payout domain logic lands in later prompts.
  */
 
 export const PACKAGE_NAME = '@wariba/domain';
@@ -13,9 +14,30 @@ export { DomainError } from './errors';
 export {
   assertPurchaseOrderTransition,
   assertEvaluationAccountTransition,
+  assertTradeOrderTransition,
+  assertPositionTransition,
   InvalidTransitionError,
   PURCHASE_ORDER_TERMINAL_STATUSES,
   EVALUATION_ACCOUNT_TERMINAL_STATUSES,
+  TRADE_ORDER_TERMINAL_STATUSES,
+  POSITION_TERMINAL_STATUSES,
   type PurchaseOrderStatus,
   type EvaluationAccountStatus,
+  type TradeOrderStatus,
+  type PositionStatus,
 } from './state-machines';
+export {
+  quotedPrice,
+  applySlippage,
+  computeFillPrice,
+  computeRealizedPnl,
+  computeCommission,
+  openingAveragePrice,
+  isQuantityWithinBounds,
+  isStale,
+  isPartialCloseQuantityValid,
+  subtractQuantity,
+  addRealizedPnl,
+  type OrderSide,
+  type FillAction,
+} from './trading-math';

@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   assertPurchaseOrderTransition,
   assertEvaluationAccountTransition,
+  assertTradeOrderTransition,
+  assertPositionTransition,
   InvalidTransitionError,
   PURCHASE_ORDER_TERMINAL_STATUSES,
   EVALUATION_ACCOUNT_TERMINAL_STATUSES,
+  TRADE_ORDER_TERMINAL_STATUSES,
+  POSITION_TERMINAL_STATUSES,
 } from '../src/state-machines';
 
 describe('purchase order state machine', () => {
@@ -61,5 +65,51 @@ describe('evaluation account state machine', () => {
 
   it('terminal statuses match the RULESET.json source of truth', () => {
     expect(EVALUATION_ACCOUNT_TERMINAL_STATUSES).toEqual(['passed', 'breached', 'closed']);
+  });
+});
+
+describe('trade order state machine', () => {
+  it('allows the full happy path', () => {
+    expect(() => assertTradeOrderTransition('received', 'validated')).not.toThrow();
+    expect(() => assertTradeOrderTransition('validated', 'accepted')).not.toThrow();
+    expect(() => assertTradeOrderTransition('accepted', 'filled')).not.toThrow();
+  });
+
+  it('allows rejection from any non-terminal state', () => {
+    expect(() => assertTradeOrderTransition('received', 'rejected')).not.toThrow();
+    expect(() => assertTradeOrderTransition('validated', 'rejected')).not.toThrow();
+    expect(() => assertTradeOrderTransition('accepted', 'rejected')).not.toThrow();
+  });
+
+  it('rejects skipping straight from received to filled', () => {
+    expect(() => assertTradeOrderTransition('received', 'filled')).toThrow(InvalidTransitionError);
+  });
+
+  it('rejects any transition out of a terminal status', () => {
+    expect(() => assertTradeOrderTransition('filled', 'accepted')).toThrow(InvalidTransitionError);
+    expect(() => assertTradeOrderTransition('rejected', 'received')).toThrow(
+      InvalidTransitionError,
+    );
+    expect(() => assertTradeOrderTransition('cancelled', 'validated')).toThrow(
+      InvalidTransitionError,
+    );
+  });
+
+  it('terminal statuses match the RULESET.json source of truth', () => {
+    expect(TRADE_ORDER_TERMINAL_STATUSES).toEqual(['filled', 'rejected', 'cancelled']);
+  });
+});
+
+describe('position state machine', () => {
+  it('allows closing an open position', () => {
+    expect(() => assertPositionTransition('open', 'closed')).not.toThrow();
+  });
+
+  it('rejects reopening a closed position', () => {
+    expect(() => assertPositionTransition('closed', 'open')).toThrow(InvalidTransitionError);
+  });
+
+  it('terminal statuses match the RULESET.json source of truth', () => {
+    expect(POSITION_TERMINAL_STATUSES).toEqual(['closed']);
   });
 });

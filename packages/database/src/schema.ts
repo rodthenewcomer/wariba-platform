@@ -225,6 +225,99 @@ export interface AuditEventsTable {
   created_at: GeneratedTimestamp;
 }
 
+export type TradableSymbol = 'EURUSD' | 'GBPUSD' | 'USDJPY' | 'XAUUSD' | 'NAS100';
+export type OrderSide = 'buy' | 'sell';
+
+export interface SymbolSpecsTable {
+  id: Generated<string>;
+  symbol_spec_set_id: string;
+  symbol: TradableSymbol;
+  asset_class: 'forex_major' | 'metal' | 'index_cfd_simulated';
+  price_precision: number;
+  contract_size: string;
+  minimum_quantity: string;
+  maximum_quantity: string;
+  quantity_step: string;
+  leverage_one: number;
+  leverage_performance: number;
+  spread_points: string;
+  slippage_points: string;
+  commission_per_lot: string;
+  swap_long_per_lot: string;
+  swap_short_per_lot: string;
+  weekend_hold_allowed: Generated<boolean>;
+  overnight_hold_allowed: Generated<boolean>;
+  stale_threshold_ms: number;
+  created_at: GeneratedTimestamp;
+}
+
+export type PositionStatusColumn = 'open' | 'closed';
+
+export interface PositionsTable {
+  id: Generated<string>;
+  account_id: string;
+  symbol: TradableSymbol;
+  side: OrderSide;
+  opening_quantity: string;
+  open_quantity: string;
+  average_open_price: string;
+  realized_pnl: Generated<string>;
+  stop_loss: string | null;
+  take_profit: string | null;
+  status: Generated<PositionStatusColumn>;
+  account_sequence: string;
+  opened_at: GeneratedTimestamp;
+  closed_at: Timestamp | null;
+  version: Generated<number>;
+}
+
+export type TradeOrderTypeColumn =
+  'market_open' | 'partial_close' | 'full_close' | 'modify_sl' | 'modify_tp';
+export type TradeOrderStatusColumn =
+  'received' | 'validated' | 'accepted' | 'filled' | 'rejected' | 'cancelled';
+
+export interface TradeOrdersTable {
+  id: Generated<string>;
+  account_id: string;
+  idempotency_key: string;
+  order_type: TradeOrderTypeColumn;
+  // Nullable: a close/modify order referencing a position_id that doesn't
+  // exist can't honestly record a symbol/side (there's no position to read
+  // them from) — see 20260804000002_nullable_order_symbol_side.sql.
+  symbol: TradableSymbol | null;
+  side: OrderSide | null;
+  position_id: string | null;
+  requested_quantity: string | null;
+  filled_quantity: Generated<string>;
+  requested_stop_loss: string | null;
+  requested_take_profit: string | null;
+  status: Generated<TradeOrderStatusColumn>;
+  rejection_code: string | null;
+  account_sequence: string | null;
+  received_at: GeneratedTimestamp;
+  accepted_at: Timestamp | null;
+  completed_at: Timestamp | null;
+}
+
+export interface FillsTable {
+  id: Generated<string>;
+  order_id: string;
+  account_id: string;
+  position_id: string;
+  symbol: TradableSymbol;
+  side: OrderSide;
+  fill_type: 'open' | 'close';
+  quantity: string;
+  price: string;
+  spread_points: string;
+  slippage_points: string;
+  commission: Generated<string>;
+  realized_pnl: Generated<string>;
+  market_sequence: string;
+  account_sequence: string;
+  occurred_at: GeneratedTimestamp;
+}
+
 export interface Database {
   'app.user_profiles': UserProfilesTable;
   'app.user_consents': UserConsentsTable;
@@ -239,6 +332,10 @@ export interface Database {
   'app.trading_accounts': TradingAccountsTable;
   'app.account_state_transitions': AccountStateTransitionsTable;
   'app.trading_ledger_entries': TradingLedgerEntriesTable;
+  'app.symbol_specs': SymbolSpecsTable;
+  'app.positions': PositionsTable;
+  'app.trade_orders': TradeOrdersTable;
+  'app.fills': FillsTable;
   'app.outbox_events': OutboxEventsTable;
   'audit.audit_events': AuditEventsTable;
 }
