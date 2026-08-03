@@ -5,6 +5,7 @@ export const orderTypeSchema = z.enum([
   'market_open',
   'partial_close',
   'full_close',
+  'close_all',
   'modify_sl',
   'modify_tp',
 ]);
@@ -85,10 +86,11 @@ export type CloseAllMessage = z.infer<typeof closeAllMessageSchema>;
 export const orderDtoSchema = z.object({
   id: z.string().uuid(),
   accountId: z.string().uuid(),
+  idempotencyKey: z.string(),
   orderType: orderTypeSchema,
-  // Nullable: a close/modify order rejected because its position_id didn't
-  // exist has no real symbol/side to report — see the matching
-  // trade_orders.symbol/side nullability in packages/database.
+  // Nullable: a Close All master has no single symbol/side/position, and a
+  // rejected close/modify can reference no real position — see the matching
+  // trade_orders nullability in packages/database.
   symbol: symbolSchema.nullable(),
   side: sideSchema.nullable(),
   positionId: z.string().uuid().nullable(),

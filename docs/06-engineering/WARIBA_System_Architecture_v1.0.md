@@ -26,6 +26,13 @@ next_documents:
 
 > **Simple à déployer. Difficile à corrompre. Facile à auditer.**
 
+> **Addendum Rules v1.1 — 2026-08-03**
+> L'architecture reste un monolithe modulaire. Le policy-risk module doit porter
+> le plancher 10 % EOD trailing versionné, la Best Day Rule 50 %, les limites
+> d'exposition agrégées et les gates de marge. Performance-payout porte le
+> buffer permanent 10 %, les cinq nouvelles Performance Days et les caps nets.
+> Le terminal web public et authentifié est nommé WariX.
+
 ## Contrôle du document
 
 | Champ | Valeur |
@@ -34,7 +41,7 @@ next_documents:
 | Domaine principal | `wariba.app` |
 | Dépôt | GitHub privé `wariba-platform` |
 | État réel | Dossier créé, aucun code commencé |
-| Agent de construction | Codex |
+| Agents IA autorisés | Codex, Claude Code ou tout autre agent IA explicitement mandaté — voir AI-015 |
 | Architecture | Modular monolith + services runtime limités |
 | Frontend/BFF | Next.js + React + TypeScript strict |
 | Service temps réel | Node.js + Fastify + WebSocket |
@@ -113,7 +120,7 @@ Ce document n’autorise pas encore le lancement public. Il rend possible l’in
 ## 2.3 Contraintes opérationnelles
 
 - petite équipe ;
-- Codex principal ;
+- agents IA explicitement mandatés ;
 - budget initial contraint ;
 - services managés lorsque raisonnable ;
 - faible charge de maintenance ;
@@ -965,6 +972,12 @@ Contrainte :
 ```text
 unique(account_id, idempotency_key)
 ```
+
+`Close All` est une commande financière atomique : une ligne `close_all`
+porte la clé d'idempotence cliente, les ordres enfants `full_close` portent
+une clé dérivée du master et de la position, et master, fills, positions,
+ledger et outbox valident ou annulent ensemble dans une transaction unique.
+Un retry retourne les mêmes ordres enfants sans second effet.
 
 ---
 
@@ -1965,10 +1978,12 @@ updated_at
 
 Cas :
 
-- 25K ;
+- disponibilités 5K, 10K, 25K, 50K et 100K ;
 - beta group ;
 - new payout UI ;
 - maintenance.
+
+Configuration bêta sandbox : les cinq tailles sont actives côté serveur pour le catalogue, la création de commande et l’activation Evaluation. Les flags restent indépendants, audités et évalués serveur ; leur état sandbox ne doit jamais être interprété comme une autorisation de vente publique.
 
 ---
 
@@ -2493,7 +2508,7 @@ Flags permissionnés :
 - `trading.symbol.{id}.paused`
 - `payments.new_orders.disabled`
 - `payouts.requests.disabled`
-- `product.25k.disabled`
+- `product.{5k|10k|25k|50k|100k}.disabled`
 - `platform.maintenance`
 
 Chaque changement :
@@ -2910,7 +2925,7 @@ Fresh DB + upgrade path.
 
 ```mermaid
 flowchart LR
-    Dev[Developer / Codex]
+    Dev[Developer / Agent IA mandaté]
     Web[Next dev]
     RT[Realtime dev]
     WK[Worker dev]
@@ -3350,7 +3365,7 @@ Le Master Prompt Foundation peut être écrit lorsque :
 - documents sont disponibles ;
 - choix pnpm/Turbo/Kysely est accepté ;
 - aucune règle ouverte n’est nécessaire pour initialiser ;
-- Codex est prêt.
+- un agent IA mandaté est prêt.
 
 ---
 
@@ -3368,7 +3383,7 @@ Cette architecture est considérée exécutable lorsque :
 8. les pannes sont définies ;
 9. les décisions de simplicité sont explicites ;
 10. les décisions ouvertes sont isolées ;
-11. Codex peut initialiser sans inventer une architecture ;
+11. tout agent IA mandaté peut initialiser sans inventer une architecture ;
 12. les documents précédents ne sont pas contredits.
 
 ---
@@ -3444,7 +3459,7 @@ Cette architecture est considérée exécutable lorsque :
 
 # 138. Conclusion
 
-WARIBA doit rester assez simple pour être construit par une petite équipe assistée par Codex, mais assez rigoureux pour ne pas perdre la maîtrise des balances, des règles et des payouts.
+WARIBA doit rester assez simple pour être construit par une petite équipe assistée par des agents IA mandatés, mais assez rigoureux pour ne pas perdre la maîtrise des balances, des règles et des payouts.
 
 La réponse n’est ni un monolithe désorganisé, ni quinze microservices.
 

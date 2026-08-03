@@ -1,5 +1,6 @@
 // @ts-check
 import js from '@eslint/js';
+import nextPlugin from '@next/eslint-plugin-next';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
 
@@ -13,6 +14,7 @@ export default tseslint.config(
       '**/.turbo/**',
       '**/coverage/**',
       '**/*.config.*',
+      '!eslint.config.mjs',
       '**/next-env.d.ts',
       // Generated from docs/05-design/tokens.json — see packages/design-tokens/scripts/build.mjs.
       '**/tokens.generated.ts',
@@ -20,6 +22,20 @@ export default tseslint.config(
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  {
+    plugins: {
+      '@next/next': nextPlugin,
+    },
+  },
+  {
+    files: ['apps/web/**/*.{js,jsx,ts,tsx}'],
+    rules: {
+      ...nextPlugin.configs.recommended.rules,
+      ...nextPlugin.configs['core-web-vitals'].rules,
+      // WARIBA uses App Router only; there is intentionally no pages/ tree.
+      '@next/next/no-html-link-for-pages': 'off',
+    },
+  },
   {
     // Standalone Node scripts (e.g. packages/*/scripts/*.mjs) run outside any
     // tsconfig lib scope, so plain js.configs.recommended has no globals for

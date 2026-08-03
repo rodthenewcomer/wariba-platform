@@ -15,6 +15,7 @@ export type ProductCode = z.infer<typeof productCodeSchema>;
 export const checkoutInputSchema = z.object({
   productCode: productCodeSchema,
   idempotencyKey: z.string().uuid(),
+  acceptSimulatedAccountDisclosure: z.literal(true),
 });
 export type CheckoutInput = z.infer<typeof checkoutInputSchema>;
 

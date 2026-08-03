@@ -2,7 +2,7 @@
 title: "WARIBA Prompt Pack"
 version: "1.0"
 document_id: "WARIBA-PROMPT-PACK"
-status: "READY FOR CODEX — AUCUN PROMPT NE DOIT ÊTRE EXÉCUTÉ HORS SÉQUENCE"
+status: "READY FOR AN AUTHORIZED AI AGENT — AUCUN PROMPT NE DOIT ÊTRE EXÉCUTÉ HORS SÉQUENCE"
 language: "fr-FR"
 brand: "WARIBA"
 domain: "wariba.app"
@@ -25,6 +25,16 @@ depends_on:
 
 > **Le contexte d’abord. Le plan ensuite. Le code après validation.**
 
+> **Addendum Rules v1.1 — 2026-08-03**
+> Les règles financières v1.0 des prompts sont superseded par le Program
+> Rulebook v1.1 et `WARIBA_RULESET_v1.1.json`. Prompt 03 utilise cinq produits
+> sous feature flags et les prix FCFA candidats. Prompt 04 ajoute levier
+> 100/50/20, exposition agrégée et gates de marge. Prompt 05 applique 10/3/10
+> EOD, Best Day 50 %, zéro minimum/qualified day. Prompt 08 applique buffer 10 %,
+> cinq Performance Days à 0,50 %, excédent réalisé seulement, splits 85/15 puis
+> 90/10 et caps nets sans limite universelle de distribution à 50 %. Prompt 12
+> audite EOD trailing, buffer, non-réutilisation, débit brut, exposition et réserve.
+
 ## Contrôle du document
 
 | Champ | Valeur |
@@ -33,8 +43,8 @@ depends_on:
 | Domaine | `wariba.app` |
 | Dépôt cible | GitHub privé `wariba-platform` |
 | État actuel | Dossier créé, aucun code produit commencé |
-| Agent principal | Codex |
-| Auditeur secondaire | Claude Code aux checkpoints uniquement |
+| Agents IA autorisés | Codex, Claude Code ou tout autre agent IA explicitement mandaté |
+| Rôles autorisés | Construction, modification, audit et documentation — voir AI-015 |
 | Nombre de prompts | 14 |
 | Séquence | Prompt 00 → Prompt 13 |
 | Produit cible | Bêta privée sandbox |
@@ -49,7 +59,7 @@ depends_on:
 
 # 1. Mode d’emploi obligatoire
 
-## 1.1 Ne pas envoyer tout le pack à Codex en une seule fois
+## 1.1 Ne pas envoyer tout le pack à un agent en une seule fois
 
 Chaque prompt correspond à une phase précise.
 
@@ -63,7 +73,7 @@ Prompt 03 — Identity, Commerce & Activation
 Prompt 04 — Trading Core
 Prompt 05 — Policy, Risk & Evaluation
 Prompt 06 — Trader Hub
-Prompt 07 — WARIBA Trade
+Prompt 07 — WariX
 Prompt 08 — Performance & Payout
 Prompt 09 — WARIBA Control
 Prompt 10 — Help, Support & Assist
@@ -74,14 +84,14 @@ Prompt 13 — Private Beta Release
 
 ## 1.2 Prompt 00 est utilisé avant chaque nouvelle grande session
 
-Le Prompt 00 recharge le contexte, inspecte le dépôt et empêche Codex de travailler sur une compréhension ancienne.
+Le Prompt 00 recharge le contexte, inspecte le dépôt et empêche l’agent IA de travailler sur une compréhension ancienne.
 
 ## 1.3 Un prompt n’autorise pas automatiquement la fusion
 
 Après chaque prompt :
 
-1. Codex exécute les tests ;
-2. Codex produit un rapport ;
+1. l’agent IA exécute les tests ;
+2. l’agent IA produit un rapport ;
 3. la PR est inspectée ;
 4. la CI doit être verte ;
 5. Rod valide ;
@@ -89,9 +99,9 @@ Après chaque prompt :
 
 ## 1.4 Ne jamais exécuter deux agents sur la même branche
 
-- Codex construit ;
-- Claude Code audite une branche ou un commit terminé ;
-- les corrections reviennent ensuite à Codex dans une nouvelle branche.
+- tout agent IA explicitement mandaté peut construire ou modifier ;
+- un audit indépendant est confié à un agent distinct sur une branche ou un commit terminé ;
+- les corrections reviennent ensuite à un agent IA mandaté dans une nouvelle branche.
 
 ## 1.5 Les documents dominent les prompts
 
@@ -214,7 +224,7 @@ L’agent s’arrête sans coder si :
 À envoyer :
 
 - au début de la première session ;
-- au début d’une nouvelle session Codex ;
+- au début d’une nouvelle session d’agent IA ;
 - après une longue interruption ;
 - après un changement documentaire majeur ;
 - avant un audit.
@@ -270,7 +280,7 @@ Ne suppose jamais qu’une fonctionnalité existe sans preuve dans le dépôt.
 
 ## Critère de réussite
 
-Le rapport doit permettre de vérifier que Codex comprend l’état réel et non seulement le plan théorique.
+Le rapport doit permettre de vérifier que l’agent IA comprend l’état réel et non seulement le plan théorique.
 
 ---
 
@@ -676,18 +686,18 @@ SCOPE COMMERCE — v1.1
 1. Product versions :
    - 5K
    - 10K
-   - 25K désactivé par feature flag
-   - 50K désactivé par feature flag
-   - 100K désactivé par feature flag
-2. Prix candidats (FCFA — voir Program Rulebook §7, statut `CANDIDATE_PENDING_ACTUARIAL_MODEL`) :
+   - 25K actif en sandbox
+   - 50K actif en sandbox
+   - 100K actif en sandbox
+2. Prix candidats (FCFA — voir Program Rulebook §7, statut `CANDIDATE_PENDING_ACTUARIAL_VALIDATION`) :
    - 5K : 22 500 FCFA
    - 10K : 39 900 FCFA
-   - 25K : 84 900 FCFA, non achetable par défaut
-   - 50K : 144 900 FCFA, non achetable par défaut
-   - 100K : 259 900 FCFA, non achetable par défaut
+   - 25K : 84 900 FCFA, achetable via checkout sandbox
+   - 50K : 144 900 FCFA, achetable via checkout sandbox
+   - 100K : 259 900 FCFA, achetable via checkout sandbox
 3. Chaque taille utilise un feature flag commercial indépendant.
 4. Ne jamais exposer le prix fondateur sans cohorte explicitement activée.
-5. Ne pas activer publiquement le 25K, le 50K ou le 100K par défaut.
+5. Activer les cinq tailles pour la bêta sandbox conformément à OFFER-023, sans interpréter cette activation comme une autorisation de vente publique.
 6. Pages offre.
 7. Purchase order state machine.
 8. Payment attempt.
@@ -718,7 +728,8 @@ INVARIANTS
 - un compte par fulfillment ;
 - aucun double compte après retry ;
 - policy version immuable ;
-- 25K off ;
+- cinq tailles actives en sandbox ;
+- flags commerciaux indépendants et révocables ;
 - aucun frais d’activation ;
 - nature simulée visible.
 
@@ -1412,7 +1423,7 @@ Ne recrée pas un calcul dans le composant.
 
 ---
 
-# 10. Prompt 07 — WARIBA Trade
+# 10. Prompt 07 — WariX
 
 ## Branche
 
@@ -1427,7 +1438,7 @@ Finaliser le terminal propriétaire après la stabilité du Trading Core.
 ## Prompt prêt à copier
 
 ```text
-Tu es Principal Trading UX Engineer chargé de WARIBA Trade.
+Tu es Principal Trading UX Engineer chargé de WariX.
 
 Exécute Prompt 00. Inspecte le Trading Core, le Risk Engine, le Design System et le Hub. Prépare une matrice desktop/tablet/mobile et un plan de performance. Attends approbation avant implementation.
 
@@ -1584,7 +1595,7 @@ LIVRABLES
 - documentation shortcuts ;
 - rapport ;
 - PR :
-  `feat: complete WARIBA Trade terminal experience`
+  `feat: complete WariX terminal experience`
 
 NON-SCOPE
 
@@ -1696,7 +1707,8 @@ CAPS
 - P1–P2 400 USD
 - P3–P4 600 USD
 - P5 1 000 USD
-- 25K remains feature-flagged off.
+- 25K is active in sandbox; its independent feature flag remains available as a kill switch.
+- 50K and 100K payout caps remain OPEN; do not invent or publish Performance payout flows for those sizes.
 
 PRIX CANDIDATS POUR SIMULATION — v1.1
 
@@ -1949,7 +1961,7 @@ TREASURY
 - projected payouts ;
 - coverage ;
 - status ;
-- 25K gate ;
+- gates commerciaux indépendants des cinq tailles ;
 - no direct edit of earned payout.
 
 FEATURE FLAGS
@@ -2286,8 +2298,8 @@ HOMEPAGE
 
 OFFRES
 
-5K et 10K visibles.
-25K off ou clearly unavailable based on feature flag.
+5K, 10K, 25K, 50K et 100K visibles et achetables en sandbox.
+Si un feature flag est coupé, afficher honnêtement la taille comme indisponible.
 
 Afficher :
 - nominal simulated ;
@@ -2402,7 +2414,7 @@ Audit sur commit ou branche terminée.
 
 ## Agent recommandé
 
-Claude Code comme auditeur indépendant, ou Codex en mode audit strict sans modification initiale.
+Claude Code, Codex ou tout autre agent IA mandaté, distinct de l’implémentation auditée.
 
 ## Objectif
 
@@ -2696,7 +2708,7 @@ TASKS
 6. Verify sandbox fail-fast in production config.
 7. Verify all beta accounts are explicitly sandbox.
 8. Create beta feature flag/cohort.
-9. Ensure 25K remains off.
+9. Ensure all five tiers remain active for sandbox beta while public paid launch stays disabled.
 10. Configure status page components.
 11. Prepare beta support channel and escalation.
 12. Prepare beta feedback flow.
@@ -2977,7 +2989,7 @@ git checkout -b feat/repository-foundation
 
 ## Étape 5
 
-Lancer Codex.
+Lancer l’agent IA mandaté.
 
 ## Étape 6
 
@@ -2997,11 +3009,11 @@ Exiger le plan avant code.
 
 ## Étape 10
 
-Valider, puis laisser Codex implémenter la fondation.
+Valider, puis laisser l’agent IA mandaté implémenter la fondation.
 
 ---
 
-# 22. Checklist avant le premier lancement Codex
+# 22. Checklist avant le premier lancement d’un agent IA
 
 - [ ] Dépôt `wariba-platform` privé.
 - [ ] Branche `main` existe.
@@ -3013,7 +3025,7 @@ Valider, puis laisser Codex implémenter la fondation.
 - [ ] Aucun secret dans le dossier.
 - [ ] Git installé.
 - [ ] Node installé ou installable.
-- [ ] Codex CLI installé.
+- [ ] Outil de l’agent IA sélectionné installé et accessible.
 - [ ] Branche Foundation créée.
 - [ ] Prompt 00 prêt.
 - [ ] Prompt 01 prêt.
@@ -3037,7 +3049,7 @@ Ne pas supposer que l’agent « se rappelle ».
 
 # 24. Règle de taille des prompts d’exécution
 
-Si Codex ne peut pas traiter un prompt complet :
+Si l’agent IA ne peut pas traiter un prompt complet :
 
 - ne pas supprimer les contraintes ;
 - diviser par sous-livrables ;
@@ -3100,7 +3112,7 @@ Arrêter immédiatement si l’agent dit :
 
 | ID | Décision | Statut | Motif |
 |---|---|---|---|
-| PP-001 | Codex constructeur principal | `LOCKED` | Exécution |
+| PP-001 | Tout agent IA explicitement mandaté peut construire et modifier | `LOCKED` | AI-015 |
 | PP-002 | Prompt 00 avant grande session | `LOCKED` | Contexte |
 | PP-003 | Plan avant code | `LOCKED` | Contrôle |
 | PP-004 | Un prompt par phase | `LOCKED` | Scope |
@@ -3172,9 +3184,9 @@ Le Prompt Pack est considéré complet lorsque :
 6. chaque prompt possède des stop conditions ;
 7. chaque prompt possède un rapport final ;
 8. les documents sont toujours prioritaires ;
-9. Codex ne peut pas inventer la stack ;
-10. Codex ne peut pas inventer les règles ;
-11. Claude Code possède un rôle d’audit séparé ;
+9. aucun agent IA ne peut inventer la stack ;
+10. aucun agent IA ne peut inventer les règles ;
+11. les audits indépendants sont confiés à un agent distinct ;
 12. la bêta privée est distincte du public ;
 13. aucun prompt ne demande de paiement ou payout réel prématuré ;
 14. le contexte est rechargé à chaque grande session ;
@@ -3209,4 +3221,4 @@ Contexte
 
 La prochaine étape n’est pas encore de construire tout le produit.
 
-La prochaine étape est de préparer le dépôt local avec les documents, créer les quatre fichiers machine de Semaine 0, installer Codex, lancer Prompt 00, puis Prompt 01 sur la branche `feat/repository-foundation`.
+La prochaine étape est de préparer le dépôt local avec les documents, créer les quatre fichiers machine de Semaine 0, installer l’outil de l’agent IA retenu, lancer Prompt 00, puis Prompt 01 sur la branche `feat/repository-foundation`.

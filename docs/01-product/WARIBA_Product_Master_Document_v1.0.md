@@ -20,7 +20,7 @@ WARIBA ne commence pas comme broker, plateforme multi-actifs, réseau social ou 
 - Le domaine principal reste `wariba.app`.
 - L’ancien projet BRVM portant le nom WARIBA doit être renommé.
 - Le dossier est vide ; les prompts doivent initialiser le projet depuis zéro.
-- Codex est le constructeur principal. Claude Code intervient plus tard comme auditeur.
+- Codex, Claude Code ou tout autre agent IA explicitement mandaté peut construire, modifier, auditer et documenter le code conformément à AI-015.
 - GitHub privé et CI sont obligatoires dès le premier fichier.
 
 ## 3. Vision, mission et positionnement
@@ -53,7 +53,7 @@ WARIBA ne commence pas comme broker, plateforme multi-actifs, réseau social ou 
 
 - WARIBA ONE
 - WARIBA Hub
-- WARIBA Trade
+- WariX
 - WARIBA Guardian
 - WARIBA Performance
 - WARIBA Review
@@ -115,9 +115,9 @@ WARIBA utilise une grille progressive correspondant à la taille nominale, à l�
 | WARIBA 50K | 144 900 FCFA |
 | WARIBA 100K | 259 900 FCFA |
 
-Le 10K constitue l’offre principale d’acquisition. Le 5K sert de point d’entrée accessible. Les comptes 25K, 50K et 100K augmentent progressivement la valeur commerciale, l’exposition potentielle et les obligations de réserve — chacun reste contrôlé par un feature flag indépendant et peut être retardé si la réserve est insuffisante.
+Le 10K constitue l’offre principale d’acquisition. Le 5K sert de point d’entrée accessible. Les comptes 25K, 50K et 100K augmentent progressivement la valeur commerciale, l’exposition potentielle et les obligations de réserve. Les cinq tailles sont actives dans le catalogue, le checkout et l’activation Evaluation de la bêta sandbox. Chaque taille reste contrôlée par un feature flag indépendant pouvant servir de kill switch. Cette disponibilité sandbox ne constitue pas une autorisation de vente publique ni une validation des caps de payout 50K/100K.
 
-Les prix restent `CANDIDATE_PENDING_ACTUARIAL_MODEL` jusqu’à la validation du WARIBA Actuarial & Risk Model.
+Les prix restent `CANDIDATE_PENDING_ACTUARIAL_VALIDATION` jusqu’à la validation du WARIBA Actuarial & Risk Model.
 
 ### Instruments de lancement
 

@@ -14,7 +14,13 @@ export const PACKAGE_NAME = '@wariba/application';
 // handle to pass into these functions".
 export { createDbClient, type Db } from '@wariba/database';
 
-export { createUserProfile, type CreateUserProfileParams } from './identity';
+export {
+  createUserProfile,
+  acceptSandboxDisclosure,
+  type CreateUserProfileParams,
+  type AcceptSandboxDisclosureParams,
+  type AcceptedSandboxDisclosure,
+} from './identity';
 
 export {
   getLatestAccountForUser,
@@ -24,11 +30,15 @@ export {
 
 export {
   listActiveProducts,
+  getCheckoutContext,
   createPurchaseOrder,
   getOrderForUser,
   recordPaymentAttempt,
   processPaymentWebhookEvent,
+  SANDBOX_PRODUCT_FEATURE_FLAGS,
+  isSandboxProductFeatureEnabled,
   type ProductDTO,
+  type CheckoutContextDTO,
   type PurchaseOrderDTO,
   type CreatePurchaseOrderParams,
   type CreatePurchaseOrderResult,

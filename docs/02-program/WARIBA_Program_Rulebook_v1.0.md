@@ -108,9 +108,10 @@ Un prompt, une maquette ou un agent IA ne peut jamais modifier une règle métie
 | Règles 8 % / 4 % / 8 % | `CANDIDATE` |
 | Consistance à 40 %, non-breach | `CANDIDATE` |
 | WARIBA Performance avec cinq cycles de payout | `CANDIDATE` |
-| Prix 5K, 10K, 25K, 50K et 100K | `CANDIDATE_PENDING_ACTUARIAL_MODEL` |
+| Prix 5K, 10K, 25K, 50K et 100K | `CANDIDATE_PENDING_ACTUARIAL_VALIDATION` |
 | Caps de payout | `CANDIDATE` |
-| Comptes 25K, 50K et 100K au lancement | `DEFERRED` — activables par feature flag indépendant |
+| Comptes 25K, 50K et 100K en bêta sandbox | `LOCKED` — actifs pour catalogue, checkout et Evaluation ; feature flags indépendants conservés |
+| Vente publique 25K, 50K et 100K | `DEFERRED` — gates actuariels, juridiques et de réserve requis |
 | Capital réel automatique après cinq payouts | `REJECTED_V1` |
 | Frais d’activation | `REJECTED_V1` |
 | Trailing drawdown | `REJECTED_V1` |
@@ -182,7 +183,9 @@ Valeur simulée affichée comme taille du compte :
 
 - 5 000 USD ;
 - 10 000 USD ;
-- 25 000 USD.
+- 25 000 USD ;
+- 50 000 USD ;
+- 100 000 USD.
 
 Le compte nominal ne représente pas un dépôt appartenant à l’utilisateur.
 
@@ -340,7 +343,7 @@ Les prix ci-dessous constituent la grille commerciale candidate avant validation
 ### Statut des prix
 
 ```text
-PRICE_STATUS = CANDIDATE_PENDING_ACTUARIAL_MODEL
+PRICE_STATUS = CANDIDATE_PENDING_ACTUARIAL_VALIDATION
 ```
 
 Les prix pourront être ajustés avant le lancement commercial selon :
@@ -362,8 +365,9 @@ Les prix pourront être ajustés avant le lancement commercial selon :
 - Aucun coût caché.
 - Le prix payé n’est pas un dépôt de trading.
 - Le prix fondateur n’est pas un prix permanent.
-- Chaque taille de compte reste contrôlée par un feature flag indépendant.
-- WARIBA peut retarder l’ouverture du 50K ou du 100K si la réserve est insuffisante.
+- Les cinq tailles sont actives dans le catalogue, le checkout et l’activation Evaluation de la bêta sandbox.
+- Chaque taille de compte reste contrôlée par un feature flag indépendant utilisable comme kill switch.
+- Cette activation sandbox ne vaut pas autorisation de vente publique ; WARIBA peut retarder ou suspendre une taille avant lancement si les gates actuariels, juridiques ou de réserve ne sont pas satisfaits.
 - Une promotion ne modifie jamais les règles d’un compte et doit correspondre à une cohorte réelle et identifiable.
 - Les prix définitifs dépendent du modèle actuariel et des simulations de cohortes (Conservative, Base, Aggressive, Stress).
 
@@ -690,6 +694,8 @@ daily_loss_limit_amount = nominal_balance × 4 %
 | 5K | 200 USD |
 | 10K | 400 USD |
 | 25K | 1 000 USD |
+| 50K | 2 000 USD |
+| 100K | 4 000 USD |
 
 ## 13.2 Snapshot de début de journée
 
@@ -776,6 +782,8 @@ maximum_loss_floor = nominal_balance - maximum_loss_amount
 | 5K | 4 600 USD |
 | 10K | 9 200 USD |
 | 25K | 23 000 USD |
+| 50K | 46 000 USD |
+| 100K | 92 000 USD |
 
 ## 14.2 Hard breach
 
@@ -902,6 +910,8 @@ qualified_day_minimum =
 | 5K | 10 USD |
 | 10K | 20 USD |
 | 25K | 50 USD |
+| 50K | 100 USD |
+| 100K | 200 USD |
 
 Trois journées qualifiées sont requises.
 
@@ -1007,6 +1017,8 @@ daily_loss_limit_amount = nominal_balance × 3 %
 | 5K | 150 USD |
 | 10K | 300 USD |
 | 25K | 750 USD |
+| 50K | 1 500 USD |
+| 100K | 3 000 USD |
 
 La méthode de snapshot et de calcul est identique à WARIBA ONE.
 
@@ -1031,6 +1043,8 @@ maximum_loss_floor = nominal_balance - maximum_loss_amount
 | 5K | 4 700 USD |
 | 10K | 9 400 USD |
 | 25K | 23 500 USD |
+| 50K | 47 000 USD |
+| 100K | 94 000 USD |
 
 Le plancher est statique pendant tous les cycles.
 
@@ -1052,6 +1066,8 @@ qualified_day_minimum =
 | 5K | 15 USD |
 | 10K | 30 USD |
 | 25K | 75 USD |
+| 50K | 150 USD |
+| 100K | 300 USD |
 
 Cinq journées qualifiées distinctes sont requises par cycle.
 
@@ -1074,6 +1090,8 @@ threshold_amount = nominal_balance × 4 %
 | 5K | 200 USD |
 | 10K | 400 USD |
 | 25K | 1 000 USD |
+| 50K | 2 000 USD |
+| 100K | 4 000 USD |
 
 ## 23.2 Cycles #2 à #5
 
@@ -1086,6 +1104,8 @@ threshold_amount = nominal_balance × 3 %
 | 5K | 150 USD |
 | 10K | 300 USD |
 | 25K | 750 USD |
+| 50K | 1 500 USD |
+| 100K | 3 000 USD |
 
 ## 23.3 Profit du cycle
 
@@ -1208,7 +1228,7 @@ Elle peut affecter uniquement :
 
 - les futures ventes ;
 - les promotions futures ;
-- la disponibilité du 25K ;
+- la disponibilité future de chaque taille pour les ventes publiques ;
 - les caps de nouvelles policy versions ;
 - la cadence de croissance.
 
@@ -1225,6 +1245,8 @@ Les caps représentent le Payout Base brut avant split.
 | 25K | 400 USD | 600 USD | 1 000 USD |
 
 Statut : `CANDIDATE`, soumis au modèle financier et à la bêta.
+
+Les caps de payout 50K et 100K restent `OPEN`. Ces deux tailles sont activées pour l’Evaluation sandbox, mais aucun parcours Performance/payout ne peut être publié pour elles avant décision versionnée de leurs caps et mise à jour du modèle actuariel.
 
 ## 27.1 Exemple 10K — payout #1
 
@@ -1509,7 +1531,7 @@ En cas d’indisponibilité du calendrier, WARIBA ne peut pas sanctionner rétro
 
 ## 34.1 V1
 
-La V1 est conçue pour une exécution manuelle depuis WARIBA Trade.
+La V1 est conçue pour une exécution manuelle depuis WariX.
 
 Statut :
 
@@ -1839,7 +1861,7 @@ reserve_coverage =
 |---:|---|---|
 | ≥ 2,0x | Normal | Ventes et promotions normales |
 | 1,5x à < 2,0x | Prudence | Réduire promotions, surveiller cohortes |
-| 1,2x à < 1,5x | Défensif | Suspendre 25K, alimenter réserve |
+| 1,2x à < 1,5x | Défensif | Suspendre les nouvelles ventes des tailles à plus forte exposition, alimenter la réserve |
 | < 1,2x | Critique | Réduire ou suspendre nouvelles ventes |
 
 ## 42.3 Non-rétroactivité financière
@@ -2270,7 +2292,8 @@ Les points suivants doivent être fermés dans le Decision Log :
 27. politique de maintenance ;
 28. conservation des données ;
 29. plafond commercial mensuel selon réserve ;
-30. disponibilité du 25K.
+30. disponibilité publique des tailles 25K, 50K et 100K ;
+31. caps de payout 50K et 100K.
 
 ---
 

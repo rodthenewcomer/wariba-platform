@@ -28,6 +28,8 @@ import {
   type AccountSnapshot,
   type MarketTick,
   type OrderResultMessage,
+  type SubmitOrderMessage,
+  type CloseAllMessage,
   type TradableSymbol,
 } from '@wariba/contracts';
 import { RealtimeClient, type RealtimeConnectionState } from '../../../lib/realtime-client';
@@ -46,6 +48,11 @@ async function getAccessToken(): Promise<string | null> {
 
 export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: string }) {
   const clientRef = useRef<RealtimeClient | null>(null);
+  const pendingCommandRef = useRef<
+    | { kind: 'order'; payload: SubmitOrderMessage }
+    | { kind: 'close_all'; payload: CloseAllMessage }
+    | null
+  >(null);
   const [connectionState, setConnectionState] = useState<RealtimeConnectionState>('connecting');
   const [snapshot, setSnapshot] = useState<AccountSnapshot | null>(null);
   const [ticks, setTicks] = useState<Partial<Record<TradableSymbol, MarketTick>>>({});
@@ -63,13 +70,32 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
     const offState = client.onStateChange(setConnectionState);
     const offMessage = client.onMessage((envelope) => {
       if (envelope.type === 'account.snapshot') {
-        setSnapshot(envelope.payload as AccountSnapshot);
+        const nextSnapshot = envelope.payload as AccountSnapshot;
+        setSnapshot(nextSnapshot);
+        const pendingCommand = pendingCommandRef.current;
+        if (pendingCommand) {
+          const key = pendingCommand.payload.idempotencyKey;
+          const wasProcessed = nextSnapshot.recentOrders.some(
+            (order) => order.idempotencyKey === key || order.idempotencyKey.startsWith(`${key}:`),
+          );
+          if (wasProcessed) {
+            pendingCommandRef.current = null;
+            setPending(false);
+          } else if (pendingCommand.kind === 'order') {
+            clientRef.current?.submitOrder(pendingCommand.payload);
+          } else {
+            clientRef.current?.closeAll(pendingCommand.payload);
+          }
+        }
       } else if (envelope.type === 'market.tick') {
         const tick = envelope.payload as MarketTick;
         setTicks((prev) => ({ ...prev, [tick.symbol]: tick }));
       } else if (envelope.type === 'order_result') {
         const result = envelope.payload as OrderResultMessage;
-        setPending(false);
+        if (pendingCommandRef.current?.payload.idempotencyKey === result.idempotencyKey) {
+          pendingCommandRef.current = null;
+          setPending(false);
+        }
         if (result.status === 'rejected') {
           setOrderError(result.rejectionCode ?? 'unknown_error');
         } else {
@@ -79,6 +105,7 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
         // simplest correct way to pick up the new position/order/balance.
         client.subscribe([accountStateChannel(accountId)]);
       } else if (envelope.type === 'error') {
+        pendingCommandRef.current = null;
         setPending(false);
         const payload = envelope.payload as { code: string; message: string };
         setOrderError(payload.code);
@@ -104,20 +131,23 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
   const selectedTick = ticks[selectedSymbol] ?? null;
   const isStale = selectedTick?.marketStatus === 'stale';
   const connectionOk = connectionState === 'open';
+  const isResyncing = connectionState === 'resyncing';
 
   const submitMarketOrder = useCallback(
     (side: 'buy' | 'sell') => {
       if (!clientRef.current) return;
       setPending(true);
       setOrderError(null);
-      clientRef.current.submitOrder({
+      const command: SubmitOrderMessage = {
         orderType: 'market_open',
         accountId,
         idempotencyKey: crypto.randomUUID(),
         symbol: selectedSymbol,
         side,
         quantity,
-      });
+      };
+      pendingCommandRef.current = { kind: 'order', payload: command };
+      clientRef.current.submitOrder(command);
     },
     [accountId, selectedSymbol, quantity],
   );
@@ -126,12 +156,14 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
     (positionId: string) => {
       if (!clientRef.current) return;
       setPending(true);
-      clientRef.current.submitOrder({
+      const command: SubmitOrderMessage = {
         orderType: 'full_close',
         accountId,
         idempotencyKey: crypto.randomUUID(),
         positionId,
-      });
+      };
+      pendingCommandRef.current = { kind: 'order', payload: command };
+      clientRef.current.submitOrder(command);
     },
     [accountId],
   );
@@ -139,7 +171,9 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
   const closeAll = useCallback(() => {
     if (!clientRef.current) return;
     setPending(true);
-    clientRef.current.closeAll({ accountId, idempotencyKey: crypto.randomUUID() });
+    const command: CloseAllMessage = { accountId, idempotencyKey: crypto.randomUUID() };
+    pendingCommandRef.current = { kind: 'close_all', payload: command };
+    clientRef.current.closeAll(command);
   }, [accountId]);
 
   const orderTicket = useMemo(
@@ -219,12 +253,18 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
           statusVariant={connectionOk ? 'success' : 'warning'}
         />
         <RiskRibbon
-          status={isStale ? 'stale' : 'normal'}
+          status={isStale || isResyncing ? 'stale' : 'normal'}
           dailyLossRemaining="—"
           maximumLossRemaining="—"
           nextResetLabel="00:00 UTC"
           connectionOk={connectionOk}
         />
+        {isResyncing && (
+          <Alert level="warning" title="Resynchronisation en cours">
+            Un écart de séquence a été détecté. Les ordres restent bloqués jusqu&apos;au nouveau
+            snapshot serveur.
+          </Alert>
+        )}
       </div>
 
       <div className="flex flex-1 flex-col lg:flex-row">

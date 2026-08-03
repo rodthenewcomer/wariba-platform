@@ -11,7 +11,8 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
     <div
       data-wariba-section="public"
       data-wariba-theme="marketing"
-      className="flex min-h-dvh flex-col"
+      data-theme="dark"
+      className="flex min-h-dvh flex-col bg-[color:var(--wariba-background-canvas)]"
     >
       <PublicHeader LinkComponent={Link} currentPath={pathname} />
       <main className="flex-1">{children}</main>

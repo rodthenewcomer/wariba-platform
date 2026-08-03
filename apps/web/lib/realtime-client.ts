@@ -1,8 +1,16 @@
 'use client';
 
-import type { MessageEnvelope, SubmitOrderMessage, CloseAllMessage } from '@wariba/contracts';
+import {
+  messageEnvelopeSchema,
+  marketTickSchema,
+  accountSnapshotSchema,
+  orderResultMessageSchema,
+  type MessageEnvelope,
+  type SubmitOrderMessage,
+  type CloseAllMessage,
+} from '@wariba/contracts';
 
-export type RealtimeConnectionState = 'connecting' | 'open' | 'closed';
+export type RealtimeConnectionState = 'connecting' | 'resyncing' | 'open' | 'closed';
 
 type MessageListener = (envelope: MessageEnvelope) => void;
 type StateListener = (state: RealtimeConnectionState) => void;
@@ -24,6 +32,7 @@ export class RealtimeClient {
   private readonly subscribedChannels = new Set<string>();
   private readonly messageListeners = new Set<MessageListener>();
   private readonly stateListeners = new Set<StateListener>();
+  private readonly lastSequenceByChannel = new Map<string, number>();
 
   constructor(
     private readonly wsUrl: string,
@@ -41,6 +50,7 @@ export class RealtimeClient {
 
     socket.addEventListener('open', () => {
       this.reconnectAttempt = 0;
+      this.lastSequenceByChannel.clear();
       this.emitState('open');
       if (this.subscribedChannels.size > 0) {
         this.send({ type: 'subscribe', channels: [...this.subscribedChannels] });
@@ -49,7 +59,23 @@ export class RealtimeClient {
 
     socket.addEventListener('message', (event: MessageEvent<string>) => {
       try {
-        const envelope = JSON.parse(event.data) as MessageEnvelope;
+        const parsed = messageEnvelopeSchema.safeParse(JSON.parse(event.data) as unknown);
+        if (!parsed.success) return;
+        const envelope = parsed.data;
+        if (!this.hasValidPayload(envelope)) return;
+        const channel = this.channelForEnvelope(envelope);
+        if (channel) {
+          const previous = this.lastSequenceByChannel.get(channel);
+          if (previous !== undefined && envelope.sequence <= previous) return;
+          if (previous !== undefined && envelope.sequence > previous + 1) {
+            this.lastSequenceByChannel.delete(channel);
+            this.emitState('resyncing');
+            this.send({ type: 'subscribe', channels: [channel] });
+            return;
+          }
+          this.lastSequenceByChannel.set(channel, envelope.sequence);
+          this.emitState('open');
+        }
         for (const listener of this.messageListeners) listener(envelope);
       } catch {
         // Malformed frame — ignore rather than crash the UI.
@@ -64,6 +90,32 @@ export class RealtimeClient {
     socket.addEventListener('error', () => {
       // 'close' always follows 'error' for browser WebSocket — reconnect logic lives there.
     });
+  }
+
+  private hasValidPayload(envelope: MessageEnvelope): boolean {
+    if (envelope.type === 'market.tick')
+      return marketTickSchema.safeParse(envelope.payload).success;
+    if (envelope.type === 'account.snapshot')
+      return accountSnapshotSchema.safeParse(envelope.payload).success;
+    if (envelope.type === 'order_result')
+      return orderResultMessageSchema.safeParse(envelope.payload).success;
+    if (envelope.type === 'error') {
+      const payload = envelope.payload as { code?: unknown; message?: unknown };
+      return typeof payload.code === 'string' && typeof payload.message === 'string';
+    }
+    return true;
+  }
+
+  private channelForEnvelope(envelope: MessageEnvelope): string | null {
+    if (envelope.type === 'market.tick') {
+      const payload = envelope.payload as { symbol?: unknown };
+      return typeof payload.symbol === 'string' ? `market.symbol.${payload.symbol}` : null;
+    }
+    if (envelope.type === 'account.snapshot') {
+      const payload = envelope.payload as { accountId?: unknown };
+      return typeof payload.accountId === 'string' ? `account.${payload.accountId}.state` : null;
+    }
+    return null;
   }
 
   private scheduleReconnect(): void {
@@ -123,5 +175,6 @@ export class RealtimeClient {
     }
     this.socket?.close();
     this.socket = null;
+    this.lastSequenceByChannel.clear();
   }
 }

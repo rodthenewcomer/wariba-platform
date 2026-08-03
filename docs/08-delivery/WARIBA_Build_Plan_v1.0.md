@@ -2,7 +2,7 @@
 title: "WARIBA Build Plan"
 version: "1.0"
 document_id: "WARIBA-BUILD-PLAN"
-status: "DELIVERY BASELINE — PRÊTE POUR PROMPT PACK ET EXÉCUTION CODEX"
+status: "EN EXÉCUTION — PROMPTS 01 À 04 IMPLÉMENTÉS ET AUDITÉS"
 language: "fr-FR"
 brand: "WARIBA"
 domain: "wariba.app"
@@ -26,6 +26,15 @@ next_documents:
 
 > **Construire une bêta privée crédible en huit semaines sans sacrifier les règles, la sécurité ni l’auditabilité.**
 
+> **Addendum Rules v1.1 — 2026-08-03**
+> Toute référence aux règles financières v1.0 est remplacée par le Program
+> Rulebook v1.1 et `WARIBA_RULESET_v1.1.json`. La séquence de construction reste
+> inchangée. Le catalogue Prompt 03 comprend 5K, 10K, 25K, 50K et 100K sous
+> feature flags indépendants. Prompt 05 construit 10 % target réalisé, DLL 3 %,
+> Maximum Loss 10 % EOD trailing, Best Day 50 %, sans minimum ni qualified day.
+> Prompt 08 construit le buffer permanent 10 %, cinq Performance Days à 0,50 %,
+> splits 85/15 puis 90/10, caps nets et Review après payout 5.
+
 ## Contrôle du document
 
 | Champ | Valeur |
@@ -33,11 +42,11 @@ next_documents:
 | Marque | WARIBA |
 | Domaine | `wariba.app` |
 | Dépôt | GitHub privé `wariba-platform` |
-| État réel | Dossier créé, aucun code commencé |
-| Agent principal | Codex |
-| Auditeur secondaire | Claude Code, uniquement aux checkpoints |
+| État réel | Prompts 01 à 04 implémentés ; migrations, intégration, RLS, E2E et UI audités le 2026-08-03 |
+| Agents IA autorisés | Codex, Claude Code ou tout autre agent IA explicitement mandaté |
+| Rôles autorisés | Construction, modification, audit et documentation — voir AI-015 |
 | Durée cible | 8 semaines de build après préparation |
-| Phase préalable | Semaine 0 — documents et dépôt |
+| Phase actuelle | Fin Semaine 3 — prochain scope autorisé : Prompt 05 / Policy, Risk & Evaluation |
 | Budget initial | Environ 1 000 USD |
 | Produit cible | Bêta privée sandbox |
 | Bêta initiale | 10 à 25 traders |
@@ -48,7 +57,7 @@ next_documents:
 | Instruments | EURUSD, GBPUSD, USDJPY, XAUUSD, NAS100 |
 | Support | Web responsive + PWA |
 | Langue | Français |
-| Statut | Baseline de livraison avant Prompt Pack |
+| Statut | Construction active — vente publique toujours fermée |
 
 ---
 
@@ -68,7 +77,7 @@ Il définit :
 8. avec quels risques ;
 9. avec quels stop conditions ;
 10. avec quels livrables ;
-11. avec quels prompts Codex ;
+11. avec quels prompts d’exécution ;
 12. avec quels gates de passage entre semaines.
 
 Ce plan ne constitue pas une promesse commerciale de livraison publique en huit semaines.
@@ -89,7 +98,7 @@ La cible est :
 4. effectuer un paiement sandbox ;
 5. recevoir un compte Evaluation ;
 6. comprendre sa Mission ;
-7. ouvrir WARIBA Trade ;
+7. ouvrir WariX ;
 8. voir cinq instruments sandbox ;
 9. soumettre un ordre marché ;
 10. recevoir un fill simulé ;
@@ -193,7 +202,7 @@ Chaque intégration externe commence par un adapter sandbox.
 
 ## 4.4 Une branche, un objectif
 
-Codex travaille sur une branche courte.
+L’agent IA mandaté travaille sur une branche courte.
 
 ## 4.5 CI dès le premier commit
 
@@ -237,9 +246,9 @@ Responsable de :
 - préparation des critères d’acceptation ;
 - revue des résultats fournis.
 
-## 5.3 Codex
+## 5.3 Agent IA mandaté
 
-Responsable de :
+Codex, Claude Code ou tout autre agent IA explicitement mandaté peut être responsable de :
 
 - inspection du dépôt ;
 - plan de tâche ;
@@ -249,7 +258,7 @@ Responsable de :
 - préparation des PR ;
 - correction des erreurs.
 
-Codex ne décide pas :
+L’agent IA ne décide pas :
 
 - des règles ;
 - des prix ;
@@ -257,9 +266,9 @@ Codex ne décide pas :
 - de la stack ;
 - d’une dérogation sécurité.
 
-## 5.4 Claude Code
+## 5.4 Audit indépendant
 
-Intervient uniquement comme auditeur :
+Un agent distinct de l’implémentation auditée intervient aux checkpoints requis pour auditer :
 
 - fondation ;
 - architecture ;
@@ -268,7 +277,7 @@ Intervient uniquement comme auditeur :
 - payout ;
 - pré-bêta.
 
-Claude Code ne modifie pas la même branche en parallèle avec Codex.
+Deux agents IA ne modifient pas la même branche en parallèle.
 
 ---
 
@@ -571,7 +580,7 @@ Configurer preview sans production.
 
 # 10. Checkpoint Audit A — Fondation
 
-Claude Code ou audit indépendant vérifie :
+Un agent IA indépendant vérifie :
 
 - arborescence ;
 - TypeScript ;
@@ -641,7 +650,11 @@ Produits :
 
 - 5K ;
 - 10K ;
-- 25K feature flag off.
+- 25K ;
+- 50K ;
+- 100K.
+
+Les cinq tailles sont actives en bêta sandbox. Chaque taille conserve un feature flag indépendant et révocable. Les prix restent candidats et aucune vente publique n’est autorisée par cette activation.
 
 ### W2-004 — Pages offres
 
@@ -717,6 +730,7 @@ Après paiement confirmé :
 - other-user isolation ;
 - RLS ;
 - E2E checkout.
+- matrice catalogue → commande → activation Evaluation pour 5K, 10K, 25K, 50K et 100K.
 
 ## Livrable visible
 
@@ -1374,7 +1388,7 @@ Permettre à une équipe réduite d’opérer la bêta sans accès dangereux.
 - projected payouts ;
 - coverage ;
 - status ;
-- 25K gate.
+- gates commerciaux indépendants des cinq tailles.
 
 ### W7-008 — Feature flags
 
@@ -1436,7 +1450,8 @@ L’équipe peut opérer WARIBA depuis Control sans SQL manuel de routine.
 - incidents opérables ;
 - support opérable ;
 - runbooks testés ;
-- 25K off par défaut.
+- cinq tailles actives en sandbox ; flags indépendants testés ;
+- tailles à forte exposition désactivables individuellement avant toute ouverture publique.
 
 ---
 
@@ -1677,7 +1692,7 @@ Avant encaissement réel :
 | Prompt 04 — Trading Core | Semaine 3 |
 | Prompt 05 — Policy, Risk & Evaluation | Semaine 4 |
 | Prompt 06 — Trader Hub | Semaine 5 |
-| Prompt 07 — WARIBA Trade | Semaines 3 et 5 |
+| Prompt 07 — WariX | Semaines 3 et 5 |
 | Prompt 08 — Performance & Payout | Semaine 6 |
 | Prompt 09 — WARIBA Control | Semaine 7 |
 | Prompt 10 — Help, Support & Assist | Semaines 5 et 7 |
@@ -2009,7 +2024,7 @@ Mitigation :
 - formule explicite ;
 - tests propriété.
 
-## 36.4 Codex context loss
+## 36.4 Perte de contexte de l’agent IA
 
 Mitigation :
 
@@ -2114,7 +2129,7 @@ Chaque fin de semaine :
 |---|---|
 | Task ID | W3-004 |
 | Titre | Order domain |
-| Owner | Codex |
+| Owner | Agent IA mandaté |
 | Reviewer | Rod/ChatGPT |
 | Status | Todo/In Progress/Review/Done/Blocked |
 | Branch | feat/trading-core |
@@ -2433,13 +2448,14 @@ Cette tâche ne bloque pas nécessairement la bêta privée interne.
 | BP-011 | Audit après Foundation | `LOCKED` | Architecture |
 | BP-012 | Audit après Trading | `LOCKED` | Intégrité |
 | BP-013 | Audit après Payout | `LOCKED` | Finance |
-| BP-014 | 25K off | `LOCKED` | Réserve |
+| BP-014 | 25K off | `SUPERSEDED` | Remplacé par BP-021 / OFFER-023 |
 | BP-015 | Mobile chaque semaine | `LOCKED` | Marché |
 | BP-016 | No parallel agent branch | `LOCKED` | Cohérence |
 | BP-017 | Public launch séparé | `LOCKED` | Gates |
 | BP-018 | Budget ~1 000 USD | `CANDIDATE` | Contrainte |
 | BP-019 | Logo non critique | `LOCKED` | Chemin critique |
-| BP-020 | Claude audit only | `LOCKED` | Séparation |
+| BP-020 | Restriction historique à Claude seul | `SUPERSEDED` | Remplacé par AI-015 |
+| BP-021 | 5K/10K/25K/50K/100K actifs en sandbox, sans autorisation publique | `LOCKED` | Couverture de construction et tests de bout en bout |
 
 ---
 
@@ -2466,7 +2482,7 @@ Cette tâche ne bloque pas nécessairement la bêta privée interne.
 19. bug tracker ;
 20. analytics provider ;
 21. public waitlist ;
-22. 25K visibility ;
+22. visibilité et disponibilité publique des tailles 25K, 50K et 100K ;
 23. certificate timing ;
 24. onboarding length ;
 25. daily coding availability.
@@ -2532,22 +2548,23 @@ Le plan est considéré exploitable lorsque :
 11. les stop conditions sont définies ;
 12. les rôles humains et IA sont définis ;
 13. les prompts peuvent être écrits sans inventer une séquence ;
-14. Codex peut travailler par PR limitée ;
+14. tout agent IA mandaté peut travailler par PR limitée ;
 15. aucune fonctionnalité V1 critique n’est oubliée.
 
 ---
 
-# 59. Gate avant Prompt Pack
+# 59. Gate avant Prompt Pack — franchi
 
-Le Prompt Pack peut commencer lorsque :
+Ce gate a été franchi avant la construction. État vérifié au 2026-08-03 :
 
 - ce Build Plan est accepté ;
 - tous les documents sont disponibles ;
 - la séquence 00 à 13 est confirmée ;
-- Codex est retenu ;
-- le dépôt privé est créé ;
-- aucun code n’a commencé ;
-- l’utilisateur accepte que Prompt 01 initialise uniquement la fondation.
+- les agents IA autorisés sont définis par AI-015 ;
+- le dépôt est initialisé et les Prompts 01 à 04 sont implémentés ;
+- les sources de vérité et décisions AI-015/OFFER-023 sont synchronisées ;
+- la prochaine phase reste Prompt 05, sans réordonner le chemin critique ;
+- la revue indépendante et la CI de PR restent des gates avant merge.
 
 ---
 

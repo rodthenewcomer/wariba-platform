@@ -23,6 +23,14 @@ next_documents:
 
 > **Une infrastructure de progression pour traders disciplinés.**
 
+> **Addendum UX Rules v1.1 — 2026-08-03**
+> Le site public suit la navigation `Programme`, `WariX`, `Offres`, `Aide` et
+> `Support`. Toute représentation des règles utilise l'objectif réalisé de
+> 10 %, la DLL 3 % soft lock, le Maximum Loss 10 % EOD trailing et la Best Day
+> Rule 50 %. Les anciennes mentions 8/4/8, 40 %, minimum de jours et journées
+> qualifiées en Evaluation sont superseded. Les prix sont affichés d'abord en
+> FCFA ; l'USD n'est qu'informatif. `WariX` remplace le nom historique du terminal.
+
 ## Contrôle du document
 
 | Champ | Valeur |
@@ -138,7 +146,7 @@ Avant de payer, l’utilisateur doit connaître :
 
 ## 4.3 Trading sans confusion
 
-Dans WARIBA Trade, l’utilisateur doit comprendre :
+Dans WariX, l’utilisateur doit comprendre :
 
 - le symbole ;
 - le bid et l’ask ;
@@ -191,7 +199,7 @@ Exemples :
 
 - visiteur : « Voir les offres » ;
 - acheteur : « Payer » ;
-- nouveau trader : « Ouvrir WARIBA Trade » ;
+- nouveau trader : « Ouvrir WariX » ;
 - compte soft locked : « Voir la règle » ;
 - Performance éligible : « Demander mon payout » ;
 - dossier en attente : « Voir le suivi ».
@@ -208,7 +216,7 @@ La DLL et le Maximum Loss sont visibles :
 
 - dans le Hub ;
 - dans la Mission ;
-- dans WARIBA Trade ;
+- dans WariX ;
 - avant un ordre ;
 - dans les alertes ;
 - dans le détail du compte.
@@ -527,7 +535,9 @@ WARIBA Control n’est jamais accessible depuis la navigation trader.
 ├── offres
 │   ├── wariba-one-5k
 │   ├── wariba-one-10k
-│   └── wariba-one-25k [feature flag]
+│   ├── wariba-one-25k [feature flag actif en sandbox]
+│   ├── wariba-one-50k [feature flag actif en sandbox]
+│   └── wariba-one-100k [feature flag actif en sandbox]
 ├── fonctionnement
 ├── règles
 │   ├── evaluation
@@ -819,7 +829,7 @@ Obligatoires avant bêta privée :
 7. Hub ;
 8. Liste des comptes ;
 9. Mission WARIBA ONE ;
-10. WARIBA Trade ;
+10. WariX ;
 11. Soft lock ;
 12. Hard breach ;
 13. Passage Evaluation → Performance ;
@@ -926,7 +936,7 @@ En moins de 30 secondes, il doit comprendre :
 
 ## 16.1 Objectif
 
-Comparer 5K, 10K et éventuellement 25K sans confusion.
+Comparer 5K, 10K, 25K, 50K et 100K sans confusion, avec une indication explicite de la nature sandbox et du statut candidat des prix.
 
 ## 16.2 Informations obligatoires sur chaque offre
 
@@ -954,13 +964,16 @@ Le 10K peut être mis en avant comme « offre principale », sans :
 - fausse économie ;
 - pression artificielle.
 
-## 16.4 25K
+## 16.4 Disponibilité des tailles
 
-Lorsque désactivé :
+En bêta sandbox, les cinq tailles sont achetables via le PSP sandbox et activent un compte Evaluation simulé. Chaque carte expose son prix candidat, son nominal simulé et le même niveau de transparence sur les règles.
 
-- ne pas afficher comme achetable ;
-- possibilité de liste d’intérêt uniquement si réellement utilisée ;
-- aucune promesse de date.
+Lorsqu’un feature flag est désactivé pour incident ou gate de réserve :
+
+- ne pas afficher la taille comme achetable ;
+- conserver une explication honnête de l’indisponibilité ;
+- ne proposer une liste d’intérêt que si elle existe réellement ;
+- ne faire aucune promesse de date.
 
 ---
 
@@ -1284,7 +1297,7 @@ Il reste :
 
 ---
 
-# 22. WARIBA Trade — architecture UX
+# 22. WariX — architecture UX
 
 ## 22.1 Objectif
 
@@ -2119,7 +2132,7 @@ Gestion des rôles, sans accès implicite aux fonds.
 - tendance ;
 - ventes ;
 - caps ;
-- 25K gate.
+- gates indépendants des cinq tailles ;
 
 ## 36.2 Alertes
 
@@ -2132,7 +2145,7 @@ Gestion des rôles, sans accès implicite aux fonds.
 
 Une alerte de réserve doit guider vers :
 
-- suspendre 25K ;
+- suspendre les nouvelles ventes des tailles à plus forte exposition ;
 - arrêter une promotion ;
 - limiter nouvelles ventes ;
 - alimenter réserve.
@@ -2879,7 +2892,8 @@ Les décisions suivantes doivent être tranchées avant design final ou impléme
 27. indicateurs chart V1 ;
 28. affichage statistiques publiques ;
 29. conservation des preuves trader ;
-30. statut du 25K.
+30. statut de disponibilité publique des tailles 25K, 50K et 100K ;
+31. caps de payout 50K et 100K.
 
 ---
 
@@ -2902,11 +2916,12 @@ Les décisions suivantes doivent être tranchées avant design final ou impléme
 | UX-013 | Trust Center public | `CANDIDATE` | Confiance |
 | UX-014 | Bottom navigation mobile | `CANDIDATE` | Accès rapide |
 | UX-015 | 10K comme offre principale | `CANDIDATE` | Modèle financier |
-| UX-016 | 25K sous feature flag | `LOCKED` | Risque financier |
+| UX-016 | 25K désactivé par défaut | `SUPERSEDED` | Remplacé par UX-021 / OFFER-023 |
 | UX-017 | Aucun upsell agressif après breach | `LOCKED` | Confiance |
 | UX-018 | Assist sans conseil de trading | `LOCKED` | Sécurité produit |
 | UX-019 | UTC visible | `CANDIDATE` | Rulebook |
 | UX-020 | WARIBA Review sans promesse Live | `LOCKED` | Réalisme |
+| UX-021 | Cinq tailles actives en sandbox avec feature flags indépendants | `LOCKED` | OFFER-023 ; kill switch et transparence |
 
 ---
 

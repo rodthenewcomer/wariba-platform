@@ -5,7 +5,15 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+      "outputs": []
+    },
+    "@wariba/design-tokens#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["src/tokens.css", "src/tokens.generated.ts"]
+    },
+    "@wariba/web#build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**"]
     },
     "dev": {
       "cache": false,

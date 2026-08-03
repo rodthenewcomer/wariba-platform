@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient, type SetAllCookies } from '@supabase/ssr';
-import { correlationIdFromHeaders, CORRELATION_ID_HEADER } from '@wariba/observability';
+import { correlationIdFromHeaders, CORRELATION_ID_HEADER } from '@wariba/observability/correlation';
 import { loadWebConfig } from './lib/config';
 
 const PROTECTED_PREFIXES = [
@@ -49,8 +49,10 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith(prefix),
   );
   if (isProtected && !user) {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('next', request.nextUrl.pathname);
+    // The configured application URL is authoritative. Building an absolute
+    // redirect from request.url would trust an attacker-controlled Host header.
+    const loginUrl = new URL('/login', webConfig.APP_BASE_URL);
+    loginUrl.searchParams.set('next', `${request.nextUrl.pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(loginUrl);
   }
 

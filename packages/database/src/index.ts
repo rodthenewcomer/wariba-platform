@@ -8,10 +8,11 @@
 
 export const PACKAGE_NAME = '@wariba/database';
 
-export { createDbClient, type Db } from './client';
+export { createDbClient, type Db, type DbExecutor } from './client';
 export type { Database, TradableSymbol, OrderSide } from './schema';
 export {
   activateEvaluationAccount,
+  activateEvaluationAccountInTransaction,
   type ActivateEvaluationAccountParams,
   type ActivatedAccount,
 } from './activation';

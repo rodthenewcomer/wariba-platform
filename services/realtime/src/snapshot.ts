@@ -88,6 +88,7 @@ export async function buildAccountSnapshot(
     toOrderDTO({
       accountId,
       orderId: row.id,
+      idempotencyKey: row.idempotency_key,
       orderType: row.order_type,
       symbol: row.symbol,
       side: row.side,

@@ -7,7 +7,7 @@ language: "fr-FR"
 brand: "WARIBA"
 domain: "wariba.app"
 owner: "WARIBA Leadership, Product, Risk, Engineering & Operations"
-last_updated: "2026-08-01"
+last_updated: "2026-08-03"
 ---
 
 # WARIBA Decision Log v1.0
@@ -90,7 +90,7 @@ En cas de contradiction :
 
 ## 3.4 Agents IA
 
-Codex et Claude Code ne peuvent pas créer ou modifier une décision sans :
+Aucun agent IA ne peut créer ou modifier une décision sans :
 
 - signaler le besoin ;
 - proposer une entrée ;
@@ -149,7 +149,7 @@ Révision:
 | PROD-006 | `LOCKED` | Le North Star Metric est la progression de traders respectant les règles. | La croissance seule n’est pas le succès. |
 | PROD-007 | `LOCKED` | Trois personas : débutant discipliné, intermédiaire, confirmé sous-capitalisé. | Les parcours et contenus doivent couvrir ces profils. |
 | PROD-008 | `LOCKED` | Le Hub est le centre de compréhension. | Le trader doit comprendre son état et sa prochaine action rapidement. |
-| PROD-009 | `LOCKED` | WARIBA Trade est un espace distinct du Hub. | Séparer compréhension et exécution. |
+| PROD-009 | `SUPERSEDED` | WARIBA Trade est un espace distinct du Hub. | Renommé WariX par PROD-024. |
 | PROD-010 | `LOCKED` | La Mission est l’objet central de progression d’un compte. | Elle combine objectifs, règles et prochaine action. |
 | PROD-011 | `LOCKED` | WARIBA Guardian est déterministe. | Aucun conseil de trading ou signal. |
 | PROD-012 | `LOCKED` | WARIBA Assist explique et escalade. | Il ne modifie ni règle, ni compte, ni payout. |
@@ -164,6 +164,7 @@ Révision:
 | PROD-021 | `DEFERRED` | Community, leaderboard et gamification. | Éviter dérive casino/sociale. |
 | PROD-022 | `DEFERRED` | Affiliation publique massive. | À lancer seulement après stabilité opérationnelle. |
 | PROD-023 | `DEFERRED` | Certificats publics. | Après validation du parcours et protection anti-fraude. |
+| PROD-024 | `LOCKED` | **WariX** est le nom public du terminal propriétaire de trading simulé de WARIBA ; il reste distinct du Hub. | Décision explicite de Rod (2026-08-03). La route technique `/trade` peut rester stable. |
 
 ---
 
@@ -175,13 +176,14 @@ Révision:
 | OFFER-002 | `SUPERSEDED` | Offre 10K à 27 900 FCFA. | Offre principale candidate. Voir OFFER-014. |
 | OFFER-003 | `SUPERSEDED` | Offre 25K à 59 900 FCFA. | Ne doit pas être disponible par défaut. Voir OFFER-015. |
 | OFFER-004 | `LOCKED` | Le 10K est l’offre principale candidate. | Meilleur équilibre prix/valeur dans le modèle initial. |
-| OFFER-005 | `LOCKED` | Le 25K est derrière un feature flag. | Risque de réserve plus élevé. |
+| OFFER-005 | `SUPERSEDED` | Le 25K est derrière un feature flag et désactivé par défaut. | Remplacé par OFFER-023 pour la bêta sandbox. |
 | OFFER-006 | `LOCKED` | Aucun frais d’activation. | Simplification et confiance. |
 | OFFER-007 | `LOCKED` | Aucun abonnement obligatoire pour l’évaluation. | WARIBA ONE n’a pas de limite de temps. |
 | OFFER-008 | `LOCKED` | Nature simulée visible avant paiement. | Transparence contractuelle. |
 | OFFER-009 | `OPEN` | Politique définitive de remboursement. | Dépend du PSP et du conseil juridique. |
 | OFFER-010 | `OPEN` | Nombre maximal d’évaluations actives par utilisateur. | Nécessaire avant lancement payant. |
 | OFFER-011 | `OPEN` | Reset/repurchase commercial. | Doit être économiquement et éthiquement cadré. |
+| OFFER-012 | `LOCKED` | Implémenter les comptes 50K et 100K. | Catalogue sandbox complet ; la commercialisation publique reste soumise aux gates. |
 | OFFER-013 | `CANDIDATE` | Prix public 5K : 22 500 FCFA. | Point d’entrée accessible sans positionnement low-cost extrême. |
 | OFFER-014 | `CANDIDATE` | Prix public 10K : 39 900 FCFA. | Offre principale candidate. |
 | OFFER-015 | `CANDIDATE` | Prix public 25K : 84 900 FCFA. | Niveau intermédiaire, équivalent indicatif (≈148 USD) sous le seuil psychologique de 150 USD. |
@@ -192,6 +194,7 @@ Révision:
 | OFFER-020 | `LOCKED` | Aucun frais d’activation après réussite. | Transparence et simplicité. |
 | OFFER-021 | `LOCKED` | Chaque taille possède son propre feature flag commercial. | Permettre une ouverture progressive selon la réserve. |
 | OFFER-022 | `LOCKED` | La devise commerciale et de règlement est le FCFA (XOF), pas le USD ; l’USD reste un équivalent informatif. | Marché principal Afrique francophone, paiements Wave/Orange Money/Mobile Money ; montant final du checkout figé en FCFA sans conversion surprise. |
+| OFFER-023 | `LOCKED` | Les cinq tailles WARIBA ONE — 5K, 10K, 25K, 50K et 100K — sont actives dans le catalogue, le checkout et l’activation Evaluation de la bêta sandbox. | Décision explicite de Rod (2026-08-03). Les feature flags indépendants restent des kill switches. Cette activation ne vaut ni approbation de vente publique, ni validation des prix candidats, ni définition des caps de payout 50K/100K. |
 
 ---
 
@@ -199,14 +202,14 @@ Révision:
 
 | ID | Statut | Décision | Motif / conséquence |
 |---|---|---|---|
-| ONE-001 | `CANDIDATE` | Objectif de profit : 8 %. | Baseline du Rulebook. |
-| ONE-002 | `CANDIDATE` | Daily Loss Limit : 4 % du nominal. | Soft lock quotidien. |
-| ONE-003 | `CANDIDATE` | Maximum Loss : 8 % statique. | Hard breach. |
-| ONE-004 | `CANDIDATE` | Consistance : 40 %. | Condition de passage, jamais breach. |
-| ONE-005 | `CANDIDATE` | Minimum 4 jours de trading. | Empêcher passage instantané. |
-| ONE-006 | `CANDIDATE` | Minimum 3 journées qualifiées. | Mesurer une régularité minimale. |
-| ONE-007 | `CANDIDATE` | Journée qualifiée : 0,20 % du nominal. | Baseline du Rulebook. |
-| ONE-008 | `LOCKED` | Pas de trailing drawdown. | Règles plus lisibles et non ambiguës. |
+| ONE-001 | `SUPERSEDED` | Objectif de profit : 8 %. | Remplacé par ONE-019. |
+| ONE-002 | `SUPERSEDED` | Daily Loss Limit : 4 % du nominal. | Remplacé par ONE-020. |
+| ONE-003 | `SUPERSEDED` | Maximum Loss : 8 % statique. | Remplacé par ONE-021. |
+| ONE-004 | `SUPERSEDED` | Consistance : 40 %. | Remplacé par ONE-022. |
+| ONE-005 | `SUPERSEDED` | Minimum 4 jours de trading. | Remplacé par ONE-023. |
+| ONE-006 | `SUPERSEDED` | Minimum 3 journées qualifiées. | Remplacé par ONE-024. |
+| ONE-007 | `SUPERSEDED` | Journée qualifiée : 0,20 % du nominal. | Remplacé par ONE-024. |
+| ONE-008 | `SUPERSEDED` | Pas de trailing drawdown. | Remplacé par ONE-021 : EOD trailing 10 %. |
 | ONE-009 | `LOCKED` | Pas de limite de temps. | Confiance et discipline plutôt que pression. |
 | ONE-010 | `CANDIDATE` | Inactivité : 30 jours. | Prévenir comptes abandonnés. |
 | ONE-011 | `LOCKED` | Overnight autorisé. | Flexibilité. |
@@ -214,9 +217,15 @@ Révision:
 | ONE-013 | `LOCKED` | News trading autorisé en Evaluation. | Positionnement plus simple. |
 | ONE-014 | `LOCKED` | Le target doit être réalisé. | Le PnL latent ne suffit pas. |
 | ONE-015 | `LOCKED` | Le compte ne passe qu’avec positions et ordres fermés. | Éviter passage sur exposition ouverte. |
-| ONE-016 | `LOCKED` | Consistance > 40 % ne termine jamais le compte. | C’est une condition d’éligibilité uniquement. |
+| ONE-016 | `SUPERSEDED` | Consistance > 40 % ne termine jamais le compte. | Ratio remplacé par 50 % dans ONE-022 ; le caractère non-breach est conservé. |
 | ONE-017 | `LOCKED` | Reset quotidien basé sur UTC. | Une seule référence de temps. |
 | ONE-018 | `CANDIDATE` | Reset à 00:00 UTC. | Baseline technique du Rulebook. |
+| ONE-019 | `LOCKED` | Objectif Evaluation porté à 10 % du nominal, calculé sur le profit net réalisé. | Alignement du programme v1.1 et du modèle actuariel. |
+| ONE-020 | `LOCKED` | Daily Loss porté à 3 % avec soft lock jusqu’au prochain reset. | Protection quotidienne sans terminaison automatique du compte. |
+| ONE-021 | `LOCKED` | Maximum Loss remplacé par 10 % EOD trailing ; le plancher ne baisse jamais et se verrouille au nominal. | Protéger la progression tout en versionnant le plancher par journée finalisée. |
+| ONE-022 | `LOCKED` | Best Day Rule portée à 50 %, non-breach et bloquante uniquement pour le passage. | Contrôle de concentration. |
+| ONE-023 | `LOCKED` | Aucun minimum de jours en Evaluation. | La Best Day Rule contrôle la concentration sans délai artificiel. |
+| ONE-024 | `LOCKED` | Suppression des journées qualifiées en Evaluation. | Élimination d’une règle devenue redondante. |
 
 ---
 
@@ -224,17 +233,17 @@ Révision:
 
 | ID | Statut | Décision | Motif / conséquence |
 |---|---|---|---|
-| PERF-001 | `CANDIDATE` | DLL Performance : 3 %. | Baseline plus stricte que l’évaluation. |
-| PERF-002 | `CANDIDATE` | Maximum Loss Performance : 6 % statique. | Hard breach. |
-| PERF-003 | `CANDIDATE` | Consistance : 40 % par cycle. | Condition de payout, jamais breach. |
-| PERF-004 | `CANDIDATE` | 5 journées qualifiées par cycle. | Régularité avant payout. |
-| PERF-005 | `CANDIDATE` | Journée qualifiée : 0,30 % du nominal. | Baseline du Rulebook. |
-| PERF-006 | `CANDIDATE` | Threshold payout #1 : 4 %. | Premier cycle plus exigeant. |
-| PERF-007 | `CANDIDATE` | Threshold payouts #2 à #5 : 3 %. | Progression répétable. |
+| PERF-001 | `SUPERSEDED` | DLL Performance : 3 %. | Règle conservée et verrouillée dans PERF-032 avec le soft lock v1.1. |
+| PERF-002 | `SUPERSEDED` | Maximum Loss Performance : 6 % statique. | Remplacé par PERF-033. |
+| PERF-003 | `SUPERSEDED` | Consistance : 40 % par cycle. | Remplacé par PERF-034. |
+| PERF-004 | `SUPERSEDED` | 5 journées qualifiées par cycle. | Remplacé par les Performance Days de PERF-025 et PERF-026. |
+| PERF-005 | `SUPERSEDED` | Journée qualifiée : 0,30 % du nominal. | Remplacé par PERF-026. |
+| PERF-006 | `SUPERSEDED` | Threshold payout #1 : 4 %. | Remplacé par le buffer permanent et les caps. |
+| PERF-007 | `SUPERSEDED` | Threshold payouts #2 à #5 : 3 %. | Remplacé par le buffer permanent et les caps. |
 | PERF-008 | `LOCKED` | Pas de délai fixe de 14 jours. | Éligibilité fondée sur performance et jours qualifiés. |
-| PERF-009 | `LOCKED` | Maximum distribuable : 50 % du profit net du cycle. | Protection de la réserve et du compte. |
-| PERF-010 | `CANDIDATE` | Split payouts #1 à #4 : 80/20. | Baseline commerciale. |
-| PERF-011 | `CANDIDATE` | Split payout #5 : 90/10. | Récompense de progression. |
+| PERF-009 | `SUPERSEDED` | Maximum distribuable : 50 % du profit net du cycle. | Supprimé par PERF-029 ; buffer et caps deviennent les protections principales. |
+| PERF-010 | `SUPERSEDED` | Split payouts #1 à #4 : 80/20. | Remplacé par PERF-027. |
+| PERF-011 | `SUPERSEDED` | Split payout #5 : 90/10. | Remplacé par PERF-028 et conservé au même ratio. |
 | PERF-012 | `LOCKED` | Le compte est gelé après une demande de payout valide. | Stabiliser le snapshot et éviter nouvelles expositions. |
 | PERF-013 | `LOCKED` | Une seule demande de payout active par cycle. | Empêcher duplication. |
 | PERF-014 | `LOCKED` | Le Payout Base entier est débité du compte simulé après paiement. | Cohérence du cycle. |
@@ -246,6 +255,19 @@ Révision:
 | PERF-020 | `LOCKED` | Une seule relation Performance issue d’une Evaluation réussie. | Idempotence. |
 | PERF-021 | `OPEN` | Critères finaux de WARIBA Review. | Doivent être définis avant public. |
 | PERF-022 | `OPEN` | Délai de traitement Review. | Nécessite opérations réelles. |
+| PERF-023 | `LOCKED` | Buffer permanent de 10 % avant tout payout. | Coussin non retirable. |
+| PERF-024 | `LOCKED` | Seul l’excédent net réalisé au-dessus du buffer est retirable. | Protection permanente du compte. |
+| PERF-025 | `LOCKED` | Cinq nouvelles Performance Days sont requises par payout et ne peuvent pas être réutilisées. | Répétabilité. |
+| PERF-026 | `LOCKED` | Une Performance Day vaut au moins 0,50 % du nominal. | Règle proportionnelle. |
+| PERF-027 | `LOCKED` | Split 85/15 pour les payouts #1 à #4. | Nouvelle offre v1.1. |
+| PERF-028 | `LOCKED` | Split 90/10 au payout #5. | Récompense de continuité. |
+| PERF-029 | `LOCKED` | Suppression de la limite universelle de distribution de 50 %. | Le buffer, les Performance Days, les caps et le split protègent WARIBA. |
+| PERF-030 | `CANDIDATE` | Nouvelle grille de caps nets 5K–100K par rang de payout. | Validation du modèle financier calculable et du scénario Stress requise. |
+| PERF-031 | `LOCKED` | WARIBA Review après le cinquième payout payé. | Aucun sixième payout automatique. |
+| PERF-032 | `LOCKED` | DLL Performance : 3 % avec soft lock. | Alignement v1.1 entre Evaluation et Performance. |
+| PERF-033 | `LOCKED` | Maximum Loss Performance : 10 % EOD trailing. | Même modèle de plancher versionné que l’Evaluation. |
+| PERF-034 | `LOCKED` | Best Day Rule : 50 % par cycle, non-breach. | Contrôle de concentration avant payout. |
+| PERF-035 | `LOCKED` | Aucun minimum général de jours en Performance hors cinq Performance Days par payout. | Éviter un délai artificiel distinct de la preuve requise. |
 
 ---
 
@@ -253,15 +275,15 @@ Révision:
 
 | ID | Statut | Décision | Motif / conséquence |
 |---|---|---|---|
-| CAP-001 | `CANDIDATE` | 5K P1–P2 : 100 USD. | Baseline du modèle financier. |
-| CAP-002 | `CANDIDATE` | 5K P3–P4 : 150 USD. | Baseline du modèle financier. |
-| CAP-003 | `CANDIDATE` | 5K P5 : 250 USD. | Baseline du modèle financier. |
-| CAP-004 | `CANDIDATE` | 10K P1–P2 : 200 USD. | Baseline du modèle financier. |
-| CAP-005 | `CANDIDATE` | 10K P3–P4 : 300 USD. | Baseline du modèle financier. |
-| CAP-006 | `CANDIDATE` | 10K P5 : 500 USD. | Baseline du modèle financier. |
-| CAP-007 | `EXPERIMENT` | 25K P1–P2 : 400 USD. | Non public au lancement. |
-| CAP-008 | `EXPERIMENT` | 25K P3–P4 : 600 USD. | Non public au lancement. |
-| CAP-009 | `EXPERIMENT` | 25K P5 : 1 000 USD. | Non public au lancement. |
+| CAP-001 | `SUPERSEDED` | 5K P1–P2 : 100 USD. | Remplacé par PERF-030. |
+| CAP-002 | `SUPERSEDED` | 5K P3–P4 : 150 USD. | Remplacé par PERF-030. |
+| CAP-003 | `SUPERSEDED` | 5K P5 : 250 USD. | Remplacé par PERF-030. |
+| CAP-004 | `SUPERSEDED` | 10K P1–P2 : 200 USD. | Remplacé par PERF-030. |
+| CAP-005 | `SUPERSEDED` | 10K P3–P4 : 300 USD. | Remplacé par PERF-030. |
+| CAP-006 | `SUPERSEDED` | 10K P5 : 500 USD. | Remplacé par PERF-030. |
+| CAP-007 | `SUPERSEDED` | 25K P1–P2 : 400 USD. | Remplacé par PERF-030. |
+| CAP-008 | `SUPERSEDED` | 25K P3–P4 : 600 USD. | Remplacé par PERF-030. |
+| CAP-009 | `SUPERSEDED` | 25K P5 : 1 000 USD. | Remplacé par PERF-030. |
 | CAP-010 | `LOCKED` | Les caps ne doivent pas être augmentés avant données de bêta. | Le scénario Stress est déficitaire. |
 
 ---
@@ -293,6 +315,11 @@ Révision:
 | TRD-021 | `LOCKED` | Aucun fill partiel au niveau ordre en V1 : un ordre marché accepté est entièrement rempli en un seul fill. | Le marché sandbox déterministe a toujours une liquidité suffisante ; `partially_filled` reste une valeur de state machine valide mais non atteinte tant qu'un scénario de liquidité limitée n'est pas requis. |
 | TRD-022 | `LOCKED` | Aucune exécution automatique de Stop Loss / Take Profit en V1 : ce sont des paramètres de risque stockés et modifiables sur une position, pas des ordres en attente déclenchés par le marché. | TRD-005 (pending orders avancés) reste `OPEN` ; le marché sandbox ne surveille pas les positions pour un déclenchement automatique tant que ce périmètre n'est pas validé séparément. |
 | TRD-023 | `LOCKED` | `account_sequence` (WebSocket gap detection par compte) réutilise `trading_accounts.version` (déjà le compteur de concurrence optimiste du row lock) plutôt qu'une séquence dédiée. | Chaque écriture transactionnelle de trading incrémente déjà `version` sous verrou ; réutiliser cette valeur évite un générateur de séquence redondant. |
+| TRD-024 | `LOCKED` | Levier Forex maximal 1:100 en Evaluation et Performance. | Compétitivité encadrée par l’exposition agrégée. |
+| TRD-025 | `LOCKED` | XAUUSD jusqu’à 1:50 avec modèle dynamique selon l’exposition agrégée. | Attractivité avec contrôle du volume. |
+| TRD-026 | `LOCKED` | NAS100 jusqu’à 1:20. | Compromis attractivité/risque. |
+| TRD-027 | `LOCKED` | Limites d’exposition agrégées par taille de compte. | Le levier seul ne contrôle pas l’exposition. |
+| TRD-028 | `LOCKED` | Marge utilisée maximale : 30 % Evaluation, 25 % Performance. | Protection de l’equity. |
 
 ---
 
@@ -417,6 +444,7 @@ Révision:
 | ENG-019 | `LOCKED` | Les décimales sont sérialisées en chaînes. | Éviter perte de précision. |
 | ENG-020 | `LOCKED` | Les erreurs exposent un code stable et correlation ID. | Support et audit. |
 | ENG-026 | `LOCKED` | Le script `ci` (package.json) s'invoque via `pnpm run ci`, jamais `pnpm ci` seul. | pnpm réserve `ci` comme commande interne (équivalent `npm ci`) et ignore silencieusement le script du même nom sans `run` — trouvé lors de la vérification réelle de Prompt 01 (build agent), corrigé dans AGENTS.md, Engineering Constitution, Build Plan, Prompt Pack et README (2026-08-02). |
+| ENG-027 | `LOCKED` | Le runtime de référence passe à Node.js 24 LTS, épinglé par `.nvmrc`, avec une plage 24.x dans `package.json`. | Node.js 20 est EOL et le SDK Supabase émettait un avertissement de dépréciation au build. Migration validée dans l'audit Prompts 01–04 (2026-08-03). |
 
 ---
 
@@ -470,7 +498,7 @@ Révision:
 | OPS-001 | `LOCKED` | Réserve payout séparée de la trésorerie d’exploitation. | Gouvernance financière. |
 | OPS-002 | `LOCKED` | Couverture cible normale ≥ 2,0x. | Prudence. |
 | OPS-003 | `LOCKED` | 1,5x–2,0x = prudence. | Réduire croissance/promotion. |
-| OPS-004 | `LOCKED` | 1,2x–1,5x = défensif. | Suspendre 25K et promotions. |
+| OPS-004 | `SUPERSEDED` | 1,2x–1,5x = défensif avec suspension du 25K. | Remplacé par OPS-015 pour la grille à cinq tailles. |
 | OPS-005 | `LOCKED` | < 1,2x = critique. | Limiter/suspendre nouvelles ventes. |
 | OPS-006 | `LOCKED` | Les actions de réserve affectent seulement les ventes futures. | Non-rétroactivité des payouts gagnés. |
 | OPS-007 | `LOCKED` | Kill switches audités. | Contrôle incident. |
@@ -481,6 +509,7 @@ Révision:
 | OPS-012 | `OPEN` | Support SLA final. | Nécessite mesure réelle. |
 | OPS-013 | `OPEN` | Payout SLA final. | Nécessite opérations réelles. |
 | OPS-014 | `OPEN` | Processus comptable/ledger trésorerie réel. | Gate avant payout réel. |
+| OPS-015 | `LOCKED` | À 1,2x–1,5x de couverture, suspendre les nouvelles ventes des tailles à plus forte exposition par ordre 100K, 50K, 25K, puis réduire les promotions. | Préserver la réserve sans modifier rétroactivement un compte déjà activé. |
 
 ---
 
@@ -510,8 +539,8 @@ Révision:
 
 | ID | Statut | Décision | Motif / conséquence |
 |---|---|---|---|
-| AI-001 | `SUPERSEDED` | Codex est le constructeur principal. | Remplacé par AI-014 (2026-08-01). |
-| AI-002 | `SUPERSEDED` | Claude Code intervient comme auditeur. | Remplacé par AI-014 (2026-08-01) : rôle fusionné constructeur+auditeur. |
+| AI-001 | `SUPERSEDED` | Codex est le constructeur principal. | Remplacé par AI-014 (2026-08-01), puis AI-015 (2026-08-03). |
+| AI-002 | `SUPERSEDED` | Claude Code intervient comme auditeur. | Remplacé par AI-014 (2026-08-01), puis AI-015 (2026-08-03). |
 | AI-003 | `LOCKED` | Aucun travail parallèle sur la même branche. | Éviter conflits et incohérences. |
 | AI-004 | `LOCKED` | Prompt 00 avant chaque grande session. | Recharger le contexte réel. |
 | AI-005 | `LOCKED` | Plan avant code. | Contrôle. |
@@ -523,7 +552,8 @@ Révision:
 | AI-011 | `LOCKED` | Un agent ne reçoit aucun secret réel. | Sécurité. |
 | AI-012 | `LOCKED` | Prompt 12 est un audit indépendant. | Trouver les défauts, pas valider par complaisance. |
 | AI-013 | `LOCKED` | Prompt 13 ne lance jamais automatiquement le public. | Bêta privée seulement. |
-| AI-014 | `LOCKED` | Claude Code est l'agent constructeur ET auditeur principal ; Codex n'est plus utilisé sur ce projet. | Décision explicite de Rod (2026-08-01). Remplace AI-001 et AI-002. Un agent ne fusionne toujours pas sa propre PR sans revue humaine (AI-007 inchangé). |
+| AI-014 | `SUPERSEDED` | Claude Code est l'agent constructeur ET auditeur principal ; Codex n'est plus utilisé sur ce projet. | Décision historique de Rod (2026-08-01), remplacée par AI-015 le 2026-08-03. |
+| AI-015 | `LOCKED` | Codex, Claude Code ou tout autre agent IA explicitement mandaté peut construire, modifier, auditer et documenter le code WARIBA. | Décision explicite de Rod (2026-08-03). Les agents restent soumis aux sources de vérité, à AGENTS.md, aux branches autorisées, aux tests réels et à la revue humaine. AI-003 et AI-007 à AI-011 restent inchangées. |
 
 ---
 
@@ -539,7 +569,7 @@ Révision:
 | PRE-006 | `LOCKED` | Dépôt privé créé : github.com/rodthenewcomer/wariba-platform (branche `main`, encore vide de code/docs). |
 | PRE-007 | `LOCKED` | Documents copiés dans docs/ (2026-08-01), branche feat/repository-foundation. |
 | PRE-008 | `LOCKED` | Branche créée et poussée (2026-08-01). |
-| PRE-009 | `SUPERSEDED` | Codex n'est plus l'agent constructeur — voir AI-014. |
+| PRE-009 | `SUPERSEDED` | Restriction historique de Codex, remplacée par l’autorisation multi-agent AI-015. |
 | PRE-010 | `LOCKED` | Aucun code produit avant Prompt 00 et Prompt 01. |
 
 ---
@@ -595,6 +625,22 @@ Ces décisions ne bloquent pas toutes la fondation, mais bloqueront des phases p
 
 # 25. Historique des versions
 
+## v1.5 — 2026-08-03
+
+Règles programme v1.1 validées par Rod et alignées sur le modèle actuariel candidat : objectif 10 %, DLL 3 % soft lock, Maximum Loss 10 % EOD trailing, Best Day Rule 50 %, aucun minimum de jours ni journée qualifiée en Evaluation, buffer Performance permanent 10 %, cinq nouvelles Performance Days à 0,50 %, splits 85/15 puis 90/10 et caps nets candidats 5K–100K. Le terminal public est renommé WariX. La grille contractuelle reste en FCFA avec équivalents USD informatifs ; prix et caps demeurent candidats, et le lancement public reste non approuvé.
+
+## v1.4 — 2026-08-03
+
+Audit et correction des Prompts 01 à 04 : passage à Node.js 24 LTS (ENG-027), activation vérifiée des cinq tailles OFFER-023, consentement versionné avant commande, idempotence concurrente commande/paiement, webhook et activation atomiques, `Close All` atomique avec ordre maître rejouable, tests intégration/RLS/E2E réellement routés, Hub initial branché aux comptes sandbox et accueil enrichi d'une photographie éditoriale sans faux résultat. L'audit des dépendances de production est revenu sans vulnérabilité connue après mise à niveau de Kysely 0.28.17 et overrides de sécurité PostCSS 8.5.18 / Sharp 0.35.3.
+
+## v1.3 — 2026-08-03
+
+Les cinq tailles WARIBA ONE sont activées pour la bêta sandbox de bout en bout — catalogue, checkout et activation Evaluation — conformément à OFFER-023. Les prix restent candidats et le lancement public demeure bloqué par les gates actuariels, juridiques et de réserve. Les caps de payout 50K/100K ne sont pas inventés et restent une décision ouverte avant tout parcours Performance/payout pour ces tailles.
+
+## v1.2 — 2026-08-03
+
+Gouvernance des agents IA harmonisée : AI-014 est remplacée par AI-015. Codex, Claude Code ou tout autre agent IA explicitement mandaté peut construire, modifier, auditer et documenter le code, sans dérogation aux sources de vérité, aux contrôles de branche, aux tests ni à la revue humaine.
+
 ## v1.1 — 2026-08-02
 
 Grille tarifaire candidate à cinq paliers (5K/10K/25K/50K/100K), prix fondateurs, et bascule de la devise commerciale de l’USD vers le FCFA (XOF) — voir OFFER-013 à OFFER-022. Statut `CANDIDATE_PENDING_ACTUARIAL_MODEL` jusqu’au WARIBA Actuarial & Risk Model v1.0. Documents mis à jour : Program Rulebook §7, Product Master Document §9, WARIBA_RULESET_v1.0.json (`commercial_offers`), Financial Model (feuille Hypothèses), Prompt Pack (Prompt 03, Prompt 08).
@@ -619,16 +665,15 @@ Création initiale consolidée à partir de :
 
 # 26. Prochaine action opérationnelle
 
-`WARIBA_RULESET_v1.0.json` et `tokens.json` ont été générés (2026-08-01). Il reste :
+Les Prompts 01 à 04 sont implémentés et audités sur la branche de travail. La séquence suivante est :
 
 ```text
-1. Créer le dépôt GitHub privé
-2. Copier tous les documents
-3. Créer la branche feat/repository-foundation
-4. Lancer Codex
-5. Envoyer Prompt 00
-6. Examiner le rapport
-7. Envoyer Prompt 01
+1. Revue indépendante du diff et de la PR Prompts 01–04
+2. CI GitHub avec base de test isolée
+3. Merge par un humain ou un agent distinct
+4. Créer feat/policy-risk-evaluation
+5. Exécuter Prompt 00 puis Prompt 05
+6. Ne pas ouvrir la vente publique avant les gates actuariels, juridiques et de réserve
 ```
 
 ---

@@ -2,12 +2,12 @@
   "document": {
     "id": "WARIBA-RULESET",
     "title": "WARIBA Ruleset",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "status": "candidate_private_beta",
     "language": "fr-FR",
     "brand": "WARIBA",
     "domain": "wariba.app",
-    "generated_at": "2026-08-01T16:32:00Z",
+    "generated_at": "2026-08-03T04:00:00Z",
     "authoritative_human_source": "docs/02-program/WARIBA_Program_Rulebook_v1.0.md",
     "decision_log_source": "docs/00-decisions/DECISION_LOG.md",
     "runtime_use": "sandbox_private_beta_only",
@@ -72,9 +72,9 @@
     "feature_flags": {
       "product_5k_enabled": true,
       "product_10k_enabled": true,
-      "product_25k_enabled": false,
-      "product_50k_enabled": false,
-      "product_100k_enabled": false
+      "product_25k_enabled": true,
+      "product_50k_enabled": true,
+      "product_100k_enabled": true
     },
     "offers": {
       "WARIBA_ONE_5K": {
@@ -144,7 +144,10 @@
       "fake_countdown_forbidden": true,
       "permanent_discount_forbidden": true,
       "settlement_currency": "XOF",
-      "exchange_rate_exposure_borne_by": "WARIBA"
+      "exchange_rate_exposure_borne_by": "WARIBA",
+      "sandbox_catalog_checkout_evaluation_enabled_for_all_tiers": true,
+      "public_sales_approval_status": "deferred_pending_gates",
+      "performance_payout_caps_50k_100k_status": "open_decision"
     }
   },
   "symbol_specifications": {

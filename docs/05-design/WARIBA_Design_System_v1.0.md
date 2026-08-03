@@ -24,6 +24,15 @@ next_documents:
 
 > **Quiet Financial Authority.**
 
+> **Addendum marketing v1.1 — 2026-08-03**
+> Le nouveau site public peut employer un canvas Ink dominant afin d'adapter la
+> structure éditoriale des références validées, tout en conservant strictement
+> Manrope, IBM Plex Mono, Ink, Bone, Cobalt et Copper. Les interdictions restent
+> inchangées : aucun gradient dominant, faux dashboard, faux résultat, faux
+> témoignage, faux partenaire ou actif visuel générique. Les photographies
+> originales doivent représenter des professionnels ouest-africains et rester
+> libres de chiffres, marques ou promesses visibles.
+
 ## Contrôle du document
 
 | Champ | Valeur |
@@ -37,7 +46,7 @@ next_documents:
 | État du projet | Dossier créé, aucun code commencé |
 | Statut du document | Baseline visuelle avant développement |
 | Direction créative | Quiet Financial Authority |
-| Interface critique | WARIBA Hub, WARIBA Trade, Performance, Payout, Control |
+| Interface critique | WARIBA Hub, WariX, Performance, Payout, Control |
 | Application native | Non en V1 |
 | Thèmes | Marketing clair ; Platform adaptative ; Trade sombre par défaut |
 | Police interface | Manrope Variable |
@@ -55,7 +64,7 @@ Il sert de source de vérité pour :
 
 1. le site public ;
 2. WARIBA Hub ;
-3. WARIBA Trade ;
+3. WariX ;
 4. WARIBA Guardian ;
 5. WARIBA Performance ;
 6. le Payout Center ;
@@ -214,7 +223,7 @@ Une interface WARIBA doit rester crédible :
 
 - WARIBA ONE ;
 - WARIBA Hub ;
-- WARIBA Trade ;
+- WariX ;
 - WARIBA Guardian ;
 - WARIBA Performance ;
 - WARIBA Review ;
@@ -815,6 +824,8 @@ Direction :
 - cadrages éditoriaux ;
 - diversité crédible.
 
+La homepage de bêta doit utiliser au moins une photographie éditoriale réelle ou générée sous licence d’usage du projet, optimisée en format moderne, avec un sujet noir africain professionnel dans un contexte contemporain crédible. L’asset ne doit contenir ni faux graphique, ni texte incrusté, ni logo tiers, ni watermark.
+
 Éviter :
 
 - costume devant gratte-ciel générique ;
@@ -1395,6 +1406,7 @@ Doit contenir :
 - CTA ;
 - CTA secondaire règles ;
 - preuve produit réelle ou prototype étiqueté.
+- photographie éditoriale contextualisée, avec dimensions réservées et texte alternatif pertinent.
 
 ## 27.3 Forme
 
@@ -1444,7 +1456,7 @@ Surface principale, non noyée parmi six cartes égales.
 
 ---
 
-# 29. WARIBA Trade
+# 29. WariX
 
 ## 29.1 Thème
 

@@ -34,6 +34,7 @@ export {
   computeCommission,
   openingAveragePrice,
   isQuantityWithinBounds,
+  isAggregateExposureAllowed,
   isStale,
   isPartialCloseQuantityValid,
   subtractQuantity,

@@ -111,6 +111,7 @@ export interface PaymentAttemptsTable {
   amount: string;
   currency: string;
   provider_reference: string | null;
+  attempt_key: Generated<string | null>;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
 }
@@ -251,6 +252,18 @@ export interface SymbolSpecsTable {
   created_at: GeneratedTimestamp;
 }
 
+export interface AccountExposureLimitsTable {
+  id: Generated<string>;
+  symbol_spec_set_id: string;
+  nominal_balance: string;
+  forex_lots: string;
+  xauusd_lots: string;
+  nas100_contracts: string;
+  evaluation_max_margin_rate: string;
+  performance_max_margin_rate: string;
+  created_at: GeneratedTimestamp;
+}
+
 export type PositionStatusColumn = 'open' | 'closed';
 
 export interface PositionsTable {
@@ -272,7 +285,7 @@ export interface PositionsTable {
 }
 
 export type TradeOrderTypeColumn =
-  'market_open' | 'partial_close' | 'full_close' | 'modify_sl' | 'modify_tp';
+  'market_open' | 'partial_close' | 'full_close' | 'close_all' | 'modify_sl' | 'modify_tp';
 export type TradeOrderStatusColumn =
   'received' | 'validated' | 'accepted' | 'filled' | 'rejected' | 'cancelled';
 
@@ -333,6 +346,7 @@ export interface Database {
   'app.account_state_transitions': AccountStateTransitionsTable;
   'app.trading_ledger_entries': TradingLedgerEntriesTable;
   'app.symbol_specs': SymbolSpecsTable;
+  'app.account_exposure_limits': AccountExposureLimitsTable;
   'app.positions': PositionsTable;
   'app.trade_orders': TradeOrdersTable;
   'app.fills': FillsTable;

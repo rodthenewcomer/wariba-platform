@@ -6,6 +6,7 @@ describe('checkoutInputSchema', () => {
     const result = checkoutInputSchema.safeParse({
       productCode: '10K',
       idempotencyKey: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+      acceptSimulatedAccountDisclosure: true,
     });
     expect(result.success).toBe(true);
   });
@@ -15,6 +16,7 @@ describe('checkoutInputSchema', () => {
       const result = checkoutInputSchema.safeParse({
         productCode,
         idempotencyKey: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        acceptSimulatedAccountDisclosure: true,
       });
       expect(result.success).toBe(true);
     }
@@ -24,16 +26,29 @@ describe('checkoutInputSchema', () => {
     const result = checkoutInputSchema.safeParse({
       productCode: '1M',
       idempotencyKey: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+      acceptSimulatedAccountDisclosure: true,
     });
     expect(result.success).toBe(false);
   });
 
   it('has no amount/price/currency field at all — the schema shape itself enforces server-only pricing', () => {
     const shapeKeys = Object.keys(checkoutInputSchema.shape);
-    expect(shapeKeys).toEqual(['productCode', 'idempotencyKey']);
+    expect(shapeKeys).toEqual([
+      'productCode',
+      'idempotencyKey',
+      'acceptSimulatedAccountDisclosure',
+    ]);
     expect(shapeKeys).not.toContain('amount');
     expect(shapeKeys).not.toContain('price');
     expect(shapeKeys).not.toContain('currency');
+  });
+
+  it('requires an explicit simulated-account disclosure acceptance', () => {
+    const result = checkoutInputSchema.safeParse({
+      productCode: '10K',
+      idempotencyKey: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    });
+    expect(result.success).toBe(false);
   });
 });
 

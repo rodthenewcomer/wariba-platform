@@ -105,6 +105,23 @@ export function isQuantityWithinBounds(params: {
   return remainder.isZero();
 }
 
+/**
+ * Rules v1.1 aggregate exposure gate. Quantities are decimal strings from
+ * PostgreSQL; the proposed order is accepted only when the combined open
+ * exposure remains at or below the account-size limit.
+ */
+export function isAggregateExposureAllowed(params: {
+  currentOpenQuantities: readonly string[];
+  requestedQuantity: string;
+  maximumAggregateQuantity: string;
+}): boolean {
+  const current = params.currentOpenQuantities.reduce(
+    (sum, quantity) => sum.plus(quantity),
+    new Decimal(0),
+  );
+  return current.plus(params.requestedQuantity).lessThanOrEqualTo(params.maximumAggregateQuantity);
+}
+
 export function isStale(params: {
   tickTimestamp: string;
   now: Date;

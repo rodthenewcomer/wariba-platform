@@ -14,3 +14,5 @@ coverage
 .visual-verify
 test-results
 playwright-report
+# Local before/after evidence from product and visual audits.
+output
