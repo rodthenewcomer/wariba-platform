@@ -196,6 +196,7 @@ describeIfDb('realtime service — auth, isolation, reconnect (real end-to-end)'
       ...process.env,
       REALTIME_PORT: String(PORT),
       MARKET_TICK_INTERVAL_MS: '2000',
+      ACCOUNT_RISK_PREVIEW_INTERVAL_MS: '1500',
     };
     delete childEnv.VITEST;
 
@@ -240,6 +241,15 @@ describeIfDb('realtime service — auth, isolation, reconnect (real end-to-end)'
       }
       await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', id).execute();
       await db.deleteFrom('app.account_state_transitions').where('account_id', '=', id).execute();
+      // Prompt 07's symbol-specs/risk-preview tests are the first in this
+      // file to trade on a brand-new fixture account and then let it hit
+      // cleanup — earlier tests only ever traded on accountA/B, which this
+      // same gap in cleanup already had, it just went unnoticed. Any fill
+      // triggers evaluateAndApplyAccountRiskInTransaction, which lazily
+      // creates today's app.account_daily_snapshots row and can record
+      // app.risk_violations — both FK back to trading_accounts.
+      await db.deleteFrom('app.risk_violations').where('account_id', '=', id).execute();
+      await db.deleteFrom('app.account_daily_snapshots').where('account_id', '=', id).execute();
       const account = await db
         .selectFrom('app.trading_accounts')
         .select('source_purchase_order_id')
@@ -324,6 +334,68 @@ describeIfDb('realtime service — auth, isolation, reconnect (real end-to-end)'
       expect((snapshot.payload as { accountId: string }).accountId).toBe(accountB);
       ws.close();
     }, 10000);
+  });
+
+  describe('symbol specs + risk preview push — Prompt 07', () => {
+    it('a state-channel subscribe also receives a symbol_specs message with all five tradable symbols', async () => {
+      const ws = new WsClient(`${WS_URL}?token=${tokenB}`);
+      await waitForOpen(ws);
+      ws.send(JSON.stringify({ type: 'subscribe', channels: [accountStateChannel(accountB)] }));
+      const specsMessage = await waitForMessage(ws, (m) => m.type === 'symbol_specs');
+      const specs = (specsMessage.payload as { specs: { symbol: string; leverage: number }[] }).specs;
+      expect(specs).toHaveLength(5);
+      expect(specs.every((s) => s.leverage > 0)).toBe(true);
+      expect(specs.map((s) => s.symbol).sort()).toEqual(
+        ['EURUSD', 'GBPUSD', 'NAS100', 'USDJPY', 'XAUUSD'].sort(),
+      );
+      ws.close();
+    }, 10000);
+
+    it('an account with an open position receives a throttled account.risk_preview with live equity', async () => {
+      const previewAccountId = await createActiveAccount(userA);
+      const ws = new WsClient(`${WS_URL}?token=${tokenA}`);
+      await waitForOpen(ws);
+      ws.send(
+        JSON.stringify({
+          type: 'subscribe',
+          channels: [accountStateChannel(previewAccountId), accountOrdersChannel(previewAccountId)],
+        }),
+      );
+      await waitForMessage(ws, (m) => m.type === 'account.snapshot');
+
+      ws.send(
+        JSON.stringify({
+          type: 'submit_order',
+          order: {
+            accountId: previewAccountId,
+            idempotencyKey: randomUUID(),
+            orderType: 'market_open',
+            symbol: 'EURUSD',
+            side: 'buy',
+            quantity: '0.10',
+          },
+        }),
+      );
+      const orderResult = await waitForMessage(ws, (m) => m.type === 'order_result');
+      expect((orderResult.payload as { status: string; rejectionCode: string | null }).status).toBe(
+        'filled',
+      );
+
+      // Observed against this Supabase project: a freshly committed position
+      // can take a few seconds (multiple 1500ms ticks) before a subsequent
+      // read on the pooled connection sees it — a real, environment-level
+      // read-after-write lag, not a bug in the preview loop itself (it's the
+      // exact same lag the existing "reconnect / resync" test's fresh
+      // connection tolerates by virtue of the several other awaits before
+      // it). The preview loop is inherently robust to this — it just picks
+      // the position up on a later tick — so the test just needs to be
+      // patient rather than assert on the very next tick.
+      const preview = await waitForMessage(ws, (m) => m.type === 'account.risk_preview', 25000);
+      const payload = preview.payload as { accountId: string; equity: string; risk: unknown };
+      expect(payload.accountId).toBe(previewAccountId);
+      expect(Number(payload.equity)).toBeGreaterThan(0);
+      ws.close();
+    }, 30000);
   });
 
   describe('reconnect / resync', () => {

@@ -39,8 +39,12 @@ export {
   isPartialCloseQuantityValid,
   subtractQuantity,
   addRealizedPnl,
+  estimateRequiredMargin,
+  computeConcentration,
   type OrderSide,
   type FillAction,
+  type ExposureBucketUsage,
+  type ExposureBucketConcentration,
 } from './trading-math';
 export {
   computeDailyReference,

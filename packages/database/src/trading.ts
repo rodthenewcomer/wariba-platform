@@ -67,7 +67,10 @@ const REJECTION = {
   EXPOSURE_LIMIT_EXCEEDED: 'exposure_limit_exceeded',
 } as const;
 
-const FOREX_SYMBOLS = ['EURUSD', 'GBPUSD', 'USDJPY'] as const;
+// Exported (not just module-private) so anything displaying exposure —
+// e.g. services/realtime's concentration preview — buckets symbols the
+// exact same way as the gate below, with no risk of the two drifting apart.
+export const FOREX_SYMBOLS = ['EURUSD', 'GBPUSD', 'USDJPY'] as const;
 
 async function isWithinAggregateExposureLimit(
   trx: Db,

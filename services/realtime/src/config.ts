@@ -11,6 +11,10 @@ const realtimeEnvSchema = baseEnvironmentSchema.extend({
   // sandbox price sequence — override per-environment if ever needed.
   SANDBOX_MARKET_SEED: z.coerce.number().int().default(20260804),
   MARKET_TICK_INTERVAL_MS: z.coerce.number().int().positive().default(1000),
+  // Prompt 07 — how often subscribed accounts with open positions get a
+  // fresh live-priced equity/risk push (see websocket.ts's risk preview
+  // loop). Configurable mainly so e2e tests don't have to wait 4s per case.
+  ACCOUNT_RISK_PREVIEW_INTERVAL_MS: z.coerce.number().int().positive().default(4000),
 });
 
 export type RealtimeConfig = z.infer<typeof realtimeEnvSchema>;
