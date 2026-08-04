@@ -11,6 +11,12 @@ export interface TradingDayItem {
   netPnlFormatted: string;
 }
 
+export interface BalancePoint {
+  /** ISO date (YYYY-MM-DD) — lightweight-charts accepts this as a Time directly. */
+  time: string;
+  balance: number;
+}
+
 export interface AccountHubView {
   accountId: string;
   state: HubDisplayState;
@@ -20,6 +26,8 @@ export interface AccountHubView {
   balanceFormatted: string;
   pnlTodayFormatted: string;
   tradingDays: TradingDayItem[];
+  balanceHistory: BalancePoint[];
+  activatedAtLabel: string | null;
 }
 
 export interface BuildAccountHubViewParams {
@@ -99,6 +107,14 @@ export async function buildAccountHubView(
     };
   });
 
+  // Ascending order for the chart (snapshotRows above is newest-first for the list).
+  const balanceHistory: BalancePoint[] = [...snapshotRows]
+    .reverse()
+    .map((row) => ({
+      time: row.trading_day,
+      balance: Number.parseFloat(row.eod_balance ?? inputs.currentBalance),
+    }));
+
   const state = deriveHubDisplayState({
     accountStatus: inputs.accountStatus,
     attention: {
@@ -116,6 +132,10 @@ export async function buildAccountHubView(
   // "PnL du jour" is simply how far the current balance has moved from it.
   const pnlToday = new Decimal(inputs.currentBalance).minus(result.dailyLoss.reference).toFixed(2);
 
+  const activatedAtLabel = inputs.activatedAt
+    ? inputs.activatedAt.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+    : null;
+
   return {
     accountId: inputs.accountId,
     state,
@@ -125,5 +145,7 @@ export async function buildAccountHubView(
     balanceFormatted: formatUsd(inputs.currentBalance),
     pnlTodayFormatted: formatSignedUsd(pnlToday),
     tradingDays,
+    balanceHistory,
+    activatedAtLabel,
   };
 }

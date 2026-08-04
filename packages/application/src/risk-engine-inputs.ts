@@ -14,6 +14,7 @@ export interface AccountRiskEngineInputs {
   accountId: string;
   accountStatus: EvaluationAccountStatus;
   nominalBalance: string;
+  activatedAt: Date | null;
   policy: LoadedPolicy;
   currentBalance: string;
   openPositionCount: number;
@@ -77,7 +78,7 @@ export async function loadAccountRiskEngineInputs(
 ): Promise<AccountRiskEngineInputs> {
   const account = await db
     .selectFrom('app.trading_accounts')
-    .select(['id', 'status', 'nominal_balance', 'policy_version_id', 'program_type'])
+    .select(['id', 'status', 'nominal_balance', 'policy_version_id', 'program_type', 'activated_at'])
     .where('id', '=', params.accountId)
     .executeTakeFirstOrThrow(
       () => new Error(`loadAccountRiskEngineInputs: account ${params.accountId} not found.`),
@@ -155,6 +156,7 @@ export async function loadAccountRiskEngineInputs(
     accountId: account.id,
     accountStatus: account.status,
     nominalBalance: account.nominal_balance,
+    activatedAt: account.activated_at,
     policy,
     currentBalance,
     openPositionCount: openPositions.length,

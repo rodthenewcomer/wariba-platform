@@ -10,6 +10,7 @@ import {
   ConsistencyMeter,
   EmptyState,
   MissionProgress,
+  OpenPositionsTable,
   PolicyVersionChip,
   RiskRibbon,
   Text,
@@ -19,6 +20,7 @@ import {
   buildAccountHubView,
   buildAccountMissionView,
   buildAccountRiskView,
+  buildOpenPositionsView,
   buildRecentActivityView,
   listAccountsForUser,
 } from '@wariba/application';
@@ -27,6 +29,7 @@ import { getDb } from '../../../lib/db';
 import { trackEvent } from '../../../lib/analytics';
 import { TrackedClick } from './TrackedClick';
 import { HubRiskDetail } from './HubRiskDetail';
+import { HubBalanceChart } from './HubBalanceChart';
 
 export const dynamic = 'force-dynamic';
 
@@ -172,11 +175,12 @@ export default async function HubPage({
   }
 
   const now = new Date();
-  const [hubView, missionView, riskView, activity] = await Promise.all([
+  const [hubView, missionView, riskView, activity, openPositions] = await Promise.all([
     buildAccountHubView(db, { accountId: activeAccount.id, now }),
     buildAccountMissionView(db, { accountId: activeAccount.id, now }),
     buildAccountRiskView(db, { accountId: activeAccount.id, now }),
     buildRecentActivityView(db, { accountId: activeAccount.id, limit: 15 }),
+    buildOpenPositionsView(db, { accountId: activeAccount.id }),
   ]);
 
   trackEvent('hub_viewed', { accountId: activeAccount.id, state: hubView.state });
@@ -198,6 +202,12 @@ export default async function HubPage({
         statusVariant={hubView.statusVariant}
       />
 
+      {hubView.activatedAtLabel ? (
+        <Text variant="body-sm" color="secondary">
+          Activé le {hubView.activatedAtLabel} · Répartition après passage : 85 % → 90 %
+        </Text>
+      ) : null}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <Text as="h1" variant="heading-lg">
@@ -209,6 +219,10 @@ export default async function HubPage({
         </div>
         {policyChip}
       </div>
+
+      <Card padding="comfortable">
+        <HubBalanceChart points={hubView.balanceHistory} />
+      </Card>
 
       {hubView.readOnly ? (
         <Alert level="warning" title="Lecture seule">
@@ -273,6 +287,13 @@ export default async function HubPage({
           />
         ) : null}
       </div>
+
+      <Card padding="comfortable" className="flex flex-col gap-4">
+        <Text as="h2" variant="heading-sm">
+          Positions ouvertes
+        </Text>
+        <OpenPositionsTable positions={openPositions} />
+      </Card>
 
       <Card padding="comfortable" className="flex flex-col gap-4">
         <Text as="h2" variant="heading-sm">

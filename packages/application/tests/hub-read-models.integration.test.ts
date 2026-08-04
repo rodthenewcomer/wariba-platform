@@ -5,6 +5,7 @@ import {
   buildAccountHubView,
   buildAccountMissionView,
   buildAccountRiskView,
+  buildOpenPositionsView,
   buildRecentActivityView,
   listAccountsForUser,
   UnsupportedProgramError,
@@ -149,6 +150,18 @@ describeIfDb('Hub read models — real database', () => {
       expect(view.pnlTodayFormatted).toBe('0 USD');
     });
 
+    it('hub view: exposes a balance history point for today and a real activation date', async () => {
+      const view = await buildAccountHubView(db, { accountId, now: new Date() });
+      expect(view.balanceHistory.length).toBeGreaterThan(0);
+      expect(view.balanceHistory[view.balanceHistory.length - 1]?.balance).toBe(5000);
+      expect(view.activatedAtLabel).toMatch(/\d{4}/);
+    });
+
+    it('open positions view: empty for an account with no positions', async () => {
+      const positions = await buildOpenPositionsView(db, { accountId });
+      expect(positions).toHaveLength(0);
+    });
+
     it('mission view: target not yet reached, no consistency figure until a positive day exists', async () => {
       const view = await buildAccountMissionView(db, { accountId, now: new Date() });
       if (!view.available) throw new Error('expected an available Evaluation mission view');
@@ -171,6 +184,47 @@ describeIfDb('Hub read models — real database', () => {
     it('activity view: nothing but (at most) the activation transition — no violations or fills', async () => {
       const view = await buildRecentActivityView(db, { accountId });
       expect(view.every((item) => item.kind === 'state_transition')).toBe(true);
+    });
+  });
+
+  describe('an account with one open position', () => {
+    let accountId: string;
+
+    beforeAll(async () => {
+      ({ accountId } = await createActiveAccount('open-position'));
+      await db
+        .insertInto('app.positions')
+        .values({
+          account_id: accountId,
+          symbol: 'EURUSD',
+          side: 'buy',
+          opening_quantity: '0.10',
+          open_quantity: '0.10',
+          average_open_price: '1.08450',
+          account_sequence: '1',
+        })
+        .execute();
+    }, 15000);
+
+    it('open positions view: lists the position with no live price or PnL field', async () => {
+      const positions = await buildOpenPositionsView(db, { accountId });
+      expect(positions).toHaveLength(1);
+      expect(positions[0]?.symbol).toBe('EURUSD');
+      expect(positions[0]?.sideLabel).toBe('Achat');
+      expect(positions[0]?.quantityFormatted).toBe('0.10');
+      // Postgres numeric columns return their full declared scale — compare
+      // the price numerically rather than assuming an exact trailing-zero count.
+      expect(Number.parseFloat(positions[0]?.entryPriceFormatted ?? '')).toBe(1.0845);
+      expect(Object.keys(positions[0] ?? {})).not.toContain('pnl');
+    });
+
+    it('mission view: "no open positions" condition is now unmet', async () => {
+      const view = await buildAccountMissionView(db, { accountId, now: new Date() });
+      if (!view.available) throw new Error('expected an available Evaluation mission view');
+      const noOpenPositions = view.conditions.find(
+        (condition) => condition.label === 'Aucune position ouverte',
+      );
+      expect(noOpenPositions?.met).toBe(false);
     });
   });
 

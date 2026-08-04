@@ -28,6 +28,18 @@ test.describe('Trader Hub', () => {
     await expect(page.getByText(/DLL restante/)).toBeVisible();
     await expect(page.getByRole('link', { name: 'Ouvrir WariX' })).toBeVisible();
 
+    await expect(page.getByText(/Activé le/)).toBeVisible();
+    await expect(page.getByText(/Répartition après passage/)).toBeVisible();
+    await expect(page.getByText('Positions ouvertes')).toBeVisible();
+    await expect(page.getByText('Aucune position ouverte.')).toBeVisible();
+
+    // The balance chart is a canvas rendered by lightweight-charts inside the
+    // container div — assert it actually painted, not just that a wrapper exists.
+    const chartCanvas = page.locator('canvas').first();
+    await expect(chartCanvas).toBeVisible();
+    const canvasBox = await chartCanvas.boundingBox();
+    expect(canvasBox?.width).toBeGreaterThan(0);
+
     await page.screenshot({ path: 'test-results/visual/hub-active-1440.png', fullPage: true });
 
     const results = await new AxeBuilder({ page }).analyze();
@@ -55,6 +67,49 @@ test.describe('Trader Hub', () => {
     const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
     expect(scrollWidth).toBeLessThanOrEqual(320);
     await page.screenshot({ path: 'test-results/visual/hub-active-320.png', fullPage: true });
+  });
+
+  test.describe('a second account with one open position', () => {
+    let secondary: E2eFixtureAccount;
+
+    test.beforeAll(async () => {
+      const primary = loadPrimaryFixture();
+      const db = createFixtureDb();
+      secondary = await createFixtureAccount(db, 'position');
+      await attachFixtureAccountToUser(db, secondary, primary.userId);
+      await db
+        .insertInto('app.positions')
+        .values({
+          account_id: secondary.accountId,
+          symbol: 'EURUSD',
+          side: 'buy',
+          opening_quantity: '0.10',
+          open_quantity: '0.10',
+          average_open_price: '1.08450',
+          account_sequence: '1',
+        })
+        .execute();
+      await db.destroy();
+    });
+
+    test.afterAll(async () => {
+      const db = createFixtureDb();
+      await deleteFixtureAccount(db, secondary);
+      await db.destroy();
+    });
+
+    test('open position renders with symbol, side, and size — never a live PnL column', async ({
+      page,
+    }) => {
+      await page.goto(`/hub?account=${secondary.accountId}`);
+      await expect(page.getByText('EURUSD · Achat')).toBeVisible();
+      await expect(page.getByText(/Aucune position ouverte\./)).toHaveCount(0);
+
+      const positionsCard = page
+        .locator('h2', { hasText: 'Positions ouvertes' })
+        .locator('..');
+      await expect(positionsCard.getByText(/pnl/i)).toHaveCount(0);
+    });
   });
 
   test.describe('a second, soft-locked account under the same user', () => {

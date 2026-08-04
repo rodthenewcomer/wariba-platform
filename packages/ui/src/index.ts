@@ -66,3 +66,4 @@ export * from './wariba/ReserveCoverage';
 export * from './wariba/AccountSelector';
 export * from './wariba/ActivityTimeline';
 export * from './wariba/TradingDaysList';
+export * from './wariba/OpenPositionsTable';

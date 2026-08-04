@@ -66,6 +66,8 @@ export {
   buildAccountHubView,
   type AccountHubView,
   type AccountBadgeVariant,
+  type BalancePoint,
+  type TradingDayItem,
   type BuildAccountHubViewParams,
 } from './hub-view';
 
@@ -76,6 +78,12 @@ export {
   type ActivitySeverity,
   type BuildRecentActivityViewParams,
 } from './activity-view';
+
+export {
+  buildOpenPositionsView,
+  type OpenPositionItem,
+  type BuildOpenPositionsViewParams,
+} from './positions-view';
 
 export {
   listActiveProducts,
