@@ -20,8 +20,8 @@ export default function PrivacyPage() {
             Données collectées
           </h2>
           <p className="mt-3">
-            Identité de compte, consentements, commandes, données d’exécution, preuves de risque,
-            événements de sécurité et demandes de support nécessaires au service.
+            Identité de compte, consentements, commandes sandbox, données d’exécution, preuves de
+            risque, événements de sécurité et demandes de support nécessaires au service.
           </p>
         </section>
         <section>

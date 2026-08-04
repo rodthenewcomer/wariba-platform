@@ -42,7 +42,7 @@ export default async function HubPage() {
       <div className="mx-auto max-w-3xl">
         <EmptyState
           title="Aucun compte WARIBA ONE"
-          description="Choisissez une évaluation pour activer votre premier compte simulé."
+          description="Choisissez une évaluation sandbox pour activer votre premier compte simulé."
           action={
             <Link href="/offres" className={buttonClassNames()}>
               Voir les cinq offres
@@ -70,16 +70,15 @@ export default async function HubPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Text as="h1" variant="heading-lg">
-          Votre compte
+          Votre compte sandbox
         </Text>
         <PolicyVersionChip version={account.policyVersion} status={account.policyStatus} />
       </div>
 
-      <Alert level="information" title="Suivi de progression à venir">
-        Le compte et sa policy sont bien réels ; seul l&apos;environnement de trading est simulé.
-        Les calculs de target, DLL, perte maximale, consistance et journées qualifiées ne
-        s&apos;affichent qu&apos;une fois produits par le moteur serveur — aucune donnée de
-        progression n&apos;est inventée entre-temps.
+      <Alert level="information" title="Progression et risque au Prompt 05">
+        Le compte et sa policy sont réels dans la sandbox. Les calculs de target, DLL, perte
+        maximale, consistance et journées qualifiées ne sont pas affichés avant leur moteur serveur
+        — aucune donnée de progression n&apos;est inventée.
       </Alert>
 
       <Card padding="comfortable" className="flex flex-col gap-4">
