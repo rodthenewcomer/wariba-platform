@@ -38,6 +38,7 @@ import {
 import { RealtimeClient, type RealtimeConnectionState } from '../../../lib/realtime-client';
 import { createSupabaseBrowserClient } from '../../../lib/supabase/browser';
 import { PriceChart } from './PriceChart';
+import { TradeRiskDetail } from './TradeRiskDetail';
 
 const SYMBOLS: TradableSymbol[] = ['EURUSD', 'GBPUSD', 'USDJPY', 'XAUUSD', 'NAS100'];
 
@@ -310,6 +311,7 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
           nextResetLabel="00:00 UTC"
           connectionOk={connectionOk}
         />
+        {risk && <TradeRiskDetail risk={risk} />}
         {isResyncing && (
           <Alert level="warning" title="Resynchronisation en cours">
             Un écart de séquence a été détecté. Les ordres restent bloqués jusqu&apos;au nouveau
