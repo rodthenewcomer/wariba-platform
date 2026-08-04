@@ -172,7 +172,13 @@ describe('accountRiskSchema — concentration (Prompt 07 Guardian)', () => {
   const base = {
     status: 'active' as const,
     target: { required: '1000.00', reached: false },
-    dailyLoss: { reference: '10000.00', floor: '9700.00', used: '0.00', softLockTriggered: false },
+    dailyLoss: {
+      reference: '10000.00',
+      floor: '9700.00',
+      used: '0.00',
+      remaining: '300.00',
+      softLockTriggered: false,
+    },
     maximumLoss: { floor: '9000.00', remaining: '1000.00', breached: false },
     bestDay: { ratio: null, compliant: true },
     eligibility: { passEligible: false, blockingReasons: [] },

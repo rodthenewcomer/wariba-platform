@@ -22,12 +22,21 @@ export function PriceChart({ tick }: { tick: MarketTick | null }) {
 
   useEffect(() => {
     if (!containerRef.current) return;
+    // lightweight-charts renders to canvas — it never resolves CSS custom
+    // properties itself, a raw 'var(...)' string here crashes createChart.
+    // Bug found via a real browser check against /trade (Prompt 07); this
+    // whole file gets replaced by a candlestick chart with the same
+    // resolve-then-pass pattern later in Prompt 07, but /trade shouldn't be
+    // broken in the meantime.
+    const style = getComputedStyle(containerRef.current);
+    const textColor = style.getPropertyValue('--wariba-theme-text').trim() || '#E8E4DC';
+    const borderColor = style.getPropertyValue('--wariba-theme-border').trim() || '#3A4251';
     const chart = createChart(containerRef.current, {
       height: 280,
-      layout: { background: { color: 'transparent' }, textColor: 'var(--wariba-theme-text)' },
+      layout: { background: { color: 'transparent' }, textColor },
       grid: {
-        vertLines: { color: 'var(--wariba-theme-border)' },
-        horzLines: { color: 'var(--wariba-theme-border)' },
+        vertLines: { color: borderColor },
+        horzLines: { color: borderColor },
       },
       timeScale: { timeVisible: true, secondsVisible: true },
     });

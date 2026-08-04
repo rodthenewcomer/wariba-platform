@@ -168,6 +168,11 @@ export const accountRiskSchema = z.object({
     reference: z.string(),
     floor: z.string(),
     used: z.string(),
+    // Prompt 07 — mirrors maximumLoss.remaining below; the risk engine
+    // itself doesn't compute this (only reference/floor/used), so
+    // services/realtime/src/snapshot.ts derives it at the DTO boundary via
+    // @wariba/domain's computeDailyLossRemaining.
+    remaining: z.string(),
     softLockTriggered: z.boolean(),
   }),
   maximumLoss: z.object({ floor: z.string(), remaining: z.string(), breached: z.boolean() }),

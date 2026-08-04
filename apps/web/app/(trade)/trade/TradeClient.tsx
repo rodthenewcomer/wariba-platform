@@ -19,12 +19,15 @@ import {
   TabPanel,
   Tabs,
   Text,
+  type RiskRibbonStatus,
 } from '@wariba/ui';
+import { computeDailyLossUsedRatio } from '@wariba/domain';
 import {
   accountStateChannel,
   accountOrdersChannel,
   accountPositionsChannel,
   marketSymbolChannel,
+  type AccountRisk,
   type AccountSnapshot,
   type MarketTick,
   type OrderResultMessage,
@@ -37,6 +40,31 @@ import { createSupabaseBrowserClient } from '../../../lib/supabase/browser';
 import { PriceChart } from './PriceChart';
 
 const SYMBOLS: TradableSymbol[] = ['EURUSD', 'GBPUSD', 'USDJPY', 'XAUUSD', 'NAS100'];
+
+// UX Architecture §23.3: normal < attention < near-limit < soft-lock, an
+// early warning before the actual soft-lock gate (softLockTriggered/status)
+// fires. Thresholds aren't specified numerically anywhere in the docs — 50%
+// and 80% of today's daily-loss budget used are this component's own choice,
+// not a rule figure.
+const ATTENTION_THRESHOLD = '0.5';
+const NEAR_LIMIT_THRESHOLD = '0.8';
+
+function deriveRiskRibbonStatus(params: {
+  risk: AccountRisk | null;
+  isStale: boolean;
+  isResyncing: boolean;
+}): RiskRibbonStatus {
+  if (params.isStale || params.isResyncing) return 'stale';
+  if (!params.risk) return 'normal';
+  if (params.risk.status === 'breached') return 'hard-breach';
+  if (params.risk.status === 'soft_locked' || params.risk.dailyLoss.softLockTriggered) {
+    return 'soft-lock';
+  }
+  const usedRatio = computeDailyLossUsedRatio(params.risk.dailyLoss);
+  if (Number(usedRatio) >= Number(NEAR_LIMIT_THRESHOLD)) return 'near-limit';
+  if (Number(usedRatio) >= Number(ATTENTION_THRESHOLD)) return 'attention';
+  return 'normal';
+}
 
 async function getAccessToken(): Promise<string | null> {
   const supabase = createSupabaseBrowserClient();
@@ -90,6 +118,17 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
       } else if (envelope.type === 'market.tick') {
         const tick = envelope.payload as MarketTick;
         setTicks((prev) => ({ ...prev, [tick.symbol]: tick }));
+      } else if (envelope.type === 'account.risk_preview') {
+        // Throttled server push (services/realtime) — only equity/risk change
+        // here, positions/orders/balance stay whatever the last real
+        // account.snapshot said (see accountRiskPreviewMessageSchema's doc
+        // comment for why this is a separate, untracked message type).
+        const preview = envelope.payload as { accountId: string; equity: string; risk: AccountRisk | null };
+        setSnapshot((prev) =>
+          prev && prev.accountId === preview.accountId
+            ? { ...prev, equity: preview.equity, risk: preview.risk }
+            : prev,
+        );
       } else if (envelope.type === 'order_result') {
         const result = envelope.payload as OrderResultMessage;
         if (pendingCommandRef.current?.payload.idempotencyKey === result.idempotencyKey) {
@@ -132,6 +171,9 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
   const isStale = selectedTick?.marketStatus === 'stale';
   const connectionOk = connectionState === 'open';
   const isResyncing = connectionState === 'resyncing';
+  const risk = snapshot?.risk ?? null;
+  const riskRibbonStatus = deriveRiskRibbonStatus({ risk, isStale, isResyncing });
+  const isRiskLocked = riskRibbonStatus === 'soft-lock' || riskRibbonStatus === 'hard-breach';
 
   const submitMarketOrder = useCallback(
     (side: 'buy' | 'sell') => {
@@ -204,11 +246,18 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
             Les nouvelles positions sont bloquées tant que le marché n&apos;est pas à jour.
           </Alert>
         )}
+        {isRiskLocked && !isStale && (
+          <Alert level="danger" title="Compte bloqué">
+            {riskRibbonStatus === 'hard-breach'
+              ? 'La limite maximale de perte est dépassée. Aucun nouvel ordre possible.'
+              : 'Votre compte est en blocage temporaire jusqu’au prochain reset à 00:00 UTC.'}
+          </Alert>
+        )}
         <div className="flex gap-2">
           <Button
             variant="secondary"
             loading={pending}
-            disabled={!connectionOk || isStale}
+            disabled={!connectionOk || isStale || isRiskLocked}
             onClick={() => submitMarketOrder('buy')}
             className="flex-1"
           >
@@ -217,7 +266,7 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
           <Button
             variant="secondary"
             loading={pending}
-            disabled={!connectionOk || isStale}
+            disabled={!connectionOk || isStale || isRiskLocked}
             onClick={() => submitMarketOrder('sell')}
             className="flex-1"
           >
@@ -236,6 +285,8 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
       selectedTick,
       orderError,
       isStale,
+      isRiskLocked,
+      riskRibbonStatus,
       pending,
       connectionOk,
       submitMarketOrder,
@@ -253,9 +304,9 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
           statusVariant={connectionOk ? 'success' : 'warning'}
         />
         <RiskRibbon
-          status={isStale || isResyncing ? 'stale' : 'normal'}
-          dailyLossRemaining="—"
-          maximumLossRemaining="—"
+          status={riskRibbonStatus}
+          dailyLossRemaining={risk ? `${risk.dailyLoss.remaining} USD` : '—'}
+          maximumLossRemaining={risk ? `${risk.maximumLoss.remaining} USD` : '—'}
           nextResetLabel="00:00 UTC"
           connectionOk={connectionOk}
         />

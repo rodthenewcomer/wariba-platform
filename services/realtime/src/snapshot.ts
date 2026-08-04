@@ -1,5 +1,10 @@
 import Decimal from 'decimal.js';
-import { quotedPrice, computeRealizedPnl, computeConcentration } from '@wariba/domain';
+import {
+  quotedPrice,
+  computeRealizedPnl,
+  computeConcentration,
+  computeDailyLossRemaining,
+} from '@wariba/domain';
 import {
   loadPolicyById,
   evaluateAccountRisk,
@@ -266,6 +271,7 @@ async function buildAccountRisk(
   });
 
   const concentration = await computeConcentrationForAccount(db, account, openPositionRows);
+  const dailyLossRemaining = computeDailyLossRemaining(result.dailyLoss);
 
   // `status` is the actual persisted, enforced status — the one trading.ts's
   // guards check — never the engine's live-computed `recommendedStatus`,
@@ -276,7 +282,7 @@ async function buildAccountRisk(
   return {
     status: account.status as AccountRisk['status'],
     target: result.target,
-    dailyLoss: result.dailyLoss,
+    dailyLoss: { ...result.dailyLoss, remaining: dailyLossRemaining },
     maximumLoss: result.maximumLoss,
     bestDay: result.bestDay,
     eligibility: {

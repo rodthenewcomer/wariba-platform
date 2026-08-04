@@ -51,6 +51,8 @@ export {
   computeDailyLossFloor,
   computeDailyLossUsed,
   isDailyLossSoftLockTriggered,
+  computeDailyLossRemaining,
+  computeDailyLossUsedRatio,
   computeInitialMaximumLossFloor,
   computeNextMaximumLossFloor,
   isMaximumLossBreached,

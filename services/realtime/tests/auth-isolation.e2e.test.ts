@@ -376,7 +376,10 @@ describeIfDb('realtime service — auth, isolation, reconnect (real end-to-end)'
           },
         }),
       );
-      const orderResult = await waitForMessage(ws, (m) => m.type === 'order_result');
+      // handleSubmitOrder's transaction is several sequential queries against
+      // a remote pooled connection (eu-west-1) — observed taking well over
+      // the default 8s wait under load, not just the risk-preview lag below.
+      const orderResult = await waitForMessage(ws, (m) => m.type === 'order_result', 20000);
       expect((orderResult.payload as { status: string; rejectionCode: string | null }).status).toBe(
         'filled',
       );
@@ -395,7 +398,7 @@ describeIfDb('realtime service — auth, isolation, reconnect (real end-to-end)'
       expect(payload.accountId).toBe(previewAccountId);
       expect(Number(payload.equity)).toBeGreaterThan(0);
       ws.close();
-    }, 30000);
+    }, 55000);
   });
 
   describe('reconnect / resync', () => {

@@ -261,8 +261,26 @@ async function processMessage(
   }
 
   if (msg.type === 'subscribe') {
-    for (const channel of msg.channels) {
-      if (!(await channelAllowed(db, userId, channel))) {
+    // Two passes, each fully parallel — not one sequential await-in-loop.
+    // registry.subscribe() must complete for every allowed channel before
+    // ANY of the slower sendInitialSnapshot I/O starts: a client that
+    // subscribes to [account.state, account.orders, ...] and then fires
+    // submit_order right away races broadcastOrderResult against this
+    // subscribe handler. If .orders were registered only after .state's
+    // (now heavier — buildAccountSnapshot + the symbol_specs query) initial
+    // snapshot finished, an order filled in that window would broadcast to
+    // .orders before this connection was listed as a subscriber, silently
+    // dropping order_result. Found via a real browser check against /trade
+    // where the Buy button never left its pending state.
+    const checks = await Promise.all(
+      msg.channels.map(async (channel) => ({
+        channel,
+        allowed: await channelAllowed(db, userId, channel),
+      })),
+    );
+    const allowedChannels: string[] = [];
+    for (const { channel, allowed } of checks) {
+      if (!allowed) {
         sendError(
           registry,
           connectionId,
@@ -272,8 +290,13 @@ async function processMessage(
         continue;
       }
       registry.subscribe(connectionId, channel);
-      await sendInitialSnapshot(registry, connectionId, db, market, symbolSpecs, channel);
+      allowedChannels.push(channel);
     }
+    await Promise.all(
+      allowedChannels.map((channel) =>
+        sendInitialSnapshot(registry, connectionId, db, market, symbolSpecs, channel),
+      ),
+    );
     return;
   }
 

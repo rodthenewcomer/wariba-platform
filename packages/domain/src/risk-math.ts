@@ -47,6 +47,40 @@ export function isDailyLossSoftLockTriggered(params: {
   return new Decimal(params.currentAdjustedEquity).lessThanOrEqualTo(params.dailyLossFloor);
 }
 
+/**
+ * Prompt 07 — RiskRibbon/Guardian "DLL restante". The engine's own
+ * RiskEngineResult only carries reference/floor/used (softLockTriggered is
+ * the actual gate — this is purely a display figure), so the DTO boundary
+ * (services/realtime/src/snapshot.ts) derives it here rather than in the
+ * engine itself. Equivalent to (currentAdjustedEquity - floor), just
+ * expressed from the fields already on the DTO; never negative.
+ */
+export function computeDailyLossRemaining(params: {
+  reference: string;
+  floor: string;
+  used: string;
+}): string {
+  const budget = new Decimal(params.reference).minus(params.floor);
+  return Decimal.max(0, budget.minus(params.used)).toFixed(2);
+}
+
+/**
+ * Prompt 07 — how much of today's daily-loss budget is used, as a 0..1+
+ * ratio. Purely informative (an "early soft-lock warning" per
+ * buildAccountSnapshot's own doc comment) — softLockTriggered/1.0 is the
+ * real threshold, this just lets the UI show attention/near-limit tiers
+ * before that point.
+ */
+export function computeDailyLossUsedRatio(params: {
+  reference: string;
+  floor: string;
+  used: string;
+}): string {
+  const budget = new Decimal(params.reference).minus(params.floor);
+  if (budget.lessThanOrEqualTo(0)) return '0.0000';
+  return new Decimal(params.used).dividedBy(budget).toFixed(4);
+}
+
 /** ONE-021: the EOD-trailing floor on day zero, before any day has finalized. */
 export function computeInitialMaximumLossFloor(params: {
   nominalBalance: string;
