@@ -68,14 +68,26 @@ export class RealtimeClient {
         const channel = this.channelForEnvelope(envelope);
         if (channel) {
           const previous = this.lastSequenceByChannel.get(channel);
-          if (previous !== undefined && envelope.sequence <= previous) return;
+          // account.snapshot's sequence is trading_accounts.version, bumped
+          // only by writes that touch balance/positions — a rejected order
+          // (still a new row in recentOrders) doesn't move it. Unlike
+          // market.tick's genuinely incremental stream, every account.snapshot
+          // is a full, on-demand reply to this same connection's own
+          // subscribe — so an unchanged sequence never means "duplicate,
+          // drop it", only market.tick gets that treatment.
+          const isFullSnapshotChannel = envelope.type === 'account.snapshot';
+          if (!isFullSnapshotChannel && previous !== undefined && envelope.sequence <= previous) {
+            return;
+          }
           if (previous !== undefined && envelope.sequence > previous + 1) {
             this.lastSequenceByChannel.delete(channel);
             this.emitState('resyncing');
             this.send({ type: 'subscribe', channels: [channel] });
             return;
           }
-          this.lastSequenceByChannel.set(channel, envelope.sequence);
+          if (previous === undefined || envelope.sequence > previous) {
+            this.lastSequenceByChannel.set(channel, envelope.sequence);
+          }
           this.emitState('open');
         }
         for (const listener of this.messageListeners) listener(envelope);

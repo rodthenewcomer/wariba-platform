@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import {
   AccountContext,
   Alert,
+  Badge,
   BottomSheet,
   Button,
   DataTable,
@@ -21,6 +22,7 @@ import {
   Tabs,
   Text,
   WariXPositionsTable,
+  type BadgeVariant,
   type GuardianConcentrationBucket,
   type RiskRibbonStatus,
   type WariXPosition,
@@ -48,6 +50,8 @@ import {
   type TradableSymbol,
   type SymbolSpec,
   type PositionDTO,
+  type OrderDTO,
+  type OrderType,
 } from '@wariba/contracts';
 import { RealtimeClient, type RealtimeConnectionState } from '../../../lib/realtime-client';
 import { createSupabaseBrowserClient } from '../../../lib/supabase/browser';
@@ -121,6 +125,47 @@ const UNKNOWN_REJECTION_DETAIL = {
   reason: 'Le serveur a refusé cet ordre.',
   action: 'Réessayez, ou contactez le support si le problème persiste.',
 };
+
+const ORDER_TYPE_LABEL: Record<OrderType, string> = {
+  market_open: 'Ouverture',
+  partial_close: 'Clôture partielle',
+  full_close: 'Clôture',
+  close_all: 'Tout fermer',
+  modify_sl: 'Modif. SL',
+  modify_tp: 'Modif. TP',
+};
+
+const ORDER_STATUS_LABEL: Record<OrderDTO['status'], string> = {
+  received: 'Reçu',
+  validated: 'Validé',
+  accepted: 'Accepté',
+  filled: 'Exécuté',
+  rejected: 'Rejeté',
+  cancelled: 'Annulé',
+};
+
+const ORDER_STATUS_BADGE_VARIANT: Record<OrderDTO['status'], BadgeVariant> = {
+  received: 'neutral',
+  validated: 'neutral',
+  accepted: 'information',
+  filled: 'success',
+  rejected: 'danger',
+  cancelled: 'neutral',
+};
+
+// UTC throughout WariX (RiskRibbon's "Reset 00:00 UTC", TradeChart's explicit
+// UTC axis) — the History tab keeps that same reference timezone rather than
+// silently switching to the browser's local time.
+function formatOrderTimestamp(iso: string): string {
+  return `${new Intl.DateTimeFormat('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZone: 'UTC',
+  }).format(new Date(iso))} UTC`;
+}
 
 function deriveRiskRibbonStatus(params: {
   risk: AccountRisk | null;
@@ -629,6 +674,7 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
             <Tab value="positions">Positions</Tab>
             <Tab value="orders">Ordres</Tab>
             <Tab value="history">Historique</Tab>
+            <Tab value="journal">Journal</Tab>
           </TabList>
           <TabPanel value="positions">
             <WariXPositionsTable
@@ -671,9 +717,13 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
                 ) : (
                   snapshot.recentOrders.map((o) => (
                     <DataTableRow key={o.id}>
-                      <DataTableCell>{o.orderType}</DataTableCell>
+                      <DataTableCell>{ORDER_TYPE_LABEL[o.orderType]}</DataTableCell>
                       <DataTableCell>{o.symbol ?? '—'}</DataTableCell>
-                      <DataTableCell align="right">{o.status}</DataTableCell>
+                      <DataTableCell align="right">
+                        <Badge variant={ORDER_STATUS_BADGE_VARIANT[o.status]}>
+                          {ORDER_STATUS_LABEL[o.status]}
+                        </Badge>
+                      </DataTableCell>
                     </DataTableRow>
                   ))
                 )}
@@ -681,8 +731,65 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
             </DataTable>
           </TabPanel>
           <TabPanel value="history">
+            {/* §22.6 "historique d'exécution" — same recentOrders the Ordres
+                tab shows, just the full audit record (timestamp, side,
+                quantity, rejection reason) instead of the quick-glance view.
+                No separate history store exists server-side (DATA-003, see
+                TradeChart's doc comment) — recentOrders is genuinely the
+                only source, so both tabs read it rather than one being
+                fed fabricated data. */}
+            <DataTable>
+              <DataTableHead>
+                <DataTableRow>
+                  <DataTableHeaderCell>Horodatage</DataTableHeaderCell>
+                  <DataTableHeaderCell>Type</DataTableHeaderCell>
+                  <DataTableHeaderCell>Symbole</DataTableHeaderCell>
+                  <DataTableHeaderCell>Sens</DataTableHeaderCell>
+                  <DataTableHeaderCell align="right">Quantité</DataTableHeaderCell>
+                  <DataTableHeaderCell align="right">Statut</DataTableHeaderCell>
+                  <DataTableHeaderCell>Raison</DataTableHeaderCell>
+                </DataTableRow>
+              </DataTableHead>
+              <DataTableBody>
+                {!snapshot || snapshot.recentOrders.length === 0 ? (
+                  <DataTableRow>
+                    <DataTableCell
+                      colSpan={7}
+                      className="text-center text-[color:var(--wariba-text-secondary)]"
+                    >
+                      Aucun ordre.
+                    </DataTableCell>
+                  </DataTableRow>
+                ) : (
+                  snapshot.recentOrders.map((o) => (
+                    <DataTableRow key={o.id}>
+                      <DataTableCell numeric>{formatOrderTimestamp(o.receivedAt)}</DataTableCell>
+                      <DataTableCell>{ORDER_TYPE_LABEL[o.orderType]}</DataTableCell>
+                      <DataTableCell>{o.symbol ?? '—'}</DataTableCell>
+                      <DataTableCell>{o.side === 'buy' ? 'Achat' : o.side === 'sell' ? 'Vente' : '—'}</DataTableCell>
+                      <DataTableCell numeric>
+                        {o.status === 'filled' ? o.filledQuantity : (o.requestedQuantity ?? '—')}
+                      </DataTableCell>
+                      <DataTableCell align="right">
+                        <Badge variant={ORDER_STATUS_BADGE_VARIANT[o.status]}>
+                          {ORDER_STATUS_LABEL[o.status]}
+                        </Badge>
+                      </DataTableCell>
+                      <DataTableCell className="text-[color:var(--wariba-text-secondary)]">
+                        {o.status === 'rejected'
+                          ? (REJECTION_DETAIL[o.rejectionCode ?? '']?.reason ?? UNKNOWN_REJECTION_DETAIL.reason)
+                          : '—'}
+                      </DataTableCell>
+                    </DataTableRow>
+                  ))
+                )}
+              </DataTableBody>
+            </DataTable>
+          </TabPanel>
+          <TabPanel value="journal">
             <Text variant="body-sm" color="tertiary">
-              L&apos;historique complet arrive avec Prompt 07.
+              Le journal de trading (annotations, tags, revue de session) arrive dans un prompt
+              ultérieur.
             </Text>
           </TabPanel>
         </Tabs>
