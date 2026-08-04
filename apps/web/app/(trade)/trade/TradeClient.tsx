@@ -13,7 +13,6 @@ import {
   DataTableHeaderCell,
   DataTableRow,
   Guardian,
-  Input,
   RiskRibbon,
   Tab,
   TabList,
@@ -23,7 +22,11 @@ import {
   type GuardianConcentrationBucket,
   type RiskRibbonStatus,
 } from '@wariba/ui';
-import { computeDailyLossUsedRatio, estimateRequiredMargin } from '@wariba/domain';
+import {
+  computeDailyLossUsedRatio,
+  estimateRequiredMargin,
+  isQuantityWithinBounds,
+} from '@wariba/domain';
 import {
   accountStateChannel,
   accountOrdersChannel,
@@ -42,6 +45,7 @@ import { RealtimeClient, type RealtimeConnectionState } from '../../../lib/realt
 import { createSupabaseBrowserClient } from '../../../lib/supabase/browser';
 import { PriceChart } from './PriceChart';
 import { TradeRiskDetail } from './TradeRiskDetail';
+import { OrderTicket, type OrderRejectionDetail } from './OrderTicket';
 
 const SYMBOLS: TradableSymbol[] = ['EURUSD', 'GBPUSD', 'USDJPY', 'XAUUSD', 'NAS100'];
 
@@ -57,6 +61,46 @@ const CONCENTRATION_BUCKET_LABEL: Record<string, string> = {
   forex: 'Forex (EUR/USD, GBP/USD, USD/JPY)',
   xauusd: 'Or (XAUUSD)',
   nas100: 'Indices (NAS100)',
+};
+
+// UX Architecture §22.10 — every rejection needs a reason, a code, and a
+// possible action, never an ambiguous loss. These are the only rejection
+// codes packages/database/src/trading.ts actually produces (REJECTION
+// const in trading.ts) — no fabricated codes.
+const REJECTION_DETAIL: Record<string, { reason: string; action: string }> = {
+  account_not_active: {
+    reason:
+      'Votre compte n’est plus actif pour trader (blocage temporaire, dépassement de limite, ou statut inactif).',
+    action: 'Consultez le Hub pour connaître le statut exact de votre compte.',
+  },
+  stale_market_data: {
+    reason: 'Le prix pour ce symbole n’était plus à jour au moment où le serveur a traité votre ordre.',
+    action: 'Réessayez une fois le prix rafraîchi.',
+  },
+  invalid_quantity: {
+    reason: 'La taille demandée est en dehors des bornes autorisées pour ce symbole.',
+    action: 'Ajustez la quantité selon le pas et les bornes indiqués dans le ticket.',
+  },
+  unknown_symbol_spec: {
+    reason: 'Ce symbole n’est pas configuré pour votre compte.',
+    action: 'Contactez le support si le problème persiste.',
+  },
+  exposure_limit_exceeded: {
+    reason: 'Cet ordre dépasserait votre exposition maximale autorisée sur ce groupe de symboles.',
+    action: 'Réduisez la taille ou fermez une position existante sur ce groupe.',
+  },
+  position_not_found: {
+    reason: 'La position visée n’existe plus.',
+    action: 'Rafraîchissez vos positions ouvertes.',
+  },
+  position_already_closed: {
+    reason: 'Cette position est déjà fermée.',
+    action: 'Rafraîchissez vos positions ouvertes.',
+  },
+};
+const UNKNOWN_REJECTION_DETAIL = {
+  reason: 'Le serveur a refusé cet ordre.',
+  action: 'Réessayez, ou contactez le support si le problème persiste.',
 };
 
 function deriveRiskRibbonStatus(params: {
@@ -97,6 +141,8 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
   const [ticks, setTicks] = useState<Partial<Record<TradableSymbol, MarketTick>>>({});
   const [selectedSymbol, setSelectedSymbol] = useState<TradableSymbol>('EURUSD');
   const [quantity, setQuantity] = useState('0.10');
+  const [stopLoss, setStopLoss] = useState('');
+  const [takeProfit, setTakeProfit] = useState('');
   const [pending, setPending] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
   const [tab, setTab] = useState('positions');
@@ -242,12 +288,47 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
         symbol: selectedSymbol,
         side,
         quantity,
+        ...(stopLoss.trim() ? { stopLoss: stopLoss.trim() } : {}),
+        ...(takeProfit.trim() ? { takeProfit: takeProfit.trim() } : {}),
       };
       pendingCommandRef.current = { kind: 'order', payload: command };
       clientRef.current.submitOrder(command);
     },
-    [accountId, selectedSymbol, quantity],
+    [accountId, selectedSymbol, quantity, stopLoss, takeProfit],
   );
+
+  // Client-side bounds check for instant feedback — the server (INVALID_QUANTITY,
+  // packages/database/src/trading.ts) is the real gate; this only saves a
+  // round trip for an obviously-wrong value.
+  const quantityError = useMemo(() => {
+    const spec = symbolSpecs[selectedSymbol];
+    if (!spec || quantity.trim() === '') return null;
+    const withinBounds = isQuantityWithinBounds({
+      quantity,
+      minimumQuantity: spec.minimumQuantity,
+      maximumQuantity: spec.maximumQuantity,
+      quantityStep: spec.quantityStep,
+    });
+    return withinBounds
+      ? null
+      : `Doit être entre ${spec.minimumQuantity} et ${spec.maximumQuantity}, par pas de ${spec.quantityStep}.`;
+  }, [symbolSpecs, selectedSymbol, quantity]);
+
+  const submitDisabled = !connectionOk || isStale || isRiskLocked || Boolean(quantityError);
+
+  const disabledMessage = !connectionOk
+    ? 'Connexion au serveur en cours…'
+    : isStale
+      ? 'Les nouvelles positions sont bloquées tant que le marché n’est pas à jour.'
+      : isRiskLocked
+        ? riskRibbonStatus === 'hard-breach'
+          ? 'La limite maximale de perte est dépassée. Aucun nouvel ordre possible.'
+          : 'Votre compte est en blocage temporaire jusqu’au prochain reset à 00:00 UTC.'
+        : quantityError;
+
+  const rejection: OrderRejectionDetail | null = orderError
+    ? { code: orderError, ...(REJECTION_DETAIL[orderError] ?? UNKNOWN_REJECTION_DETAIL) }
+    : null;
 
   const closePosition = useCallback(
     (positionId: string) => {
@@ -276,62 +357,24 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
   const orderTicket = useMemo(
     () => (
       <div className="flex flex-col gap-4">
-        <Text variant="label-sm" color="tertiary">
-          Order Ticket — {selectedSymbol}
-        </Text>
-        <Input
-          label="Quantité (lots)"
-          type="text"
-          name="quantity"
-          value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
+        <OrderTicket
+          accountPublicId={accountId.slice(0, 8).toUpperCase()}
+          symbol={selectedSymbol}
+          spec={symbolSpecs[selectedSymbol] ?? null}
+          tick={selectedTick}
+          quantity={quantity}
+          onQuantityChange={setQuantity}
+          quantityError={quantityError}
+          stopLoss={stopLoss}
+          onStopLossChange={setStopLoss}
+          takeProfit={takeProfit}
+          onTakeProfitChange={setTakeProfit}
+          onSubmit={submitMarketOrder}
+          pending={pending}
+          submitDisabled={submitDisabled}
+          disabledMessage={disabledMessage}
+          rejection={rejection}
         />
-        {selectedTick && (
-          <Text variant="body-sm" color="secondary" className="wariba-data">
-            Bid {selectedTick.bid} · Ask {selectedTick.ask}
-          </Text>
-        )}
-        {orderError && (
-          <Alert level="danger" title="Ordre refusé">
-            {orderError}
-          </Alert>
-        )}
-        {isStale && (
-          <Alert level="warning" title="Prix obsolète">
-            Les nouvelles positions sont bloquées tant que le marché n&apos;est pas à jour.
-          </Alert>
-        )}
-        {isRiskLocked && !isStale && (
-          <Alert level="danger" title="Compte bloqué">
-            {riskRibbonStatus === 'hard-breach'
-              ? 'La limite maximale de perte est dépassée. Aucun nouvel ordre possible.'
-              : 'Votre compte est en blocage temporaire jusqu’au prochain reset à 00:00 UTC.'}
-          </Alert>
-        )}
-        <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            loading={pending}
-            disabled={!connectionOk || isStale || isRiskLocked}
-            onClick={() => submitMarketOrder('buy')}
-            className="flex-1"
-          >
-            Buy
-          </Button>
-          <Button
-            variant="secondary"
-            loading={pending}
-            disabled={!connectionOk || isStale || isRiskLocked}
-            onClick={() => submitMarketOrder('sell')}
-            className="flex-1"
-          >
-            Sell
-          </Button>
-        </div>
-        <Text variant="body-sm" color="tertiary">
-          Compte simulé. Exécution serveur uniquement — aucun prix client n&apos;est jamais
-          autoritaire.
-        </Text>
 
         {guardianProps ? (
           <Guardian {...guardianProps} />
@@ -343,16 +386,19 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
       </div>
     ),
     [
+      accountId,
       selectedSymbol,
-      quantity,
+      symbolSpecs,
       selectedTick,
-      orderError,
-      isStale,
-      isRiskLocked,
-      riskRibbonStatus,
-      pending,
-      connectionOk,
+      quantity,
+      quantityError,
+      stopLoss,
+      takeProfit,
       submitMarketOrder,
+      pending,
+      submitDisabled,
+      disabledMessage,
+      rejection,
       guardianProps,
     ],
   );
