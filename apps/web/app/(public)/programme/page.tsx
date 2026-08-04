@@ -59,7 +59,7 @@ export default function ProgramPage() {
             [
               '03',
               'Review',
-              'Après cinq payouts sandbox conformes, vos preuves sont examinées. Aucun compte Live automatique.',
+              'Après cinq payouts conformes, vos preuves sont examinées. Aucun compte Live automatique.',
             ],
           ].map(([number, title, body]) => (
             <article
@@ -124,8 +124,12 @@ export default function ProgramPage() {
             </h2>
           </div>
           <div className="rounded-[var(--wariba-radius-2xl)] border border-[color:var(--wariba-color-cobalt-400)] bg-[color:var(--wariba-color-ink-950)] p-6 sm:p-8">
-            <p className="wariba-data text-[length:var(--wariba-font-size-body-md)] leading-[var(--wariba-line-height-body-lg)] text-[color:var(--wariba-color-bone-50)]">
-              Nouveau plancher = min(nominal, max(ancien plancher, plus haute balance EOD − 10 % du
+            <p className="text-[length:var(--wariba-font-size-body-md)] leading-[var(--wariba-line-height-body-lg)] text-[color:var(--wariba-color-bone-50)]">
+              Le nouveau plancher retient toujours la valeur la plus protectrice pour le trader :
+              il ne peut que monter, jamais redescendre.
+            </p>
+            <p className="wariba-data mt-3 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-color-ink-300)]">
+              plancher = min(nominal, max(ancien plancher, plus haute balance EOD − 10 % du
               nominal))
             </p>
             <ul className="mt-6 grid gap-3 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-color-ink-200)]">
@@ -142,7 +146,7 @@ export default function ProgramPage() {
           <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr]">
             <div>
               <Text variant="label-sm" className="text-[color:var(--wariba-color-success-100)]">
-                Etape 2 · planifiée Prompt 08
+                Etape 2 · à venir
               </Text>
               <h2 className="mt-3 text-[length:var(--wariba-font-size-display-md)] font-semibold leading-[var(--wariba-line-height-display-md)] text-[color:var(--wariba-color-bone-50)]">
                 Construisez d’abord votre base.
@@ -227,7 +231,7 @@ export default function ProgramPage() {
             sixième payout automatique, ni allocation Live, ni capital réel.
           </p>
           <Link href="/offres" className={buttonClassNames({ size: 'lg' })}>
-            Choisir une taille sandbox
+            Choisir une taille de compte
           </Link>
         </div>
       </section>

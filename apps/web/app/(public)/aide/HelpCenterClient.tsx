@@ -7,13 +7,13 @@ const FAQS = [
     category: 'Commencer',
     question: 'WARIBA est-il un broker ou un compte financé réel ?',
     answer:
-      'Non. La V1 est un environnement de trading entièrement simulé. La balance nominale n’est ni un dépôt, ni du capital qui vous est confié, ni un compte de courtage.',
+      'Non. WARIBA est un environnement de trading entièrement simulé. La balance nominale n’est ni un dépôt, ni du capital qui vous est confié, ni un compte de courtage.',
   },
   {
     category: 'Commencer',
     question: 'Quelles tailles sont disponibles ?',
     answer:
-      'Les comptes 5K, 10K, 25K, 50K et 100K sont actifs dans la bêta sandbox. Leur ouverture commerciale publique reste contrôlée séparément et n’est pas autorisée par cette disponibilité technique.',
+      'Les comptes 5K, 10K, 25K, 50K et 100K sont actifs pour la bêta privée. Leur ouverture commerciale publique reste décidée séparément et n’est pas garantie par cette disponibilité.',
   },
   {
     category: 'Prix et checkout',
@@ -61,19 +61,19 @@ const FAQS = [
     category: 'WariX',
     question: 'Qu’est-ce que WariX ?',
     answer:
-      'WariX est le terminal web responsive de WARIBA. Il expose le contexte du compte et permet les ordres de marché, la modification SL/TP, les clôtures partielles, complètes et Close All dans le sandbox.',
+      'WariX est le terminal web de WARIBA. Il affiche le contexte du compte et permet les ordres de marché, la modification SL/TP, ainsi que les clôtures partielles, complètes et Close All.',
   },
   {
     category: 'WariX',
     question: 'Quels instruments sont disponibles ?',
     answer:
-      'Le périmètre V1 comprend EURUSD, GBPUSD, USDJPY, XAUUSD et NAS100. Le client n’envoie jamais de prix autoritaire : le serveur décide du prix, du spread, du slippage sandbox et du fill.',
+      'Les instruments disponibles sont EURUSD, GBPUSD, USDJPY, XAUUSD et NAS100. Le navigateur n’envoie jamais de prix autoritaire : le serveur seul décide du prix, du spread, du slippage et du fill.',
   },
   {
     category: 'Performance',
     question: 'Que signifie le buffer permanent de 10 % ?',
     answer:
-      'Avant le premier payout sandbox, le trader construit une fois un buffer égal à 10 % du nominal. Il n’est jamais retirable et ne doit pas être reconstruit après chaque payout. Seul l’excédent réalisé au-dessus du buffer peut devenir éligible.',
+      'Avant le premier payout, le trader construit une fois un buffer égal à 10 % du nominal. Il n’est jamais retirable et ne doit pas être reconstruit après chaque payout. Seul l’excédent réalisé au-dessus du buffer peut devenir éligible.',
   },
   {
     category: 'Performance',
@@ -85,7 +85,7 @@ const FAQS = [
     category: 'Performance',
     question: 'Un payout réel est-il garanti ?',
     answer:
-      'Non. La V1 et le parcours actuel sont simulés. Les caps, contrôles d’intégrité, méthodes et gates de lancement s’appliquent. Aucun sixième payout ni compte Live n’est automatiquement garanti après Review.',
+      'Non. Le parcours actuel est entièrement simulé. Les caps, contrôles d’intégrité et conditions de lancement s’appliquent toujours. Aucun sixième payout ni compte Live n’est automatiquement garanti après Review.',
   },
 ] as const;
 

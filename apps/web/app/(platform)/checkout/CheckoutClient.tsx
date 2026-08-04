@@ -69,7 +69,7 @@ export function CheckoutClient({ context }: CheckoutClientProps) {
         <div className="grid gap-4 border-y border-[color:var(--wariba-border-subtle)] py-5 sm:grid-cols-2">
           <div>
             <Text variant="label-sm" color="tertiary">
-              Total sandbox
+              Total à régler
             </Text>
             <Text variant="heading-md">{formatFcfa(context.offer.priceAmount)}</Text>
           </div>
@@ -83,7 +83,7 @@ export function CheckoutClient({ context }: CheckoutClientProps) {
 
         <Alert level="information" title="Compte simulé">
           La taille nominale n&apos;est pas un dépôt vous appartenant. Aucun frais
-          d&apos;activation, aucun capital réel et aucun paiement réel dans cette bêta sandbox.
+          d&apos;activation, aucun capital réel et aucun paiement réel dans cette bêta privée.
         </Alert>
 
         <div>
@@ -120,7 +120,7 @@ export function CheckoutClient({ context }: CheckoutClientProps) {
           onClick={handleConfirm}
           className="w-full"
         >
-          Continuer vers le paiement sandbox
+          Continuer vers le paiement
         </Button>
       </Card>
     </div>

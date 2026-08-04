@@ -57,7 +57,7 @@ export default function SupportPage() {
                   'Voir les réponses',
                 ],
                 [
-                  'Compte ou checkout sandbox',
+                  'Compte ou commande',
                   'Connectez-vous pour conserver le contexte du compte, de la policy et de la commande.',
                   '/login',
                   'Se connecter',

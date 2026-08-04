@@ -49,9 +49,9 @@ export default function TermsPage() {
             4. Usage loyal
           </h2>
           <p className="mt-3">
-            La fraude, l’accès non autorisé, la manipulation du sandbox, le partage de compte et la
-            tentative de contourner les limites peuvent entraîner un gel, une revue ou une fermeture
-            selon la policy et les preuves auditées.
+            La fraude, l’accès non autorisé, la manipulation de l’environnement simulé, le partage
+            de compte et la tentative de contourner les limites peuvent entraîner un gel, une
+            revue ou une fermeture selon la policy et les preuves auditées.
           </p>
         </section>
         <section>
