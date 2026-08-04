@@ -20,13 +20,17 @@ import {
   TabPanel,
   Tabs,
   Text,
+  WariXPositionsTable,
   type GuardianConcentrationBucket,
   type RiskRibbonStatus,
+  type WariXPosition,
 } from '@wariba/ui';
 import {
   computeDailyLossUsedRatio,
+  computeRealizedPnl,
   estimateRequiredMargin,
   isQuantityWithinBounds,
+  quotedPrice,
 } from '@wariba/domain';
 import {
   accountStateChannel,
@@ -289,6 +293,58 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
     () => fills.filter((f) => f.symbol === selectedSymbol),
     [fills, selectedSymbol],
   );
+
+  // WariX's positions table shows live PnL (unlike the Hub's, ENG-028) — the
+  // same formula services/realtime uses for equity (quotedPrice + close-side
+  // computeRealizedPnl against the current tick), just recomputed here so
+  // the number moves with every tick instead of waiting for the next
+  // throttled account.risk_preview push.
+  const wariXPositions: WariXPosition[] = useMemo(() => {
+    return (snapshot?.openPositions ?? []).map((position) => {
+      const tick = ticks[position.symbol];
+      const spec = symbolSpecs[position.symbol];
+      if (!tick || !spec) {
+        return {
+          id: position.id,
+          symbol: position.symbol,
+          sideLabel: position.side === 'buy' ? 'Achat' : 'Vente',
+          quantityFormatted: position.openQuantity,
+          entryPriceFormatted: position.averageOpenPrice,
+          currentPriceFormatted: '—',
+          livePnlFormatted: '—',
+          livePnlTone: 'neutral',
+          stopLossFormatted: position.stopLoss ?? '—',
+          takeProfitFormatted: position.takeProfit ?? '—',
+        };
+      }
+      const closePrice = quotedPrice({
+        bid: tick.bid,
+        ask: tick.ask,
+        positionSide: position.side,
+        action: 'close',
+      });
+      const unrealized = computeRealizedPnl({
+        openPrice: position.averageOpenPrice,
+        closePrice,
+        quantity: position.openQuantity,
+        contractSize: spec.contractSize,
+        positionSide: position.side,
+      });
+      const sign = Number(unrealized) > 0 ? '+' : '';
+      return {
+        id: position.id,
+        symbol: position.symbol,
+        sideLabel: position.side === 'buy' ? 'Achat' : 'Vente',
+        quantityFormatted: position.openQuantity,
+        entryPriceFormatted: position.averageOpenPrice,
+        currentPriceFormatted: closePrice,
+        livePnlFormatted: `${sign}${unrealized} USD`,
+        livePnlTone: Number(unrealized) > 0 ? 'positive' : Number(unrealized) < 0 ? 'negative' : 'neutral',
+        stopLossFormatted: position.stopLoss ?? '—',
+        takeProfitFormatted: position.takeProfit ?? '—',
+      };
+    });
+  }, [snapshot, ticks, symbolSpecs]);
 
   // Guardian (UX Architecture §22.8) — impact potentiel of the current
   // Order Ticket draft. Side-agnostic on purpose: the exposure gate
@@ -575,52 +631,12 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
             <Tab value="history">Historique</Tab>
           </TabList>
           <TabPanel value="positions">
-            <DataTable>
-              <DataTableHead>
-                <DataTableRow>
-                  <DataTableHeaderCell>Symbole</DataTableHeaderCell>
-                  <DataTableHeaderCell align="right">Taille</DataTableHeaderCell>
-                  <DataTableHeaderCell align="right">PnL réalisé</DataTableHeaderCell>
-                  <DataTableHeaderCell align="right">Action</DataTableHeaderCell>
-                </DataTableRow>
-              </DataTableHead>
-              <DataTableBody>
-                {!snapshot || snapshot.openPositions.length === 0 ? (
-                  <DataTableRow>
-                    <DataTableCell
-                      colSpan={4}
-                      className="text-center text-[color:var(--wariba-text-secondary)]"
-                    >
-                      Aucune position ouverte.
-                    </DataTableCell>
-                  </DataTableRow>
-                ) : (
-                  snapshot.openPositions.map((p) => (
-                    <DataTableRow key={p.id}>
-                      <DataTableCell>
-                        {p.symbol} · {p.side === 'buy' ? 'Achat' : 'Vente'}
-                      </DataTableCell>
-                      <DataTableCell align="right" className="wariba-data">
-                        {p.openQuantity}
-                      </DataTableCell>
-                      <DataTableCell align="right" className="wariba-data">
-                        {p.realizedPnl}
-                      </DataTableCell>
-                      <DataTableCell align="right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => closePosition(p.id)}
-                          disabled={pending}
-                        >
-                          Fermer
-                        </Button>
-                      </DataTableCell>
-                    </DataTableRow>
-                  ))
-                )}
-              </DataTableBody>
-            </DataTable>
+            <WariXPositionsTable
+              positions={wariXPositions}
+              onClose={closePosition}
+              closeDisabled={pending}
+              emptyLabel="Aucune position ouverte."
+            />
             {snapshot && snapshot.openPositions.length > 0 && (
               <Button
                 variant="ghost"
