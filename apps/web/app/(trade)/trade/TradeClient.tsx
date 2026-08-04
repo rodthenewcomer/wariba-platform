@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import {
   AccountContext,
   Alert,
@@ -40,12 +41,20 @@ import {
   type CloseAllMessage,
   type TradableSymbol,
   type SymbolSpec,
+  type PositionDTO,
 } from '@wariba/contracts';
 import { RealtimeClient, type RealtimeConnectionState } from '../../../lib/realtime-client';
 import { createSupabaseBrowserClient } from '../../../lib/supabase/browser';
-import { PriceChart } from './PriceChart';
 import { TradeRiskDetail } from './TradeRiskDetail';
 import { OrderTicket, type OrderRejectionDetail } from './OrderTicket';
+import type { FillMarker } from './TradeChart';
+
+// lightweight-charts touches the DOM/canvas directly and has no useful
+// server-rendered output — Prompt 07's own performance requirement ("chart
+// lazy-loaded"), and avoids paying its bundle cost before it's needed.
+const TradeChart = dynamic(() => import('./TradeChart').then((m) => m.TradeChart), {
+  ssr: false,
+});
 
 const SYMBOLS: TradableSymbol[] = ['EURUSD', 'GBPUSD', 'USDJPY', 'XAUUSD', 'NAS100'];
 
@@ -147,6 +156,10 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
   const [orderError, setOrderError] = useState<string | null>(null);
   const [tab, setTab] = useState('positions');
   const [ticketOpen, setTicketOpen] = useState(false);
+  // §22.6 "historique d'exécution" — session-only, see TradeChart's doc
+  // comment for why nothing retroactive is possible (no fill price anywhere
+  // in AccountSnapshot, only on the order_result that announces a fill).
+  const [fills, setFills] = useState<FillMarker[]>([]);
 
   useEffect(() => {
     const client = new RealtimeClient(wsUrl, getAccessToken);
@@ -206,6 +219,28 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
         } else {
           setOrderError(null);
         }
+        if (result.fill) {
+          const fill = result.fill;
+          // A resubscribe-triggered retry (the account.snapshot handler
+          // above) can resend an already-processed order — the server
+          // replays the same idempotent outcome, fill included, so dedupe
+          // on the fill's own id rather than blindly appending.
+          setFills((prev) =>
+            prev.some((f) => f.id === fill.id)
+              ? prev
+              : [
+                  ...prev,
+                  {
+                    id: fill.id,
+                    symbol: fill.symbol,
+                    time: Math.floor(new Date(fill.occurredAt).getTime() / 1000),
+                    price: Number(fill.price),
+                    side: fill.side,
+                    effect: fill.fillType,
+                  },
+                ],
+          );
+        }
         // Server always answers a (re)subscribe with a fresh full snapshot —
         // simplest correct way to pick up the new position/order/balance.
         client.subscribe([accountStateChannel(accountId)]);
@@ -240,6 +275,14 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
   const risk = snapshot?.risk ?? null;
   const riskRibbonStatus = deriveRiskRibbonStatus({ risk, isStale, isResyncing });
   const isRiskLocked = riskRibbonStatus === 'soft-lock' || riskRibbonStatus === 'hard-breach';
+  const symbolPositions: PositionDTO[] = useMemo(
+    () => snapshot?.openPositions.filter((p) => p.symbol === selectedSymbol) ?? [],
+    [snapshot, selectedSymbol],
+  );
+  const symbolFills = useMemo(
+    () => fills.filter((f) => f.symbol === selectedSymbol),
+    [fills, selectedSymbol],
+  );
 
   // Guardian (UX Architecture §22.8) — impact potentiel of the current
   // Order Ticket draft. Side-agnostic on purpose: the exposure gate
@@ -457,7 +500,13 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
         </aside>
 
         <div className="flex min-h-[280px] flex-1 flex-col gap-2 border-b border-[color:var(--wariba-theme-border)] p-[var(--wariba-component-trade-panel-padding)] lg:border-b-0 lg:border-r">
-          <PriceChart tick={selectedTick} />
+          <TradeChart
+            symbol={selectedSymbol}
+            tick={selectedTick}
+            positions={symbolPositions}
+            fills={symbolFills}
+            connectionState={connectionState}
+          />
           <Button variant="secondary" className="lg:hidden" onClick={() => setTicketOpen(true)}>
             Trader {selectedSymbol}
           </Button>
