@@ -118,6 +118,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.0.2
         version: 19.2.4(@types/react@19.2.18)
+      '@wariba/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       jsdom:
         specifier: ^25.0.1
         version: 25.0.1
@@ -152,9 +155,15 @@ importers:
       '@wariba/domain':
         specifier: workspace:*
         version: link:../domain
+      '@wariba/policies':
+        specifier: workspace:*
+        version: link:../policies
       '@wariba/validation':
         specifier: workspace:*
         version: link:../validation
+      decimal.js:
+        specifier: ^10.4.3
+        version: 10.6.0
     devDependencies:
       typescript:
         specifier: ^5.7.2

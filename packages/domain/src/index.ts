@@ -55,3 +55,11 @@ export {
   computeProfitTargetRequired,
   isProfitTargetReached,
 } from './risk-math';
+export {
+  deriveHubDisplayState,
+  isInAttentionZone,
+  isHubStateReadOnly,
+  type HubDisplayState,
+  type HubAttentionSignal,
+  type DeriveHubDisplayStateParams,
+} from './hub-state';
