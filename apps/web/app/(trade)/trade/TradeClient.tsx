@@ -12,6 +12,7 @@ import {
   DataTableHead,
   DataTableHeaderCell,
   DataTableRow,
+  Guardian,
   Input,
   RiskRibbon,
   Tab,
@@ -19,9 +20,10 @@ import {
   TabPanel,
   Tabs,
   Text,
+  type GuardianConcentrationBucket,
   type RiskRibbonStatus,
 } from '@wariba/ui';
-import { computeDailyLossUsedRatio } from '@wariba/domain';
+import { computeDailyLossUsedRatio, estimateRequiredMargin } from '@wariba/domain';
 import {
   accountStateChannel,
   accountOrdersChannel,
@@ -34,6 +36,7 @@ import {
   type SubmitOrderMessage,
   type CloseAllMessage,
   type TradableSymbol,
+  type SymbolSpec,
 } from '@wariba/contracts';
 import { RealtimeClient, type RealtimeConnectionState } from '../../../lib/realtime-client';
 import { createSupabaseBrowserClient } from '../../../lib/supabase/browser';
@@ -49,6 +52,12 @@ const SYMBOLS: TradableSymbol[] = ['EURUSD', 'GBPUSD', 'USDJPY', 'XAUUSD', 'NAS1
 // not a rule figure.
 const ATTENTION_THRESHOLD = '0.5';
 const NEAR_LIMIT_THRESHOLD = '0.8';
+
+const CONCENTRATION_BUCKET_LABEL: Record<string, string> = {
+  forex: 'Forex (EUR/USD, GBP/USD, USD/JPY)',
+  xauusd: 'Or (XAUUSD)',
+  nas100: 'Indices (NAS100)',
+};
 
 function deriveRiskRibbonStatus(params: {
   risk: AccountRisk | null;
@@ -84,6 +93,7 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
   >(null);
   const [connectionState, setConnectionState] = useState<RealtimeConnectionState>('connecting');
   const [snapshot, setSnapshot] = useState<AccountSnapshot | null>(null);
+  const [symbolSpecs, setSymbolSpecs] = useState<Partial<Record<TradableSymbol, SymbolSpec>>>({});
   const [ticks, setTicks] = useState<Partial<Record<TradableSymbol, MarketTick>>>({});
   const [selectedSymbol, setSelectedSymbol] = useState<TradableSymbol>('EURUSD');
   const [quantity, setQuantity] = useState('0.10');
@@ -119,6 +129,15 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
       } else if (envelope.type === 'market.tick') {
         const tick = envelope.payload as MarketTick;
         setTicks((prev) => ({ ...prev, [tick.symbol]: tick }));
+      } else if (envelope.type === 'symbol_specs') {
+        // Static for the session (services/realtime sends this once, right
+        // after account.snapshot on the initial state-channel subscribe).
+        const { specs } = envelope.payload as { specs: SymbolSpec[] };
+        setSymbolSpecs(
+          Object.fromEntries(specs.map((spec) => [spec.symbol, spec])) as Partial<
+            Record<TradableSymbol, SymbolSpec>
+          >,
+        );
       } else if (envelope.type === 'account.risk_preview') {
         // Throttled server push (services/realtime) — only equity/risk change
         // here, positions/orders/balance stay whatever the last real
@@ -175,6 +194,41 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
   const risk = snapshot?.risk ?? null;
   const riskRibbonStatus = deriveRiskRibbonStatus({ risk, isStale, isResyncing });
   const isRiskLocked = riskRibbonStatus === 'soft-lock' || riskRibbonStatus === 'hard-breach';
+
+  // Guardian (UX Architecture §22.8) — impact potentiel of the current
+  // Order Ticket draft. Side-agnostic on purpose: the exposure gate
+  // (isAggregateExposureAllowed) sums raw quantities regardless of buy/sell,
+  // so margin/exposure impact don't depend on a chosen side either. Null
+  // until a symbol spec + a live tick + a priced account exist — no
+  // fabricated numbers before then.
+  const guardianProps = useMemo(() => {
+    const spec = symbolSpecs[selectedSymbol];
+    const tick = ticks[selectedSymbol];
+    if (!spec || !tick || !risk) return null;
+    const midPrice = ((Number(tick.bid) + Number(tick.ask)) / 2).toFixed(spec.pricePrecision);
+    const marginEstimated = estimateRequiredMargin({
+      quantity,
+      price: midPrice,
+      contractSize: spec.contractSize,
+      leverage: spec.leverage,
+    });
+    const concentration: GuardianConcentrationBucket[] = risk.concentration.map((bucket) => ({
+      bucket: bucket.bucket,
+      label: CONCENTRATION_BUCKET_LABEL[bucket.bucket] ?? bucket.bucket,
+      usedFormatted: bucket.usedQuantity,
+      limitFormatted: bucket.limitQuantity,
+      usedRatioPercent: Number(bucket.usedRatio) * 100,
+    }));
+    return {
+      symbol: selectedSymbol,
+      quantityFormatted: quantity,
+      marginEstimatedFormatted: `${marginEstimated} USD`,
+      dailyLossRemainingFormatted: `${risk.dailyLoss.remaining} USD`,
+      maximumLossRemainingFormatted: `${risk.maximumLoss.remaining} USD`,
+      concentration,
+      isPriceStale: tick.marketStatus === 'stale',
+    };
+  }, [symbolSpecs, selectedSymbol, ticks, risk, quantity]);
 
   const submitMarketOrder = useCallback(
     (side: 'buy' | 'sell') => {
@@ -278,6 +332,14 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
           Compte simulé. Exécution serveur uniquement — aucun prix client n&apos;est jamais
           autoritaire.
         </Text>
+
+        {guardianProps ? (
+          <Guardian {...guardianProps} />
+        ) : (
+          <Text variant="body-sm" color="tertiary">
+            Guardian sera actif après votre première journée de trading.
+          </Text>
+        )}
       </div>
     ),
     [
@@ -291,6 +353,7 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
       pending,
       connectionOk,
       submitMarketOrder,
+      guardianProps,
     ],
   );
 
