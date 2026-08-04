@@ -122,7 +122,17 @@ export const semanticDark = {
   "action.secondaryText": "#F4F5F7",
   "action.destructive": "#C94D4D",
   "action.destructiveHover": "#A73C3C",
-  "action.destructiveText": "#FFFFFF"
+  "action.destructiveText": "#FFFFFF",
+  "status.success.background": "#132821",
+  "status.success.text": "#8FE0BE",
+  "status.warning.background": "#2B2010",
+  "status.warning.text": "#F0C878",
+  "status.danger.background": "#2A1616",
+  "status.danger.text": "#F5A8A8",
+  "status.information.background": "#141F2E",
+  "status.information.text": "#9CC2F0",
+  "status.neutral.background": "#1A1F2B",
+  "status.neutral.text": "#C0C6D0"
 } as const;
 export const status = {
   "success.background": "#EFF9F5",
