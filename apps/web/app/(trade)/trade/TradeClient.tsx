@@ -33,8 +33,10 @@ import {
   accountOrdersChannel,
   accountPositionsChannel,
   marketSymbolChannel,
+  TRADABLE_SYMBOLS,
   type AccountRisk,
   type AccountSnapshot,
+  type MarketStatus,
   type MarketTick,
   type OrderResultMessage,
   type SubmitOrderMessage,
@@ -56,7 +58,11 @@ const TradeChart = dynamic(() => import('./TradeChart').then((m) => m.TradeChart
   ssr: false,
 });
 
-const SYMBOLS: TradableSymbol[] = ['EURUSD', 'GBPUSD', 'USDJPY', 'XAUUSD', 'NAS100'];
+const MARKET_STATUS_LABEL: Record<MarketStatus, string> = {
+  open: 'Ouvert',
+  stale: 'Périmé',
+  closed: 'Fermé',
+};
 
 // UX Architecture §23.3: normal < attention < near-limit < soft-lock, an
 // early warning before the actual soft-lock gate (softLockTriggered/status)
@@ -257,7 +263,7 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
         accountStateChannel(accountId),
         accountOrdersChannel(accountId),
         accountPositionsChannel(accountId),
-        ...SYMBOLS.map((s) => marketSymbolChannel(s)),
+        ...TRADABLE_SYMBOLS.map((s) => marketSymbolChannel(s)),
       ]);
     });
 
@@ -456,6 +462,24 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
           statusLabel={connectionOk ? 'Actif' : 'Connexion...'}
           statusVariant={connectionOk ? 'success' : 'warning'}
         />
+        {/* UX Architecture §22.2's layout diagram lists "Market Status" as its
+            own header element alongside Account Context/Risk Ribbon — the
+            selected symbol's session state, distinct from RiskRibbon's own
+            dot (WS connection quality, a different concern entirely). */}
+        <div className="flex items-center gap-2 text-[length:var(--wariba-font-size-body-sm)]">
+          <Text as="span" color="secondary">
+            Marché {selectedSymbol}
+          </Text>
+          <span
+            className={`font-medium ${
+              selectedTick?.marketStatus === 'stale'
+                ? 'text-[color:var(--wariba-status-warning-text)]'
+                : 'text-[color:var(--wariba-text-primary)]'
+            }`}
+          >
+            {selectedTick ? MARKET_STATUS_LABEL[selectedTick.marketStatus] : '—'}
+          </span>
+        </div>
         <RiskRibbon
           status={riskRibbonStatus}
           dailyLossRemaining={risk ? `${risk.dailyLoss.remaining} USD` : '—'}
@@ -477,22 +501,40 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
           <Text variant="label-sm" color="tertiary" className="mb-1">
             Watchlist
           </Text>
-          {SYMBOLS.map((symbol) => {
+          {TRADABLE_SYMBOLS.map((symbol) => {
             const t = ticks[symbol];
+            const spec = symbolSpecs[symbol];
+            const spread = t ? (Number(t.ask) - Number(t.bid)).toFixed(spec?.pricePrecision ?? 5) : null;
             return (
               <button
                 key={symbol}
                 type="button"
                 onClick={() => setSelectedSymbol(symbol)}
-                className={`flex items-center justify-between rounded-[var(--wariba-radius-sm)] px-2 py-2 text-left ${
+                className={`flex flex-col gap-0.5 rounded-[var(--wariba-radius-sm)] px-2 py-2 text-left ${
                   symbol === selectedSymbol ? 'bg-[color:var(--wariba-surface-selected)]' : ''
                 }`}
               >
-                <span className="text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-theme-text)]">
-                  {symbol}
+                <span className="flex items-center justify-between gap-2">
+                  <span className="text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-theme-text)]">
+                    {symbol}
+                  </span>
+                  <span
+                    className={`text-[length:var(--wariba-font-size-label-sm)] ${
+                      t?.marketStatus === 'stale'
+                        ? 'text-[color:var(--wariba-status-warning-text)]'
+                        : 'text-[color:var(--wariba-text-secondary)]'
+                    }`}
+                  >
+                    {t ? MARKET_STATUS_LABEL[t.marketStatus] : '—'}
+                  </span>
                 </span>
-                <span className="wariba-data text-[length:var(--wariba-font-size-data-sm)] text-[color:var(--wariba-text-secondary)]">
-                  {t ? `${t.bid} / ${t.ask}` : '— / —'}
+                <span className="flex items-center justify-between gap-2">
+                  <span className="wariba-data text-[length:var(--wariba-font-size-data-sm)] text-[color:var(--wariba-text-secondary)]">
+                    {t ? `${t.bid} / ${t.ask}` : '— / —'}
+                  </span>
+                  <span className="wariba-data text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
+                    {spread ?? '—'}
+                  </span>
                 </span>
               </button>
             );
