@@ -194,7 +194,7 @@ async function replayExistingOrder(
 async function insertRejectedOrder(
   trx: Db,
   params: {
-    accountId: string;
+    account: { id: string; version: number };
     idempotencyKey: string;
     orderType: 'market_open' | 'partial_close' | 'full_close' | 'modify_sl' | 'modify_tp';
     symbol: TradableSymbol | null;
@@ -205,10 +205,26 @@ async function insertRejectedOrder(
     now: Date;
   },
 ): Promise<TradeCommandResult> {
+  // A rejection still advances the account's optimistic-concurrency counter
+  // (lockAccount/FOR UPDATE already serializes every attempt on this
+  // account, filled or not — this just also records the attempt in it).
+  // Without this, a rejected order can land in recentOrders while
+  // trading_accounts.version stays exactly what it was on the last real
+  // snapshot — and apps/web's realtime client uses that version as its
+  // sequence-gate, so an unchanged version reads as "nothing new, drop this
+  // reply" and the rejection silently never reaches the UI.
+  const nextSequence = params.account.version + 1;
+  await trx
+    .updateTable('app.trading_accounts')
+    .set({ version: nextSequence, updated_at: params.now })
+    .where('id', '=', params.account.id)
+    .where('version', '=', params.account.version)
+    .execute();
+
   const order = await trx
     .insertInto('app.trade_orders')
     .values({
-      account_id: params.accountId,
+      account_id: params.account.id,
       idempotency_key: params.idempotencyKey,
       order_type: params.orderType,
       symbol: params.symbol,
@@ -217,6 +233,7 @@ async function insertRejectedOrder(
       requested_quantity: params.requestedQuantity,
       status: 'rejected',
       rejection_code: params.rejectionCode,
+      account_sequence: String(nextSequence),
       received_at: params.now,
       completed_at: params.now,
     })
@@ -227,7 +244,7 @@ async function insertRejectedOrder(
       orderId: order.id,
       status: 'rejected',
       rejectionCode: params.rejectionCode,
-      accountSequence: null,
+      accountSequence: String(nextSequence),
       alreadyExisted: false,
     },
     position: null,
@@ -270,7 +287,7 @@ export async function openPosition(
 
     const reject = (code: string) =>
       insertRejectedOrder(trx, {
-        accountId: params.accountId,
+        account,
         idempotencyKey: params.idempotencyKey,
         orderType: 'market_open',
         symbol: params.symbol,
@@ -510,7 +527,7 @@ async function closePositionLocked(
     positionId: string | null,
   ): Promise<ClosePositionExecution> => ({
     result: await insertRejectedOrder(trx, {
-      accountId: params.accountId,
+      account,
       idempotencyKey: params.idempotencyKey,
       orderType,
       symbol,
@@ -520,7 +537,11 @@ async function closePositionLocked(
       rejectionCode: code,
       now: params.now,
     }),
-    nextAccount: account,
+    // insertRejectedOrder bumped trading_accounts.version by exactly one —
+    // must be reflected here too, or a Close All loop chaining this through
+    // as the next iteration's `account` would retry the optimistic-
+    // concurrency UPDATE against a version the DB has already moved past.
+    nextAccount: { ...account, version: account.version + 1, updated_at: params.now },
   });
 
   const position = await trx
@@ -953,7 +974,7 @@ export async function modifyPositionRisk(
       positionId: string | null,
     ) =>
       insertRejectedOrder(trx, {
-        accountId: params.accountId,
+        account,
         idempotencyKey: params.idempotencyKey,
         orderType,
         symbol,

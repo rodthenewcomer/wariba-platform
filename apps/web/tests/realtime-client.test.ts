@@ -85,53 +85,6 @@ describe('RealtimeClient sequence handling', () => {
     client.close();
   });
 
-  it('delivers a same-sequence account.snapshot instead of dropping it as a duplicate', async () => {
-    // Unlike market.tick's sequence (bumped on every broadcast tick),
-    // account.snapshot's sequence is trading_accounts.version — unchanged
-    // by a rejected order, even though recentOrders grew by one. A resync
-    // fetched after a rejection must still reach the UI (regression guard
-    // for the bug the WariX History tab surfaced: a rejected order was
-    // silently dropped and never appeared in Positions/Orders/History).
-    globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
-    const equitySeen: string[] = [];
-    const client = new RealtimeClient('ws://wariba.test/ws', () => Promise.resolve('token'));
-    client.onMessage((message) => {
-      if (message.type === 'account.snapshot') {
-        equitySeen.push((message.payload as { equity: string }).equity);
-      }
-    });
-    await client.connect();
-    const socket = FakeWebSocket.latest;
-    if (!socket) throw new Error('expected a websocket');
-    socket.emit('open');
-    client.subscribe(['account.11111111-1111-1111-1111-111111111111.state']);
-
-    const snapshot = (equity: string) =>
-      buildEnvelope({
-        type: 'account.snapshot',
-        sequence: 5,
-        correlationId: 'conn-1',
-        payload: {
-          accountId: '11111111-1111-1111-1111-111111111111',
-          balance: '10000.00',
-          equity,
-          accountSequence: 5,
-          openPositions: [],
-          recentOrders: [],
-          risk: null,
-        },
-      });
-
-    socket.emit('message', new MessageEvent('message', { data: JSON.stringify(snapshot('10000.00')) }));
-    // Same sequence (a rejected order never bumps account.version) but a
-    // fresh full snapshot fetched afterwards — must still land, not be
-    // dropped as a "duplicate".
-    socket.emit('message', new MessageEvent('message', { data: JSON.stringify(snapshot('9950.00')) }));
-
-    expect(equitySeen).toEqual(['10000.00', '9950.00']);
-    client.close();
-  });
-
   it('drops malformed or duplicate envelopes', async () => {
     globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
     const sequences: number[] = [];

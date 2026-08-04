@@ -216,7 +216,15 @@ describeIfDb('trading — real database', () => {
     expect(positions).toHaveLength(1);
   }, 15000);
 
-  it('rejects a quantity below the minimum without mutating the account', async () => {
+  it('rejects a quantity below the minimum, still advancing account.version', async () => {
+    // A rejection touches no balance/position — but it must still bump
+    // trading_accounts.version. That counter is the only signal
+    // apps/web's realtime client has for "is this account.snapshot reply
+    // fresher than the last one" (System Architecture §62-64's sequence
+    // gate) — if a rejected order didn't advance it, the very next
+    // resubscribe-fetched snapshot would look identical to the last one
+    // and get silently dropped as a duplicate, hiding the rejection from
+    // Positions/Orders/History no matter how long the client waited.
     const before = await db
       .selectFrom('app.trading_accounts')
       .select('version')
@@ -239,7 +247,7 @@ describeIfDb('trading — real database', () => {
       .select('version')
       .where('id', '=', accountId)
       .executeTakeFirstOrThrow();
-    expect(after.version).toBe(before.version);
+    expect(after.version).toBe(before.version + 1);
   }, 15000);
 
   it('rejects stale market data', async () => {
@@ -527,5 +535,64 @@ describeIfDb('trading — real database', () => {
       .where('status', '=', 'open')
       .execute();
     expect(remainingOpen).toHaveLength(0);
+  }, 60000);
+
+  it('keeps closing later positions in a Close All batch after an earlier one in the loop is rejected', async () => {
+    // opened_at strictly increasing (not both `NOW`) so closeAllPositions'
+    // `ORDER BY opened_at ASC` deterministically processes XAUUSD before
+    // NAS100 — XAUUSD's close is rejected (stale price) first, then
+    // NAS100's must still succeed. That ordering exercises exactly the
+    // chain a rejection's account-version bump has to thread through
+    // (closePositionLocked's reject path returning nextAccount) — get it
+    // wrong and NAS100's optimistic-concurrency UPDATE throws because it's
+    // still holding the pre-rejection version number.
+    await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'XAUUSD',
+      side: 'buy',
+      quantity: '0.10',
+      market: { bid: '2000.00', ask: '2000.30', timestamp: FRESH_TICK, sequence: '20' },
+      marketBySymbol: ALL_MARKETS,
+      now: NOW,
+    });
+    await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'NAS100',
+      side: 'buy',
+      quantity: '1.0',
+      market: { bid: '18000.0', ask: '18002.0', timestamp: FRESH_TICK, sequence: '21' },
+      marketBySymbol: ALL_MARKETS,
+      now: new Date(NOW.getTime() + 1000),
+    });
+
+    const staleTick = new Date(NOW.getTime() - 60_000).toISOString();
+    const results = await closeAllPositions(db, {
+      accountId,
+      idempotencyKeyPrefix: `close-all-mixed-${randomUUID()}`,
+      marketBySymbol: {
+        ...ALL_MARKETS,
+        XAUUSD: { bid: '2010.00', ask: '2010.30', timestamp: staleTick, sequence: '22' },
+        NAS100: { bid: '17990.0', ask: '17992.0', timestamp: FRESH_TICK, sequence: '23' },
+      },
+      now: NOW,
+    });
+
+    expect(results).toHaveLength(2);
+    expect(results[0]?.order.status).toBe('rejected');
+    expect(results[0]?.order.rejectionCode).toBe('stale_market_data');
+    expect(results[1]?.order.status).toBe('filled');
+    expect(results[1]?.position?.symbol).toBe('NAS100');
+    expect(results[1]?.position?.status).toBe('closed');
+
+    const stillOpenXauusd = await db
+      .selectFrom('app.positions')
+      .select('id')
+      .where('account_id', '=', accountId)
+      .where('symbol', '=', 'XAUUSD')
+      .where('status', '=', 'open')
+      .execute();
+    expect(stillOpenXauusd).toHaveLength(1);
   }, 60000);
 });

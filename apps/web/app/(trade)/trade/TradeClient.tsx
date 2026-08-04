@@ -57,6 +57,7 @@ import { RealtimeClient, type RealtimeConnectionState } from '../../../lib/realt
 import { createSupabaseBrowserClient } from '../../../lib/supabase/browser';
 import { TradeRiskDetail } from './TradeRiskDetail';
 import { OrderTicket, type OrderRejectionDetail } from './OrderTicket';
+import { CloseAllDialog, type CloseAllOutcome } from './CloseAllDialog';
 import type { FillMarker } from './TradeChart';
 
 // lightweight-charts touches the DOM/canvas directly and has no useful
@@ -199,6 +200,15 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
     | { kind: 'close_all'; payload: CloseAllMessage }
     | null
   >(null);
+  // Keyed by the sub-order's own id (not pushed to an array) — a
+  // resubscribe-triggered retry (see the account.snapshot handler below) can
+  // replay the same idempotent close_all outcome, and this must converge to
+  // the true position count rather than double-count a replay.
+  const closeAllTrackerRef = useRef<{
+    idempotencyKey: string;
+    expectedCount: number;
+    outcomes: Map<string, CloseAllOutcome>;
+  } | null>(null);
   const [connectionState, setConnectionState] = useState<RealtimeConnectionState>('connecting');
   const [snapshot, setSnapshot] = useState<AccountSnapshot | null>(null);
   const [symbolSpecs, setSymbolSpecs] = useState<Partial<Record<TradableSymbol, SymbolSpec>>>({});
@@ -211,6 +221,8 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
   const [orderError, setOrderError] = useState<string | null>(null);
   const [tab, setTab] = useState('positions');
   const [ticketOpen, setTicketOpen] = useState(false);
+  const [closeAllDialogOpen, setCloseAllDialogOpen] = useState(false);
+  const [closeAllResult, setCloseAllResult] = useState<CloseAllOutcome[] | null>(null);
   // §22.6 "historique d'exécution" — session-only, see TradeChart's doc
   // comment for why nothing retroactive is possible (no fill price anywhere
   // in AccountSnapshot, only on the order_result that announces a fill).
@@ -265,14 +277,36 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
         );
       } else if (envelope.type === 'order_result') {
         const result = envelope.payload as OrderResultMessage;
-        if (pendingCommandRef.current?.payload.idempotencyKey === result.idempotencyKey) {
-          pendingCommandRef.current = null;
-          setPending(false);
-        }
-        if (result.status === 'rejected') {
-          setOrderError(result.rejectionCode ?? 'unknown_error');
+        const pendingCommand = pendingCommandRef.current;
+        const tracker = closeAllTrackerRef.current;
+        const isCloseAllResult =
+          pendingCommand?.kind === 'close_all' &&
+          pendingCommand.payload.idempotencyKey === result.idempotencyKey &&
+          tracker !== null &&
+          Boolean(result.order);
+
+        if (isCloseAllResult && result.order) {
+          tracker.outcomes.set(result.order.id, {
+            symbol: result.order.symbol,
+            status: result.status,
+            rejectionCode: result.rejectionCode,
+          });
+          if (tracker.outcomes.size >= tracker.expectedCount) {
+            pendingCommandRef.current = null;
+            setPending(false);
+            setCloseAllResult([...tracker.outcomes.values()]);
+            closeAllTrackerRef.current = null;
+          }
         } else {
-          setOrderError(null);
+          if (pendingCommand?.payload.idempotencyKey === result.idempotencyKey) {
+            pendingCommandRef.current = null;
+            setPending(false);
+          }
+          if (result.status === 'rejected') {
+            setOrderError(result.rejectionCode ?? 'unknown_error');
+          } else {
+            setOrderError(null);
+          }
         }
         if (result.fill) {
           const fill = result.fill;
@@ -496,13 +530,24 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
     [accountId],
   );
 
-  const closeAll = useCallback(() => {
-    if (!clientRef.current) return;
-    setPending(true);
+  const openCloseAllDialog = useCallback(() => {
+    setCloseAllResult(null);
+    setCloseAllDialogOpen(true);
+  }, []);
+
+  const confirmCloseAll = useCallback(() => {
+    if (!clientRef.current || !snapshot || snapshot.openPositions.length === 0) return;
     const command: CloseAllMessage = { accountId, idempotencyKey: crypto.randomUUID() };
+    closeAllTrackerRef.current = {
+      idempotencyKey: command.idempotencyKey,
+      expectedCount: snapshot.openPositions.length,
+      outcomes: new Map(),
+    };
+    setCloseAllResult(null);
+    setPending(true);
     pendingCommandRef.current = { kind: 'close_all', payload: command };
     clientRef.current.closeAll(command);
-  }, [accountId]);
+  }, [accountId, snapshot]);
 
   const orderTicket = useMemo(
     () => (
@@ -668,6 +713,16 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
         {orderTicket}
       </BottomSheet>
 
+      <CloseAllDialog
+        open={closeAllDialogOpen}
+        onClose={() => setCloseAllDialogOpen(false)}
+        onConfirm={confirmCloseAll}
+        positionCount={snapshot?.openPositions.length ?? 0}
+        accountPublicId={accountId.slice(0, 8).toUpperCase()}
+        pending={pending}
+        result={closeAllResult}
+      />
+
       <div className="border-t border-[color:var(--wariba-theme-border)] p-[var(--wariba-component-trade-panel-padding)]">
         <Tabs value={tab} onValueChange={setTab}>
           <TabList aria-label="Compte">
@@ -688,7 +743,7 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
                 variant="ghost"
                 size="sm"
                 className="mt-2"
-                onClick={closeAll}
+                onClick={openCloseAllDialog}
                 disabled={pending}
               >
                 Tout fermer
