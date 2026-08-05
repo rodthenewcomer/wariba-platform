@@ -59,7 +59,7 @@ function SandboxPayPageContent() {
       <Card padding="comfortable" className="flex flex-col gap-6">
         <div className="flex flex-col gap-1">
           <Text as="h1" variant="heading-lg">
-            Paiement sandbox
+            Paiement de démonstration
           </Text>
           <Text variant="body-sm" color="secondary">
             Page de test — aucun paiement réel n&apos;est traité.

@@ -7,7 +7,7 @@ language: "fr-FR"
 brand: "WARIBA"
 domain: "wariba.app"
 owner: "WARIBA Leadership, Product, Risk, Engineering & Operations"
-last_updated: "2026-08-03"
+last_updated: "2026-08-05"
 ---
 
 # WARIBA Decision Log v1.0
@@ -393,6 +393,7 @@ Révision:
 | DS-014 | `LOCKED` | Support mobile à partir de 320 px. | Marché initial. |
 | DS-015 | `CANDIDATE` | Catalogue interne de composants. | QA et cohérence. |
 | DS-016 | `CANDIDATE` | Visual regression tests. | Prévenir régressions. |
+| DS-017 | `LOCKED` | `/offres` et le teaser WariX de la homepage adaptent l’agencement générique d’une page pricing SaaS/prop-firm (cartes de prix → règles nommées → glossaire dépliable → FAQ), avec les tokens, couleurs et contenu WARIBA uniquement. | Autorisé explicitement par le fondateur (session du 2026-08-04, après recherche structurelle sur `topstep.com/no-activation-fee`). Distingue un agencement générique et non protégé (positions des sections, pas de charte visuelle propriétaire) d’une copie visuelle interdite : ne reprend ni logo, ni imagerie, ni copie, ni palette d’un concurrent — reste conforme à DS-011 (anti-vibe-code) et à l’interdiction Topstep/FTMO/Tradeify du Prompt Pack §2.3. |
 
 ---
 
@@ -685,6 +686,10 @@ Prompt 07 (WariX) complété sur `feat/wariba-trade` : Guardian (nouveau, déter
 ## v1.8 — 2026-08-05
 
 Correction du levier WARIBA Performance (TRD-036, remplace TRD-024/025/026 — numéroté TRD-036 et non TRD-029 lors de la fusion avec `main`, TRD-029 ayant déjà été pris par Prompt 07) : `WARIBA_RULESET_v1.1.json` et `app.symbol_specs` encodaient le même levier pour Evaluation et Performance, contredisant silencieusement TRD-018 (jamais supersédé). Rod confirme le principe — Performance doit rester inférieur à Evaluation — et les ratios de TRD-018 sont reconduits sur les nouveaux plafonds v1.1 : Performance passe à Forex 1:60, XAUUSD 1:25, NAS100 1:10 (Evaluation inchangé : 1:100/1:50/1:20).
+
+## v1.9 — 2026-08-04
+
+Refonte du site public (homepage, `/warix`, `/offres`, `/programme`) : jargon interne retiré (statuts de sprint, occurrences résiduelles de « sandbox » dans les pages publiques et authentifiées, remplacées par « bêta privée »/« démonstration »/« environnement simulé »), section différenciateurs et FAQ ajoutées à la homepage, prix remontés et rendus visibles via un composant `PricingCard` partagé. WariX devient une démonstration réellement interactive et animée du terminal (graphique en bougies `lightweight-charts`, exécution d’ordres simulée, `RiskRibbon`/`AccountContext` réels), avec une séquence de démonstration automatique qui cède la main dès la première interaction du visiteur — voir DS-017 pour l’agencement de `/offres`.
 
 ## v1.5 — 2026-08-03
 
