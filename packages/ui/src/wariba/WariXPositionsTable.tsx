@@ -93,6 +93,7 @@ export function WariXPositionsTable({
                   size="sm"
                   onClick={() => onClose(position.id)}
                   disabled={closeDisabled}
+                  aria-label={`Fermer ${position.symbol} · ${position.sideLabel}`}
                 >
                   Fermer
                 </Button>

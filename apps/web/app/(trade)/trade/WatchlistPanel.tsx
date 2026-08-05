@@ -33,7 +33,8 @@ const WatchlistRow = memo(function WatchlistRow({
     <button
       type="button"
       onClick={() => onSelect(symbol)}
-      className={`flex flex-col gap-0.5 rounded-[var(--wariba-radius-sm)] px-2 py-2 text-left ${
+      aria-current={selected ? 'true' : undefined}
+      className={`flex min-h-[var(--wariba-size-touch-target-minimum)] flex-col justify-center gap-0.5 rounded-[var(--wariba-radius-sm)] px-2 py-2 text-left ${
         selected ? 'bg-[color:var(--wariba-surface-selected)]' : ''
       }`}
     >

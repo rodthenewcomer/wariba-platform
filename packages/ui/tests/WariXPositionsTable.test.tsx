@@ -70,7 +70,7 @@ describe('WariXPositionsTable', () => {
         emptyLabel="Aucune position ouverte."
       />,
     );
-    await user.click(screen.getByRole('button', { name: 'Fermer' }));
+    await user.click(screen.getByRole('button', { name: 'Fermer EURUSD · Achat' }));
     expect(onClose).toHaveBeenCalledWith('pos-1');
   });
 
@@ -83,6 +83,25 @@ describe('WariXPositionsTable', () => {
         emptyLabel="Aucune position ouverte."
       />,
     );
-    expect(screen.getByRole('button', { name: 'Fermer' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Fermer EURUSD · Achat' })).toBeDisabled();
+  });
+
+  it('gives each row a disambiguating accessible name for the close button', () => {
+    render(
+      <WariXPositionsTable
+        positions={[
+          POSITION,
+          { ...POSITION, id: 'pos-2', symbol: 'XAUUSD', sideLabel: 'Vente' },
+        ]}
+        onClose={() => {}}
+        closeDisabled={false}
+        emptyLabel="Aucune position ouverte."
+      />,
+    );
+    // Multiple rows with an identical visible label ("Fermer") would be
+    // indistinguishable to a screen reader user tabbing through buttons —
+    // each row's close button needs its own name.
+    expect(screen.getByRole('button', { name: 'Fermer EURUSD · Achat' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Fermer XAUUSD · Vente' })).toBeInTheDocument();
   });
 });
