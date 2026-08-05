@@ -33,6 +33,10 @@ comment on column app.fills.ineligible_short_duration_profit is
 -- (count of is_short_duration_profit = true fills per account in the last
 -- 24h) rather than a separate counter table, so there is exactly one
 -- durable record of the fact instead of two that could drift apart.
-create index fills_account_short_duration_idx
-  on app.fills (account_id, occurred_at)
-  where is_short_duration_profit = true;
+--
+-- The index itself is built CONCURRENTLY in its own migration file
+-- (20260805060701_fills_account_short_duration_idx_concurrently.sql) rather
+-- than here: a plain CREATE INDEX takes a lock that blocks every concurrent
+-- write to app.fills — the busiest table in the schema — for the build's
+-- full duration, and CREATE INDEX CONCURRENTLY cannot run inside the
+-- implicit transaction block a multi-statement migration file runs in.

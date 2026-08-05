@@ -242,7 +242,15 @@ async function insertRejectedOrder(
     .set({ version: nextSequence, updated_at: params.now })
     .where('id', '=', params.account.id)
     .where('version', '=', params.account.version)
-    .execute();
+    .returning(['id'])
+    .executeTakeFirstOrThrow(
+      () =>
+        new Error(
+          `insertRejectedOrder: account ${params.account.id} version changed concurrently ` +
+            `(expected ${params.account.version}) — lockAccount's FOR UPDATE should make this ` +
+            'unreachable; treat as a serialization bug if it ever fires.',
+        ),
+    );
 
   const order = await trx
     .insertInto('app.trade_orders')
@@ -387,7 +395,15 @@ export async function openPosition(
       .set({ version: nextSequence, updated_at: params.now })
       .where('id', '=', account.id)
       .where('version', '=', account.version)
-      .execute();
+      .returning(['id'])
+      .executeTakeFirstOrThrow(
+        () =>
+          new Error(
+            `openPosition: account ${account.id} version changed concurrently ` +
+              `(expected ${account.version}) — lockAccount's FOR UPDATE should make this ` +
+              'unreachable; treat as a serialization bug if it ever fires.',
+          ),
+      );
 
     const order = await trx
       .insertInto('app.trade_orders')
@@ -722,7 +738,15 @@ async function closePositionLocked(
     .set({ version: nextSequence, updated_at: params.now })
     .where('id', '=', account.id)
     .where('version', '=', account.version)
-    .executeTakeFirstOrThrow();
+    .returning(['id'])
+    .executeTakeFirstOrThrow(
+      () =>
+        new Error(
+          `closePositionLocked: account ${account.id} version changed concurrently ` +
+            `(expected ${account.version}) — lockAccount's FOR UPDATE should make this ` +
+            'unreachable; treat as a serialization bug if it ever fires.',
+        ),
+    );
 
   const order = await trx
     .insertInto('app.trade_orders')
@@ -755,7 +779,15 @@ async function closePositionLocked(
     })
     .where('id', '=', position.id)
     .where('version', '=', position.version)
-    .executeTakeFirstOrThrow();
+    .returning(['id'])
+    .executeTakeFirstOrThrow(
+      () =>
+        new Error(
+          `closePositionLocked: position ${position.id} version changed concurrently ` +
+            `(expected ${position.version}) — lockAccount's FOR UPDATE should make this ` +
+            'unreachable; treat as a serialization bug if it ever fires.',
+        ),
+    );
 
   const fill = await trx
     .insertInto('app.fills')
@@ -1163,7 +1195,15 @@ export async function modifyPositionRisk(
       .set({ version: nextSequence, updated_at: params.now })
       .where('id', '=', account.id)
       .where('version', '=', account.version)
-      .execute();
+      .returning(['id'])
+      .executeTakeFirstOrThrow(
+        () =>
+          new Error(
+            `modifyPositionRisk: account ${account.id} version changed concurrently ` +
+              `(expected ${account.version}) — lockAccount's FOR UPDATE should make this ` +
+              'unreachable; treat as a serialization bug if it ever fires.',
+          ),
+      );
 
     const order = await trx
       .insertInto('app.trade_orders')
@@ -1194,7 +1234,15 @@ export async function modifyPositionRisk(
       })
       .where('id', '=', position.id)
       .where('version', '=', position.version)
-      .execute();
+      .returning(['id'])
+      .executeTakeFirstOrThrow(
+        () =>
+          new Error(
+            `modifyPositionRisk: position ${position.id} version changed concurrently ` +
+              `(expected ${position.version}) — lockAccount's FOR UPDATE should make this ` +
+              'unreachable; treat as a serialization bug if it ever fires.',
+          ),
+      );
 
     await trx
       .insertInto('app.outbox_events')

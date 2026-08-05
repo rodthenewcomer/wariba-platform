@@ -13,7 +13,10 @@ import {
 } from '@wariba/policies';
 import { lockAccount, loadSymbolSpec, type LockedAccount, type MarketSnapshot } from './accounts';
 import type { Db } from './client';
-import { ensureTodaySnapshot } from './daily-finalization';
+import {
+  ensureDailyBoundaryCaughtUpInTransaction,
+  ensureTodaySnapshot,
+} from './daily-finalization';
 import { loadPolicyById } from './policy';
 import { loadAccountBalanceProjection } from './program-eligibility';
 import type { TradableSymbol } from './schema';
@@ -172,11 +175,30 @@ export async function evaluateAndApplyAccountRiskInTransaction(
   trx: Db,
   params: EvaluateAndApplyRiskParams,
 ): Promise<RiskEvaluationOutcome> {
-  const account = await lockAccount(trx, params.accountId);
+  let account = await lockAccount(trx, params.accountId);
   const policy = await loadPolicyById(trx, account.policy_version_id);
   const eligibilityPolicy = resolveProfitEligibilityPolicy(policy.parameters);
   const { balance, programEligibleBalance, equity, programEligibleEquity, openPositionCount } =
     await loadAccountFinancials(trx, account, params.marketBySymbol, eligibilityPolicy.enabled);
+
+  // Self-heal a stale prior-day snapshot before ensureTodaySnapshot below —
+  // otherwise a trade landing on a new UTC day before the worker has
+  // finalized the previous one would silently bootstrap "today" from the
+  // live balance and orphan the true prior day forever. See
+  // ensureDailyBoundaryCaughtUpInTransaction's doc comment in
+  // daily-finalization.ts.
+  await ensureDailyBoundaryCaughtUpInTransaction(trx, {
+    account,
+    policy,
+    eligibilityEnabled: eligibilityPolicy.enabled,
+    now: params.now,
+  });
+  // Re-read: a boundary catch-up above may have reset a soft-locked
+  // account's status to 'active' (DLL reset at the next daily boundary) —
+  // `account` must reflect that before `previousStatus` is captured below,
+  // or the transition-assertion further down would work from a stale
+  // status and could reject (or misrecord) a perfectly valid transition.
+  account = await lockAccount(trx, account.id);
 
   const today = await ensureTodaySnapshot(trx, {
     accountId: account.id,

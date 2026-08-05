@@ -11,9 +11,10 @@ alter table app.fills
       'eligible', 'short_duration_profit', 'loss_counted', 'breakeven'
     ));
 
-create index fills_opening_fill_id_idx
-  on app.fills (opening_fill_id)
-  where opening_fill_id is not null;
+-- Built CONCURRENTLY in its own migration file
+-- (20260805060702_fills_opening_fill_id_idx_concurrently.sql) — see that
+-- file's comment for why (same reasoning as fills_account_short_duration_idx
+-- in 20260805000003_profit_eligibility.sql).
 
 comment on column app.fills.allocated_open_commission is
   'Close fills only: deterministic pro-rata allocation of the opening commission to this closed portion.';
@@ -85,6 +86,25 @@ set
   end
 where fill_type = 'close';
 
+-- NOT VALID + a separate VALIDATE CONSTRAINT (below) instead of a plain ADD
+-- CONSTRAINT: an unvalidated ADD CONSTRAINT only needs ACCESS EXCLUSIVE for
+-- a fast metadata-only change, but a validating one holds that same
+-- ACCESS EXCLUSIVE lock — blocking every read and write on app.fills, the
+-- busiest table in the schema — for as long as the full-table scan takes.
+-- VALIDATE CONSTRAINT does the scan separately under SHARE UPDATE EXCLUSIVE,
+-- which is compatible with concurrent reads/writes.
+--
+-- The `duration_ms < 60000` clause a prior version of this constraint had
+-- is deliberately absent: minimum_profit_eligible_duration_ms is a
+-- per-policy-version parameter (packages/policies/src/schema.ts), not a
+-- fixed constant, so hardcoding one specific value here would reject a
+-- perfectly valid close the moment any future policy publishes a different
+-- threshold. This constraint only enforces the shape/consistency between
+-- eligibility_reason, is_short_duration_profit, net_realized_pnl,
+-- eligible_realized_pnl and ineligible_short_duration_profit — the actual
+-- duration threshold is enforced once, in application code
+-- (packages/domain/src/profit-eligibility.ts), against the fill's own
+-- pinned policy.
 alter table app.fills
   add constraint fills_program_eligibility_shape_check check (
     (
@@ -111,7 +131,6 @@ alter table app.fills
         (eligibility_reason = 'short_duration_profit'
           and is_short_duration_profit = true
           and net_realized_pnl > 0
-          and duration_ms < 60000
           and eligible_realized_pnl = 0
           and ineligible_short_duration_profit = net_realized_pnl)
         or
@@ -126,7 +145,9 @@ alter table app.fills
           ))
       )
     )
-  );
+  ) not valid;
+
+alter table app.fills validate constraint fills_program_eligibility_shape_check;
 
 alter table app.account_daily_snapshots
   add column program_sod_balance numeric(14, 2),
@@ -156,6 +177,10 @@ comment on column app.account_daily_snapshots.highest_program_eod_balance_after 
 comment on column app.account_daily_snapshots.eligible_realized_net_profit_for_day is
   'Program-eligible net PnL for this finalized UTC day, used by target and Best Day calculations.';
 
+-- Same NOT VALID + VALIDATE CONSTRAINT split as app.fills above — this table
+-- grows unbounded (one row per violation event) so the same lock-duration
+-- risk compounds over the system's lifetime even though today's volume is
+-- small.
 alter table app.risk_violations
   drop constraint risk_violations_rule_code_check,
   add constraint risk_violations_rule_code_check check (rule_code in (
@@ -163,11 +188,14 @@ alter table app.risk_violations
     'RISK_TARGET_NOT_REALIZED', 'RISK_OPEN_POSITIONS_BLOCK_TRANSITION',
     'RISK_PENDING_ORDERS_BLOCK_TRANSITION', 'RISK_SHORT_DURATION_WARNING',
     'RISK_SHORT_DURATION_ENTRY_LOCK'
-  )),
+  )) not valid,
   drop constraint risk_violations_consequence_check,
   add constraint risk_violations_consequence_check check (consequence in (
     'soft_lock', 'hard_breach', 'blocks_pass', 'entry_lock', 'none'
-  ));
+  )) not valid;
+
+alter table app.risk_violations validate constraint risk_violations_rule_code_check;
+alter table app.risk_violations validate constraint risk_violations_consequence_check;
 
 -- Published as a new immutable policy. Existing accounts remain pinned to
 -- v1.1.0; activation selects this later created published row for new accounts.

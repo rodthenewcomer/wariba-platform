@@ -76,6 +76,22 @@ export function computeRealizedPnl(params: {
   return priceDelta.times(contractSize).times(quantity).toFixed(2);
 }
 
+/**
+ * Rounds to 2 decimals to match app.trading_ledger_entries.amount's
+ * numeric(14,2) — the column that actually moves the account's real
+ * balance. app.fills.commission and symbol_specs.commission_per_lot are
+ * both numeric(10,4) and could hold finer precision, but widening only
+ * this function without also widening the ledger column would make a
+ * fill's own stored `commission` (evidence) diverge from what was actually
+ * deducted from the account's balance — worse than today's uniform 2dp
+ * rounding on both. Every seeded symbol spec's commission_per_lot is a
+ * round `X.00` today, so this never bites in practice; if a future symbol
+ * spec ever needs a genuinely fractional per-lot commission (e.g. 0.375),
+ * fixing this requires widening app.trading_ledger_entries.amount in the
+ * same change, together with every `commission !== '0.00'` zero-check in
+ * packages/database/src/trading.ts (those compare the formatted string
+ * directly, not the decimal value).
+ */
 export function computeCommission(params: { quantity: string; commissionPerLot: string }): string {
   return new Decimal(params.commissionPerLot).times(params.quantity).toFixed(2);
 }
