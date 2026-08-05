@@ -25,8 +25,8 @@ export default function RiskDisclosurePage() {
           </h2>
           <p className="mt-3">
             Les spreads, slippages, liquidités et comportements de l’environnement simulé sont
-            déterministes et peuvent différer d’un marché réel. Une performance simulée ne
-            garantit aucun résultat futur.
+            déterministes et peuvent différer d’un marché réel. Une performance simulée ne garantit
+            aucun résultat futur.
           </p>
         </section>
         <section>

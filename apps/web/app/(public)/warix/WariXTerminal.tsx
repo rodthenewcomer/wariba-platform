@@ -56,7 +56,12 @@ function floatingPnl(position: DemoPosition, market: SimulatedMarket): number {
   const quote = market[position.symbol];
   const markPrice = position.side === 'buy' ? quote.bid : quote.ask;
   const direction = position.side === 'buy' ? 1 : -1;
-  return (markPrice - position.entryPrice) * position.quantity * CONTRACT_MULTIPLIER[position.symbol] * direction;
+  return (
+    (markPrice - position.entryPrice) *
+    position.quantity *
+    CONTRACT_MULTIPLIER[position.symbol] *
+    direction
+  );
 }
 
 function formatSignedUsd(value: number): string {
@@ -78,7 +83,10 @@ export function WariXTerminal() {
   const [ticketOpen, setTicketOpen] = useState(false);
 
   const quote = market[selectedSymbol];
-  const totalFloatingPnl = positions.reduce((sum, position) => sum + floatingPnl(position, market), 0);
+  const totalFloatingPnl = positions.reduce(
+    (sum, position) => sum + floatingPnl(position, market),
+    0,
+  );
   const totalPnl = realizedPnl + totalFloatingPnl;
   const balance = NOMINAL_BALANCE + totalPnl;
   const dailyLossRemaining = Math.max(0, DAILY_LOSS_LIMIT + Math.min(0, totalPnl));
@@ -271,7 +279,10 @@ export function WariXTerminal() {
           <DataTableBody>
             {positions.length === 0 ? (
               <DataTableRow>
-                <DataTableCell colSpan={4} className="text-center text-[color:var(--wariba-text-secondary)]">
+                <DataTableCell
+                  colSpan={4}
+                  className="text-center text-[color:var(--wariba-text-secondary)]"
+                >
                   Aucune position ouverte. Passez un ordre de démonstration ci-dessus.
                 </DataTableCell>
               </DataTableRow>

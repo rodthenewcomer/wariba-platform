@@ -81,10 +81,9 @@ function initialState(): SimulatedMarket {
 }
 
 function initialMids(): Record<SimulatedSymbol, number> {
-  return Object.fromEntries(SIMULATED_SYMBOLS.map((config) => [config.symbol, config.basePrice])) as Record<
-    SimulatedSymbol,
-    number
-  >;
+  return Object.fromEntries(
+    SIMULATED_SYMBOLS.map((config) => [config.symbol, config.basePrice]),
+  ) as Record<SimulatedSymbol, number>;
 }
 
 /**

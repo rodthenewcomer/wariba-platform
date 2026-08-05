@@ -125,8 +125,8 @@ export default function ProgramPage() {
           </div>
           <div className="rounded-[var(--wariba-radius-2xl)] border border-[color:var(--wariba-color-cobalt-400)] bg-[color:var(--wariba-color-ink-950)] p-6 sm:p-8">
             <p className="text-[length:var(--wariba-font-size-body-md)] leading-[var(--wariba-line-height-body-lg)] text-[color:var(--wariba-color-bone-50)]">
-              Le nouveau plancher retient toujours la valeur la plus protectrice pour le trader :
-              il ne peut que monter, jamais redescendre.
+              Le nouveau plancher retient toujours la valeur la plus protectrice pour le trader : il
+              ne peut que monter, jamais redescendre.
             </p>
             <p className="wariba-data mt-3 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-color-ink-300)]">
               plancher = min(nominal, max(ancien plancher, plus haute balance EOD − 10 % du

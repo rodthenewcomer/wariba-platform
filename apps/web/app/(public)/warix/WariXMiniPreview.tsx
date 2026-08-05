@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { formatSimulatedPrice, useSimulatedMarket, type SimulatedSymbol } from './useSimulatedMarket';
+import {
+  formatSimulatedPrice,
+  useSimulatedMarket,
+  type SimulatedSymbol,
+} from './useSimulatedMarket';
 import { WariXChart } from './WariXChart';
 
 const CYCLE_SYMBOLS: readonly SimulatedSymbol[] = ['EURUSD', 'XAUUSD', 'NAS100'];
@@ -53,7 +57,8 @@ export function WariXMiniPreview() {
           {symbol}
         </p>
         <p className="wariba-data text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-color-ink-300)]">
-          {formatSimulatedPrice(quote.bid, quote.decimals)} / {formatSimulatedPrice(quote.ask, quote.decimals)}
+          {formatSimulatedPrice(quote.bid, quote.decimals)} /{' '}
+          {formatSimulatedPrice(quote.ask, quote.decimals)}
         </p>
       </div>
       <div className="mt-3">

@@ -187,12 +187,7 @@ export default async function HomePage() {
           </div>
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {DIFFERENTIATORS.map((item) => (
-              <FeatureCard
-                key={item.title}
-                icon={item.icon}
-                title={item.title}
-                body={item.body}
-              />
+              <FeatureCard key={item.title} icon={item.icon} title={item.title} body={item.body} />
             ))}
           </div>
         </div>
@@ -306,8 +301,8 @@ export default async function HomePage() {
             ))}
           </div>
           <p className="mt-6 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-color-ink-300)]">
-            Tarifs de la bêta privée, encore candidats : le prix définitif sera confirmé avant
-            toute ouverture publique.
+            Tarifs de la bêta privée, encore candidats : le prix définitif sera confirmé avant toute
+            ouverture publique.
           </p>
         </div>
       </section>
@@ -322,8 +317,8 @@ export default async function HomePage() {
               Le risque reste visible avant la performance.
             </h2>
             <p className="mt-5 text-[length:var(--wariba-font-size-body-lg)] leading-[var(--wariba-line-height-body-lg)] text-[color:var(--wariba-color-ink-600)]">
-              WariX affiche le contexte du compte, la policy appliquée, les limites restantes et
-              la prochaine action utile — jamais un chiffre isolé.
+              WariX affiche le contexte du compte, la policy appliquée, les limites restantes et la
+              prochaine action utile — jamais un chiffre isolé.
             </p>
             <Link href="/warix" className={buttonClassNames({ size: 'lg', className: 'mt-8' })}>
               Découvrir WariX
