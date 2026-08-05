@@ -62,31 +62,42 @@ export function registerWebSocketRoute(
     const queue: Buffer[] = [];
     let connectionId: string | null = null;
     let userId: string | null = null;
+    // Serializes this connection's message processing: without this, each
+    // incoming frame kicked off its own independent, unawaited
+    // processMessage() call, so two frames sent back-to-back (e.g. subscribe
+    // immediately followed by submit_order — a legitimate fast client, or a
+    // reconnect flow that issues both right away) could interleave. The
+    // in-subscribe two-pass fix below (registry.subscribe before any
+    // sendInitialSnapshot I/O) only protects ordering *within* one subscribe
+    // call; it does nothing for a subscribe racing a submit_order sent as a
+    // separate frame right after it, which could still let submit_order's
+    // broadcastOrderResult run before the subscribe that registers this
+    // connection as a listener has finished — silently dropping order_result.
+    // Chaining every dispatch onto the same promise makes processMessage
+    // calls run strictly one at a time, in arrival order, per connection.
+    let processingChain: Promise<void> = Promise.resolve();
 
     const dispatch = (raw: Buffer): void => {
       if (!connectionId || !userId) {
         queue.push(raw);
         return;
       }
-      void processMessage(
-        { db, market, symbolSpecs, registry, logger },
-        connectionId,
-        userId,
-        raw,
-      ).catch((error: unknown) => {
-        logger.error('ws.message_handler_failed', {
-          connectionId,
-          errorMessage: error instanceof Error ? error.message : String(error),
-        });
-        if (connectionId) {
+      const cid = connectionId;
+      const uid = userId;
+      processingChain = processingChain
+        .then(() => processMessage({ db, market, symbolSpecs, registry, logger }, cid, uid, raw))
+        .catch((error: unknown) => {
+          logger.error('ws.message_handler_failed', {
+            connectionId: cid,
+            errorMessage: error instanceof Error ? error.message : String(error),
+          });
           sendError(
             registry,
-            connectionId,
+            cid,
             'internal_error',
             'Something went wrong processing that message.',
           );
-        }
-      });
+        });
     };
 
     socket.on('message', dispatch);
@@ -129,12 +140,27 @@ export function registerWebSocketRoute(
     });
   });
 
-  // Server-initiated heartbeat: ping every connection, drop ones that never pong back.
+  // Server-initiated heartbeat: ping every connection, drop ones that never
+  // pong back. The actual `.ping()` call below is what makes this work — a
+  // browser's WebSocket implementation answers a protocol-level ping frame
+  // with a pong frame automatically, no client-side application code
+  // needed, which is what updates each connection's lastPongAt via the
+  // 'pong' listener registered per-connection above. Without it (a prior
+  // version of this loop only ever terminated already-stale connections and
+  // never sent a ping to keep the non-stale ones alive), lastPongAt is only
+  // ever set once at register() and every real connection gets force-closed
+  // ~HEARTBEAT_TIMEOUT_MS after opening regardless of trading activity.
   setInterval(() => {
     for (const connectionId of registry.connectionsStaleSince(HEARTBEAT_TIMEOUT_MS)) {
       const conn = registry.get(connectionId);
       conn?.socket.terminate();
       registry.unregister(connectionId);
+    }
+    for (const connectionId of registry.allConnectionIds()) {
+      const conn = registry.get(connectionId);
+      if (conn && conn.socket.readyState === conn.socket.OPEN) {
+        conn.socket.ping();
+      }
     }
   }, HEARTBEAT_INTERVAL_MS);
 

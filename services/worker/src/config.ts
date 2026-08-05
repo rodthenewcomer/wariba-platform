@@ -11,6 +11,11 @@ const workerEnvSchema = baseEnvironmentSchema.extend({
   // 5 minutes by default — frequent enough that an account crossing a UTC
   // day boundary doesn't sit unfinalized for long, without hammering the DB.
   WORKER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(300_000),
+  // POST /jobs/daily-finalization triggers a financial-state-mutating batch
+  // job (account status transitions, risk-violation evidence) on demand —
+  // required, no default, so a missing value fails startup loudly rather
+  // than silently booting an unauthenticated admin endpoint.
+  WORKER_ADMIN_TOKEN: z.string().min(1),
 });
 
 export type WorkerConfig = z.infer<typeof workerEnvSchema>;
