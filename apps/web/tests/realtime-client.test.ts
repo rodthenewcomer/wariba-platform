@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildEnvelope } from '@wariba/contracts';
 import { RealtimeClient, type RealtimeConnectionState } from '../lib/realtime-client';
 
@@ -112,5 +112,60 @@ describe('RealtimeClient sequence handling', () => {
     socket.emit('message', new MessageEvent('message', { data: JSON.stringify(envelope) }));
     expect(sequences).toEqual([1]);
     client.close();
+  });
+
+  it('accepts a pong envelope and rejects an envelope of an unrecognized type', async () => {
+    globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
+    const received: string[] = [];
+    const client = new RealtimeClient('ws://wariba.test/ws', () => Promise.resolve('token'));
+    client.onMessage((message) => received.push(message.type));
+    await client.connect();
+    const socket = FakeWebSocket.latest;
+    if (!socket) throw new Error('expected a websocket');
+    socket.emit('open');
+
+    const pong = buildEnvelope({
+      type: 'pong',
+      sequence: 0,
+      correlationId: 'conn-1',
+      payload: { serverTime: '2026-08-05T00:00:00.000Z' },
+    });
+    socket.emit('message', new MessageEvent('message', { data: JSON.stringify(pong) }));
+
+    const unknownType = buildEnvelope({
+      type: 'mystery_type',
+      sequence: 0,
+      correlationId: 'conn-1',
+      payload: { anything: 'goes' },
+    });
+    socket.emit('message', new MessageEvent('message', { data: JSON.stringify(unknownType) }));
+
+    expect(received).toEqual(['pong']);
+    client.close();
+  });
+
+  it('schedules a reconnect attempt instead of stalling forever when no access token is available', async () => {
+    vi.useFakeTimers();
+    try {
+      globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
+      const states: RealtimeConnectionState[] = [];
+      let tokenCallCount = 0;
+      const client = new RealtimeClient('ws://wariba.test/ws', () => {
+        tokenCallCount += 1;
+        return Promise.resolve(tokenCallCount === 1 ? null : 'token');
+      });
+      client.onStateChange((state) => states.push(state));
+
+      await client.connect();
+      expect(states).toEqual(['closed']);
+      expect(FakeWebSocket.latest).toBeNull();
+
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(tokenCallCount).toBe(2);
+      expect(FakeWebSocket.latest).not.toBeNull();
+      client.close();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

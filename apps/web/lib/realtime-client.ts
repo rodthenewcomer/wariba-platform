@@ -44,7 +44,18 @@ export class RealtimeClient {
   async connect(): Promise<void> {
     this.closedByCaller = false;
     const token = await this.getAccessToken();
-    if (!token) return;
+    if (!token) {
+      // No socket gets created, so the 'close' listener that normally
+      // arms scheduleReconnect() never fires — without this, a session
+      // whose access token happens to be unavailable/expired on any one
+      // reconnect attempt (not just the first connect) would stop
+      // retrying forever, with no further recovery short of a manual
+      // page reload, even after the token becomes available again (e.g.
+      // Supabase finishes a background refresh).
+      this.emitState('closed');
+      if (!this.closedByCaller) this.scheduleReconnect();
+      return;
+    }
 
     this.emitState('connecting');
     const socket = new WebSocket(`${this.wsUrl}?token=${encodeURIComponent(token)}`);
@@ -109,7 +120,17 @@ export class RealtimeClient {
       const payload = envelope.payload as { code?: unknown; message?: unknown };
       return typeof payload.code === 'string' && typeof payload.message === 'string';
     }
-    return true;
+    if (envelope.type === 'pong') {
+      const payload = envelope.payload as { serverTime?: unknown };
+      return typeof payload.serverTime === 'string';
+    }
+    // Fail closed, not open: every envelope type services/realtime actually
+    // sends is listed above. An unrecognized type reaching here means either
+    // a new server message type shipped without updating this list, or a
+    // malformed/adversarial payload — either way, downstream code treats
+    // `envelope.payload` as pre-validated (blind `as` casts in
+    // TradeClient.tsx), so it must never fall through unchecked.
+    return false;
   }
 
   private channelForEnvelope(envelope: MessageEnvelope): string | null {

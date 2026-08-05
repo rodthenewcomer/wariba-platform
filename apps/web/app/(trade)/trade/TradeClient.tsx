@@ -252,8 +252,13 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
   const [ticketOpen, setTicketOpen] = useState(false);
   const [closeAllDialogOpen, setCloseAllDialogOpen] = useState(false);
   const [closeAllResult, setCloseAllResult] = useState<CloseAllOutcome[] | null>(null);
-  // §22.6 "historique d'exécution" — hydrated from the authoritative fill
-  // history in AccountSnapshot and incremented immediately by order_result.
+  // §22.6 "historique d'exécution" — AccountSnapshot.recentFills only ever
+  // contains close fills (services/realtime/src/snapshot.ts), so an 'open'
+  // marker exists solely in this local, session-only list, added the
+  // instant order_result reports one; 'close' markers are re-hydrated from
+  // the server's recentFills on every snapshot. See the account.snapshot
+  // handler below for why a plain full replace would silently erase every
+  // open marker moments after it appears.
   const [fills, setFills] = useState<FillMarker[]>([]);
 
   useEffect(() => {
@@ -265,29 +270,70 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
       if (envelope.type === 'account.snapshot') {
         const nextSnapshot = envelope.payload as AccountSnapshot;
         setSnapshot(nextSnapshot);
-        setFills(
-          nextSnapshot.recentFills.map((fill) => ({
+        // Merge, don't replace: recentFills is close-only, so a full replace
+        // would erase any 'open' marker order_result just added — every
+        // resubscribe-triggered snapshot (line ~381 below fires one after
+        // *every* order_result) would otherwise wipe the just-opened
+        // position's marker within one round trip.
+        setFills((prev) => {
+          const localOpens = prev.filter((fill) => fill.effect === 'open');
+          const serverCloses = nextSnapshot.recentFills.map((fill) => ({
             id: fill.id,
             symbol: fill.symbol,
             time: Math.floor(new Date(fill.occurredAt).getTime() / 1_000),
             price: Number(fill.price),
             side: fill.side,
             effect: fill.fillType,
-          })),
-        );
+          }));
+          const closeIds = new Set(serverCloses.map((fill) => fill.id));
+          return [...localOpens.filter((fill) => !closeIds.has(fill.id)), ...serverCloses];
+        });
         const pendingCommand = pendingCommandRef.current;
         if (pendingCommand) {
           const key = pendingCommand.payload.idempotencyKey;
-          const wasProcessed = nextSnapshot.recentOrders.some(
-            (order) => order.idempotencyKey === key || order.idempotencyKey.startsWith(`${key}:`),
-          );
-          if (wasProcessed) {
-            pendingCommandRef.current = null;
-            setPending(false);
-          } else if (pendingCommand.kind === 'order') {
-            clientRef.current?.submitOrder(pendingCommand.payload);
+          if (pendingCommand.kind === 'close_all') {
+            // The close-all *master* order commits (and appears in
+            // recentOrders) before any of its N sub-orders' order_result
+            // broadcasts go out — matching on the master row alone (as a
+            // single-order command's key does below) would treat the batch
+            // as "processed" after zero sub-results, orphaning
+            // closeAllTrackerRef before it ever reaches expectedCount and
+            // leaving the dialog's spinner off with no result shown. Count
+            // actual sub-orders (idempotencyKey prefixed `${key}:`) instead,
+            // and reconstruct the tracker's outcomes from them so a
+            // reconnect-triggered resync can still resolve the dialog even
+            // if the original order_result broadcasts were missed.
+            const subOrders = nextSnapshot.recentOrders.filter((order) =>
+              order.idempotencyKey.startsWith(`${key}:`),
+            );
+            const tracker = closeAllTrackerRef.current;
+            if (tracker) {
+              for (const order of subOrders) {
+                tracker.outcomes.set(order.id, {
+                  symbol: order.symbol,
+                  status: order.status === 'filled' ? 'filled' : 'rejected',
+                  rejectionCode: order.rejectionCode,
+                });
+              }
+              if (tracker.outcomes.size >= tracker.expectedCount) {
+                pendingCommandRef.current = null;
+                setPending(false);
+                setCloseAllResult([...tracker.outcomes.values()]);
+                closeAllTrackerRef.current = null;
+              } else {
+                clientRef.current?.closeAll(pendingCommand.payload);
+              }
+            }
           } else {
-            clientRef.current?.closeAll(pendingCommand.payload);
+            const wasProcessed = nextSnapshot.recentOrders.some(
+              (order) => order.idempotencyKey === key || order.idempotencyKey.startsWith(`${key}:`),
+            );
+            if (wasProcessed) {
+              pendingCommandRef.current = null;
+              setPending(false);
+            } else {
+              clientRef.current?.submitOrder(pendingCommand.payload);
+            }
           }
         }
       } else if (envelope.type === 'market.tick') {
