@@ -457,8 +457,11 @@ Révision:
 | ENG-020 | `LOCKED` | Les erreurs exposent un code stable et correlation ID. | Support et audit. |
 | ENG-026 | `LOCKED` | Le script `ci` (package.json) s'invoque via `pnpm run ci`, jamais `pnpm ci` seul. | pnpm réserve `ci` comme commande interne (équivalent `npm ci`) et ignore silencieusement le script du même nom sans `run` — trouvé lors de la vérification réelle de Prompt 01 (build agent), corrigé dans AGENTS.md, Engineering Constitution, Build Plan, Prompt Pack et README (2026-08-02). |
 | ENG-027 | `LOCKED` | Le runtime de référence passe à Node.js 24 LTS, épinglé par `.nvmrc`, avec une plage 24.x dans `package.json`. | Node.js 20 est EOL et le SDK Supabase émettait un avertissement de dépréciation au build. Migration validée dans l'audit Prompts 01–04 (2026-08-03). |
+| ENG-028 | `LOCKED` | Le Hub calcule le risque et la balance affichés à partir du solde réalisé (`trading_ledger_entries` + `account_daily_snapshots`) uniquement — `currentUnrealizedPnl` reste `"0"`, jamais une equity temps réel. | Le seul code capable de calculer une equity avec PnL latent (`services/realtime/src/snapshot.ts`) dépend d'un générateur de prix en mémoire propre au process WebSocket, non réutilisable dans une page serveur Next.js sans nouvelle dépendance d'architecture. Aucune colonne de prix courant par position n'existe en base de toute façon. Cohérent avec la règle WARIBA ONE elle-même (seul le profit net réalisé compte pour l'objectif) et avec l'exigence UX de ne jamais afficher une fausse précision : si des positions sont ouvertes, le Hub l'indique et renvoie vers WariX pour le PnL latent temps réel. Décidé avec Rod (2026-08-04). |
 | ENG-029 | `LOCKED` | Répartition WariX : Risk Ribbon lit `snapshot.risk` (état compte permanent) ; Guardian reprend les mêmes valeurs pour l'impact de l'ordre en cours d'édition ; l'Order Ticket ne fait aucun calcul (champs bruts uniquement). | Évite trois endroits qui recalculent indépendamment « DLL restante » et risquent de diverger ; conforme à la règle Design System §48 déjà respectée par Risk Ribbon. |
 | ENG-030 | `LOCKED` | Les chiffres temps réel de Guardian/Risk Ribbon (equity, DLL restante, Maximum Loss restante) sont rafraîchis par une re-diffusion serveur périodique (~4 s) tant qu'un compte a au moins une position ouverte, jamais par un recalcul côté client. | `buildAccountSnapshot` calculait déjà ces valeurs avec le prix courant mais seulement à la (re)connexion ou après un ordre ; rester server-authoritative (ENG-002) plutôt que dupliquer la formule en client. |
+| ENG-031 | `LOCKED` | Le scope "Notifications" du Hub (Prompt 06 #12) est servi par `recent_activity_view` (transitions d'état + violations de risque + exécutions) plutôt que par une table de notifications dédiée. | Aucune table de notifications n'existe et en construire une (avec statut lu/non-lu) serait un chantier séparé. Chaque événement pertinent pour un trader a déjà une ligne réelle dans une de ces trois tables — pas de nouvelle infrastructure, pas de donnée inventée. Réduction de scope assumée, décidée avec Rod (2026-08-04). Numéroté ENG-031 (pas ENG-029) lors de la fusion avec `main` — ENG-029 était déjà pris par une décision WariX développée en parallèle sur une autre branche. |
+| ENG-032 | `LOCKED` | L'état d'affichage Hub « attention » (entre normal et soft lock) se déclenche à ≥ 70 % du budget de perte quotidienne utilisé, ou à ≤ 30 % du budget de perte maximale restant (`nominal_balance × maximum_loss_rate` comme dénominateur fixe). | Seuils d'affichage uniquement, dérivés de nombres déjà calculés par le moteur de risque — aucune nouvelle règle financière, pas de nouveau plancher. Nécessaire car le moteur de risque ne distingue aujourd'hui que normal (implicite) et soft-lock/breach (booléens), sans zone d'alerte intermédiaire. Décidé avec Rod (2026-08-04). Numéroté ENG-032 (pas ENG-030) pour la même raison qu'ENG-031. |
 
 ---
 
@@ -690,6 +693,28 @@ Correction du levier WARIBA Performance (TRD-036, remplace TRD-024/025/026 — n
 ## v1.9 — 2026-08-04
 
 Refonte du site public (homepage, `/warix`, `/offres`, `/programme`) : jargon interne retiré (statuts de sprint, occurrences résiduelles de « sandbox » dans les pages publiques et authentifiées, remplacées par « bêta privée »/« démonstration »/« environnement simulé »), section différenciateurs et FAQ ajoutées à la homepage, prix remontés et rendus visibles via un composant `PricingCard` partagé. WariX devient une démonstration réellement interactive et animée du terminal (graphique en bougies `lightweight-charts`, exécution d’ordres simulée, `RiskRibbon`/`AccountContext` réels), avec une séquence de démonstration automatique qui cède la main dès la première interaction du visiteur — voir DS-017 pour l’agencement de `/offres`.
+
+## v1.10 — 2026-08-04
+
+Prompt 06 — WARIBA Trader Hub implémenté sur `feat/trader-hub` (empilée sur
+`feat/policy-risk-evaluation`, PR #8, dont elle réutilise le moteur de risque
+Prompt 05 sans le modifier). Quatre read models serveur ajoutés
+(`account_hub_view`, `account_mission_view`, `account_risk_view`,
+`recent_activity_view`, `packages/application/src`), tous en composition pure
+sur `evaluateAccountRisk` déjà testé — aucun calcul financier dupliqué. Hub
+réécrit couvrant les 9 états dérivables côté serveur (voir ENG-028 pour le
+choix balance-réalisée), sélecteur multi-comptes, historique de journées,
+fil d'activité. Trois nouveaux composants `@wariba/ui` (`AccountSelector`,
+`ActivityTimeline`, `TradingDaysList`) ; cinq composants déjà construits au
+Prompt 02 mais jamais branchés (`MissionProgress`, `RiskRibbon`,
+`ConsistencyMeter`, `PolicyVersionChip`, `EvidencePanel`) sont maintenant
+réellement utilisés. Voir ENG-028/031/032 (numérotées ENG-031/032 et non
+ENG-029/030 lors de la fusion avec `main`, ces IDs ayant déjà été pris par
+une décision WariX développée en parallèle) pour les décisions d'architecture
+et de scope. Premier scaffolding Playwright du dépôt
+(`apps/web/tests/e2e`) : authentification via le vrai formulaire `/login`,
+comptes fixtures réels activés en base, scan d'accessibilité axe-core
+intégré — 0 violation critique/sérieuse constatée sur le Hub actif.
 
 ## v1.5 — 2026-08-03
 

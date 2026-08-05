@@ -158,9 +158,15 @@ importers:
       '@wariba/domain':
         specifier: workspace:*
         version: link:../domain
+      '@wariba/policies':
+        specifier: workspace:*
+        version: link:../policies
       '@wariba/validation':
         specifier: workspace:*
         version: link:../validation
+      decimal.js:
+        specifier: ^10.4.3
+        version: 10.6.0
     devDependencies:
       typescript:
         specifier: ^5.7.2

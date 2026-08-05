@@ -10,12 +10,14 @@
     "lint": "eslint --config ../../eslint.config.mjs .",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run --exclude 'tests/*.integration.test.ts'",
-    "test:integration": "vitest run --testTimeout=15000 tests/commerce.integration.test.ts tests/activation.integration.test.ts"
+    "test:integration": "vitest run --testTimeout=15000 tests/*.integration.test.ts --no-file-parallelism"
   },
   "dependencies": {
     "@wariba/database": "workspace:*",
     "@wariba/domain": "workspace:*",
-    "@wariba/validation": "workspace:*"
+    "@wariba/policies": "workspace:*",
+    "@wariba/validation": "workspace:*",
+    "decimal.js": "^10.4.3"
   },
   "devDependencies": {
     "typescript": "^5.7.2",

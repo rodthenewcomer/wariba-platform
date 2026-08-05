@@ -1,10 +1,28 @@
 import { test as base, expect } from '@playwright/test';
-import { seedTradeAccount, type TradeAccountFixture } from '@wariba/test-utils';
+import {
+  seedTradeAccount,
+  createFixtureDb,
+  createFixtureAccount,
+  attachFixtureAccountToUser,
+  deleteFixtureAccount,
+  E2E_TEST_PASSWORD,
+  type TradeAccountFixture,
+  type E2eFixtureAccount,
+} from '@wariba/test-utils';
 
 export type TradeAccount = TradeAccountFixture;
 
+export {
+  createFixtureDb,
+  createFixtureAccount,
+  attachFixtureAccountToUser,
+  deleteFixtureAccount,
+  E2E_TEST_PASSWORD,
+  type E2eFixtureAccount,
+};
+
 /**
- * One fresh user + one active WARIBA ONE account per test — every E2E
+ * One fresh user + one active WARIBA ONE account per test — every WariX E2E
  * scenario here needs a real, isolated account (open positions/orders from
  * one test must never bleed into another's assertions). No teardown: this
  * points at the shared hosted Supabase dev project, same as every

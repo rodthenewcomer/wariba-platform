@@ -62,6 +62,14 @@ export {
   isProfitTargetReached,
 } from './risk-math';
 export {
+  deriveHubDisplayState,
+  isInAttentionZone,
+  isHubStateReadOnly,
+  type HubDisplayState,
+  type HubAttentionSignal,
+  type DeriveHubDisplayStateParams,
+} from './hub-state';
+export {
   computeProfitEligibility,
   MINIMUM_PROFIT_ELIGIBLE_DURATION_MS,
   evaluateShortDurationMonitoring,

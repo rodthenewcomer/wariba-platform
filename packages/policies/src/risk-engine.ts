@@ -59,7 +59,13 @@ export interface RiskEngineResult {
   realizedNetProfit: string;
   dailyLoss: { reference: string; floor: string; used: string; softLockTriggered: boolean };
   maximumLoss: { floor: string; remaining: string; breached: boolean };
-  bestDay: { ratio: string | null; compliant: boolean };
+  bestDay: {
+    ratio: string | null;
+    compliant: boolean;
+    /** Absolute figures behind the ratio — "0.00" once a positive day exists. */
+    bestDayProfit: string;
+    positiveDaysProfitSum: string;
+  };
   target: { required: string; reached: boolean };
   eligibility: { passEligible: boolean; blockingReasons: readonly RiskRuleCode[] };
   /**
@@ -201,7 +207,12 @@ export function evaluateAccountRisk(params: EvaluateAccountRiskParams): RiskEngi
       remaining: maximumLossRemaining,
       breached: maximumLossBreached,
     },
-    bestDay: { ratio: bestDayRatio, compliant: bestDayCompliant },
+    bestDay: {
+      ratio: bestDayRatio,
+      compliant: bestDayCompliant,
+      bestDayProfit: bestProfitableFinalizedDayProfit,
+      positiveDaysProfitSum: sumOfPositiveDayProfits,
+    },
     target: { required: requiredProfit, reached: targetReached },
     eligibility: { passEligible, blockingReasons },
     recommendedStatus,
