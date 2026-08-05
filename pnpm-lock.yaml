@@ -118,9 +118,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.0.2
         version: 19.2.4(@types/react@19.2.18)
-      '@wariba/database':
+      '@wariba/test-utils':
         specifier: workspace:*
-        version: link:../../packages/database
+        version: link:../../packages/test-utils
       jsdom:
         specifier: ^25.0.1
         version: 25.0.1
@@ -274,6 +274,10 @@ importers:
         version: 2.1.9(@types/node@22.20.1)(jsdom@25.0.1)(lightningcss@1.32.0)
 
   packages/test-utils:
+    dependencies:
+      '@wariba/database':
+        specifier: workspace:*
+        version: link:../database
     devDependencies:
       typescript:
         specifier: ^5.7.2
