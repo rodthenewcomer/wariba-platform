@@ -3,6 +3,14 @@ import type { StaffRole } from '@wariba/application';
 import { requireStaffRole } from '../../lib/staff-auth';
 import { ControlShell } from './ControlShell';
 
+// Every /control page authenticates via requireStaffRole() (cookies() +
+// a direct Postgres lookup), so none of this subtree can be statically
+// prerendered — without this, `next build` tries to prerender it anyway
+// and fails on missing runtime config (APP_ENV, DATABASE_URL, etc. are
+// only present at request time, not at build time). Same pattern as
+// hub/page.tsx and trade/page.tsx.
+export const dynamic = 'force-dynamic';
+
 const ROLE_LABEL: Record<StaffRole, string> = {
   support: 'Support',
   risk: 'Risque',
