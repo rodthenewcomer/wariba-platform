@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import Decimal from 'decimal.js';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createDbClient, type Db } from '../src/client';
 import { activateEvaluationAccount } from '../src/activation';
 import {
@@ -101,8 +101,15 @@ describeIfDb('trading — real database', () => {
   beforeAll(async () => {
     db = createDbClient(DATABASE_URL as string);
     userId = await createTestUser(`trading-test-${Date.now()}@wariba-test.invalid`);
-    accountId = await createActiveAccount();
   }, 60000);
+
+  // Every scenario owns a fresh account. Risk state, exposure and Prompt
+  // 07B's rolling short-duration counter are durable account state; sharing
+  // one account made later assertions depend on file order and caused one
+  // legitimate failure to cascade through the rest of the suite.
+  beforeEach(async () => {
+    accountId = await createActiveAccount();
+  }, 30000);
 
   afterAll(async () => {
     for (const id of cleanupAccountIds) {
@@ -275,6 +282,18 @@ describeIfDb('trading — real database', () => {
   }, 15000);
 
   it('rejects a Forex order that would exceed the 10K aggregate exposure limit', async () => {
+    const existingExposure = await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'EURUSD',
+      side: 'buy',
+      quantity: '0.20',
+      market: EURUSD_MARKET,
+      marketBySymbol: ALL_MARKETS,
+      now: NOW,
+    });
+    expect(existingExposure.order.status).toBe('filled');
+
     const result = await openPosition(db, {
       accountId,
       idempotencyKey: randomUUID(),
@@ -434,10 +453,7 @@ describeIfDb('trading — real database', () => {
       idempotencyKey: randomUUID(),
       symbol: 'XAUUSD',
       side: 'buy',
-      // Deliberately tiny (minimum lot) — the shared test account already
-      // has 0.06 XAUUSD lots open from an earlier test (xauusd_lots limit
-      // is 0.10 for a 10K account) and each of these three tests fully
-      // closes its own position, so 0.01 never risks the exposure ceiling.
+      // Deliberately tiny (minimum lot); this scenario owns a fresh account.
       quantity: '0.01',
       market: { bid: '2000.00', ask: '2000.30', timestamp: openedAt.toISOString(), sequence: '30' },
       marketBySymbol: ALL_MARKETS,

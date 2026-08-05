@@ -396,7 +396,7 @@ describeIfDb('risk engine — real database', () => {
     const closeMarketDay1 = {
       bid: '1.10900',
       ask: '1.10905',
-      timestamp: FRESH_TICK,
+      timestamp: new Date(NOW.getTime() + 61_000).toISOString(),
       sequence: '6',
     };
     const closeDay1 = await closePosition(db, {
@@ -406,7 +406,9 @@ describeIfDb('risk engine — real database', () => {
       mode: 'full',
       market: closeMarketDay1,
       marketBySymbol: marketsWithEurusd(closeMarketDay1),
-      now: NOW,
+      // Prompt 07B: only profit held at least 60 seconds is eligible for
+      // target, Best Day and the trailing Maximum Loss floor.
+      now: new Date(NOW.getTime() + 61_000),
     });
     expect(closeDay1.fill?.realizedPnl).toBe('537.60');
 
@@ -433,7 +435,7 @@ describeIfDb('risk engine — real database', () => {
     const closeMarketDay2 = {
       bid: '1.10900',
       ask: '1.10905',
-      timestamp: dayTwoTick,
+      timestamp: new Date(dayTwo.getTime() + 61_000).toISOString(),
       sequence: '8',
     };
     const closeDay2 = await closePosition(db, {
@@ -443,7 +445,7 @@ describeIfDb('risk engine — real database', () => {
       mode: 'full',
       market: closeMarketDay2,
       marketBySymbol: marketsWithEurusd(closeMarketDay2),
-      now: dayTwo,
+      now: new Date(dayTwo.getTime() + 61_000),
     });
     expect(closeDay2.fill?.realizedPnl).toBe('537.60');
 
