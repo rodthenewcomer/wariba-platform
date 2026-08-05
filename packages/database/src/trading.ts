@@ -1,3 +1,4 @@
+import Decimal from 'decimal.js';
 import {
   assertTradeOrderTransition,
   assertPositionTransition,
@@ -5,6 +6,7 @@ import {
   computeRealizedPnl,
   computeCommission,
   computeProfitEligibility,
+  evaluateShortDurationMonitoring,
   openingAveragePrice,
   isQuantityWithinBounds,
   isAggregateExposureAllowed,
@@ -14,9 +16,11 @@ import {
   addRealizedPnl,
   type OrderSide,
 } from '@wariba/domain';
+import { resolveProfitEligibilityPolicy } from '@wariba/policies';
 import { lockAccount, loadSymbolSpec, type LockedAccount, type MarketSnapshot } from './accounts';
 import type { Db } from './client';
 import { evaluateAndApplyAccountRiskInTransaction } from './risk';
+import { loadPolicyById } from './policy';
 import type { TradableSymbol } from './schema';
 
 export type { MarketSnapshot };
@@ -45,6 +49,7 @@ export interface PositionSummary {
 
 export interface FillSummary {
   id: string;
+  openingFillId: string | null;
   price: string;
   quantity: string;
   commission: string;
@@ -55,6 +60,9 @@ export interface FillSummary {
   isShortDurationProfit: boolean;
   eligibleRealizedPnl: string | null;
   ineligibleShortDurationProfit: string;
+  allocatedOpenCommission: string;
+  netRealizedPnl: string | null;
+  eligibilityReason: 'eligible' | 'short_duration_profit' | 'loss_counted' | 'breakeven' | null;
 }
 
 export interface TradeCommandResult {
@@ -71,6 +79,7 @@ const REJECTION = {
   POSITION_NOT_FOUND: 'position_not_found',
   POSITION_ALREADY_CLOSED: 'position_already_closed',
   EXPOSURE_LIMIT_EXCEEDED: 'exposure_limit_exceeded',
+  SHORT_DURATION_ENTRY_LOCKED: 'short_duration_entry_locked',
 } as const;
 
 // Exported (not just module-private) so anything displaying exposure —
@@ -162,6 +171,7 @@ async function loadFillSummary(trx: Db, orderId: string): Promise<FillSummary> {
     .executeTakeFirstOrThrow();
   return {
     id: row.id,
+    openingFillId: row.opening_fill_id,
     price: row.price,
     quantity: row.quantity,
     commission: row.commission,
@@ -171,6 +181,9 @@ async function loadFillSummary(trx: Db, orderId: string): Promise<FillSummary> {
     isShortDurationProfit: row.is_short_duration_profit,
     eligibleRealizedPnl: row.eligible_realized_pnl,
     ineligibleShortDurationProfit: row.ineligible_short_duration_profit,
+    allocatedOpenCommission: row.allocated_open_commission,
+    netRealizedPnl: row.net_realized_pnl,
+    eligibilityReason: row.eligibility_reason,
   };
 }
 
@@ -310,6 +323,19 @@ export async function openPosition(
 
     if (account.status !== 'active') {
       return reject(REJECTION.ACCOUNT_NOT_ACTIVE);
+    }
+
+    const policy = await loadPolicyById(trx, account.policy_version_id);
+    const eligibilityPolicy = resolveProfitEligibilityPolicy(policy.parameters);
+    if (eligibilityPolicy.enabled) {
+      const shortDurationCount = await countShortDurationProfitClosures(
+        trx,
+        account.id,
+        params.now,
+      );
+      if (shortDurationCount >= eligibilityPolicy.entryLockCount) {
+        return reject(REJECTION.SHORT_DURATION_ENTRY_LOCKED);
+      }
     }
 
     const spec = await loadSymbolSpec(trx, account.symbol_spec_set_id, params.symbol);
@@ -481,6 +507,7 @@ export async function openPosition(
       position: await loadPositionSummary(trx, position.id),
       fill: {
         id: fill.id,
+        openingFillId: null,
         price: fill.price,
         quantity: fill.quantity,
         commission: fill.commission,
@@ -491,6 +518,9 @@ export async function openPosition(
         isShortDurationProfit: false,
         eligibleRealizedPnl: null,
         ineligibleShortDurationProfit: '0.00',
+        allocatedOpenCommission: '0.00',
+        netRealizedPnl: null,
+        eligibilityReason: null,
       },
     };
   });
@@ -530,6 +560,9 @@ async function closePositionLocked(
       nextAccount: account,
     };
   }
+
+  const policy = await loadPolicyById(trx, account.policy_version_id);
+  const eligibilityPolicy = resolveProfitEligibilityPolicy(policy.parameters);
 
   const orderType = params.mode === 'partial' ? 'partial_close' : 'full_close';
 
@@ -634,6 +667,37 @@ async function closePositionLocked(
     quantity: closeQuantity,
     commissionPerLot: spec.commission_per_lot,
   });
+  const openingFill = await trx
+    .selectFrom('app.fills')
+    .select(['id', 'commission', 'quantity'])
+    .where('position_id', '=', position.id)
+    .where('fill_type', '=', 'open')
+    .orderBy('occurred_at', 'asc')
+    .executeTakeFirstOrThrow();
+  const priorCloseFills = await trx
+    .selectFrom('app.fills')
+    .select('allocated_open_commission')
+    .where('position_id', '=', position.id)
+    .where('fill_type', '=', 'close')
+    .execute();
+  const alreadyAllocatedOpenCommission = priorCloseFills.reduce(
+    (sum, priorFill) => sum.plus(priorFill.allocated_open_commission),
+    new Decimal(0),
+  );
+  const remainingOpenCommission = Decimal.max(
+    0,
+    new Decimal(openingFill.commission).minus(alreadyAllocatedOpenCommission),
+  );
+  const isFinalClose = new Decimal(closeQuantity).equals(position.open_quantity);
+  const allocatedOpenCommission = isFinalClose
+    ? remainingOpenCommission.toDecimalPlaces(2).toFixed(2)
+    : Decimal.min(
+        remainingOpenCommission,
+        new Decimal(openingFill.commission)
+          .times(closeQuantity)
+          .dividedBy(openingFill.quantity)
+          .toDecimalPlaces(2),
+      ).toFixed(2);
   // Prompt 07B §4 — duration measured strictly from the position's server
   // opening timestamp to this closing fill's server timestamp (params.now),
   // never a client-supplied time. TRD-020's hedging model (one opening fill
@@ -643,6 +707,8 @@ async function closePositionLocked(
     openedAt: position.opened_at,
     closedAt: params.now,
     realizedPnl,
+    allocatedFees: new Decimal(commission).plus(allocatedOpenCommission).toFixed(2),
+    minimumEligibleDurationMs: eligibilityPolicy.minimumDurationMs,
   });
   const remainingQuantity = subtractQuantity(position.open_quantity, closeQuantity);
   const newPositionStatus = remainingQuantity === '0.0000' ? 'closed' : 'open';
@@ -709,13 +775,18 @@ async function closePositionLocked(
       market_sequence: params.market.sequence,
       account_sequence: String(nextSequence),
       occurred_at: params.now,
+      opening_fill_id: openingFill.id,
       duration_ms: String(eligibility.durationMs),
       is_short_duration_profit: eligibility.isShortDurationProfit,
       eligible_realized_pnl: eligibility.eligibleRealizedPnl,
       ineligible_short_duration_profit: eligibility.ineligibleShortDurationProfit,
+      allocated_open_commission: allocatedOpenCommission,
+      net_realized_pnl: eligibility.netRealizedPnl,
+      eligibility_reason: eligibility.eligibilityReason,
     })
     .returning([
       'id',
+      'opening_fill_id',
       'price',
       'quantity',
       'commission',
@@ -725,6 +796,9 @@ async function closePositionLocked(
       'is_short_duration_profit',
       'eligible_realized_pnl',
       'ineligible_short_duration_profit',
+      'allocated_open_commission',
+      'net_realized_pnl',
+      'eligibility_reason',
     ])
     .executeTakeFirstOrThrow();
 
@@ -758,6 +832,38 @@ async function closePositionLocked(
         reference_id: fill.id,
         occurred_at: params.now,
       })
+      .execute();
+  }
+
+  const shortDurationCount = eligibilityPolicy.enabled
+    ? await countShortDurationProfitClosures(trx, params.accountId, params.now)
+    : 0;
+  const shortDurationMonitoring = evaluateShortDurationMonitoring(shortDurationCount, {
+    warning: eligibilityPolicy.warningCount,
+    entryLock: eligibilityPolicy.entryLockCount,
+  });
+  if (shortDurationMonitoring.shouldLogSignal) {
+    const isEntryLock = shortDurationMonitoring.status === 'entry_locked';
+    await trx
+      .insertInto('app.risk_violations')
+      .values({
+        account_id: params.accountId,
+        rule_code: isEntryLock ? 'RISK_SHORT_DURATION_ENTRY_LOCK' : 'RISK_SHORT_DURATION_WARNING',
+        severity: 'warning',
+        consequence: isEntryLock ? 'entry_lock' : 'none',
+        policy_version_id: account.policy_version_id,
+        threshold_value: String(
+          isEntryLock ? eligibilityPolicy.entryLockCount : eligibilityPolicy.warningCount,
+        ),
+        observed_value: String(shortDurationMonitoring.count24h),
+        trigger_event_type: 'trade_order',
+        trigger_event_id: order.id,
+        price_snapshot: JSON.stringify({ [position.symbol]: params.market }),
+        occurred_at: params.now,
+      })
+      .onConflict((oc) =>
+        oc.columns(['trigger_event_type', 'trigger_event_id', 'rule_code']).doNothing(),
+      )
       .execute();
   }
 
@@ -799,6 +905,7 @@ async function closePositionLocked(
       position: await loadPositionSummary(trx, position.id),
       fill: {
         id: fill.id,
+        openingFillId: fill.opening_fill_id,
         price: fill.price,
         quantity: fill.quantity,
         commission: fill.commission,
@@ -808,6 +915,9 @@ async function closePositionLocked(
         isShortDurationProfit: fill.is_short_duration_profit,
         eligibleRealizedPnl: fill.eligible_realized_pnl,
         ineligibleShortDurationProfit: fill.ineligible_short_duration_profit,
+        allocatedOpenCommission: fill.allocated_open_commission,
+        netRealizedPnl: fill.net_realized_pnl,
+        eligibilityReason: fill.eligibility_reason,
       },
     },
     nextAccount: { ...account, version: nextSequence, updated_at: params.now },
@@ -1133,9 +1243,8 @@ export async function modifyPositionRisk(
  * app.fills (fills_account_short_duration_idx) rather than a separate
  * counter table, so there is exactly one durable record of each occurrence.
  * Feed the result into @wariba/domain's evaluateShortDurationMonitoring to
- * get the warning/entry_locked status. Detection only — see DECISION_LOG
- * for why actual entry-lock enforcement (a new account status + order-
- * handler gate) is tracked as a separate follow-up rather than wired here.
+ * get the warning/entry_locked status. `openPosition` enforces the temporary
+ * entry-only lock from the account's pinned policy; close paths stay open.
  */
 export async function countShortDurationProfitClosures(
   db: Db,

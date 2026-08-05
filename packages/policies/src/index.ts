@@ -18,6 +18,10 @@ export {
 export { computeMachineHash } from './hash';
 export { parseAndVerifyPolicy, type LoadedPolicy } from './loader';
 export {
+  resolveProfitEligibilityPolicy,
+  type ProfitEligibilityPolicyControl,
+} from './profit-eligibility-policy';
+export {
   evaluateAccountRisk,
   type EvaluateAccountRiskParams,
   type RiskEngineResult,

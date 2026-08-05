@@ -171,7 +171,9 @@ describe('symbolSpecsMessageSchema — Prompt 07', () => {
 describe('accountRiskSchema — concentration (Prompt 07 Guardian)', () => {
   const base = {
     status: 'active' as const,
-    target: { required: '1000.00', reached: false },
+    programEligibleBalance: '10000.00',
+    programEligibleEquity: '10000.00',
+    target: { required: '1000.00', current: '0.00', reached: false },
     dailyLoss: {
       reference: '10000.00',
       floor: '9700.00',
@@ -182,6 +184,7 @@ describe('accountRiskSchema — concentration (Prompt 07 Guardian)', () => {
     maximumLoss: { floor: '9000.00', remaining: '1000.00', breached: false },
     bestDay: { ratio: null, compliant: true },
     eligibility: { passEligible: false, blockingReasons: [] },
+    shortDurationMonitoring: { status: 'normal' as const, count24h: 0 },
   };
 
   it('requires a concentration array — dropping partial-fill-era assumptions forward, not silently optional', () => {

@@ -4,11 +4,15 @@ import {
   computeRealizedPnl,
   computeConcentration,
   computeDailyLossRemaining,
+  evaluateShortDurationMonitoring,
 } from '@wariba/domain';
 import {
   loadPolicyById,
   evaluateAccountRisk,
   FOREX_SYMBOLS,
+  loadAccountBalanceProjection,
+  countShortDurationProfitClosures,
+  resolveProfitEligibilityPolicy,
   type Db,
   type TradableSymbol,
   type DailySnapshotInput,
@@ -21,7 +25,7 @@ import type {
 } from '@wariba/contracts';
 import type { MarketDataProvider } from '@wariba/adapters';
 import type { LoadedSymbolSpec } from './market';
-import { toPositionDTO, toOrderDTO } from './dto-mappers';
+import { toPositionDTO, toOrderDTO, toFillDTO } from './dto-mappers';
 
 /**
  * Full account state — used both for the initial subscribe (System
@@ -44,8 +48,16 @@ export async function buildAccountSnapshot(
     .select(['version', 'status', 'nominal_balance', 'policy_version_id', 'symbol_spec_set_id'])
     .where('id', '=', accountId)
     .executeTakeFirstOrThrow();
+  const policy = await loadPolicyById(db, account.policy_version_id);
+  const eligibilityPolicy = resolveProfitEligibilityPolicy(policy.parameters);
 
-  const live = await computeLiveBalanceAndEquity(db, accountId, market, symbolSpecs);
+  const live = await computeLiveBalanceAndEquity(
+    db,
+    accountId,
+    market,
+    symbolSpecs,
+    eligibilityPolicy.enabled,
+  );
 
   const recentOrderRows = await db
     .selectFrom('app.trade_orders')
@@ -78,22 +90,89 @@ export async function buildAccountSnapshot(
     }),
   );
 
+  const recentFillRows = await db
+    .selectFrom('app.fills')
+    .innerJoin('app.positions', 'app.positions.id', 'app.fills.position_id')
+    .select([
+      'app.fills.id as fill_id',
+      'app.fills.opening_fill_id',
+      'app.fills.order_id',
+      'app.fills.position_id',
+      'app.fills.symbol',
+      'app.fills.side',
+      'app.fills.fill_type',
+      'app.fills.quantity',
+      'app.fills.price',
+      'app.fills.commission',
+      'app.fills.realized_pnl',
+      'app.fills.occurred_at',
+      'app.fills.duration_ms',
+      'app.fills.is_short_duration_profit',
+      'app.fills.eligible_realized_pnl',
+      'app.fills.ineligible_short_duration_profit',
+      'app.fills.allocated_open_commission',
+      'app.fills.net_realized_pnl',
+      'app.fills.eligibility_reason',
+      'app.positions.average_open_price',
+      'app.positions.opened_at',
+    ])
+    .where('app.fills.account_id', '=', accountId)
+    .where('app.fills.fill_type', '=', 'close')
+    .orderBy('app.fills.occurred_at', 'desc')
+    .limit(20)
+    .execute();
+  const recentFills = recentFillRows.map((row) =>
+    toFillDTO(
+      row.order_id,
+      {
+        id: row.fill_id,
+        openingFillId: row.opening_fill_id,
+        price: row.price,
+        quantity: row.quantity,
+        commission: row.commission,
+        realizedPnl: row.realized_pnl,
+        occurredAt: row.occurred_at,
+        durationMs: row.duration_ms,
+        isShortDurationProfit: row.is_short_duration_profit,
+        eligibleRealizedPnl: row.eligible_realized_pnl,
+        ineligibleShortDurationProfit: row.ineligible_short_duration_profit,
+        allocatedOpenCommission: row.allocated_open_commission,
+        netRealizedPnl: row.net_realized_pnl,
+        eligibilityReason: row.eligibility_reason,
+      },
+      row.position_id,
+      row.symbol,
+      row.side,
+      row.fill_type,
+      row.average_open_price,
+      row.opened_at,
+    ),
+  );
+
   const risk = await buildAccountRisk(
     db,
     accountId,
     account,
     live.balance,
+    live.programEligibleBalance,
     live.equity,
     live.openPositionRows,
   );
 
   return {
     accountId,
+    nominalBalance: account.nominal_balance,
     balance: live.balance,
+    programEligibleBalance: live.programEligibleBalance,
     equity: live.equity,
     accountSequence: Number(account.version),
     openPositions: live.openPositions,
     recentOrders,
+    recentFills,
+    profitEligibility: {
+      enabled: eligibilityPolicy.enabled,
+      minimumDurationMs: eligibilityPolicy.minimumDurationMs,
+    },
     risk,
   };
 }
@@ -117,8 +196,16 @@ export async function buildAccountRiskPreview(
     .select(['status', 'nominal_balance', 'policy_version_id', 'symbol_spec_set_id'])
     .where('id', '=', accountId)
     .executeTakeFirstOrThrow();
+  const policy = await loadPolicyById(db, account.policy_version_id);
+  const eligibilityPolicy = resolveProfitEligibilityPolicy(policy.parameters);
 
-  const live = await computeLiveBalanceAndEquity(db, accountId, market, symbolSpecs);
+  const live = await computeLiveBalanceAndEquity(
+    db,
+    accountId,
+    market,
+    symbolSpecs,
+    eligibilityPolicy.enabled,
+  );
   if (live.openPositionRows.length === 0) return null;
 
   const risk = await buildAccountRisk(
@@ -126,6 +213,7 @@ export async function buildAccountRiskPreview(
     accountId,
     account,
     live.balance,
+    live.programEligibleBalance,
     live.equity,
     live.openPositionRows,
   );
@@ -151,18 +239,22 @@ async function computeLiveBalanceAndEquity(
   accountId: string,
   market: MarketDataProvider,
   symbolSpecs: Record<TradableSymbol, LoadedSymbolSpec>,
+  eligibilityEnabled: boolean,
 ): Promise<{
   balance: string;
+  programEligibleBalance: string;
   equity: string;
+  programEligibleEquity: string;
   openPositionRows: OpenPositionRow[];
   openPositions: PositionDTO[];
 }> {
-  const ledgerEntries = await db
-    .selectFrom('app.trading_ledger_entries')
-    .select('amount')
-    .where('account_id', '=', accountId)
-    .execute();
-  const balance = ledgerEntries.reduce((sum, e) => sum.plus(e.amount), new Decimal(0)).toFixed(2);
+  const projection = await loadAccountBalanceProjection(
+    db,
+    accountId,
+    undefined,
+    eligibilityEnabled,
+  );
+  const balance = projection.accountBalance;
 
   const openPositionRows = await db
     .selectFrom('app.positions')
@@ -204,7 +296,17 @@ async function computeLiveBalanceAndEquity(
   });
 
   const equity = new Decimal(balance).plus(unrealizedTotal).toFixed(2);
-  return { balance, equity, openPositionRows, openPositions };
+  const programEligibleEquity = new Decimal(projection.programEligibleBalance)
+    .plus(unrealizedTotal)
+    .toFixed(2);
+  return {
+    balance,
+    programEligibleBalance: projection.programEligibleBalance,
+    equity,
+    programEligibleEquity,
+    openPositionRows,
+    openPositions,
+  };
 }
 
 function toDailySnapshotInput(row: {
@@ -215,6 +317,10 @@ function toDailySnapshotInput(row: {
   eod_balance: string | null;
   maximum_loss_floor_after: string | null;
   realized_net_profit_for_day: string | null;
+  program_sod_balance: string;
+  program_eod_balance: string | null;
+  highest_program_eod_balance_after: string | null;
+  eligible_realized_net_profit_for_day: string | null;
 }): DailySnapshotInput {
   return {
     tradingDay: row.trading_day,
@@ -224,6 +330,10 @@ function toDailySnapshotInput(row: {
     eodBalance: row.eod_balance,
     maximumLossFloorAfter: row.maximum_loss_floor_after,
     realizedNetProfitForDay: row.realized_net_profit_for_day,
+    programSodBalance: row.program_sod_balance,
+    programEodBalance: row.program_eod_balance,
+    highestProgramEodBalanceAfter: row.highest_program_eod_balance_after,
+    eligibleRealizedNetProfitForDay: row.eligible_realized_net_profit_for_day,
   };
 }
 
@@ -245,6 +355,7 @@ async function buildAccountRisk(
     symbol_spec_set_id: string;
   },
   balance: string,
+  programEligibleBalance: string,
   equity: string,
   openPositionRows: readonly Pick<OpenPositionRow, 'symbol' | 'open_quantity'>[],
 ): Promise<AccountRisk | null> {
@@ -266,6 +377,10 @@ async function buildAccountRisk(
       'eod_balance',
       'maximum_loss_floor_after',
       'realized_net_profit_for_day',
+      'program_sod_balance',
+      'program_eod_balance',
+      'highest_program_eod_balance_after',
+      'eligible_realized_net_profit_for_day',
     ])
     .where('account_id', '=', accountId)
     .where('trading_day', '<', today.trading_day)
@@ -273,9 +388,11 @@ async function buildAccountRisk(
     .execute();
 
   const policy = await loadPolicyById(db, account.policy_version_id);
+  const eligibilityPolicy = resolveProfitEligibilityPolicy(policy.parameters);
+  const now = new Date();
 
   const result = evaluateAccountRisk({
-    clock: { now: () => new Date() },
+    clock: { now: () => now },
     account: {
       id: accountId,
       status: account.status as Parameters<typeof evaluateAccountRisk>[0]['account']['status'],
@@ -283,6 +400,7 @@ async function buildAccountRisk(
     },
     policy: policy.parameters,
     currentBalance: balance,
+    currentProgramEligibleBalance: programEligibleBalance,
     currentUnrealizedPnl: new Decimal(equity).minus(balance).toFixed(2),
     openPositionCount: openPositionRows.length,
     pendingOrderCount: 0,
@@ -291,6 +409,13 @@ async function buildAccountRisk(
 
   const concentration = await computeConcentrationForAccount(db, account, openPositionRows);
   const dailyLossRemaining = computeDailyLossRemaining(result.dailyLoss);
+  const shortDurationCount = eligibilityPolicy.enabled
+    ? await countShortDurationProfitClosures(db, accountId, now)
+    : 0;
+  const shortDurationMonitoring = evaluateShortDurationMonitoring(shortDurationCount, {
+    warning: eligibilityPolicy.warningCount,
+    entryLock: eligibilityPolicy.entryLockCount,
+  });
 
   // `status` is the actual persisted, enforced status — the one trading.ts's
   // guards check — never the engine's live-computed `recommendedStatus`,
@@ -300,6 +425,8 @@ async function buildAccountRisk(
   // an early soft-lock warning), just never mistaken for the applied status.
   return {
     status: account.status as AccountRisk['status'],
+    programEligibleBalance: result.programEligibleBalance,
+    programEligibleEquity: result.programEligibleEquity,
     target: result.target,
     dailyLoss: { ...result.dailyLoss, remaining: dailyLossRemaining },
     maximumLoss: result.maximumLoss,
@@ -309,6 +436,10 @@ async function buildAccountRisk(
       blockingReasons: [...result.eligibility.blockingReasons],
     },
     concentration,
+    shortDurationMonitoring: {
+      status: shortDurationMonitoring.status,
+      count24h: shortDurationMonitoring.count24h,
+    },
   };
 }
 

@@ -43,6 +43,7 @@ import {
   type TradableSymbol,
   type SymbolSpec,
   type PositionDTO,
+  type FillDTO,
   type OrderDTO,
   type OrderType,
 } from '@wariba/contracts';
@@ -110,6 +111,12 @@ const REJECTION_DETAIL: Record<string, { reason: string; action: string }> = {
     reason: 'Cet ordre dépasserait votre exposition maximale autorisée sur ce groupe de symboles.',
     action: 'Réduisez la taille ou fermez une position existante sur ce groupe.',
   },
+  short_duration_entry_locked: {
+    reason:
+      'Les nouvelles ouvertures sont temporairement suspendues après six clôtures profitables sous 60 secondes sur 24 h.',
+    action:
+      'Vous pouvez réduire ou fermer vos positions. Le verrou se lève lorsque le compteur glissant sur 24 h repasse sous six ; le signal reste disponible pour revue.',
+  },
   position_not_found: {
     reason: 'La position visée n’existe plus.',
     action: 'Rafraîchissez vos positions ouvertes.',
@@ -151,6 +158,20 @@ const ORDER_STATUS_BADGE_VARIANT: Record<OrderDTO['status'], BadgeVariant> = {
   cancelled: 'neutral',
 };
 
+const ELIGIBILITY_LABEL: Record<NonNullable<FillDTO['eligibilityReason']>, string> = {
+  eligible: 'Éligible',
+  short_duration_profit: 'Profit < 60 s',
+  loss_counted: 'Perte comptée',
+  breakeven: 'Neutre',
+};
+
+const ELIGIBILITY_BADGE_VARIANT: Record<NonNullable<FillDTO['eligibilityReason']>, BadgeVariant> = {
+  eligible: 'success',
+  short_duration_profit: 'warning',
+  loss_counted: 'information',
+  breakeven: 'neutral',
+};
+
 // UTC throughout WariX (RiskRibbon's "Reset 00:00 UTC", TradeChart's explicit
 // UTC axis) — the History tab keeps that same reference timezone rather than
 // silently switching to the browser's local time.
@@ -163,6 +184,15 @@ function formatOrderTimestamp(iso: string): string {
     second: '2-digit',
     timeZone: 'UTC',
   }).format(new Date(iso))} UTC`;
+}
+
+function formatDuration(durationMs: string | null): string {
+  if (durationMs === null) return '—';
+  const totalSeconds = Math.max(0, Math.floor(Number(durationMs) / 1_000));
+  if (totalSeconds < 60) return `${totalSeconds} s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes} min ${seconds.toString().padStart(2, '0')} s`;
 }
 
 function deriveRiskRibbonStatus(params: {
@@ -222,9 +252,8 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
   const [ticketOpen, setTicketOpen] = useState(false);
   const [closeAllDialogOpen, setCloseAllDialogOpen] = useState(false);
   const [closeAllResult, setCloseAllResult] = useState<CloseAllOutcome[] | null>(null);
-  // §22.6 "historique d'exécution" — session-only, see TradeChart's doc
-  // comment for why nothing retroactive is possible (no fill price anywhere
-  // in AccountSnapshot, only on the order_result that announces a fill).
+  // §22.6 "historique d'exécution" — hydrated from the authoritative fill
+  // history in AccountSnapshot and incremented immediately by order_result.
   const [fills, setFills] = useState<FillMarker[]>([]);
 
   useEffect(() => {
@@ -236,6 +265,16 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
       if (envelope.type === 'account.snapshot') {
         const nextSnapshot = envelope.payload as AccountSnapshot;
         setSnapshot(nextSnapshot);
+        setFills(
+          nextSnapshot.recentFills.map((fill) => ({
+            id: fill.id,
+            symbol: fill.symbol,
+            time: Math.floor(new Date(fill.occurredAt).getTime() / 1_000),
+            price: Number(fill.price),
+            side: fill.side,
+            effect: fill.fillType,
+          })),
+        );
         const pendingCommand = pendingCommandRef.current;
         if (pendingCommand) {
           const key = pendingCommand.payload.idempotencyKey;
@@ -368,7 +407,11 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
   const isResyncing = connectionState === 'resyncing';
   const risk = snapshot?.risk ?? null;
   const riskRibbonStatus = deriveRiskRibbonStatus({ risk, isStale, isResyncing });
-  const isRiskLocked = riskRibbonStatus === 'soft-lock' || riskRibbonStatus === 'hard-breach';
+  const isShortDurationEntryLocked = risk?.shortDurationMonitoring.status === 'entry_locked';
+  const isRiskLocked =
+    riskRibbonStatus === 'soft-lock' ||
+    riskRibbonStatus === 'hard-breach' ||
+    isShortDurationEntryLocked;
   const symbolPositions: PositionDTO[] = useMemo(
     () => snapshot?.openPositions.filter((p) => p.symbol === selectedSymbol) ?? [],
     [snapshot, selectedSymbol],
@@ -459,9 +502,11 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
     : isStale
       ? 'Les nouvelles positions sont bloquées tant que le marché n’est pas à jour.'
       : isRiskLocked
-        ? riskRibbonStatus === 'hard-breach'
-          ? 'La limite maximale de perte est dépassée. Aucun nouvel ordre possible.'
-          : 'Votre compte est en blocage temporaire jusqu’au prochain reset à 00:00 UTC.'
+        ? isShortDurationEntryLocked
+          ? 'Les nouvelles ouvertures sont suspendues pour revue après six profits sous 60 secondes sur 24 h.'
+          : riskRibbonStatus === 'hard-breach'
+            ? 'La limite maximale de perte est dépassée. Aucun nouvel ordre possible.'
+            : 'Votre compte est en blocage temporaire jusqu’au prochain reset à 00:00 UTC.'
         : quantityError;
 
   const rejection: OrderRejectionDetail | null = orderError
@@ -557,7 +602,12 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
       <div className="flex flex-col gap-2 border-b border-[color:var(--wariba-theme-border)] p-[var(--wariba-component-trade-panel-padding)]">
         <TradeHeaderPanel
           accountId={accountId}
+          nominalFormatted={snapshot ? `${snapshot.nominalBalance} USD` : '—'}
           balanceFormatted={snapshot ? `${snapshot.balance} USD` : '—'}
+          equityFormatted={snapshot ? `${snapshot.equity} USD` : '—'}
+          programEligibleBalanceFormatted={
+            snapshot ? `${snapshot.programEligibleBalance} USD` : '—'
+          }
           connectionOk={connectionOk}
           riskRibbonStatus={riskRibbonStatus}
           risk={risk}
@@ -683,60 +733,68 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
             </DataTable>
           </TabPanel>
           <TabPanel value="history">
-            {/* §22.6 "historique d'exécution" — same recentOrders the Ordres
-                tab shows, just the full audit record (timestamp, side,
-                quantity, rejection reason) instead of the quick-glance view.
-                No separate history store exists server-side (DATA-003, see
-                TradeChart's doc comment) — recentOrders is genuinely the
-                only source, so both tabs read it rather than one being
-                fed fabricated data. */}
+            {snapshot?.profitEligibility.enabled && (
+              <Text variant="body-sm" color="secondary" className="mb-3 block max-w-4xl">
+                La balance réelle inclut chaque résultat. Pour la progression WARIBA, seul le profit
+                net positif d’une clôture détenue moins de 60 secondes est exclu. Les pertes nettes
+                comptent toujours ; les commissions sont appliquées avant la classification.
+              </Text>
+            )}
             <DataTable>
               <DataTableHead>
                 <DataTableRow>
-                  <DataTableHeaderCell>Horodatage</DataTableHeaderCell>
-                  <DataTableHeaderCell>Type</DataTableHeaderCell>
+                  <DataTableHeaderCell>Clôture</DataTableHeaderCell>
                   <DataTableHeaderCell>Symbole</DataTableHeaderCell>
                   <DataTableHeaderCell>Sens</DataTableHeaderCell>
                   <DataTableHeaderCell align="right">Quantité</DataTableHeaderCell>
-                  <DataTableHeaderCell align="right">Statut</DataTableHeaderCell>
-                  <DataTableHeaderCell>Raison</DataTableHeaderCell>
+                  <DataTableHeaderCell>Ouverture → clôture</DataTableHeaderCell>
+                  <DataTableHeaderCell align="right">Durée</DataTableHeaderCell>
+                  <DataTableHeaderCell align="right">PnL net</DataTableHeaderCell>
+                  <DataTableHeaderCell align="right">PnL éligible</DataTableHeaderCell>
+                  <DataTableHeaderCell align="right">Règle</DataTableHeaderCell>
                 </DataTableRow>
               </DataTableHead>
               <DataTableBody>
-                {!snapshot || snapshot.recentOrders.length === 0 ? (
+                {!snapshot ||
+                snapshot.recentFills.filter((fill) => fill.fillType === 'close').length === 0 ? (
                   <DataTableRow>
                     <DataTableCell
-                      colSpan={7}
+                      colSpan={9}
                       className="text-center text-[color:var(--wariba-text-secondary)]"
                     >
-                      Aucun ordre.
+                      Aucune clôture exécutée.
                     </DataTableCell>
                   </DataTableRow>
                 ) : (
-                  snapshot.recentOrders.map((o) => (
-                    <DataTableRow key={o.id}>
-                      <DataTableCell numeric>{formatOrderTimestamp(o.receivedAt)}</DataTableCell>
-                      <DataTableCell>{ORDER_TYPE_LABEL[o.orderType]}</DataTableCell>
-                      <DataTableCell>{o.symbol ?? '—'}</DataTableCell>
-                      <DataTableCell>
-                        {o.side === 'buy' ? 'Achat' : o.side === 'sell' ? 'Vente' : '—'}
-                      </DataTableCell>
-                      <DataTableCell numeric>
-                        {o.status === 'filled' ? o.filledQuantity : (o.requestedQuantity ?? '—')}
-                      </DataTableCell>
-                      <DataTableCell align="right">
-                        <Badge variant={ORDER_STATUS_BADGE_VARIANT[o.status]}>
-                          {ORDER_STATUS_LABEL[o.status]}
-                        </Badge>
-                      </DataTableCell>
-                      <DataTableCell className="text-[color:var(--wariba-text-secondary)]">
-                        {o.status === 'rejected'
-                          ? (REJECTION_DETAIL[o.rejectionCode ?? '']?.reason ??
-                            UNKNOWN_REJECTION_DETAIL.reason)
-                          : '—'}
-                      </DataTableCell>
-                    </DataTableRow>
-                  ))
+                  snapshot.recentFills
+                    .filter(
+                      (
+                        fill,
+                      ): fill is FillDTO & {
+                        eligibilityReason: NonNullable<FillDTO['eligibilityReason']>;
+                      } => fill.fillType === 'close' && fill.eligibilityReason !== null,
+                    )
+                    .map((fill) => (
+                      <DataTableRow key={fill.id}>
+                        <DataTableCell numeric>
+                          {formatOrderTimestamp(fill.occurredAt)}
+                        </DataTableCell>
+                        <DataTableCell>{fill.symbol}</DataTableCell>
+                        <DataTableCell>{fill.side === 'buy' ? 'Achat' : 'Vente'}</DataTableCell>
+                        <DataTableCell numeric>{fill.quantity}</DataTableCell>
+                        <DataTableCell numeric>
+                          {fill.openingPrice} → {fill.price}
+                        </DataTableCell>
+                        <DataTableCell numeric>{formatDuration(fill.durationMs)}</DataTableCell>
+                        <DataTableCell numeric>{fill.netRealizedPnl ?? '—'} USD</DataTableCell>
+                        <DataTableCell numeric>{fill.eligibleRealizedPnl ?? '—'} USD</DataTableCell>
+                        <DataTableCell align="right">
+                          <Badge variant={ELIGIBILITY_BADGE_VARIANT[fill.eligibilityReason]}>
+                            {ELIGIBILITY_LABEL[fill.eligibilityReason]}
+                          </Badge>
+                        </DataTableCell>
+                      </DataTableRow>
+                    ))
                 )}
               </DataTableBody>
             </DataTable>

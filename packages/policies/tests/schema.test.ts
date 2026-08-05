@@ -28,10 +28,25 @@ const SEEDED_V1_1_0_PARAMETERS = {
   activation_fee: '0',
 };
 
+const SEEDED_V1_1_1_PARAMETERS = {
+  ...SEEDED_V1_1_0_PARAMETERS,
+  maximum_loss_floor_formula:
+    'min(nominal_balance, max(previous_floor, highest_program_eligible_eod_balance - nominal_balance * 0.10))',
+  program_eligible_balance_enabled: true,
+  minimum_profit_eligible_duration_ms: 60_000,
+  short_duration_warning_count: 3,
+  short_duration_entry_lock_count: 6,
+};
+
 describe('evaluationOnePolicyParametersSchema', () => {
   it('validates the seeded v1.1.0 parameters_json without modification', () => {
     const result = evaluationOnePolicyParametersSchema.parse(SEEDED_V1_1_0_PARAMETERS);
     expect(result).toEqual(SEEDED_V1_1_0_PARAMETERS);
+  });
+
+  it('validates the immutable v1.1.1 profit-eligibility controls', () => {
+    const result = evaluationOnePolicyParametersSchema.parse(SEEDED_V1_1_1_PARAMETERS);
+    expect(result).toEqual(SEEDED_V1_1_1_PARAMETERS);
   });
 
   it('rejects the stale v1.0.0 shape (different field names/values, must not silently pass)', () => {

@@ -151,7 +151,7 @@ describeIfDb('activateEvaluationAccount — real database', () => {
     expect(order.status).toBe('fulfilled');
   }, 30000);
 
-  it('pins the published v1.1.0 policy, not the stale v1.0.0 one (regression for the effective_from ordering bug)', async () => {
+  it('pins the latest published v1.1.1 policy, not a stale published version', async () => {
     const account = await db
       .selectFrom('app.trading_accounts')
       .select('policy_version_id')
@@ -164,12 +164,11 @@ describeIfDb('activateEvaluationAccount — real database', () => {
       .where('id', '=', account.policy_version_id)
       .executeTakeFirstOrThrow();
 
-    // Both a v1.0.0 and a v1.1.0 WARIBA_ONE row are published; v1.0.0's
-    // effective_from is `now()` at migration time while v1.1.0's is a
-    // hardcoded earlier timestamp, so ordering by effective_from picks the
-    // stale row — activation.ts must order by created_at instead.
+    // Several immutable WARIBA_ONE versions remain published for pinned
+    // accounts. New activation must choose the latest row by creation order,
+    // not silently repin an existing account or select by effective date.
     expect(policy.program).toBe('WARIBA_ONE');
-    expect(policy.semantic_version).toBe('1.1.0');
+    expect(policy.semantic_version).toBe('1.1.1');
     expect(policy.status).toBe('published');
   }, 15000);
 

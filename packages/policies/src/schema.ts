@@ -5,9 +5,9 @@ import { z } from 'zod';
  * machine JSON already seeded on `app.policy_versions.parameters_json` by
  * supabase/migrations/20260804000007_policy_symbol_specs_v1_1.sql).
  *
- * This schema validates the EXISTING seeded v1.1.0 row — it does not invent
- * a new shape. Field names/values are pinned to decisions ONE-019..ONE-024
- * (docs/00-decisions/DECISION_LOG.md) and Program Rulebook v1.1.
+ * Optional Prompt 07B fields preserve compatibility with accounts pinned to
+ * v1.1.0. They are present only from v1.1.1 onward; absence means the
+ * short-duration eligibility control is disabled for that pinned account.
  */
 
 /** Financial values are always decimal strings on the wire — never a JS float (Constitution money rule). */
@@ -33,6 +33,10 @@ export const evaluationOnePolicyParametersSchema = z.object({
   weekend_allowed: z.boolean(),
   news_allowed: z.boolean(),
   activation_fee: decimalString,
+  program_eligible_balance_enabled: z.boolean().optional(),
+  minimum_profit_eligible_duration_ms: z.number().int().nonnegative().optional(),
+  short_duration_warning_count: z.number().int().positive().optional(),
+  short_duration_entry_lock_count: z.number().int().positive().optional(),
 });
 
 export type EvaluationOnePolicyParameters = z.infer<typeof evaluationOnePolicyParametersSchema>;

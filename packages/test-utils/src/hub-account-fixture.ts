@@ -105,12 +105,21 @@ export async function attachFixtureAccountToUser(
 }
 
 export async function deleteFixtureAccount(db: Db, fixture: E2eFixtureAccount): Promise<void> {
+  const positions = await db
+    .selectFrom('app.positions')
+    .select('id')
+    .where('account_id', '=', fixture.accountId)
+    .execute();
+  await db.deleteFrom('app.fills').where('account_id', '=', fixture.accountId).execute();
   await db.deleteFrom('app.trade_orders').where('account_id', '=', fixture.accountId).execute();
   await db.deleteFrom('app.positions').where('account_id', '=', fixture.accountId).execute();
   await db
     .deleteFrom('app.trading_ledger_entries')
     .where('account_id', '=', fixture.accountId)
     .execute();
+  for (const position of positions) {
+    await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', position.id).execute();
+  }
   await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', fixture.accountId).execute();
   await db.deleteFrom('app.risk_violations').where('account_id', '=', fixture.accountId).execute();
   await db
@@ -128,6 +137,10 @@ export async function deleteFixtureAccount(db: Db, fixture: E2eFixtureAccount): 
     .executeTakeFirst();
   await db.deleteFrom('app.trading_accounts').where('id', '=', fixture.accountId).execute();
   if (account) {
+    await db
+      .deleteFrom('app.payment_events')
+      .where('purchase_order_id', '=', account.source_purchase_order_id)
+      .execute();
     await db
       .deleteFrom('app.purchase_orders')
       .where('id', '=', account.source_purchase_order_id)

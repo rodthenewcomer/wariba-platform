@@ -32,12 +32,16 @@
       "dependsOn": ["^build"]
     },
     "test:integration": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "cache": false
     },
     "test:e2e": {
-      "dependsOn": ["build"]
+      "dependsOn": ["build"],
+      "cache": false
     },
-    "test:rls": {},
+    "test:rls": {
+      "cache": false
+    },
     "test:visual": {
       "dependsOn": ["build"]
     }

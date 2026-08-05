@@ -25,7 +25,7 @@ export interface LoadedPolicy {
  * than validating a guessed shape, since no such row has been seeded yet.
  *
  * `strict: true` throws on a machine_hash mismatch. Defaults to non-strict
- * because the seeded v1.1.0 row's `machine_hash` is a known placeholder
+ * because the seeded v1.1.0 row's `machine_hash` is a known legacy placeholder
  * (see hash.ts) until the backfill migration lands — callers that need a
  * verified hash should pass `strict: true` and check `hashVerified`
  * otherwise.

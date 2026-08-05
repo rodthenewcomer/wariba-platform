@@ -231,7 +231,7 @@ export default function CatalogPage() {
           <ExecutionState state="filled" />
           <ExecutionState state="rejected" />
         </Stack>
-        <PolicyVersionChip version="1.1.0" status="published" effectiveDateLabel="3 août 2026" />
+        <PolicyVersionChip version="1.1.1" status="published" effectiveDateLabel="5 août 2026" />
       </Section>
 
       <Section title="WARIBA — RiskRibbon (all statuses)">

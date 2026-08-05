@@ -69,19 +69,15 @@ describe('parity — DECISION_LOG ↔ RULESET v1.1 program block', () => {
   });
 });
 
-describe('parity — flags the known-stale shared_calculation_rules blocks, does not silently trust them', () => {
-  it('shared_calculation_rules.maximum_loss is still the superseded v1.0 static model', () => {
-    // If this starts failing because someone "fixed" the shared block to say
-    // eod_trailing, that's good news — update this test to assert the fix,
-    // don't just delete it. Ground truth is always the program-level block
-    // above, never this one.
-    expect(ruleset.shared_calculation_rules.maximum_loss.static).toBe(true);
-    expect(ruleset.shared_calculation_rules.maximum_loss.trailing).toBe(false);
+describe('parity — shared calculation rules match the active v1.1 model', () => {
+  it('uses EOD trailing Maximum Loss in both the shared and program blocks', () => {
+    expect(ruleset.shared_calculation_rules.maximum_loss.static).toBe(false);
+    expect(ruleset.shared_calculation_rules.maximum_loss.trailing).toBe(true);
   });
 
-  it('shared_calculation_rules.consistency is still the superseded v1.0 total-profit denominator', () => {
+  it('uses only positive program-eligible profits in the Best Day denominator', () => {
     expect(ruleset.shared_calculation_rules.consistency.formula).toContain(
-      'total_realized_net_profit_in_scope',
+      'total_positive_program_eligible_net_profit_in_scope',
     );
   });
 });

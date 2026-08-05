@@ -74,10 +74,8 @@ async function activateTradeAccount(db: Db, userId: string): Promise<string> {
 }
 
 /**
- * One fresh user + one active WARIBA ONE account against the shared hosted
- * Supabase dev project — same DB every integration test in this repo uses.
- * No teardown: orphaned fixture rows are an accepted, already-established
- * cost here, not something worth a cleanup pass per run.
+ * One fresh user + one active WARIBA ONE account. The Playwright fixture
+ * owns teardown so both failed and successful runs remove synthetic data.
  */
 export async function seedTradeAccount(env: {
   databaseUrl: string;

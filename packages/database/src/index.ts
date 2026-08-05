@@ -26,6 +26,7 @@ export {
   closePosition,
   closeAllPositions,
   modifyPositionRisk,
+  countShortDurationProfitClosures,
   FOREX_SYMBOLS,
   type MarketSnapshot,
   type TradeOrderOutcome,
@@ -38,6 +39,7 @@ export {
   type ModifyPositionRiskParams,
 } from './trading';
 export { loadPublishedPolicy, loadPolicyById } from './policy';
+export { loadAccountBalanceProjection, type AccountBalanceProjection } from './program-eligibility';
 export {
   evaluateAndApplyAccountRisk,
   evaluateAndApplyAccountRiskInTransaction,
@@ -53,6 +55,7 @@ export {
 } from './daily-finalization';
 export {
   evaluateAccountRisk,
+  resolveProfitEligibilityPolicy,
   type EvaluateAccountRiskParams,
   type RiskEngineResult,
   type DailySnapshotInput,

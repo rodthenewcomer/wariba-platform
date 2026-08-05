@@ -1,14 +1,14 @@
-import Decimal from 'decimal.js';
 import {
   evaluateAccountRisk,
   ensureTodaySnapshot,
   loadPolicyById,
+  loadAccountBalanceProjection,
   type Db,
   type RiskEngineResult,
   type DailySnapshotInput,
 } from '@wariba/database';
 import type { EvaluationAccountStatus } from '@wariba/domain';
-import type { LoadedPolicy } from '@wariba/policies';
+import { resolveProfitEligibilityPolicy, type LoadedPolicy } from '@wariba/policies';
 
 export interface AccountRiskEngineInputs {
   accountId: string;
@@ -17,6 +17,7 @@ export interface AccountRiskEngineInputs {
   activatedAt: Date | null;
   policy: LoadedPolicy;
   currentBalance: string;
+  programEligibleBalance: string;
   openPositionCount: number;
   result: RiskEngineResult;
 }
@@ -44,6 +45,10 @@ function toDailySnapshotInput(row: {
   eod_balance: string | null;
   maximum_loss_floor_after: string | null;
   realized_net_profit_for_day: string | null;
+  program_sod_balance: string;
+  program_eod_balance: string | null;
+  highest_program_eod_balance_after: string | null;
+  eligible_realized_net_profit_for_day: string | null;
 }): DailySnapshotInput {
   return {
     tradingDay: row.trading_day,
@@ -53,6 +58,10 @@ function toDailySnapshotInput(row: {
     eodBalance: row.eod_balance,
     maximumLossFloorAfter: row.maximum_loss_floor_after,
     realizedNetProfitForDay: row.realized_net_profit_for_day,
+    programSodBalance: row.program_sod_balance,
+    programEodBalance: row.program_eod_balance,
+    highestProgramEodBalanceAfter: row.highest_program_eod_balance_after,
+    eligibleRealizedNetProfitForDay: row.eligible_realized_net_profit_for_day,
   };
 }
 
@@ -96,15 +105,15 @@ export async function loadAccountRiskEngineInputs(
   }
 
   const policy = await loadPolicyById(db, account.policy_version_id);
+  const eligibilityPolicy = resolveProfitEligibilityPolicy(policy.parameters);
 
-  const ledgerEntries = await db
-    .selectFrom('app.trading_ledger_entries')
-    .select('amount')
-    .where('account_id', '=', account.id)
-    .execute();
-  const currentBalance = ledgerEntries
-    .reduce((sum, entry) => sum.plus(entry.amount), new Decimal(0))
-    .toFixed(2);
+  const projection = await loadAccountBalanceProjection(
+    db,
+    account.id,
+    undefined,
+    eligibilityPolicy.enabled,
+  );
+  const currentBalance = projection.accountBalance;
 
   const openPositions = await db
     .selectFrom('app.positions')
@@ -120,6 +129,8 @@ export async function loadAccountRiskEngineInputs(
     maximumLossRate: policy.parameters.maximum_loss_rate,
     sodBalance: currentBalance,
     sodEquity: currentBalance,
+    programSodBalance: projection.programEligibleBalance,
+    programSodEquity: projection.programEligibleBalance,
     now: params.now,
   });
 
@@ -133,6 +144,10 @@ export async function loadAccountRiskEngineInputs(
       'eod_balance',
       'maximum_loss_floor_after',
       'realized_net_profit_for_day',
+      'program_sod_balance',
+      'program_eod_balance',
+      'highest_program_eod_balance_after',
+      'eligible_realized_net_profit_for_day',
     ])
     .where('account_id', '=', account.id)
     .where('trading_day', '<', today.trading_day)
@@ -153,6 +168,7 @@ export async function loadAccountRiskEngineInputs(
     },
     policy: policy.parameters,
     currentBalance,
+    currentProgramEligibleBalance: projection.programEligibleBalance,
     currentUnrealizedPnl: '0', // realized-only decision — see doc comment above.
     openPositionCount: openPositions.length,
     pendingOrderCount: 0, // TRD-021: no order-level partial fills — nothing is ever "pending".
@@ -166,6 +182,7 @@ export async function loadAccountRiskEngineInputs(
     activatedAt: account.activated_at,
     policy,
     currentBalance,
+    programEligibleBalance: projection.programEligibleBalance,
     openPositionCount: openPositions.length,
     result,
   };
