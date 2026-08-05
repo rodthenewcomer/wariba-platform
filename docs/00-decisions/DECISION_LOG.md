@@ -320,6 +320,10 @@ Révision:
 | TRD-026 | `LOCKED` | NAS100 jusqu’à 1:20. | Compromis attractivité/risque. |
 | TRD-027 | `LOCKED` | Limites d’exposition agrégées par taille de compte. | Le levier seul ne contrôle pas l’exposition. |
 | TRD-028 | `LOCKED` | Marge utilisée maximale : 30 % Evaluation, 25 % Performance. | Protection de l’equity. |
+| TRD-029 | `LOCKED` | `ExecutionStateValue` (WariX) n’a pas d’état `partially-filled` — préparation/envoi client, puis reçu/validé/accepté/rempli/rejeté/annulé côté serveur. | Corrige une dérive : TRD-021 (verrouillé) rend ce fill partiel structurellement inatteignable en V1, mais le type UI le portait encore. Corriger la dérive plutôt que construire une interface pour un état impossible. |
+| TRD-030 | `LOCKED` | Le levier effectif et les bornes de quantité (min/max/pas) par symbole sont exposés au client WebSocket via un message `symbol_specs` (une fois par connexion), lu depuis `app.symbol_specs` déjà en base. | Nécessaire pour que WariX calcule marge estimée et validation de quantité côté client sans deviner une valeur ; `services/realtime` sélectionnait déjà ces colonnes en base sans les transmettre. |
+| TRD-031 | `LOCKED` | La concentration par bucket d’exposition (Forex combiné, XAUUSD, NAS100) affichée dans Guardian est purement informative et réutilise les mêmes buckets que la porte d’exposition agrégée (`packages/database/src/trading.ts`, `FOREX_SYMBOLS`). | Évite la dérive entre ce qui bloque réellement un ordre et ce qui est affiché comme concentration ; jamais bloquant par elle-même (Rulebook §9.5). |
+| TRD-032 | `OPEN` | Aucun calendrier news/weekend n’existe encore — le champ de restriction dans Guardian et Risk Ribbon reste présent mais toujours vide. | Ne prolonge pas TRD-016 (déjà `OPEN`) : fabriquer un faux calendrier violerait la clause d’arrêt du prompt. Absence honnête plutôt que valeur inventée, en attendant la résolution de TRD-016/TRD-017. |
 
 ---
 
@@ -359,6 +363,7 @@ Révision:
 | UX-014 | `CANDIDATE` | Trust Center public. | À implémenter avant public. |
 | UX-015 | `LOCKED` | Toutes les métriques critiques ouvrent leur formule et source. | Explicabilité. |
 | UX-016 | `LOCKED` | La nature simulée est répétée aux moments critiques. | Éviter confusion. |
+| UX-017 | `LOCKED` | `preparing` et `sending` sont des états 100 % client de l’état d’exécution WariX, jamais persistés côté serveur, posés avant/pendant l’envoi WebSocket. | Design System §25.7 ne décrit que les états confirmés serveur, ce qui semblait en conflit avec UX Architecture §22.9 ; les deux restent cohérents une fois `ExecutionState` compris comme couvrant le cycle complet (client + serveur), pas seulement la partie serveur. |
 
 ---
 
@@ -445,6 +450,8 @@ Révision:
 | ENG-020 | `LOCKED` | Les erreurs exposent un code stable et correlation ID. | Support et audit. |
 | ENG-026 | `LOCKED` | Le script `ci` (package.json) s'invoque via `pnpm run ci`, jamais `pnpm ci` seul. | pnpm réserve `ci` comme commande interne (équivalent `npm ci`) et ignore silencieusement le script du même nom sans `run` — trouvé lors de la vérification réelle de Prompt 01 (build agent), corrigé dans AGENTS.md, Engineering Constitution, Build Plan, Prompt Pack et README (2026-08-02). |
 | ENG-027 | `LOCKED` | Le runtime de référence passe à Node.js 24 LTS, épinglé par `.nvmrc`, avec une plage 24.x dans `package.json`. | Node.js 20 est EOL et le SDK Supabase émettait un avertissement de dépréciation au build. Migration validée dans l'audit Prompts 01–04 (2026-08-03). |
+| ENG-029 | `LOCKED` | Répartition WariX : Risk Ribbon lit `snapshot.risk` (état compte permanent) ; Guardian reprend les mêmes valeurs pour l'impact de l'ordre en cours d'édition ; l'Order Ticket ne fait aucun calcul (champs bruts uniquement). | Évite trois endroits qui recalculent indépendamment « DLL restante » et risquent de diverger ; conforme à la règle Design System §48 déjà respectée par Risk Ribbon. |
+| ENG-030 | `LOCKED` | Les chiffres temps réel de Guardian/Risk Ribbon (equity, DLL restante, Maximum Loss restante) sont rafraîchis par une re-diffusion serveur périodique (~4 s) tant qu'un compte a au moins une position ouverte, jamais par un recalcul côté client. | `buildAccountSnapshot` calculait déjà ces valeurs avec le prix courant mais seulement à la (re)connexion ou après un ordre ; rester server-authoritative (ENG-002) plutôt que dupliquer la formule en client. |
 
 ---
 
@@ -624,6 +631,10 @@ Ces décisions ne bloquent pas toutes la fondation, mais bloqueront des phases p
 ---
 
 # 25. Historique des versions
+
+## v1.6 — 2026-08-05
+
+Prompt 07 (WariX) complété sur `feat/wariba-trade` : Guardian (nouveau, déterministe, TRD/UX/ENG-029), graphique en chandeliers, ticket d'ordre complet, machine d'états d'exécution client+serveur (UX-017), Watchlist enrichie, positions avec PnL flottant propre à WariX (par opposition au Hub), Close All protégé avec confirmation renforcée sur mobile et résultat détaillé, isolation des re-renders par tick (`useSyncExternalStore`), passe d'accessibilité (clavier, focus, `aria-current`, cibles tactiles 44px), et suite E2E réelle contre la pile complète. Deux bugs réels trouvés et corrigés en cours de route : une race de resynchronisation WebSocket côté client (un ordre rejeté ne faisait jamais avancer `trading_accounts.version`, donc jamais apparaître dans l'historique) et une erreur SSR (`useSyncExternalStore` sans `getServerSnapshot`). TRD-016/TRD-017 restent `OPEN` — aucun calendrier news/weekend n'a été fabriqué.
 
 ## v1.5 — 2026-08-03
 

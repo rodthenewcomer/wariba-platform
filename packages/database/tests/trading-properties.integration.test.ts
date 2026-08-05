@@ -303,7 +303,10 @@ describeIfDb('trading invariants — real database', () => {
         .where('position_id', '=', positionId)
         .execute();
       expect(allFills).toHaveLength(3); // 1 open + 2 partial closes, never merged/updated in place
-    }, 20000);
+      // 30s: an open plus two partial closes, each a real round trip in
+      // this environment's confirmed latency — not related to any
+      // Prompt 07 change (no rejection path here).
+    }, 30000);
   });
 
   describe('balance = ledger (reconciliation)', () => {
