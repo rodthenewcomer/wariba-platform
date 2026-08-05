@@ -13,7 +13,13 @@ const LEVEL_WEIGHT: Record<LogLevel, number> = {
   fatal: 50,
 };
 
-const FORBIDDEN_FIELD_PATTERN = /(password|secret|token|apikey|api_key)/i;
+const FORBIDDEN_FIELD_PATTERN =
+  /(password|secret|token|apikey|api_key|authorization|cookie|session|jwt|refresh|ssn|email|phone|iban|card(number)?|pan|cvv)/i;
+
+// Reserved record fields — never let caller-supplied context/bindings override
+// what the logger itself sets (would let a context object masquerade a real
+// `error`/`fatal` event as `level: 'debug'` to log filters/alerting).
+const RESERVED_FIELDS = new Set(['timestamp', 'level', 'service', 'module', 'event']);
 
 export interface LogContext {
   correlationId?: string;
@@ -44,16 +50,33 @@ export interface Logger {
   child(bindings: LogContext): Logger;
 }
 
-function sanitize(context: LogContext): LogContext {
-  const clean: LogContext = {};
+function sanitizeValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sanitizeValue);
+  }
+  if (value !== null && typeof value === 'object' && !(value instanceof Date)) {
+    return sanitizeRecord(value as Record<string, unknown>);
+  }
+  return value;
+}
+
+function sanitizeRecord(context: Record<string, unknown>): Record<string, unknown> {
+  const clean: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(context)) {
+    if (RESERVED_FIELDS.has(key)) {
+      continue;
+    }
     if (FORBIDDEN_FIELD_PATTERN.test(key)) {
       clean[key] = '[REDACTED]';
       continue;
     }
-    clean[key] = value;
+    clean[key] = sanitizeValue(value);
   }
   return clean;
+}
+
+function sanitize(context: LogContext): LogContext {
+  return sanitizeRecord(context) as LogContext;
 }
 
 export function createLogger(options: LoggerOptions): Logger {

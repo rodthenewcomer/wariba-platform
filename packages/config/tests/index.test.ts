@@ -90,4 +90,17 @@ describe('assertNotSandboxInProduction', () => {
       }),
     ).not.toThrow();
   });
+
+  it.each(['psp_sandbox', 'payment_sandbox_v2', 'SANDBOX_PSP', 'mock_market_data', 'replay_feed'])(
+    'throws (fail-fast) for the underscore-adjacent non-production provider value %s',
+    (providerValue) => {
+      expect(() =>
+        assertNotSandboxInProduction({
+          environment: 'production',
+          providerName: 'PAYMENT_PROVIDER',
+          providerValue,
+        }),
+      ).toThrow(ConfigValidationError);
+    },
+  );
 });
