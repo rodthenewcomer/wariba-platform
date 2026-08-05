@@ -18,16 +18,17 @@ const STATUS_LABEL: Record<string, string> = {
   closed: 'Compte terminé',
 };
 
-const STATUS_VARIANT: Record<string, 'neutral' | 'information' | 'success' | 'warning' | 'danger'> = {
-  pending_activation: 'neutral',
-  active: 'success',
-  soft_locked: 'warning',
-  pass_pending: 'information',
-  inactive: 'neutral',
-  passed: 'success',
-  breached: 'danger',
-  closed: 'neutral',
-};
+const STATUS_VARIANT: Record<string, 'neutral' | 'information' | 'success' | 'warning' | 'danger'> =
+  {
+    pending_activation: 'neutral',
+    active: 'success',
+    soft_locked: 'warning',
+    pass_pending: 'information',
+    inactive: 'neutral',
+    passed: 'success',
+    breached: 'danger',
+    closed: 'neutral',
+  };
 
 function formatNominal(amount: string, currency: string): string {
   return `${Math.round(Number.parseFloat(amount)).toLocaleString('fr-FR')} ${currency}`;

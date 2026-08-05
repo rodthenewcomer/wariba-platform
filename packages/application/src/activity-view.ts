@@ -67,14 +67,31 @@ export async function buildRecentActivityView(
       .execute(),
     db
       .selectFrom('app.risk_violations')
-      .select(['id', 'rule_code', 'severity', 'consequence', 'threshold_value', 'observed_value', 'occurred_at'])
+      .select([
+        'id',
+        'rule_code',
+        'severity',
+        'consequence',
+        'threshold_value',
+        'observed_value',
+        'occurred_at',
+      ])
       .where('account_id', '=', params.accountId)
       .orderBy('occurred_at', 'desc')
       .limit(limit)
       .execute(),
     db
       .selectFrom('app.fills')
-      .select(['id', 'symbol', 'side', 'fill_type', 'quantity', 'price', 'realized_pnl', 'occurred_at'])
+      .select([
+        'id',
+        'symbol',
+        'side',
+        'fill_type',
+        'quantity',
+        'price',
+        'realized_pnl',
+        'occurred_at',
+      ])
       .where('account_id', '=', params.accountId)
       .orderBy('occurred_at', 'desc')
       .limit(limit)
@@ -96,11 +113,18 @@ export async function buildRecentActivityView(
       kind: 'risk_violation',
       label: RISK_RULE_LABELS[row.rule_code] ?? row.rule_code,
       ...(row.threshold_value && row.observed_value
-        ? { detail: `Seuil ${formatUsd(row.threshold_value)} · observé ${formatUsd(row.observed_value)}` }
+        ? {
+            detail: `Seuil ${formatUsd(row.threshold_value)} · observé ${formatUsd(row.observed_value)}`,
+          }
         : {}),
       timestampLabel: formatTimestampLabel(row.occurred_at),
       occurredAt: row.occurred_at.toISOString(),
-      severity: row.severity === 'critical' ? 'danger' : row.severity === 'warning' ? 'warning' : 'information',
+      severity:
+        row.severity === 'critical'
+          ? 'danger'
+          : row.severity === 'warning'
+            ? 'warning'
+            : 'information',
     })),
     ...fills.map((row): ActivityItem => ({
       id: `fill-${row.id}`,

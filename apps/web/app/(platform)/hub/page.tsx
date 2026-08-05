@@ -97,19 +97,29 @@ export default async function HubPage({
 
   const { account: requestedAccountId } = await searchParams;
   const activeAccount =
-    accounts.find((candidate) => candidate.id === requestedAccountId) ?? (accounts[0] as (typeof accounts)[number]);
+    accounts.find((candidate) => candidate.id === requestedAccountId) ??
+    (accounts[0] as (typeof accounts)[number]);
 
   const selectorAccounts = accounts.map((account) => ({
     id: account.id,
     href: accountSelectorHref(account.id),
-    program: account.programType === 'WARIBA_ONE' ? ('WARIBA ONE' as const) : ('WARIBA Performance' as const),
+    program:
+      account.programType === 'WARIBA_ONE'
+        ? ('WARIBA ONE' as const)
+        : ('WARIBA Performance' as const),
     nominalFormatted: `${Math.round(Number.parseFloat(account.nominalBalance)).toLocaleString('fr-FR')} ${account.nominalCurrency}`,
     publicId: account.publicId,
     statusLabel: SELECTOR_STATUS_LABEL[account.status] ?? account.status,
     statusVariant: SELECTOR_STATUS_VARIANT[account.status] ?? 'neutral',
   }));
 
-  const selector = <AccountSelector LinkComponent={Link} accounts={selectorAccounts} activeAccountId={activeAccount.id} />;
+  const selector = (
+    <AccountSelector
+      LinkComponent={Link}
+      accounts={selectorAccounts}
+      activeAccountId={activeAccount.id}
+    />
+  );
 
   const policyChip = (
     <TrackedClick event="policy_opened" context={{ accountId: activeAccount.id }}>
@@ -161,7 +171,10 @@ export default async function HubPage({
           statusLabel={dormant ? 'Inactif' : 'Compte terminé'}
           statusVariant="neutral"
         />
-        <Alert level={dormant ? 'warning' : 'information'} title={dormant ? 'Compte inactif' : 'Compte terminé'}>
+        <Alert
+          level={dormant ? 'warning' : 'information'}
+          title={dormant ? 'Compte inactif' : 'Compte terminé'}
+        >
           {dormant
             ? 'Aucune activité n’a été enregistrée depuis 30 jours. Contactez le support pour comprendre vos options.'
             : 'Ce compte est fermé. Il reste consultable en lecture seule.'}

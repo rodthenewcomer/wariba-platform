@@ -8,13 +8,7 @@ import {
 } from './risk-engine-inputs';
 
 export type AccountMissionState =
-  | 'active'
-  | 'attention'
-  | 'reached'
-  | 'waiting'
-  | 'passed'
-  | 'breached'
-  | 'frozen';
+  'active' | 'attention' | 'reached' | 'waiting' | 'passed' | 'breached' | 'frozen';
 
 export interface AccountMissionCondition {
   label: string;
@@ -128,7 +122,10 @@ export function projectAccountMissionView(inputs: AccountRiskEngineInputs): Acco
     Math.max(
       0,
       Math.round(
-        new Decimal(result.realizedNetProfit).dividedBy(result.target.required).times(100).toNumber(),
+        new Decimal(result.realizedNetProfit)
+          .dividedBy(result.target.required)
+          .times(100)
+          .toNumber(),
       ),
     ),
   );
@@ -149,7 +146,10 @@ export function projectAccountMissionView(inputs: AccountRiskEngineInputs): Acco
     },
     {
       label: 'Aucune position ouverte',
-      detail: inputs.openPositionCount === 0 ? 'Confirmé' : `${inputs.openPositionCount} position(s) ouverte(s)`,
+      detail:
+        inputs.openPositionCount === 0
+          ? 'Confirmé'
+          : `${inputs.openPositionCount} position(s) ouverte(s)`,
       met: inputs.openPositionCount === 0,
     },
     {

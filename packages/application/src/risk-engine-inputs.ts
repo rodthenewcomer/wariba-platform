@@ -78,7 +78,14 @@ export async function loadAccountRiskEngineInputs(
 ): Promise<AccountRiskEngineInputs> {
   const account = await db
     .selectFrom('app.trading_accounts')
-    .select(['id', 'status', 'nominal_balance', 'policy_version_id', 'program_type', 'activated_at'])
+    .select([
+      'id',
+      'status',
+      'nominal_balance',
+      'policy_version_id',
+      'program_type',
+      'activated_at',
+    ])
     .where('id', '=', params.accountId)
     .executeTakeFirstOrThrow(
       () => new Error(`loadAccountRiskEngineInputs: account ${params.accountId} not found.`),

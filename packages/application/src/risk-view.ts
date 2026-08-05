@@ -7,12 +7,7 @@ import { loadAccountRiskEngineInputs, type AccountRiskEngineInputs } from './ris
 // layer stays UI-framework-agnostic, so the union is redeclared here rather
 // than imported (apps/web passes this value straight into <RiskRibbon status>).
 export type AccountRiskStatus =
-  | 'normal'
-  | 'attention'
-  | 'near-limit'
-  | 'soft-lock'
-  | 'hard-breach'
-  | 'stale';
+  'normal' | 'attention' | 'near-limit' | 'soft-lock' | 'hard-breach' | 'stale';
 
 export interface AccountRiskViolation {
   ruleCode: string;
@@ -92,14 +87,12 @@ export function projectAccountRiskView(inputs: AccountRiskEngineInputs): Account
     maximumLossRemainingFormatted: formatUsd(result.maximumLoss.remaining),
     nextResetLabel: '00:00 UTC',
     currentEquityFormatted: formatUsd(result.currentEquity),
-    violations: result.violations.map(
-      (violation): AccountRiskViolation => ({
-        ruleCode: violation.ruleCode,
-        ruleLabel: RISK_RULE_LABELS[violation.ruleCode] ?? violation.ruleCode,
-        thresholdFormatted: formatUsd(violation.thresholdValue),
-        observedFormatted: formatUsd(violation.observedValue),
-        consequence: violation.consequence,
-      }),
-    ),
+    violations: result.violations.map((violation): AccountRiskViolation => ({
+      ruleCode: violation.ruleCode,
+      ruleLabel: RISK_RULE_LABELS[violation.ruleCode] ?? violation.ruleCode,
+      thresholdFormatted: formatUsd(violation.thresholdValue),
+      observedFormatted: formatUsd(violation.observedValue),
+      consequence: violation.consequence,
+    })),
   };
 }

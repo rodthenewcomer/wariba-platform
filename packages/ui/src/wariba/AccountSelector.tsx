@@ -31,7 +31,11 @@ const STATUS_DOT: Record<AccountSelectorItem['statusVariant'], string> = {
  * Switching is always an explicit navigation, never a silent state flip —
  * WARIBA must never execute an action against the wrong account.
  */
-export function AccountSelector({ LinkComponent: Link, accounts, activeAccountId }: AccountSelectorProps) {
+export function AccountSelector({
+  LinkComponent: Link,
+  accounts,
+  activeAccountId,
+}: AccountSelectorProps) {
   if (accounts.length <= 1) return null;
 
   return (

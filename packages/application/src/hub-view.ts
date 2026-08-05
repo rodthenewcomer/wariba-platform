@@ -108,12 +108,10 @@ export async function buildAccountHubView(
   });
 
   // Ascending order for the chart (snapshotRows above is newest-first for the list).
-  const balanceHistory: BalancePoint[] = [...snapshotRows]
-    .reverse()
-    .map((row) => ({
-      time: row.trading_day,
-      balance: Number.parseFloat(row.eod_balance ?? inputs.currentBalance),
-    }));
+  const balanceHistory: BalancePoint[] = [...snapshotRows].reverse().map((row) => ({
+    time: row.trading_day,
+    balance: Number.parseFloat(row.eod_balance ?? inputs.currentBalance),
+  }));
 
   const state = deriveHubDisplayState({
     accountStatus: inputs.accountStatus,
@@ -133,7 +131,11 @@ export async function buildAccountHubView(
   const pnlToday = new Decimal(inputs.currentBalance).minus(result.dailyLoss.reference).toFixed(2);
 
   const activatedAtLabel = inputs.activatedAt
-    ? inputs.activatedAt.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+    ? inputs.activatedAt.toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      })
     : null;
 
   return {

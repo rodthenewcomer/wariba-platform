@@ -18,7 +18,9 @@ function loadPrimaryFixture(): E2eFixtureAccount {
 }
 
 test.describe('Trader Hub', () => {
-  test('shows account state, mission, and risk within a few seconds of loading', async ({ page }) => {
+  test('shows account state, mission, and risk within a few seconds of loading', async ({
+    page,
+  }) => {
     const start = Date.now();
     await page.goto('/hub');
     await expect(page.getByText('Actif').first()).toBeVisible();
@@ -105,9 +107,7 @@ test.describe('Trader Hub', () => {
       await expect(page.getByText('EURUSD · Achat')).toBeVisible();
       await expect(page.getByText(/Aucune position ouverte\./)).toHaveCount(0);
 
-      const positionsCard = page
-        .locator('h2', { hasText: 'Positions ouvertes' })
-        .locator('..');
+      const positionsCard = page.locator('h2', { hasText: 'Positions ouvertes' }).locator('..');
       await expect(positionsCard.getByText(/pnl/i)).toHaveCount(0);
     });
   });
@@ -151,7 +151,10 @@ test.describe('Trader Hub', () => {
       await expect(page).toHaveURL(new RegExp(`account=${secondary.accountId}`));
       await expect(page.getByText('Blocage temporaire').first()).toBeVisible();
       await expect(page.getByRole('link', { name: 'Ouvrir WariX' })).toHaveCount(0);
-      await page.screenshot({ path: 'test-results/visual/hub-soft-locked-1440.png', fullPage: true });
+      await page.screenshot({
+        path: 'test-results/visual/hub-soft-locked-1440.png',
+        fullPage: true,
+      });
     });
   });
 });

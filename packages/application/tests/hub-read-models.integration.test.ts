@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { activateEvaluationAccount, createDbClient, evaluateAndApplyAccountRisk, type Db } from '@wariba/database';
+import {
+  activateEvaluationAccount,
+  createDbClient,
+  evaluateAndApplyAccountRisk,
+  type Db,
+} from '@wariba/database';
 import {
   buildAccountHubView,
   buildAccountMissionView,
@@ -312,8 +317,14 @@ describeIfDb('Hub read models — real database', () => {
       // so the placeholder policy's FK has nothing referencing it left —
       // then drop it from cleanupAccountIds so the outer afterAll doesn't
       // try to process an already-deleted row.
-      await db.deleteFrom('app.trading_ledger_entries').where('account_id', '=', accountId).execute();
-      await db.deleteFrom('app.account_state_transitions').where('account_id', '=', accountId).execute();
+      await db
+        .deleteFrom('app.trading_ledger_entries')
+        .where('account_id', '=', accountId)
+        .execute();
+      await db
+        .deleteFrom('app.account_state_transitions')
+        .where('account_id', '=', accountId)
+        .execute();
       const account = await db
         .selectFrom('app.trading_accounts')
         .select('source_purchase_order_id')
@@ -336,9 +347,9 @@ describeIfDb('Hub read models — real database', () => {
     });
 
     it('risk view throws a typed, catchable error rather than crashing opaquely', async () => {
-      await expect(
-        buildAccountRiskView(db, { accountId, now: new Date() }),
-      ).rejects.toBeInstanceOf(UnsupportedProgramError);
+      await expect(buildAccountRiskView(db, { accountId, now: new Date() })).rejects.toBeInstanceOf(
+        UnsupportedProgramError,
+      );
     });
   });
 });
