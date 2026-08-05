@@ -82,5 +82,4 @@ Cette métrique complète la progression globale sans remplacer la North Star pr
 
 ## 7. Nom du terminal
 
-**WariX** est le nom public du terminal propriétaire de trading simulé de WARIBA. Il remplace l’appellation active « WariX » dans le produit et la documentation. La route technique `/trade` peut rester stable.
-
+**WariX** est le nom public du terminal propriétaire de trading simulé de WARIBA. Il remplace l’appellation active « WARIBA Trade » dans le produit et la documentation. La route technique `/trade` peut rester stable.

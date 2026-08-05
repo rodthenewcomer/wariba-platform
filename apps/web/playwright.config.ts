@@ -1,16 +1,18 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const BASE_URL = process.env.APP_BASE_URL ?? 'http://localhost:3000';
+const REALTIME_WS_URL = process.env.NEXT_PUBLIC_REALTIME_WS_URL ?? 'ws://127.0.0.1:4001/ws';
+const REALTIME_HEALTH_URL = `${REALTIME_WS_URL.replace(/^ws(s?):/, 'http$1:').replace(/\/ws$/, '')}/health`;
 
 /**
  * globalSetup creates one real activated WARIBA ONE account, signs in
  * through the actual /login form (not a synthesized cookie), and saves the
  * resulting session for hub.spec.ts to reuse — trade.spec.ts manages its
  * own account per-test via the `tradeAccount` fixture instead and ignores
- * this session. reuseExistingServer means webServer is safe alongside a
- * manually-managed dev stack (the convention scripts/visual-verify.mjs and
- * most of this branch's manual verification used): it only starts its own
- * `pnpm dev` if nothing is already listening at BASE_URL.
+ * this session. The two webServer entries make CI self-contained: WariX
+ * requires both Next.js and the realtime WebSocket process. Each entry is
+ * still safe alongside a manually-managed dev stack because
+ * reuseExistingServer only starts a missing process.
  */
 export default defineConfig({
   testDir: './tests/e2e',
@@ -34,12 +36,20 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  webServer: {
-    command: 'pnpm dev',
-    url: BASE_URL,
-    reuseExistingServer: true,
-    timeout: 60000,
-  },
+  webServer: [
+    {
+      command: 'pnpm dev',
+      url: BASE_URL,
+      reuseExistingServer: true,
+      timeout: 60_000,
+    },
+    {
+      command: 'pnpm --filter @wariba/realtime start',
+      url: REALTIME_HEALTH_URL,
+      reuseExistingServer: true,
+      timeout: 60_000,
+    },
+  ],
   projects: [
     {
       name: 'desktop',

@@ -4,14 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Alert, Button, Card, Checkbox, Text } from '@wariba/ui';
 import type { CheckoutContextDTO } from '@wariba/application';
-
-function formatFcfa(amount: string): string {
-  return `${Number.parseInt(amount, 10).toLocaleString('fr-FR')} FCFA`;
-}
-
-function formatUsd(amount: string): string {
-  return `${Number.parseInt(amount, 10).toLocaleString('fr-FR')} USD`;
-}
+import { formatFcfa, formatUsd } from '../../../lib/pricing-format';
 
 export interface CheckoutClientProps {
   context: CheckoutContextDTO;

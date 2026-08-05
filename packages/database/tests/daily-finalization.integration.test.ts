@@ -273,14 +273,20 @@ describeIfDb('daily finalization — real database', () => {
     // Large gain: pushes the EOD balance well above nominal + 10%, so the
     // next floor should ratchet up from the initial 9000.
     const closeMarket = { bid: '1.13000', ask: '1.13005', timestamp: FRESH_TICK, sequence: '5' };
+    const eligibleCloseAt = new Date(NOW.getTime() + 61_000);
     await closePosition(db, {
       accountId,
       idempotencyKey: randomUUID(),
       positionId: open.position?.id as string,
       mode: 'full',
-      market: closeMarket,
-      marketBySymbol: { ...ALL_MARKETS, EURUSD: closeMarket },
-      now: NOW,
+      market: { ...closeMarket, timestamp: eligibleCloseAt.toISOString() },
+      marketBySymbol: {
+        ...ALL_MARKETS,
+        EURUSD: { ...closeMarket, timestamp: eligibleCloseAt.toISOString() },
+      },
+      // Prompt 07B: this ratchet scenario exercises an eligible profit,
+      // therefore the holding duration must clear the 60-second threshold.
+      now: eligibleCloseAt,
     });
 
     const finalized = await finalizeDailyBoundaryForAccount(db, { accountId, clock: () => dayTwo });

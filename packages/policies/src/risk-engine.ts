@@ -36,6 +36,11 @@ export interface DailySnapshotInput {
   eodBalance: string | null;
   maximumLossFloorAfter: string | null;
   realizedNetProfitForDay: string | null;
+  /** Prompt 07B projection fields. Optional only for legacy policy/test fixtures. */
+  programSodBalance?: string;
+  programEodBalance?: string | null;
+  highestProgramEodBalanceAfter?: string | null;
+  eligibleRealizedNetProfitForDay?: string | null;
 }
 
 export interface EvaluateAccountRiskParams {
@@ -47,6 +52,8 @@ export interface EvaluateAccountRiskParams {
   };
   policy: EvaluationOnePolicyParameters;
   currentBalance: string;
+  /** Actual balance less cumulative short-duration profit that is not program-eligible. */
+  currentProgramEligibleBalance?: string;
   currentUnrealizedPnl: string;
   openPositionCount: number;
   pendingOrderCount: number;
@@ -56,6 +63,8 @@ export interface EvaluateAccountRiskParams {
 
 export interface RiskEngineResult {
   currentEquity: string;
+  programEligibleBalance: string;
+  programEligibleEquity: string;
   realizedNetProfit: string;
   dailyLoss: { reference: string; floor: string; used: string; softLockTriggered: boolean };
   maximumLoss: { floor: string; remaining: string; breached: boolean };
@@ -66,7 +75,7 @@ export interface RiskEngineResult {
     bestDayProfit: string;
     positiveDaysProfitSum: string;
   };
-  target: { required: string; reached: boolean };
+  target: { required: string; current: string; reached: boolean };
   eligibility: { passEligible: boolean; blockingReasons: readonly RiskRuleCode[] };
   /**
    * Never 'passed' — this pure function stops at 'pass_pending' by design,
@@ -97,7 +106,13 @@ export function evaluateAccountRisk(params: EvaluateAccountRiskParams): RiskEngi
 
   const today = dailySnapshots[dailySnapshots.length - 1] as DailySnapshotInput;
   const currentEquity = new Decimal(currentBalance).plus(currentUnrealizedPnl).toFixed(2);
-  const realizedNetProfit = new Decimal(currentBalance).minus(account.nominalBalance).toFixed(2);
+  const programEligibleBalance = params.currentProgramEligibleBalance ?? currentBalance;
+  const programEligibleEquity = new Decimal(programEligibleBalance)
+    .plus(currentUnrealizedPnl)
+    .toFixed(2);
+  const realizedNetProfit = new Decimal(programEligibleBalance)
+    .minus(account.nominalBalance)
+    .toFixed(2);
 
   const dailyLossFloor = computeDailyLossFloor({
     dailyReference: today.dailyReference,
@@ -106,21 +121,21 @@ export function evaluateAccountRisk(params: EvaluateAccountRiskParams): RiskEngi
   });
   const dailyLossUsed = computeDailyLossUsed({
     dailyReference: today.dailyReference,
-    currentAdjustedEquity: currentEquity,
+    currentAdjustedEquity: programEligibleEquity,
   });
   const softLockTriggered = isDailyLossSoftLockTriggered({
-    currentAdjustedEquity: currentEquity,
+    currentAdjustedEquity: programEligibleEquity,
     dailyLossFloor,
   });
 
   const maximumLossFloor = today.maximumLossFloorBefore;
   const maximumLossBreached = isMaximumLossBreached({
-    currentEquity,
+    currentEquity: programEligibleEquity,
     maximumLossFloor,
   });
   const maximumLossRemaining = Decimal.max(
     0,
-    new Decimal(currentEquity).minus(maximumLossFloor),
+    new Decimal(programEligibleEquity).minus(maximumLossFloor),
   ).toFixed(2);
 
   // Best Day Rule (ONE-022): only finalized days count — an in-progress "today"
@@ -128,14 +143,27 @@ export function evaluateAccountRisk(params: EvaluateAccountRiskParams): RiskEngi
   const finalizedPositiveDays = dailySnapshots.filter(
     (day) =>
       day.status === 'finalized' &&
-      day.realizedNetProfitForDay !== null &&
-      new Decimal(day.realizedNetProfitForDay).greaterThan(0),
+      (day.eligibleRealizedNetProfitForDay ?? day.realizedNetProfitForDay) !== null &&
+      new Decimal(
+        day.eligibleRealizedNetProfitForDay ?? (day.realizedNetProfitForDay as string),
+      ).greaterThan(0),
   );
   const sumOfPositiveDayProfits = finalizedPositiveDays
-    .reduce((sum, day) => sum.plus(day.realizedNetProfitForDay as string), new Decimal(0))
+    .reduce(
+      (sum, day) =>
+        sum.plus(day.eligibleRealizedNetProfitForDay ?? (day.realizedNetProfitForDay as string)),
+      new Decimal(0),
+    )
     .toFixed(2);
   const bestProfitableFinalizedDayProfit = finalizedPositiveDays
-    .reduce((max, day) => Decimal.max(max, day.realizedNetProfitForDay as string), new Decimal(0))
+    .reduce(
+      (max, day) =>
+        Decimal.max(
+          max,
+          day.eligibleRealizedNetProfitForDay ?? (day.realizedNetProfitForDay as string),
+        ),
+      new Decimal(0),
+    )
     .toFixed(2);
   const bestDayRatio = computeBestDayRatio({
     bestProfitableFinalizedDayProfit,
@@ -170,7 +198,7 @@ export function evaluateAccountRisk(params: EvaluateAccountRiskParams): RiskEngi
       severity: 'critical',
       consequence: 'hard_breach',
       thresholdValue: maximumLossFloor,
-      observedValue: currentEquity,
+      observedValue: programEligibleEquity,
     });
   } else if (softLockTriggered) {
     violations.push({
@@ -178,7 +206,7 @@ export function evaluateAccountRisk(params: EvaluateAccountRiskParams): RiskEngi
       severity: 'warning',
       consequence: 'soft_lock',
       thresholdValue: dailyLossFloor,
-      observedValue: currentEquity,
+      observedValue: programEligibleEquity,
     });
   }
 
@@ -195,6 +223,8 @@ export function evaluateAccountRisk(params: EvaluateAccountRiskParams): RiskEngi
 
   return {
     currentEquity,
+    programEligibleBalance,
+    programEligibleEquity,
     realizedNetProfit,
     dailyLoss: {
       reference: today.dailyReference,
@@ -213,7 +243,7 @@ export function evaluateAccountRisk(params: EvaluateAccountRiskParams): RiskEngi
       bestDayProfit: bestProfitableFinalizedDayProfit,
       positiveDaysProfitSum: sumOfPositiveDayProfits,
     },
-    target: { required: requiredProfit, reached: targetReached },
+    target: { required: requiredProfit, current: realizedNetProfit, reached: targetReached },
     eligibility: { passEligible, blockingReasons },
     recommendedStatus,
     violations,

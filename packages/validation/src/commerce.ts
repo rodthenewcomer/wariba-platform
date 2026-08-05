@@ -28,8 +28,17 @@ export const sandboxWebhookEventSchema = z.object({
   eventId: z.string().min(1),
   eventType: z.enum(['payment.confirmed', 'payment.failed']),
   purchaseOrderId: z.string().uuid(),
-  amount: z.string().regex(/^\d+\.\d{2}$/, 'Amount must be a decimal string with 2 places'),
-  currency: z.string().length(3),
+  // Bounded to at most 9 integer digits (below Number.MAX_SAFE_INTEGER's
+  // ~15-16 significant digits with room to spare) — every real product
+  // price is a few hundred at most, so this only exists to reject an
+  // absurd/adversarial value, not to constrain a legitimate one. `> 0`
+  // rejects a "payment.confirmed" event for $0, which is never a real
+  // payment.
+  amount: z
+    .string()
+    .regex(/^\d{1,9}\.\d{2}$/, 'Amount must be a decimal string with 2 places')
+    .refine((value) => Number.parseFloat(value) > 0, 'Amount must be positive'),
+  currency: z.string().regex(/^[A-Z]{3}$/, 'Currency must be an uppercase ISO 4217 code'),
   occurredAt: z.string().datetime(),
 });
 export type SandboxWebhookEvent = z.infer<typeof sandboxWebhookEventSchema>;

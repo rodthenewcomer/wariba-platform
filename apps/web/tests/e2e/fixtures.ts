@@ -24,10 +24,8 @@ export {
 /**
  * One fresh user + one active WARIBA ONE account per test — every WariX E2E
  * scenario here needs a real, isolated account (open positions/orders from
- * one test must never bleed into another's assertions). No teardown: this
- * points at the shared hosted Supabase dev project, same as every
- * integration test in this repo — orphaned fixture rows are an accepted,
- * already-established cost here, not something worth a cleanup pass per run.
+ * one test must never bleed into another's assertions). Cleanup runs in a
+ * `finally` block so failed tests do not leave synthetic users behind.
  */
 export const test = base.extend<{ tradeAccount: TradeAccount }>({
   // Playwright's fixture API requires this literal `{}` destructuring shape
@@ -40,7 +38,13 @@ export const test = base.extend<{ tradeAccount: TradeAccount }>({
       supabaseUrl: process.env.SUPABASE_URL as string,
       supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
     });
-    await use(account);
+    const db = createFixtureDb();
+    try {
+      await use(account);
+    } finally {
+      await deleteFixtureAccount(db, account);
+      await db.destroy();
+    }
   },
 });
 

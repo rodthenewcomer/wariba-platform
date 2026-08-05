@@ -1,7 +1,7 @@
 ---
 title: "WARIBA Program Rulebook — Addendum"
-version: "1.1"
-document_id: "WARIBA-PROGRAM-RULEBOOK-1.1"
+version: "1.1.1"
+document_id: "WARIBA-PROGRAM-RULEBOOK-1.1.1"
 status: "ACTIVE CANDIDATE POLICY — PRIVATE SANDBOX"
 language: "fr-FR"
 brand: "WARIBA"
@@ -11,7 +11,7 @@ supersedes_sections_of: "WARIBA_Program_Rulebook_v1.0.md"
 machine_source: "WARIBA_RULESET_v1.1.json"
 ---
 
-# WARIBA Program Rulebook — Addendum v1.1
+# WARIBA Program Rulebook — Addendum v1.1.1
 
 > Cet addendum remplace les règles financières v1.0 citées ci-dessous. Le Rulebook v1.0 reste applicable pour les sections non remplacées. La non-rétroactivité demeure obligatoire : un compte conserve la policy version qu’il a acceptée.
 
@@ -88,6 +88,38 @@ best_day_ratio <= 50 %
 
 Un ratio supérieur à 50 % ne termine pas le compte et ne constitue pas un breach. Il bloque uniquement le passage jusqu’au retour à 50 % ou moins.
 
+### 3.4 Profit éligible et clôtures sous 60 secondes
+
+La balance réelle conserve tous les fills, profits, pertes et frais. La balance
+éligible au programme est une projection distincte : elle exclut uniquement le
+profit net positif d’une portion clôturée avant 60 secondes révolues depuis son
+fill d’ouverture serveur.
+
+```text
+net_close_pnl = realized_pnl − closing_commission − allocated_opening_commission
+
+net_close_pnl > 0 et duration_ms < 60000
+→ eligible_close_pnl = 0
+→ ineligible_short_duration_profit = net_close_pnl
+
+sinon
+→ eligible_close_pnl = net_close_pnl
+→ ineligible_short_duration_profit = 0
+```
+
+Les pertes nettes comptent toujours intégralement, quelle que soit la durée. Les
+frais sont appliqués avant la classification : ils réduisent le résultat et peuvent
+transformer un profit brut en perte nette comptée. À exactement 60 000 ms, le
+profit net positif est éligible. Les horodatages d’ouverture et de clôture sont
+exclusivement ceux du serveur.
+
+La balance éligible est utilisée pour l’objectif, la DLL, le Maximum Loss en
+temps réel, la Best Day Rule et le plancher EOD trailing. Trois clôtures
+profitables sous 60 secondes sur 24 heures déclenchent un avertissement et un
+signal de risque. Six suspendent uniquement les nouvelles ouvertures et ouvrent
+une revue manuelle ; réduction et clôture restent autorisées. Ce contrôle ne
+crée jamais, à lui seul, un breach permanent.
+
 ## 4. Daily Loss Limit — 3 % avec soft lock
 
 | Compte | Daily Loss Limit |
@@ -134,7 +166,7 @@ equity <= maximum_loss_floor
 ## 6. Levier, exposition et marge
 
 TRD-018 (verrouillé, jamais supersédé) : le levier WARIBA Performance reste
-inférieur à WARIBA ONE. TRD-029 reconduit les ratios de TRD-018 (0,60× Forex,
+inférieur à WARIBA ONE. TRD-036 reconduit les ratios de TRD-018 (0,60× Forex,
 0,50× XAUUSD/NAS100) sur les nouveaux plafonds Evaluation v1.1.
 
 | Classe | WARIBA ONE (Evaluation) | WARIBA Performance |
@@ -239,4 +271,3 @@ WARIBA récompense les performances reproductibles. Le buffer permanent protège
 ## 13. Gates commerciales
 
 Les prix et caps restent candidats. Le 50K et le 100K ne peuvent pas être ouverts publiquement avant validation du scénario Stress, de la réserve dédiée, de la marge et des contrôles Risk/CFO. Les cinq tailles restent toutefois actives pour la bêta sandbox privée.
-

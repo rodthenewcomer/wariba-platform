@@ -1,6 +1,6 @@
 import Decimal from 'decimal.js';
 import type { Db } from '@wariba/database';
-import { isInAttentionZone } from '@wariba/domain';
+import { computeDailyLossRemaining, isInAttentionZone } from '@wariba/domain';
 import { loadAccountRiskEngineInputs, type AccountRiskEngineInputs } from './risk-engine-inputs';
 
 // Structurally identical to @wariba/ui's RiskRibbonStatus — application
@@ -76,10 +76,11 @@ export function projectAccountRiskView(inputs: AccountRiskEngineInputs): Account
     status = 'attention';
   }
 
-  const dailyLossRemaining = Decimal.max(
-    0,
-    new Decimal(result.dailyLoss.floor).minus(result.dailyLoss.used),
-  ).toFixed(2);
+  const dailyLossRemaining = computeDailyLossRemaining({
+    reference: result.dailyLoss.reference,
+    floor: result.dailyLoss.floor,
+    used: result.dailyLoss.used,
+  });
 
   return {
     status,

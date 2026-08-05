@@ -12,6 +12,17 @@ function closedAtPlusMs(ms: number): Date {
 }
 
 describe('computeProfitEligibility — Prompt 07B §4', () => {
+  it('keeps a short positive close eligible when a legacy pinned policy disables the threshold', () => {
+    const result = computeProfitEligibility({
+      openedAt: OPENED_AT,
+      closedAt: closedAtPlusMs(1_000),
+      realizedPnl: '10.00',
+      minimumEligibleDurationMs: 0,
+    });
+    expect(result.isShortDurationProfit).toBe(false);
+    expect(result.eligibleRealizedPnl).toBe('10.00');
+  });
+
   it('is fully eligible for a positive PnL held at exactly the 60s boundary', () => {
     const result = computeProfitEligibility({
       openedAt: OPENED_AT,
@@ -21,6 +32,8 @@ describe('computeProfitEligibility — Prompt 07B §4', () => {
     expect(result.isShortDurationProfit).toBe(false);
     expect(result.eligibleRealizedPnl).toBe('25.00');
     expect(result.ineligibleShortDurationProfit).toBe('0.00');
+    expect(result.netRealizedPnl).toBe('25.00');
+    expect(result.eligibilityReason).toBe('eligible');
   });
 
   it('is NOT eligible for a positive PnL held 1ms under the 60s boundary', () => {
@@ -32,6 +45,7 @@ describe('computeProfitEligibility — Prompt 07B §4', () => {
     expect(result.isShortDurationProfit).toBe(true);
     expect(result.eligibleRealizedPnl).toBe('0.00');
     expect(result.ineligibleShortDurationProfit).toBe('25.00');
+    expect(result.eligibilityReason).toBe('short_duration_profit');
   });
 
   it('counts a negative PnL in full regardless of how short the duration is', () => {
@@ -43,6 +57,7 @@ describe('computeProfitEligibility — Prompt 07B §4', () => {
     expect(result.isShortDurationProfit).toBe(false);
     expect(result.eligibleRealizedPnl).toBe('-40.00');
     expect(result.ineligibleShortDurationProfit).toBe('0.00');
+    expect(result.eligibilityReason).toBe('loss_counted');
   });
 
   it('produces no eligible profit for a zero PnL close', () => {
@@ -54,6 +69,7 @@ describe('computeProfitEligibility — Prompt 07B §4', () => {
     expect(result.eligibleRealizedPnl).toBe('0.00');
     expect(result.ineligibleShortDurationProfit).toBe('0.00');
     expect(result.isShortDurationProfit).toBe(false);
+    expect(result.eligibilityReason).toBe('breakeven');
   });
 
   it('is fully eligible for a positive PnL held well over 60s', () => {
@@ -74,6 +90,20 @@ describe('computeProfitEligibility — Prompt 07B §4', () => {
     });
     expect(result.durationMs).toBe(12_345);
   });
+
+  it('uses net PnL after fees, so fees can turn gross profit into a counted loss', () => {
+    const result = computeProfitEligibility({
+      openedAt: OPENED_AT,
+      closedAt: closedAtPlusMs(500),
+      realizedPnl: '5.00',
+      allocatedFees: '8.00',
+    });
+    expect(result.netRealizedPnl).toBe('-3.00');
+    expect(result.eligibleRealizedPnl).toBe('-3.00');
+    expect(result.ineligibleShortDurationProfit).toBe('0.00');
+    expect(result.isShortDurationProfit).toBe(false);
+    expect(result.eligibilityReason).toBe('loss_counted');
+  });
 });
 
 describe('evaluateShortDurationMonitoring — Prompt 07B rolling 24h monitoring', () => {
@@ -90,6 +120,7 @@ describe('evaluateShortDurationMonitoring — Prompt 07B rolling 24h monitoring'
 
   it('stays at warning between 3 and 5', () => {
     expect(evaluateShortDurationMonitoring(5).status).toBe('warning');
+    expect(evaluateShortDurationMonitoring(5).shouldLogSignal).toBe(false);
   });
 
   it('locks entry at exactly 6 in 24h — never a permanent breach', () => {
@@ -100,5 +131,6 @@ describe('evaluateShortDurationMonitoring — Prompt 07B rolling 24h monitoring'
 
   it('stays entry_locked above 6', () => {
     expect(evaluateShortDurationMonitoring(20).status).toBe('entry_locked');
+    expect(evaluateShortDurationMonitoring(20).shouldLogSignal).toBe(false);
   });
 });

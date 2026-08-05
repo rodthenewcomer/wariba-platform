@@ -114,6 +114,8 @@ function buildResultMessage(
             result.position.symbol,
             result.position.side,
             orderType === 'market_open' ? 'open' : 'close',
+            result.position.averageOpenPrice,
+            result.position.openedAt,
           )
         : null,
   };

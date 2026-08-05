@@ -22,12 +22,15 @@ export default async function globalSetup(): Promise<void> {
 
   const baseURL = process.env.APP_BASE_URL ?? 'http://localhost:3000';
   const browser = await chromium.launch();
-  const page = await browser.newPage({ baseURL });
-  await page.goto('/login');
-  await page.getByLabel('Adresse email').fill(fixture.email);
-  await page.getByLabel('Mot de passe').fill(E2E_TEST_PASSWORD);
-  await page.getByRole('button', { name: 'Se connecter' }).click();
-  await page.waitForURL('**/hub');
-  await page.context().storageState({ path: STORAGE_STATE_FILE });
-  await browser.close();
+  try {
+    const page = await browser.newPage({ baseURL });
+    await page.goto('/login');
+    await page.getByLabel('Adresse email').fill(fixture.email);
+    await page.getByLabel('Mot de passe').fill(E2E_TEST_PASSWORD);
+    await page.getByRole('button', { name: 'Se connecter' }).click();
+    await page.waitForURL('**/hub');
+    await page.context().storageState({ path: STORAGE_STATE_FILE });
+  } finally {
+    await browser.close();
+  }
 }

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import Decimal from 'decimal.js';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createDbClient, type Db } from '../src/client';
 import { activateEvaluationAccount } from '../src/activation';
 import {
@@ -9,6 +10,7 @@ import {
   modifyPositionRisk,
   countShortDurationProfitClosures,
 } from '../src/trading';
+import { loadAccountBalanceProjection } from '../src/program-eligibility';
 
 /**
  * Real integration tests against the live hosted database — not mocked.
@@ -99,8 +101,15 @@ describeIfDb('trading — real database', () => {
   beforeAll(async () => {
     db = createDbClient(DATABASE_URL as string);
     userId = await createTestUser(`trading-test-${Date.now()}@wariba-test.invalid`);
-    accountId = await createActiveAccount();
   }, 60000);
+
+  // Every scenario owns a fresh account. Risk state, exposure and Prompt
+  // 07B's rolling short-duration counter are durable account state; sharing
+  // one account made later assertions depend on file order and caused one
+  // legitimate failure to cascade through the rest of the suite.
+  beforeEach(async () => {
+    accountId = await createActiveAccount();
+  }, 30000);
 
   afterAll(async () => {
     for (const id of cleanupAccountIds) {
@@ -273,6 +282,18 @@ describeIfDb('trading — real database', () => {
   }, 15000);
 
   it('rejects a Forex order that would exceed the 10K aggregate exposure limit', async () => {
+    const existingExposure = await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'EURUSD',
+      side: 'buy',
+      quantity: '0.20',
+      market: EURUSD_MARKET,
+      marketBySymbol: ALL_MARKETS,
+      now: NOW,
+    });
+    expect(existingExposure.order.status).toBe('filled');
+
     const result = await openPosition(db, {
       accountId,
       idempotencyKey: randomUUID(),
@@ -424,6 +445,7 @@ describeIfDb('trading — real database', () => {
   }, 15000);
 
   it('Prompt 07B §4 — marks a profitable close held under 60s as short-duration and excludes it from eligibleRealizedPnl', async () => {
+    const projectionBefore = await loadAccountBalanceProjection(db, accountId);
     const openedAt = NOW;
     const closedAt = new Date(NOW.getTime() + 30_000); // 30s later — under the 60s threshold
     const open = await openPosition(db, {
@@ -431,10 +453,7 @@ describeIfDb('trading — real database', () => {
       idempotencyKey: randomUUID(),
       symbol: 'XAUUSD',
       side: 'buy',
-      // Deliberately tiny (minimum lot) — the shared test account already
-      // has 0.06 XAUUSD lots open from an earlier test (xauusd_lots limit
-      // is 0.10 for a 10K account) and each of these three tests fully
-      // closes its own position, so 0.01 never risks the exposure ceiling.
+      // Deliberately tiny (minimum lot); this scenario owns a fresh account.
       quantity: '0.01',
       market: { bid: '2000.00', ask: '2000.30', timestamp: openedAt.toISOString(), sequence: '30' },
       marketBySymbol: ALL_MARKETS,
@@ -454,10 +473,22 @@ describeIfDb('trading — real database', () => {
 
     expect(Number(close.fill?.realizedPnl)).toBeGreaterThan(0);
     expect(close.fill?.durationMs).toBe('30000');
+    expect(close.fill?.openingFillId).toBe(open.fill?.id);
     expect(close.fill?.isShortDurationProfit).toBe(true);
+    expect(close.fill?.eligibilityReason).toBe('short_duration_profit');
     expect(close.fill?.eligibleRealizedPnl).toBe('0.00');
-    expect(close.fill?.ineligibleShortDurationProfit).toBe(close.fill?.realizedPnl);
-  }, 15000);
+    expect(close.fill?.ineligibleShortDurationProfit).toBe(close.fill?.netRealizedPnl);
+
+    const projectionAfter = await loadAccountBalanceProjection(db, accountId);
+    expect(
+      new Decimal(projectionAfter.accountBalance).minus(projectionBefore.accountBalance).toFixed(2),
+    ).toBe(close.fill?.netRealizedPnl);
+    expect(
+      new Decimal(projectionAfter.programEligibleBalance)
+        .minus(projectionBefore.programEligibleBalance)
+        .toFixed(2),
+    ).toBe('0.00');
+  }, 30000);
 
   it('Prompt 07B §4 — marks a profitable close held at least 60s as fully eligible', async () => {
     const openedAt = NOW;
@@ -487,9 +518,10 @@ describeIfDb('trading — real database', () => {
     expect(Number(close.fill?.realizedPnl)).toBeGreaterThan(0);
     expect(close.fill?.durationMs).toBe('61000');
     expect(close.fill?.isShortDurationProfit).toBe(false);
-    expect(close.fill?.eligibleRealizedPnl).toBe(close.fill?.realizedPnl);
+    expect(close.fill?.eligibilityReason).toBe('eligible');
+    expect(close.fill?.eligibleRealizedPnl).toBe(close.fill?.netRealizedPnl);
     expect(close.fill?.ineligibleShortDurationProfit).toBe('0.00');
-  }, 15000);
+  }, 30000);
 
   it('Prompt 07B §4 — counts a loss in full as eligible even when held under 60s', async () => {
     const openedAt = NOW;
@@ -518,9 +550,52 @@ describeIfDb('trading — real database', () => {
 
     expect(Number(close.fill?.realizedPnl)).toBeLessThan(0);
     expect(close.fill?.isShortDurationProfit).toBe(false);
-    expect(close.fill?.eligibleRealizedPnl).toBe(close.fill?.realizedPnl);
+    expect(close.fill?.eligibilityReason).toBe('loss_counted');
+    expect(close.fill?.eligibleRealizedPnl).toBe(close.fill?.netRealizedPnl);
+    expect(Number(close.fill?.netRealizedPnl)).toBeLessThan(Number(close.fill?.realizedPnl));
     expect(close.fill?.ineligibleShortDurationProfit).toBe('0.00');
-  }, 15000);
+  }, 30000);
+
+  it('Prompt 07B §4 — classifies a gross profit turned negative by commissions as a counted loss', async () => {
+    const openedAt = NOW;
+    const closedAt = new Date(NOW.getTime() + 5_000);
+    const open = await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'EURUSD',
+      side: 'buy',
+      quantity: '0.01',
+      market: {
+        bid: '1.08450',
+        ask: '1.08460',
+        timestamp: openedAt.toISOString(),
+        sequence: '36',
+      },
+      marketBySymbol: ALL_MARKETS,
+      now: openedAt,
+    });
+    const close = await closePosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      positionId: open.position?.id as string,
+      mode: 'full',
+      market: {
+        bid: '1.08470',
+        ask: '1.08480',
+        timestamp: closedAt.toISOString(),
+        sequence: '37',
+      },
+      marketBySymbol: ALL_MARKETS,
+      now: closedAt,
+    });
+
+    expect(Number(close.fill?.realizedPnl)).toBeGreaterThan(0);
+    expect(Number(close.fill?.netRealizedPnl)).toBeLessThan(0);
+    expect(close.fill?.isShortDurationProfit).toBe(false);
+    expect(close.fill?.eligibilityReason).toBe('loss_counted');
+    expect(close.fill?.eligibleRealizedPnl).toBe(close.fill?.netRealizedPnl);
+    expect(close.fill?.ineligibleShortDurationProfit).toBe('0.00');
+  }, 30000);
 
   it('rejects closing a position that does not belong to the account', async () => {
     const result = await closePosition(db, {
@@ -743,4 +818,144 @@ describeIfDb('trading — real database', () => {
     );
     expect(wellAfter).toBe(0);
   }, 20000);
+
+  it('Prompt 07B / TRD-035 — rejects only new entries after six short-duration profits and records the rejection', async () => {
+    const lockedAccountId = await createActiveAccount();
+    const positionId = randomUUID();
+    await db
+      .insertInto('app.positions')
+      .values({
+        id: positionId,
+        account_id: lockedAccountId,
+        symbol: 'EURUSD',
+        side: 'buy',
+        opening_quantity: '0.01',
+        open_quantity: '0',
+        average_open_price: '1.08460',
+        realized_pnl: '6.00',
+        status: 'closed',
+        account_sequence: '0',
+        opened_at: new Date(NOW.getTime() - 60_000),
+        closed_at: NOW,
+      })
+      .execute();
+
+    const openingOrderId = randomUUID();
+    const openingFillId = randomUUID();
+    await db
+      .insertInto('app.trade_orders')
+      .values({
+        id: openingOrderId,
+        account_id: lockedAccountId,
+        idempotency_key: `short-duration-opening-${randomUUID()}`,
+        order_type: 'market_open',
+        symbol: 'EURUSD',
+        side: 'buy',
+        position_id: positionId,
+        filled_quantity: '0.01',
+        status: 'filled',
+        account_sequence: '0',
+        received_at: new Date(NOW.getTime() - 60_000),
+        accepted_at: new Date(NOW.getTime() - 60_000),
+        completed_at: new Date(NOW.getTime() - 60_000),
+      })
+      .execute();
+    await db
+      .insertInto('app.fills')
+      .values({
+        id: openingFillId,
+        order_id: openingOrderId,
+        account_id: lockedAccountId,
+        position_id: positionId,
+        symbol: 'EURUSD',
+        side: 'buy',
+        fill_type: 'open',
+        quantity: '0.01',
+        price: '1.08460',
+        spread_points: '10',
+        slippage_points: '2',
+        commission: '0',
+        realized_pnl: '0',
+        market_sequence: '0',
+        account_sequence: '0',
+        occurred_at: new Date(NOW.getTime() - 60_000),
+        opening_fill_id: null,
+      })
+      .execute();
+
+    const orderIds = Array.from({ length: 6 }, () => randomUUID());
+    await db
+      .insertInto('app.trade_orders')
+      .values(
+        orderIds.map((id, index) => ({
+          id,
+          account_id: lockedAccountId,
+          idempotency_key: `short-duration-fixture-${index}-${randomUUID()}`,
+          order_type: 'full_close' as const,
+          symbol: 'EURUSD' as const,
+          side: 'buy' as const,
+          position_id: positionId,
+          filled_quantity: '0.01',
+          status: 'filled' as const,
+          account_sequence: '0',
+          received_at: new Date(NOW.getTime() - index * 1_000),
+          accepted_at: new Date(NOW.getTime() - index * 1_000),
+          completed_at: new Date(NOW.getTime() - index * 1_000),
+        })),
+      )
+      .execute();
+    await db
+      .insertInto('app.fills')
+      .values(
+        orderIds.map((orderId, index) => ({
+          order_id: orderId,
+          account_id: lockedAccountId,
+          position_id: positionId,
+          symbol: 'EURUSD' as const,
+          side: 'buy' as const,
+          fill_type: 'close' as const,
+          quantity: '0.01',
+          price: '1.08500',
+          spread_points: '10',
+          slippage_points: '2',
+          commission: '0',
+          realized_pnl: '1.00',
+          market_sequence: String(index + 1),
+          account_sequence: '0',
+          occurred_at: new Date(NOW.getTime() - index * 1_000),
+          opening_fill_id: openingFillId,
+          duration_ms: '10000',
+          is_short_duration_profit: true,
+          eligible_realized_pnl: '0',
+          ineligible_short_duration_profit: '1.00',
+          allocated_open_commission: '0',
+          net_realized_pnl: '1.00',
+          eligibility_reason: 'short_duration_profit' as const,
+        })),
+      )
+      .execute();
+
+    const result = await openPosition(db, {
+      accountId: lockedAccountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'EURUSD',
+      side: 'buy',
+      quantity: '0.01',
+      market: EURUSD_MARKET,
+      marketBySymbol: ALL_MARKETS,
+      now: NOW,
+    });
+
+    expect(result.order.status).toBe('rejected');
+    expect(result.order.rejectionCode).toBe('short_duration_entry_locked');
+    const persisted = await db
+      .selectFrom('app.trade_orders')
+      .select(['status', 'rejection_code'])
+      .where('id', '=', result.order.orderId)
+      .executeTakeFirstOrThrow();
+    expect(persisted).toEqual({
+      status: 'rejected',
+      rejection_code: 'short_duration_entry_locked',
+    });
+  }, 30000);
 });

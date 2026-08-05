@@ -33,6 +33,12 @@ describe('ActivityTimeline', () => {
     expect(screen.getByText(/Seuil 300 USD/)).toBeInTheDocument();
   });
 
+  it('exposes severity as text, not color alone (screen-reader-only label per item)', () => {
+    render(<ActivityTimeline items={ITEMS} />);
+    expect(screen.getByText('Succès')).toBeInTheDocument();
+    expect(screen.getByText('Avertissement')).toBeInTheDocument();
+  });
+
   it('omits the detail line when none is provided', () => {
     render(
       <ActivityTimeline

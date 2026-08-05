@@ -2,12 +2,12 @@
   "document": {
     "id": "WARIBA-RULESET",
     "title": "WARIBA Ruleset",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "status": "candidate_simulation",
     "language": "fr-FR",
     "brand": "WARIBA",
     "domain": "wariba.app",
-    "generated_at": "2026-08-03T06:30:00Z",
+    "generated_at": "2026-08-05T00:00:00Z",
     "authoritative_human_source": "docs/02-program/WARIBA_Program_Rulebook_v1.1.md",
     "decision_log_source": "docs/00-decisions/DECISION_LOG.md",
     "runtime_use": "sandbox_private_beta_only",
@@ -31,7 +31,7 @@
       "published",
       "retired"
     ],
-    "current_policy_status": "draft",
+    "current_policy_status": "published",
     "requires_human_approval_before_publish": true,
     "requires_decision_log_for_material_change": true,
     "change_control": {
@@ -183,7 +183,7 @@
       "exchange_rate_exposure_borne_by": "WARIBA",
       "sandbox_catalog_checkout_evaluation_enabled_for_all_tiers": true,
       "public_sales_approval_status": "deferred_pending_gates",
-      "performance_payout_caps_50k_100k_status": "open_decision"
+      "performance_payout_caps_50k_100k_status": "candidate_pending_financial_simulation"
     },
     "primary_displayed_currency": "XOF",
     "usd_equivalent": {
@@ -354,6 +354,22 @@
       "formula": "realized_pnl - commissions - swaps - other_published_trading_costs",
       "includes_unrealized_pnl": false
     },
+    "profit_eligibility": {
+      "minimum_positive_profit_duration_ms": 60000,
+      "boundary_is_inclusive": true,
+      "net_close_pnl_formula": "realized_pnl - closing_commission - allocated_opening_commission - other_published_close_costs",
+      "short_positive_profit_eligible_amount": "0",
+      "losses_and_zero_always_count": true,
+      "fees_applied_before_eligibility_classification": true,
+      "program_eligible_balance_formula": "account_balance - sum(ineligible_short_duration_profit)",
+      "authoritative_timestamps": "server_open_fill_and_server_close_fill",
+      "rolling_24h_controls": {
+        "warning_count": 3,
+        "entry_lock_count": 6,
+        "entry_lock_allows_reduce_and_close": true,
+        "automatic_permanent_breach": false
+      }
+    },
     "trading_day": {
       "definition": "a UTC calendar day containing at least one accepted fill",
       "finalized_only_after_day_close": true
@@ -363,7 +379,7 @@
       "unrealized_pnl_counted": false
     },
     "consistency": {
-      "formula": "best_profitable_finalized_day_realized_net_profit / total_realized_net_profit_in_scope",
+      "formula": "best_profitable_finalized_day_program_eligible_net_profit / total_positive_program_eligible_net_profit_in_scope",
       "scope_isolation_required": true,
       "evaluation_scope": "entire_evaluation",
       "performance_scope": "current_performance_cycle_only",
@@ -375,24 +391,25 @@
       "eligibility_only": true
     },
     "daily_loss": {
-      "start_of_day_equity_formula": "balance_at_daily_reset + unrealized_pnl_at_daily_reset - accrued_costs_at_daily_reset",
-      "current_adjusted_equity_formula": "current_balance + current_unrealized_pnl - current_accrued_costs",
+      "start_of_day_equity_formula": "program_eligible_balance_at_daily_reset + unrealized_pnl_at_daily_reset - accrued_costs_at_daily_reset",
+      "current_adjusted_equity_formula": "current_program_eligible_balance + current_unrealized_pnl - current_accrued_costs",
       "used_formula": "max(0, start_of_day_equity - current_adjusted_equity)",
       "soft_lock_only": true,
       "hard_breach_only_if_maximum_loss_floor_is_reached": true
     },
     "maximum_loss": {
-      "floor_formula": "nominal_balance * (1 - maximum_loss_rate)",
-      "reference": "current_equity",
-      "static": true,
-      "trailing": false,
+      "floor_formula": "min(nominal_balance, max(previous_floor, highest_program_eligible_eod_balance - nominal_balance * maximum_loss_rate))",
+      "reference": "current_program_eligible_equity",
+      "static": false,
+      "trailing": true,
+      "trailing_model": "eod",
       "hard_breach": true
     }
   },
   "programs": {
     "WARIBA_ONE": {
       "program_code": "WARIBA_ONE",
-      "program_version": "1.1.0",
+      "program_version": "1.1.1",
       "status": "candidate_simulation",
       "phase_count": 1,
       "account_type": "evaluation",
@@ -408,7 +425,7 @@
         "rate": "0.03",
         "basis": "nominal_balance",
         "amount_formula": "nominal_balance * 0.03",
-        "reference_formula": "max(balance_at_reset, equity_at_reset)",
+        "reference_formula": "max(program_eligible_balance_at_reset, program_eligible_equity_at_reset)",
         "floor_formula": "daily_reference - nominal_balance * 0.03",
         "action_at_threshold": "soft_lock",
         "new_or_increased_exposure_allowed_after_lock": false,
@@ -421,11 +438,11 @@
         "model": "eod_trailing",
         "basis": "nominal_balance",
         "initial_floor_formula": "nominal_balance * 0.90",
-        "next_floor_formula": "min(nominal_balance, max(previous_floor, highest_eod_balance - nominal_balance * 0.10))",
+        "next_floor_formula": "min(nominal_balance, max(previous_floor, highest_program_eligible_eod_balance - nominal_balance * 0.10))",
         "floor_updates_only_after_finalized_day": true,
         "floor_never_decreases": true,
         "locks_at_nominal_balance": true,
-        "monitored_against": "current_equity",
+        "monitored_against": "current_program_eligible_equity",
         "action_at_or_below_floor": "hard_breach",
         "terminal": true,
         "close_positions_on_breach": true,
@@ -491,11 +508,11 @@
         "model": "eod_trailing",
         "basis": "nominal_balance",
         "initial_floor_formula": "nominal_balance * 0.90",
-        "next_floor_formula": "min(nominal_balance, max(previous_floor, highest_eod_balance - nominal_balance * 0.10))",
+        "next_floor_formula": "min(nominal_balance, max(previous_floor, highest_program_eligible_eod_balance - nominal_balance * 0.10))",
         "floor_updates_only_after_finalized_day": true,
         "floor_never_decreases": true,
         "locks_at_nominal_balance": true,
-        "monitored_against": "current_equity",
+        "monitored_against": "current_program_eligible_equity",
         "action_at_or_below_floor": "hard_breach",
         "terminal": true
       },
@@ -564,7 +581,7 @@
         },
         "must_be_finalized": true,
         "timezone": "UTC",
-        "realized_net_profit_only": true,
+        "program_eligible_realized_net_profit_only": true,
         "must_be_new_since_previous_paid_payout": true,
         "consecutive_required": false
       },

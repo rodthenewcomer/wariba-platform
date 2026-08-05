@@ -182,13 +182,17 @@ export interface AccountDailySnapshotsTable {
   status: Generated<AccountDailySnapshotStatus>;
   sod_balance: string;
   sod_equity: string;
+  program_sod_balance: string;
   daily_reference: string;
   maximum_loss_floor_before: string;
   eod_balance: string | null;
   eod_equity: string | null;
+  program_eod_balance: string | null;
   maximum_loss_floor_after: string | null;
   highest_eod_balance_after: string | null;
+  highest_program_eod_balance_after: string | null;
   realized_net_profit_for_day: string | null;
+  eligible_realized_net_profit_for_day: string | null;
   finalized_at: Timestamp | null;
   created_at: GeneratedTimestamp;
 }
@@ -199,14 +203,16 @@ export type RiskViolationRuleCode =
   | 'RISK_CONSISTENCY_NON_COMPLIANT'
   | 'RISK_TARGET_NOT_REALIZED'
   | 'RISK_OPEN_POSITIONS_BLOCK_TRANSITION'
-  | 'RISK_PENDING_ORDERS_BLOCK_TRANSITION';
+  | 'RISK_PENDING_ORDERS_BLOCK_TRANSITION'
+  | 'RISK_SHORT_DURATION_WARNING'
+  | 'RISK_SHORT_DURATION_ENTRY_LOCK';
 
 export interface RiskViolationsTable {
   id: Generated<string>;
   account_id: string;
   rule_code: RiskViolationRuleCode;
   severity: 'information' | 'warning' | 'critical';
-  consequence: 'soft_lock' | 'hard_breach' | 'blocks_pass' | 'none';
+  consequence: 'soft_lock' | 'hard_breach' | 'blocks_pass' | 'entry_lock' | 'none';
   policy_version_id: string;
   threshold_value: string | null;
   observed_value: string | null;
@@ -376,6 +382,7 @@ export interface FillsTable {
   market_sequence: string;
   account_sequence: string;
   occurred_at: GeneratedTimestamp;
+  opening_fill_id: string | null;
   // Prompt 07B §4 — 60-second profit eligibility, close fills only (null on
   // open fills). bigint, represented as a string on both read and write —
   // same convention as market_sequence/account_sequence above.
@@ -383,6 +390,9 @@ export interface FillsTable {
   is_short_duration_profit: Generated<boolean>;
   eligible_realized_pnl: string | null;
   ineligible_short_duration_profit: Generated<string>;
+  allocated_open_commission: Generated<string>;
+  net_realized_pnl: string | null;
+  eligibility_reason: 'eligible' | 'short_duration_profit' | 'loss_counted' | 'breakeven' | null;
 }
 
 export interface Database {

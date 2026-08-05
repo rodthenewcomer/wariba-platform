@@ -68,10 +68,9 @@ function bucketStart(unixSeconds: number, timeframeSeconds: number): UTCTimestam
  * 1m/5m/1h/1d menu — a genuine, documented limitation (Prompt 07's own
  * "sélection timeframe (limitée et documentée)"), not an oversight.
  *
- * Fill markers (§22.6 "historique d'exécution") have the same limitation:
- * AccountSnapshot.recentOrders carries no fill price (that only exists on
- * FillDTO, delivered via order_result), so markers only ever show fills
- * that happen while this component is mounted — nothing retroactive.
+ * Fill markers (§22.6 "historique d'exécution") are restored from
+ * AccountSnapshot.recentFills and updated from order_result. Tick candles
+ * remain session-local because DATA-003 does not persist market history.
  */
 interface ChartColors {
   bid: string;

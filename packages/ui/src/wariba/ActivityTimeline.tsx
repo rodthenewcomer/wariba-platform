@@ -1,6 +1,14 @@
 import { cx } from '../lib/cx';
+import { VisuallyHidden } from '../primitives/VisuallyHidden';
 
 export type ActivityTimelineSeverity = 'information' | 'warning' | 'danger' | 'success';
+
+const SEVERITY_LABEL: Record<ActivityTimelineSeverity, string> = {
+  information: 'Information',
+  warning: 'Avertissement',
+  danger: 'Alerte',
+  success: 'Succès',
+};
 
 export interface ActivityTimelineItem {
   id: string;
@@ -43,6 +51,7 @@ export function ActivityTimeline({
             aria-hidden="true"
             className={cx('mt-1.5 h-2 w-2 shrink-0 rounded-full', SEVERITY_DOT[item.severity])}
           />
+          <VisuallyHidden>{SEVERITY_LABEL[item.severity]}</VisuallyHidden>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
               <p className="text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-text-primary)]">

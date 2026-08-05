@@ -148,6 +148,36 @@ describe('TV-ONE-004 — target exists only after including unrealized profit', 
   });
 });
 
+describe('Prompt 07B / TRD-034 — program-eligible balance is authoritative', () => {
+  it('does not pass the target or reduce risk usage with excluded short-duration profit', () => {
+    const result = evaluateAccountRisk({
+      clock: CLOCK,
+      account: { id: 'acc-program-eligible', status: 'active', nominalBalance: '10000' },
+      currentBalance: '11000',
+      currentProgramEligibleBalance: '10950',
+      currentUnrealizedPnl: '-100',
+      openPositionCount: 0,
+      pendingOrderCount: 0,
+      policy: POLICY,
+      dailySnapshots: [
+        todaySnapshot({
+          dailyReference: '10000',
+          programSodBalance: '10000',
+          maximumLossFloorBefore: '9000',
+        }),
+      ],
+    });
+
+    expect(result.currentEquity).toBe('10900.00');
+    expect(result.programEligibleBalance).toBe('10950');
+    expect(result.programEligibleEquity).toBe('10850.00');
+    expect(result.target.current).toBe('950.00');
+    expect(result.target.reached).toBe(false);
+    expect(result.dailyLoss.used).toBe('0.00');
+    expect(result.eligibility.blockingReasons).toContain('RISK_TARGET_NOT_REALIZED');
+  });
+});
+
 describe('property: target requires realized profit only, independent of unrealized PnL', () => {
   it('stays target-reached even with a large unrealized loss dragging equity down (a separate, still-live concern)', () => {
     const result = evaluateAccountRisk({

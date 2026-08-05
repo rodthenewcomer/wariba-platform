@@ -58,8 +58,20 @@ function toPercent(ratio: string): number {
   return Math.round(new Decimal(ratio).times(100).toNumber());
 }
 
+/**
+ * Exhaustive on purpose (see @wariba/domain's deriveHubDisplayState for the
+ * same pattern): a silent `default: return 'active'` would let a
+ * pending/inactive/closed account's mission view render as if it were
+ * actively evaluating. Those three states are genuinely out of scope for a
+ * mission view — the only known caller (apps/web/app/(platform)/hub/page.tsx)
+ * already filters them out before calling buildAccountMissionView — so this
+ * throws instead of guessing, the same way evaluateAccountRisk refuses to
+ * silently invent a result for an unsupported shape.
+ */
 function toMissionState(hubState: HubDisplayState): AccountMissionState {
   switch (hubState) {
+    case 'active':
+      return 'active';
     case 'attention':
       return 'attention';
     case 'soft_locked':
@@ -70,8 +82,17 @@ function toMissionState(hubState: HubDisplayState): AccountMissionState {
       return 'passed';
     case 'breached':
       return 'breached';
-    default:
-      return 'active';
+    case 'pending_activation':
+    case 'inactive':
+    case 'closed':
+      throw new Error(
+        `toMissionState: hub state "${hubState}" has no mission-view representation — ` +
+          'callers must filter pending/inactive/closed accounts out before building a mission view.',
+      );
+    default: {
+      const exhaustive: never = hubState;
+      throw new Error(`toMissionState: unhandled hub display state ${String(exhaustive)}`);
+    }
   }
 }
 

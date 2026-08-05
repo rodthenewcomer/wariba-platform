@@ -8,11 +8,8 @@ import { createHash } from 'node:crypto';
  *
  * Canonicalization: recursively sort object keys, no whitespace, then
  * sha256 the UTF-8 bytes. This is a fresh, explicit contract — the
- * `machine_hash` value seeded by
- * supabase/migrations/20260804000007_policy_symbol_specs_v1_1.sql does not
- * reproduce under this (or any other canonicalization attempted during
- * design); it is a placeholder and gets recomputed by a follow-up migration
- * once this function exists, not treated as ground truth here.
+ * Legacy rows can still carry pre-pipeline placeholder hashes. Every newly
+ * published policy must store the output of this function exactly.
  */
 function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) {

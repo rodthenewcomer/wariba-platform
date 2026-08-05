@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import {
   finalizeDailyBoundaryForAccount,
   listAccountsDueForFinalization,
@@ -49,12 +48,25 @@ export async function runDailyFinalizationJob(
   for (const accountId of dueAccountIds) {
     try {
       await finalizeDailyBoundaryForAccount(db, { accountId, clock: params.now });
+      const evaluationNow = params.now();
+      // Deterministic, not randomUUID(): app.risk_violations dedupes on
+      // (trigger_event_type, trigger_event_id, rule_code). A fresh random id
+      // per call defeats that dedup entirely for this job — if the setInterval
+      // poll ever overlaps a still-running previous invocation (a due-account
+      // batch that takes longer than WORKER_POLL_INTERVAL_MS, or the manual
+      // /jobs/daily-finalization endpoint firing while the timer-driven run
+      // is in flight), the same real boundary-crossing event gets logged
+      // twice under two different ids, corrupting the violations table as an
+      // audit/compliance record. Scoping the id to the account and the UTC
+      // calendar day being evaluated makes two overlapping runs that reach
+      // the same account on the same day collide on purpose.
+      const triggerEventId = `daily_finalization:${accountId}:${evaluationNow.toISOString().slice(0, 10)}`;
       await evaluateAndApplyAccountRisk(db, {
         accountId,
-        now: params.now(),
+        now: evaluationNow,
         marketBySymbol: {},
         triggerEventType: 'daily_finalization',
-        triggerEventId: randomUUID(),
+        triggerEventId,
       });
       processedAccountIds.push(accountId);
     } catch (error) {

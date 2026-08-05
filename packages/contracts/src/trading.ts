@@ -1,6 +1,14 @@
 import { z } from 'zod';
 import { symbolSchema } from './market';
 
+// Client-submitted quantity/price-level strings reach Decimal.js deep inside
+// the openPosition DB transaction (packages/domain/src/trading-math.ts) with
+// no try/catch around that parse — an unconstrained z.string() (e.g. "NaN",
+// "abc", "") crashes that transaction with an uncaught DecimalError instead
+// of a clean REJECTION.INVALID_QUANTITY. Bounds (min/max/step) are still the
+// server's job downstream; this only guarantees the string is parseable.
+const decimalString = z.string().regex(/^\d+(\.\d+)?$/, 'must be a non-negative decimal string');
+
 export const orderTypeSchema = z.enum([
   'market_open',
   'partial_close',
@@ -45,15 +53,15 @@ export const submitOrderMessageSchema = z.discriminatedUnion('orderType', [
     orderType: z.literal('market_open'),
     symbol: symbolSchema,
     side: sideSchema,
-    quantity: z.string(),
-    stopLoss: z.string().optional(),
-    takeProfit: z.string().optional(),
+    quantity: decimalString,
+    stopLoss: decimalString.optional(),
+    takeProfit: decimalString.optional(),
   }),
   z.object({
     ...baseOrderFields,
     orderType: z.literal('partial_close'),
     positionId: z.string().uuid(),
-    quantity: z.string(),
+    quantity: decimalString,
   }),
   z.object({
     ...baseOrderFields,
@@ -64,13 +72,13 @@ export const submitOrderMessageSchema = z.discriminatedUnion('orderType', [
     ...baseOrderFields,
     orderType: z.literal('modify_sl'),
     positionId: z.string().uuid(),
-    stopLoss: z.string().nullable(),
+    stopLoss: decimalString.nullable(),
   }),
   z.object({
     ...baseOrderFields,
     orderType: z.literal('modify_tp'),
     positionId: z.string().uuid(),
-    takeProfit: z.string().nullable(),
+    takeProfit: decimalString.nullable(),
   }),
 ]);
 export type SubmitOrderMessage = z.infer<typeof submitOrderMessageSchema>;
@@ -105,6 +113,7 @@ export type OrderDTO = z.infer<typeof orderDtoSchema>;
 
 export const fillDtoSchema = z.object({
   id: z.string().uuid(),
+  openingFillId: z.string().uuid().nullable(),
   orderId: z.string().uuid(),
   positionId: z.string().uuid(),
   symbol: symbolSchema,
@@ -114,7 +123,17 @@ export const fillDtoSchema = z.object({
   price: z.string(),
   commission: z.string(),
   realizedPnl: z.string(),
+  openingPrice: z.string(),
+  openedAt: z.string().datetime(),
   occurredAt: z.string().datetime(),
+  durationMs: z.string().nullable(),
+  allocatedOpenCommission: z.string(),
+  netRealizedPnl: z.string().nullable(),
+  eligibleRealizedPnl: z.string().nullable(),
+  ineligibleShortDurationProfit: z.string(),
+  eligibilityReason: z
+    .enum(['eligible', 'short_duration_profit', 'loss_counted', 'breakeven'])
+    .nullable(),
 });
 export type FillDTO = z.infer<typeof fillDtoSchema>;
 
@@ -163,7 +182,9 @@ export type ConcentrationBucket = z.infer<typeof concentrationBucketSchema>;
 
 export const accountRiskSchema = z.object({
   status: evaluationAccountStatusSchema,
-  target: z.object({ required: z.string(), reached: z.boolean() }),
+  programEligibleBalance: z.string(),
+  programEligibleEquity: z.string(),
+  target: z.object({ required: z.string(), current: z.string(), reached: z.boolean() }),
   dailyLoss: z.object({
     reference: z.string(),
     floor: z.string(),
@@ -182,16 +203,27 @@ export const accountRiskSchema = z.object({
     blockingReasons: z.array(z.string()),
   }),
   concentration: z.array(concentrationBucketSchema),
+  shortDurationMonitoring: z.object({
+    status: z.enum(['normal', 'warning', 'entry_locked']),
+    count24h: z.number().int().nonnegative(),
+  }),
 });
 export type AccountRisk = z.infer<typeof accountRiskSchema>;
 
 export const accountSnapshotSchema = z.object({
   accountId: z.string().uuid(),
+  nominalBalance: z.string(),
   balance: z.string(),
+  programEligibleBalance: z.string(),
   equity: z.string(),
   accountSequence: z.number().int().nonnegative(),
   openPositions: z.array(positionDtoSchema),
   recentOrders: z.array(orderDtoSchema),
+  recentFills: z.array(fillDtoSchema),
+  profitEligibility: z.object({
+    enabled: z.boolean(),
+    minimumDurationMs: z.number().int().nonnegative(),
+  }),
   // Null only before the account's first-ever trade (no daily snapshot
   // exists yet to evaluate against) — see buildAccountSnapshot.
   risk: accountRiskSchema.nullable(),

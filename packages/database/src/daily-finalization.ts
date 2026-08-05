@@ -5,9 +5,11 @@ import {
   computeInitialMaximumLossFloor,
   computeNextMaximumLossFloor,
 } from '@wariba/domain';
-import { lockAccount } from './accounts';
+import { resolveProfitEligibilityPolicy, type LoadedPolicy } from '@wariba/policies';
+import { lockAccount, type LockedAccount } from './accounts';
 import type { Db } from './client';
 import { loadPolicyById } from './policy';
+import { loadAccountBalanceProjection } from './program-eligibility';
 
 /**
  * Prompt 05 "DAILY WORKER" — SOD snapshot, finalize the previous UTC day,
@@ -47,6 +49,8 @@ export interface EnsureTodaySnapshotParams {
   maximumLossRate: string;
   sodBalance: string;
   sodEquity: string;
+  programSodBalance: string;
+  programSodEquity: string;
   now: Date;
 }
 
@@ -93,10 +97,14 @@ export async function ensureTodaySnapshot(trx: Db, params: EnsureTodaySnapshotPa
   const isFirstEverEvaluation = previousFinalized === undefined;
   const sodBalance = isFirstEverEvaluation ? params.nominalBalance : params.sodBalance;
   const sodEquity = isFirstEverEvaluation ? params.nominalBalance : params.sodEquity;
+  const programSodBalance = isFirstEverEvaluation
+    ? params.nominalBalance
+    : params.programSodBalance;
+  const programSodEquity = isFirstEverEvaluation ? params.nominalBalance : params.programSodEquity;
 
   const dailyReference = computeDailyReference({
-    balanceAtReset: sodBalance,
-    equityAtReset: sodEquity,
+    balanceAtReset: programSodBalance,
+    equityAtReset: programSodEquity,
   });
 
   await trx
@@ -108,6 +116,7 @@ export async function ensureTodaySnapshot(trx: Db, params: EnsureTodaySnapshotPa
       status: 'open',
       sod_balance: sodBalance,
       sod_equity: sodEquity,
+      program_sod_balance: programSodBalance,
       daily_reference: dailyReference,
       maximum_loss_floor_before: maximumLossFloorBefore,
     })
@@ -132,6 +141,172 @@ export interface FinalizeDailyBoundaryResult {
   alreadyUpToDate: boolean;
 }
 
+/**
+ * Finalizes the account's most recent still-`open` daily snapshot if (and
+ * only if) its `trading_day` has fully elapsed — the actual boundary-
+ * crossing logic shared by the daily worker (`finalizeDailyBoundaryForAccount`)
+ * and every real-time risk evaluation (`evaluateAndApplyAccountRiskInTransaction`
+ * in risk.ts).
+ *
+ * Calling this before `ensureTodaySnapshot` is what prevents the race that
+ * used to exist here: `ensureTodaySnapshot` only ever looks for a row
+ * matching *today's* trading_day, so if a trade landed on a new UTC day
+ * before the worker had finalized the previous one, it would silently
+ * bootstrap a fresh "today" row from the live current balance — orphaning
+ * the true prior-day snapshot forever (it becomes invisible to both
+ * `ensureTodaySnapshot`, which only looks for today, and
+ * `finalizeDailyBoundaryForAccount`, which only ever finalizes the *most
+ * recent* open row by trading_day, and today's newer row would now shadow
+ * it) and permanently corrupting the Maximum-Loss floor ratchet / Best-Day
+ * tracking for that account. Every caller that might create or read a
+ * daily snapshot in the risk-evaluation transaction must call this first.
+ *
+ * Returns null when nothing needed finalizing (today's own row, if any,
+ * still needs `ensureTodaySnapshot` from the caller).
+ */
+async function finalizeElapsedDailyBoundaryInTransaction(
+  trx: Db,
+  params: {
+    account: LockedAccount;
+    policy: LoadedPolicy;
+    eligibilityEnabled: boolean;
+    now: Date;
+  },
+): Promise<{
+  finalizedTradingDay: string;
+  maximumLossFloorAfter: string;
+  eodBalance: string;
+  programEodBalance: string;
+} | null> {
+  const { account, policy, eligibilityEnabled, now } = params;
+  const todayDate = utcDateString(now);
+
+  const openSnapshot = await trx
+    .selectFrom('app.account_daily_snapshots')
+    .selectAll()
+    .where('account_id', '=', account.id)
+    .where('status', '=', 'open')
+    .orderBy('trading_day', 'desc')
+    .executeTakeFirst();
+
+  if (!openSnapshot || openSnapshot.trading_day >= todayDate) {
+    return null;
+  }
+
+  // openSnapshot.trading_day < todayDate — that UTC day has fully elapsed.
+  // If multiple days elapsed with no trading in between (a dormant
+  // account the worker didn't reach for a while), the balance — and
+  // therefore the floor ratchet — is provably unchanged across the empty
+  // days, so this collapses straight to today rather than materializing
+  // a row per skipped day.
+  const boundaryInstant = new Date(`${addOneUtcDay(openSnapshot.trading_day)}T00:00:00.000Z`);
+  const boundaryProjection = await loadAccountBalanceProjection(
+    trx,
+    account.id,
+    boundaryInstant,
+    eligibilityEnabled,
+  );
+  const eodBalance = boundaryProjection.accountBalance;
+  const programEodBalance = boundaryProjection.programEligibleBalance;
+  const realizedNetProfitForDay = new Decimal(eodBalance)
+    .minus(openSnapshot.sod_balance)
+    .toFixed(2);
+  const eligibleRealizedNetProfitForDay = new Decimal(programEodBalance)
+    .minus(openSnapshot.program_sod_balance)
+    .toFixed(2);
+
+  const previousHighest = await trx
+    .selectFrom('app.account_daily_snapshots')
+    .select(['highest_eod_balance_after', 'highest_program_eod_balance_after'])
+    .where('account_id', '=', account.id)
+    .where('status', '=', 'finalized')
+    .orderBy('trading_day', 'desc')
+    .executeTakeFirst();
+  const highestEodBalanceAfter = Decimal.max(
+    previousHighest?.highest_eod_balance_after ?? account.nominal_balance,
+    eodBalance,
+  ).toFixed(2);
+  const highestProgramEodBalanceAfter = Decimal.max(
+    previousHighest?.highest_program_eod_balance_after ?? account.nominal_balance,
+    programEodBalance,
+  ).toFixed(2);
+
+  const maximumLossFloorAfter = computeNextMaximumLossFloor({
+    previousFloor: openSnapshot.maximum_loss_floor_before,
+    highestEodBalance: highestProgramEodBalanceAfter,
+    nominalBalance: account.nominal_balance,
+    maximumLossRate: policy.parameters.maximum_loss_rate,
+  });
+
+  await trx
+    .updateTable('app.account_daily_snapshots')
+    .set({
+      status: 'finalized',
+      eod_balance: eodBalance,
+      // See module doc comment — no historical price feed to price open
+      // positions exactly at the UTC boundary in V1.
+      eod_equity: eodBalance,
+      program_eod_balance: programEodBalance,
+      maximum_loss_floor_after: maximumLossFloorAfter,
+      highest_eod_balance_after: highestEodBalanceAfter,
+      highest_program_eod_balance_after: highestProgramEodBalanceAfter,
+      realized_net_profit_for_day: realizedNetProfitForDay,
+      eligible_realized_net_profit_for_day: eligibleRealizedNetProfitForDay,
+      finalized_at: now,
+    })
+    .where('id', '=', openSnapshot.id)
+    .where('status', '=', 'open')
+    .returning(['id'])
+    .executeTakeFirstOrThrow(
+      () =>
+        new Error(
+          `finalizeElapsedDailyBoundaryInTransaction: snapshot ${openSnapshot.id} for account ` +
+            `${account.id} was no longer 'open' — concurrently finalized by another process. ` +
+            "lockAccount's FOR UPDATE should make this unreachable; treat as a serialization bug.",
+        ),
+    );
+
+  // ONE-020: DLL soft lock resets at the next daily reset.
+  if (account.status === 'soft_locked') {
+    assertEvaluationAccountTransition('soft_locked', 'active');
+    await trx
+      .updateTable('app.trading_accounts')
+      .set({ status: 'active', updated_at: now })
+      .where('id', '=', account.id)
+      .execute();
+    await trx
+      .insertInto('app.account_state_transitions')
+      .values({
+        account_id: account.id,
+        from_status: 'soft_locked',
+        to_status: 'active',
+        reason: 'daily_loss_limit_reset',
+      })
+      .execute();
+  }
+
+  return {
+    finalizedTradingDay: openSnapshot.trading_day,
+    maximumLossFloorAfter,
+    eodBalance,
+    programEodBalance,
+  };
+}
+
+/**
+ * Ensures the account's daily-snapshot chain is caught up to `now`: finalizes
+ * an elapsed prior-day snapshot if one exists, then guarantees a row for
+ * today. Safe (and idempotent) to call from both the daily worker and every
+ * real-time risk evaluation — see `finalizeElapsedDailyBoundaryInTransaction`'s
+ * doc comment for why calling this before `ensureTodaySnapshot` matters.
+ */
+export async function ensureDailyBoundaryCaughtUpInTransaction(
+  trx: Db,
+  params: { account: LockedAccount; policy: LoadedPolicy; eligibilityEnabled: boolean; now: Date },
+): Promise<void> {
+  await finalizeElapsedDailyBoundaryInTransaction(trx, params);
+}
+
 export async function finalizeDailyBoundaryForAccount(
   db: Db,
   params: { accountId: string; clock: () => Date },
@@ -139,34 +314,33 @@ export async function finalizeDailyBoundaryForAccount(
   return db.transaction().execute(async (trx) => {
     const account = await lockAccount(trx, params.accountId);
     const policy = await loadPolicyById(trx, account.policy_version_id);
+    const eligibilityPolicy = resolveProfitEligibilityPolicy(policy.parameters);
     const now = params.clock();
-    const todayDate = utcDateString(now);
 
-    const openSnapshot = await trx
-      .selectFrom('app.account_daily_snapshots')
-      .selectAll()
-      .where('account_id', '=', account.id)
-      .where('status', '=', 'open')
-      .orderBy('trading_day', 'desc')
-      .executeTakeFirst();
+    const finalized = await finalizeElapsedDailyBoundaryInTransaction(trx, {
+      account,
+      policy,
+      eligibilityEnabled: eligibilityPolicy.enabled,
+      now,
+    });
 
-    if (!openSnapshot || openSnapshot.trading_day >= todayDate) {
+    if (!finalized) {
       // Nothing has elapsed yet — only bootstrap today's row if missing.
-      const ledgerEntries = await trx
-        .selectFrom('app.trading_ledger_entries')
-        .select('amount')
-        .where('account_id', '=', account.id)
-        .execute();
-      const currentBalance = ledgerEntries
-        .reduce((sum, e) => sum.plus(e.amount), new Decimal(0))
-        .toFixed(2);
+      const projection = await loadAccountBalanceProjection(
+        trx,
+        account.id,
+        undefined,
+        eligibilityPolicy.enabled,
+      );
       const today = await ensureTodaySnapshot(trx, {
         accountId: account.id,
         nominalBalance: account.nominal_balance,
         policyVersionId: policy.id,
         maximumLossRate: policy.parameters.maximum_loss_rate,
-        sodBalance: currentBalance,
-        sodEquity: currentBalance,
+        sodBalance: projection.accountBalance,
+        sodEquity: projection.accountBalance,
+        programSodBalance: projection.programEligibleBalance,
+        programSodEquity: projection.programEligibleBalance,
         now,
       });
       return {
@@ -178,98 +352,26 @@ export async function finalizeDailyBoundaryForAccount(
       };
     }
 
-    // openSnapshot.trading_day < todayDate — that UTC day has fully elapsed.
-    // If multiple days elapsed with no trading in between (a dormant
-    // account the worker didn't reach for a while), the balance — and
-    // therefore the floor ratchet — is provably unchanged across the empty
-    // days, so this collapses straight to today rather than materializing
-    // a row per skipped day.
-    const boundaryInstant = new Date(`${addOneUtcDay(openSnapshot.trading_day)}T00:00:00.000Z`);
-    const ledgerEntriesBeforeBoundary = await trx
-      .selectFrom('app.trading_ledger_entries')
-      .select('amount')
-      .where('account_id', '=', account.id)
-      .where('occurred_at', '<', boundaryInstant)
-      .execute();
-    const eodBalance = ledgerEntriesBeforeBoundary
-      .reduce((sum, e) => sum.plus(e.amount), new Decimal(0))
-      .toFixed(2);
-    const realizedNetProfitForDay = new Decimal(eodBalance)
-      .minus(openSnapshot.sod_balance)
-      .toFixed(2);
-
-    const previousHighest = await trx
-      .selectFrom('app.account_daily_snapshots')
-      .select('highest_eod_balance_after')
-      .where('account_id', '=', account.id)
-      .where('status', '=', 'finalized')
-      .orderBy('trading_day', 'desc')
-      .executeTakeFirst();
-    const highestEodBalanceAfter = Decimal.max(
-      previousHighest?.highest_eod_balance_after ?? account.nominal_balance,
-      eodBalance,
-    ).toFixed(2);
-
-    const maximumLossFloorAfter = computeNextMaximumLossFloor({
-      previousFloor: openSnapshot.maximum_loss_floor_before,
-      highestEodBalance: highestEodBalanceAfter,
-      nominalBalance: account.nominal_balance,
-      maximumLossRate: policy.parameters.maximum_loss_rate,
-    });
-
-    await trx
-      .updateTable('app.account_daily_snapshots')
-      .set({
-        status: 'finalized',
-        eod_balance: eodBalance,
-        // See module doc comment — no historical price feed to price open
-        // positions exactly at the UTC boundary in V1.
-        eod_equity: eodBalance,
-        maximum_loss_floor_after: maximumLossFloorAfter,
-        highest_eod_balance_after: highestEodBalanceAfter,
-        realized_net_profit_for_day: realizedNetProfitForDay,
-        finalized_at: now,
-      })
-      .where('id', '=', openSnapshot.id)
-      .where('status', '=', 'open')
-      .execute();
-
-    // ONE-020: DLL soft lock resets at the next daily reset.
-    if (account.status === 'soft_locked') {
-      assertEvaluationAccountTransition('soft_locked', 'active');
-      await trx
-        .updateTable('app.trading_accounts')
-        .set({ status: 'active', updated_at: now })
-        .where('id', '=', account.id)
-        .execute();
-      await trx
-        .insertInto('app.account_state_transitions')
-        .values({
-          account_id: account.id,
-          from_status: 'soft_locked',
-          to_status: 'active',
-          reason: 'daily_loss_limit_reset',
-        })
-        .execute();
-    }
-
-    // Re-derives today's floor from the row just finalized above — no
-    // duplicated floor computation between this function and ensureTodaySnapshot.
+    // Carries forward the EOD balance finalizeElapsed... just wrote as the
+    // new day's SOD — no duplicated floor computation or redundant re-read
+    // between this function and ensureTodaySnapshot.
     const today = await ensureTodaySnapshot(trx, {
       accountId: account.id,
       nominalBalance: account.nominal_balance,
       policyVersionId: policy.id,
       maximumLossRate: policy.parameters.maximum_loss_rate,
-      sodBalance: eodBalance,
-      sodEquity: eodBalance,
+      sodBalance: finalized.eodBalance,
+      sodEquity: finalized.eodBalance,
+      programSodBalance: finalized.programEodBalance,
+      programSodEquity: finalized.programEodBalance,
       now,
     });
 
     return {
       accountId: account.id,
-      finalizedTradingDay: openSnapshot.trading_day,
+      finalizedTradingDay: finalized.finalizedTradingDay,
       newTradingDay: today.trading_day,
-      maximumLossFloorAfter,
+      maximumLossFloorAfter: finalized.maximumLossFloorAfter,
       alreadyUpToDate: false,
     };
   });

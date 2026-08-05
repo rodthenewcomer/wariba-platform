@@ -99,6 +99,11 @@ export class ConnectionRegistry {
     return stale;
   }
 
+  /** Every currently-registered connection id — used by the heartbeat loop to ping all of them. */
+  allConnectionIds(): string[] {
+    return [...this.connections.keys()];
+  }
+
   /** Prompt 07 — account IDs with at least one live subscriber on their state channel, for the throttled risk preview loop. */
   subscribedAccountIds(): string[] {
     const ids = new Set<string>();

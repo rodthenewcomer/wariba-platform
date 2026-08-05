@@ -57,9 +57,12 @@ export function toFillDTO(
   symbol: TradableSymbol,
   side: OrderSide,
   fillType: 'open' | 'close',
+  openingPrice: string,
+  openedAt: Date,
 ): FillDTO {
   return {
     id: f.id,
+    openingFillId: f.openingFillId,
     orderId,
     positionId,
     symbol,
@@ -69,6 +72,14 @@ export function toFillDTO(
     price: f.price,
     commission: f.commission,
     realizedPnl: f.realizedPnl,
+    openingPrice,
+    openedAt: openedAt.toISOString(),
     occurredAt: f.occurredAt.toISOString(),
+    durationMs: f.durationMs,
+    allocatedOpenCommission: f.allocatedOpenCommission,
+    netRealizedPnl: f.netRealizedPnl,
+    eligibleRealizedPnl: f.eligibleRealizedPnl,
+    ineligibleShortDurationProfit: f.ineligibleShortDurationProfit,
+    eligibilityReason: f.eligibilityReason,
   };
 }

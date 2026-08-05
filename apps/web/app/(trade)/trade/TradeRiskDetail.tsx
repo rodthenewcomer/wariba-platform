@@ -46,6 +46,22 @@ export function TradeRiskDetail({ risk }: TradeRiskDetailProps) {
         <div className="flex flex-col gap-4">
           <div>
             <Text variant="label-sm" color="tertiary" className="mb-1">
+              Progression du programme
+            </Text>
+            <div className="flex flex-col divide-y divide-[color:var(--wariba-border-subtle)]">
+              {row('Balance éligible', `${risk.programEligibleBalance} USD`)}
+              {row('Equity éligible', `${risk.programEligibleEquity} USD`)}
+              {row('Progression vers la cible', `${risk.target.current} USD`)}
+              {row('Cible requise', `${risk.target.required} USD`)}
+              {row(
+                'Clôtures profitables < 60 s (24 h)',
+                `${risk.shortDurationMonitoring.count24h}`,
+              )}
+            </div>
+          </div>
+
+          <div>
+            <Text variant="label-sm" color="tertiary" className="mb-1">
               Perte quotidienne (DLL)
             </Text>
             <div className="flex flex-col divide-y divide-[color:var(--wariba-border-subtle)]">
@@ -67,9 +83,11 @@ export function TradeRiskDetail({ risk }: TradeRiskDetailProps) {
           </div>
 
           <Text variant="body-sm" color="tertiary">
-            Ces chiffres sont calculés côté serveur à chaque ordre et se réinitialisent chaque jour
-            à 00:00 UTC. Le blocage temporaire (soft lock) n’efface jamais de position — il empêche
-            seulement l’ouverture de nouvelles positions jusqu’au reset.
+            Ces chiffres sont calculés côté serveur à chaque ordre. Les profits nets positifs issus
+            d’une clôture sous 60 secondes restent dans la balance réelle mais sont exclus des
+            calculs de progression. Le soft lock quotidien se réinitialise à 00:00 UTC ; le verrou
+            de courte durée suit la fenêtre glissante de 24 h. Aucun de ces blocages n’efface une
+            position existante.
           </Text>
         </div>
       </BottomSheet>
