@@ -70,6 +70,26 @@ describe('evaluationOnePolicyParametersSchema', () => {
       }),
     ).toThrow();
   });
+
+  it('rejects an inverted short-duration warning/entry-lock pair (warning would be unreachable)', () => {
+    expect(() =>
+      evaluationOnePolicyParametersSchema.parse({
+        ...SEEDED_V1_1_1_PARAMETERS,
+        short_duration_warning_count: 6,
+        short_duration_entry_lock_count: 3,
+      }),
+    ).toThrow();
+  });
+
+  it('rejects an equal short-duration warning/entry-lock pair (warning would be unreachable)', () => {
+    expect(() =>
+      evaluationOnePolicyParametersSchema.parse({
+        ...SEEDED_V1_1_1_PARAMETERS,
+        short_duration_warning_count: 6,
+        short_duration_entry_lock_count: 6,
+      }),
+    ).toThrow();
+  });
 });
 
 describe('policyVersionRowSchema', () => {

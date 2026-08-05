@@ -15,29 +15,43 @@ const decimalString = z
   .string()
   .regex(/^-?\d+(\.\d+)?$/, 'must be a decimal string, never a float');
 
-export const evaluationOnePolicyParametersSchema = z.object({
-  profit_target_rate: decimalString,
-  recognized_profit: z.literal('realized_net_profit_only'),
-  daily_loss_rate: decimalString,
-  daily_loss_action: z.literal('soft_lock'),
-  maximum_loss_rate: decimalString,
-  maximum_loss_model: z.literal('eod_trailing'),
-  maximum_loss_floor_formula: z.string(),
-  maximum_loss_floor_never_decreases: z.literal(true),
-  maximum_loss_locks_at_nominal: z.literal(true),
-  best_day_max_ratio: decimalString,
-  best_day_breach_capable: z.literal(false),
-  minimum_trading_days: z.number().int().nonnegative(),
-  qualified_days_required: z.null(),
-  overnight_allowed: z.boolean(),
-  weekend_allowed: z.boolean(),
-  news_allowed: z.boolean(),
-  activation_fee: decimalString,
-  program_eligible_balance_enabled: z.boolean().optional(),
-  minimum_profit_eligible_duration_ms: z.number().int().nonnegative().optional(),
-  short_duration_warning_count: z.number().int().positive().optional(),
-  short_duration_entry_lock_count: z.number().int().positive().optional(),
-});
+export const evaluationOnePolicyParametersSchema = z
+  .object({
+    profit_target_rate: decimalString,
+    recognized_profit: z.literal('realized_net_profit_only'),
+    daily_loss_rate: decimalString,
+    daily_loss_action: z.literal('soft_lock'),
+    maximum_loss_rate: decimalString,
+    maximum_loss_model: z.literal('eod_trailing'),
+    maximum_loss_floor_formula: z.string(),
+    maximum_loss_floor_never_decreases: z.literal(true),
+    maximum_loss_locks_at_nominal: z.literal(true),
+    best_day_max_ratio: decimalString,
+    best_day_breach_capable: z.literal(false),
+    minimum_trading_days: z.number().int().nonnegative(),
+    qualified_days_required: z.null(),
+    overnight_allowed: z.boolean(),
+    weekend_allowed: z.boolean(),
+    news_allowed: z.boolean(),
+    activation_fee: decimalString,
+    program_eligible_balance_enabled: z.boolean().optional(),
+    minimum_profit_eligible_duration_ms: z.number().int().nonnegative().optional(),
+    short_duration_warning_count: z.number().int().positive().optional(),
+    short_duration_entry_lock_count: z.number().int().positive().optional(),
+  })
+  .refine(
+    (params) =>
+      params.short_duration_warning_count === undefined ||
+      params.short_duration_entry_lock_count === undefined ||
+      params.short_duration_warning_count < params.short_duration_entry_lock_count,
+    {
+      message:
+        'short_duration_warning_count must be strictly less than short_duration_entry_lock_count — ' +
+        'evaluateShortDurationMonitoring checks entry-lock before warning, so an inverted or equal ' +
+        'pair would make the warning stage unreachable and jump straight to a lock with no prior notice.',
+      path: ['short_duration_warning_count'],
+    },
+  );
 
 export type EvaluationOnePolicyParameters = z.infer<typeof evaluationOnePolicyParametersSchema>;
 

@@ -30,7 +30,7 @@ export async function loadPublishedPolicy(
       () => new Error(`No published ${program} policy version — cannot proceed without one.`),
     );
 
-  return parseAndVerifyPolicy(row);
+  return parseAndVerifyPolicy(row, { strict: true });
 }
 
 export async function loadPolicyById(trx: Db, policyVersionId: string): Promise<LoadedPolicy> {
@@ -40,5 +40,5 @@ export async function loadPolicyById(trx: Db, policyVersionId: string): Promise<
     .where('id', '=', policyVersionId)
     .executeTakeFirstOrThrow(() => new Error(`Policy version ${policyVersionId} not found.`));
 
-  return parseAndVerifyPolicy(row);
+  return parseAndVerifyPolicy(row, { strict: true });
 }

@@ -12,6 +12,7 @@ import {
   symbolSpecsMessageSchema,
   accountRiskSchema,
   accountRiskPreviewMessageSchema,
+  subscribeMessageSchema,
 } from '../src/index';
 
 describe('@wariba/contracts scaffold', () => {
@@ -110,6 +111,58 @@ describe('submitOrderMessageSchema', () => {
     const result = submitOrderMessageSchema.safeParse({
       orderType: 'limit_open',
       idempotencyKey: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it.each(['NaN', 'abc', '', '-5', '1e400', '0.1.0', ' '])(
+    'rejects a malformed quantity string %j before it can crash Decimal.js downstream',
+    (quantity) => {
+      const result = submitOrderMessageSchema.safeParse({
+        orderType: 'market_open',
+        accountId: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        idempotencyKey: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        symbol: 'EURUSD',
+        side: 'buy',
+        quantity,
+      });
+      expect(result.success).toBe(false);
+    },
+  );
+
+  it('rejects a malformed stopLoss string on modify_sl', () => {
+    const result = submitOrderMessageSchema.safeParse({
+      orderType: 'modify_sl',
+      accountId: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+      idempotencyKey: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+      positionId: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+      stopLoss: 'not-a-number',
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('subscribeMessageSchema', () => {
+  it('accepts a normal-sized channel list', () => {
+    const result = subscribeMessageSchema.safeParse({
+      type: 'subscribe',
+      channels: ['account.acc-1.state', 'account.acc-1.orders', 'market.EURUSD'],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects an unbounded channel array (DoS: one query per entry against a shared DB pool)', () => {
+    const result = subscribeMessageSchema.safeParse({
+      type: 'subscribe',
+      channels: Array.from({ length: 5000 }, (_, i) => `account.acc-1.state-${i}`),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects duplicate channel entries', () => {
+    const result = subscribeMessageSchema.safeParse({
+      type: 'subscribe',
+      channels: ['market.EURUSD', 'market.EURUSD'],
     });
     expect(result.success).toBe(false);
   });

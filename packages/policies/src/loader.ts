@@ -25,10 +25,11 @@ export interface LoadedPolicy {
  * than validating a guessed shape, since no such row has been seeded yet.
  *
  * `strict: true` throws on a machine_hash mismatch. Defaults to non-strict
- * because the seeded v1.1.0 row's `machine_hash` is a known legacy placeholder
- * (see hash.ts) until the backfill migration lands — callers that need a
- * verified hash should pass `strict: true` and check `hashVerified`
- * otherwise.
+ * for callers (tooling, one-off scripts) that only need `hashVerified` as an
+ * informational flag rather than a hard failure — every production call site
+ * must pass `strict: true` (supabase/migrations/20260805000001_backfill_policy_machine_hash.sql
+ * backfilled the real hash for every seeded row so this can never spuriously
+ * throw against known-good data).
  */
 export function parseAndVerifyPolicy(row: unknown, opts?: { strict?: boolean }): LoadedPolicy {
   const parsedRow = policyVersionRowSchema.parse(row);
