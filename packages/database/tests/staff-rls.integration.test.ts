@@ -141,11 +141,12 @@ describeIfDb('app.staff_members — row level security and role resolution (real
     ).rejects.toThrow();
   });
 
-  it('an anonymous request sees nothing', async () => {
-    const rows = await asRole(db, 'anon', null, (trx) =>
-      trx.selectFrom('app.staff_members').select(['role']).execute(),
-    );
-    expect(rows).toHaveLength(0);
+  it('the anon role has no grant at all (permission denied, not just RLS-filtered)', async () => {
+    await expect(
+      asRole(db, 'anon', null, (trx) =>
+        trx.selectFrom('app.staff_members').select(['role']).execute(),
+      ),
+    ).rejects.toThrow(/permission denied/);
   });
 
   describe('getStaffRole', () => {
