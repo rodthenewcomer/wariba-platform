@@ -19,14 +19,25 @@ export interface SymbolSimConfig {
   staleThresholdMs: number;
 }
 
+/**
+ * Prompt 07B — shared lifecycle every provider implements, regardless of
+ * where its ticks actually come from (an in-process generator, a recorded
+ * fixture, or a live FCS WebSocket): start() begins producing/receiving
+ * ticks, stop() cleanly tears the source down. Callers (services/realtime)
+ * depend only on this interface, never on a concrete provider class, so the
+ * active implementation is a pure MARKET_DATA_PROVIDER config choice.
+ */
 export interface MarketDataProvider {
+  readonly providerName: string;
+  start(): void;
+  stop(): void;
   getSnapshot(symbol: TradableSymbol): MarketTick;
   getMarketStatus(symbol: TradableSymbol): MarketStatus;
   subscribe(symbols: TradableSymbol[], onTick: (tick: MarketTick) => void): () => void;
 }
 
 /**
- * DATA-001/002: deterministic, seeded sandbox market data — the same seed
+ * DATA-001/002: deterministic, seeded synthetic market data — the same seed
  * always produces the same price sequence. A tiny PRNG (mulberry32) is used
  * purely to pick a walk-step direction/magnitude; the step is immediately
  * applied through Decimal arithmetic and every returned price is formatted
@@ -65,7 +76,8 @@ interface SymbolState {
   lastTimestamp: string;
 }
 
-export class SandboxMarketDataProvider implements MarketDataProvider {
+export class MockMarketDataProvider implements MarketDataProvider {
+  readonly providerName = 'mock';
   private readonly configs: Record<TradableSymbol, SymbolSimConfig>;
   private readonly state = new Map<TradableSymbol, SymbolState>();
   private readonly listeners = new Map<TradableSymbol, Set<(tick: MarketTick) => void>>();

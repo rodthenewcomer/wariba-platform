@@ -281,6 +281,16 @@
     --wariba-action-destructive: #C94D4D;
     --wariba-action-destructive-hover: #A73C3C;
     --wariba-action-destructive-text: #FFFFFF;
+    --wariba-status-success-background: #132821;
+    --wariba-status-success-text: #8FE0BE;
+    --wariba-status-warning-background: #2B2010;
+    --wariba-status-warning-text: #F0C878;
+    --wariba-status-danger-background: #2A1616;
+    --wariba-status-danger-text: #F5A8A8;
+    --wariba-status-information-background: #141F2E;
+    --wariba-status-information-text: #9CC2F0;
+    --wariba-status-neutral-background: #1A1F2B;
+    --wariba-status-neutral-text: #C0C6D0;
   }
 }
 
@@ -314,6 +324,16 @@
   --wariba-action-destructive: #C94D4D;
   --wariba-action-destructive-hover: #A73C3C;
   --wariba-action-destructive-text: #FFFFFF;
+  --wariba-status-success-background: #132821;
+  --wariba-status-success-text: #8FE0BE;
+  --wariba-status-warning-background: #2B2010;
+  --wariba-status-warning-text: #F0C878;
+  --wariba-status-danger-background: #2A1616;
+  --wariba-status-danger-text: #F5A8A8;
+  --wariba-status-information-background: #141F2E;
+  --wariba-status-information-text: #9CC2F0;
+  --wariba-status-neutral-background: #1A1F2B;
+  --wariba-status-neutral-text: #C0C6D0;
 }
 
 [data-theme="light"] {

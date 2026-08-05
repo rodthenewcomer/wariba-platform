@@ -7,7 +7,7 @@ language: "fr-FR"
 brand: "WARIBA"
 domain: "wariba.app"
 owner: "WARIBA Leadership, Product, Risk, Engineering & Operations"
-last_updated: "2026-08-04"
+last_updated: "2026-08-05"
 ---
 
 # WARIBA Decision Log v1.0
@@ -315,11 +315,19 @@ Révision:
 | TRD-021 | `LOCKED` | Aucun fill partiel au niveau ordre en V1 : un ordre marché accepté est entièrement rempli en un seul fill. | Le marché sandbox déterministe a toujours une liquidité suffisante ; `partially_filled` reste une valeur de state machine valide mais non atteinte tant qu'un scénario de liquidité limitée n'est pas requis. |
 | TRD-022 | `LOCKED` | Aucune exécution automatique de Stop Loss / Take Profit en V1 : ce sont des paramètres de risque stockés et modifiables sur une position, pas des ordres en attente déclenchés par le marché. | TRD-005 (pending orders avancés) reste `OPEN` ; le marché sandbox ne surveille pas les positions pour un déclenchement automatique tant que ce périmètre n'est pas validé séparément. |
 | TRD-023 | `LOCKED` | `account_sequence` (WebSocket gap detection par compte) réutilise `trading_accounts.version` (déjà le compteur de concurrence optimiste du row lock) plutôt qu'une séquence dédiée. | Chaque écriture transactionnelle de trading incrémente déjà `version` sous verrou ; réutiliser cette valeur évite un générateur de séquence redondant. |
-| TRD-024 | `LOCKED` | Levier Forex maximal 1:100 en Evaluation et Performance. | Compétitivité encadrée par l’exposition agrégée. |
-| TRD-025 | `LOCKED` | XAUUSD jusqu’à 1:50 avec modèle dynamique selon l’exposition agrégée. | Attractivité avec contrôle du volume. |
-| TRD-026 | `LOCKED` | NAS100 jusqu’à 1:20. | Compromis attractivité/risque. |
+| TRD-024 | `SUPERSEDED` par TRD-036 | Levier Forex maximal 1:100 en Evaluation et Performance. | Contredisait TRD-018 (toujours `LOCKED`, jamais supersédé) sans le mentionner — `WARIBA_RULESET_v1.1.json` et `symbol_specs` avaient encodé le même levier pour les deux programmes. |
+| TRD-025 | `SUPERSEDED` par TRD-036 | XAUUSD jusqu’à 1:50 avec modèle dynamique selon l’exposition agrégée, sans distinction de programme. | Même lacune que TRD-024 — implémenté à levier identique pour Evaluation et Performance. |
+| TRD-026 | `SUPERSEDED` par TRD-036 | NAS100 jusqu’à 1:20, sans distinction de programme. | Même lacune que TRD-024/025. |
 | TRD-027 | `LOCKED` | Limites d’exposition agrégées par taille de compte. | Le levier seul ne contrôle pas l’exposition. |
 | TRD-028 | `LOCKED` | Marge utilisée maximale : 30 % Evaluation, 25 % Performance. | Protection de l’equity. |
+| TRD-029 | `LOCKED` | `ExecutionStateValue` (WariX) n’a pas d’état `partially-filled` — préparation/envoi client, puis reçu/validé/accepté/rempli/rejeté/annulé côté serveur. | Corrige une dérive : TRD-021 (verrouillé) rend ce fill partiel structurellement inatteignable en V1, mais le type UI le portait encore. Corriger la dérive plutôt que construire une interface pour un état impossible. |
+| TRD-030 | `LOCKED` | Le levier effectif et les bornes de quantité (min/max/pas) par symbole sont exposés au client WebSocket via un message `symbol_specs` (une fois par connexion), lu depuis `app.symbol_specs` déjà en base. | Nécessaire pour que WariX calcule marge estimée et validation de quantité côté client sans deviner une valeur ; `services/realtime` sélectionnait déjà ces colonnes en base sans les transmettre. |
+| TRD-031 | `LOCKED` | La concentration par bucket d’exposition (Forex combiné, XAUUSD, NAS100) affichée dans Guardian est purement informative et réutilise les mêmes buckets que la porte d’exposition agrégée (`packages/database/src/trading.ts`, `FOREX_SYMBOLS`). | Évite la dérive entre ce qui bloque réellement un ordre et ce qui est affiché comme concentration ; jamais bloquant par elle-même (Rulebook §9.5). |
+| TRD-032 | `OPEN` | Aucun calendrier news/weekend n’existe encore — le champ de restriction dans Guardian et Risk Ribbon reste présent mais toujours vide. | Ne prolonge pas TRD-016 (déjà `OPEN`) : fabriquer un faux calendrier violerait la clause d’arrêt du prompt. Absence honnête plutôt que valeur inventée, en attendant la résolution de TRD-016/TRD-017. |
+| TRD-033 | `LOCKED` | Règle des 60 secondes minimum d'éligibilité de profit (Prompt 07B §4) : sur un close (partiel ou total), un `realized_pnl` positif n'est compté dans `eligible_realized_pnl` que si la durée entre `positions.opened_at` et l'horodatage serveur du fill de clôture est ≥ 60000 ms ; en dessous, il est enregistré dans `ineligible_short_duration_profit` (toujours visible, jamais masqué). Toute PnL négative ou nulle compte intégralement dans `eligible_realized_pnl`, quelle que soit la durée. Durée mesurée exclusivement à partir d'horodatages serveur (`app.positions.opened_at`, `params.now` du close), jamais d'une horloge client. | Le modèle de position hedging de WARIBA (TRD-020, verrouillé : un seul fill d'ouverture par position) fait que ce contrôle par durée simple équivaut exactement à un FIFO lot-matching classique, sans complexité additionnelle. `packages/domain/src/profit-eligibility.ts` (`computeProfitEligibility`), câblé dans `closePositionLocked`. |
+| TRD-034 | `OPEN` | `program_eligible_balance` (la somme d'`eligible_realized_pnl` sur les fills de clôture d'un compte) est calculable mais n'est pas encore branchée dans le moteur de risque (`packages/database/src/risk.ts`, `daily-finalization.ts`) : DLL, Maximum Loss, Best Day, target d'évaluation et EOD trailing floor utilisent toujours le PnL réalisé total, sans distinguer profit éligible/court terme. | Câbler `program_eligible_balance` dans ces formules touche une logique de risque déjà verrouillée et testée (PR #8) ; le faire sans une passe dédiée aurait risqué de la déstabiliser. Fait à part entière du champ TRD-033 (l'enregistrement par fill), reste `OPEN` jusqu'à cette intégration. |
+| TRD-035 | `LOCKED` | Surveillance glissante 24h des clôtures profitables sous 60s (Prompt 07B) : 3 occurrences = avertissement pédagogique + signal de risque journalisé, sans conséquence ; 6 occurrences = verrouillage temporaire des nouvelles ouvertures (clôtures/réductions toujours autorisées) + compte marqué pour revue manuelle. Jamais de breach automatique permanent à partir de ce seul signal. | `packages/domain/src/profit-eligibility.ts` (`evaluateShortDurationMonitoring`) + `packages/database/src/trading.ts` (`countShortDurationProfitClosures`, lecture directe sur `app.fills`, pas de table de compteur séparée). Détection uniquement — l'application réelle du verrouillage d'entrée (nouveau statut de compte + porte dans le handler d'ordre) reste `OPEN`, non construite cette session. |
+| TRD-036 | `LOCKED` | Réaffirme TRD-018 sur les valeurs v1.1 : levier Evaluation inchangé (Forex 1:100, XAUUSD 1:50, NAS100 1:20) ; levier Performance abaissé à Forex 1:60, XAUUSD 1:25, NAS100 1:10 (mêmes ratios que TRD-018 : 0,60× Forex, 0,50× XAUUSD/NAS100, appliqués aux nouveaux plafonds Evaluation v1.1). | Trouvé lors de l'audit préparatoire du Prompt 05 : `symbol_specs`/`WARIBA_RULESET_v1.1.json` encodaient le même levier pour les deux programmes, contredisant TRD-018 sans jamais le superséder explicitement. Rod confirme le principe (Performance doit rester inférieur) ; les ratios de TRD-018 sont reconduits plutôt qu'un nouveau jugement de risque. Numéroté TRD-036 (pas TRD-029) lors de la fusion avec `main` — TRD-029 était déjà pris par la décision `ExecutionStateValue` du Prompt 07, développée en parallèle sur une autre branche. |
 
 ---
 
@@ -336,6 +344,8 @@ Révision:
 | DATA-007 | `OPEN` | Provider market data réel. | Gate avant public. |
 | DATA-008 | `OPEN` | Licence commerciale market data. | Obligatoire avant utilisation publique réelle. |
 | DATA-009 | `OPEN` | Région/provider optimal pour latence Côte d’Ivoire. | À mesurer. |
+| DATA-010 | `LOCKED` | L'architecture provider de market data (Prompt 07B §5) devient à trois implémentations interchangeables derrière la même interface `MarketDataProvider` : `MockMarketDataProvider` (renommage de `SandboxMarketDataProvider`, générateur synthétique déterministe), `ReplayMarketDataProvider` (rejoue une séquence de ticks enregistrée, jamais de prix inventé hors de l'enregistrement), `FcsMarketDataProvider` (adaptateur FCS Business réel — voir DATA-011). La sélection se fait uniquement par `MARKET_DATA_PROVIDER` (`mock`\|`replay`\|`fcs`), jamais par une classe concrète nommée en dur côté appelant. | `packages/adapters/src/{market-data-provider,replay-market-data-provider,fcs-market-data-provider}.ts` ; sélection dans `services/realtime/src/market.ts` (`createMarketDataProvider`). `MARKET_DATA_REPLAY_MODE=true` force `ReplayMarketDataProvider` même si `MARKET_DATA_PROVIDER=fcs` — garde-fou explicite pour ne jamais risquer une connexion live par accident. |
+| DATA-011 | `OPEN` | Classification Prompt 7B §18 : `BLOCKED BY CREDENTIAL`. `FcsMarketDataProvider` est structurellement complet (contrat d'environnement, échec immédiat sans `FCS_API_KEY`, failover primaire/secondaire avec backoff, cache de ticks, souscriptions) mais son parsing du message WebSocket (`parseFcsMessage`) n'est pas vérifié contre le protocole réel FCS — aucune clé FCS Business n'a jamais existé dans cet environnement pour le tester. Ne jamais prétendre qu'une connexion live fonctionne sans un test réel. | Quiconque obtient une clé FCS réelle doit vérifier/ajuster `parseFcsMessage` et le format de souscription contre une session réelle avant toute mise en production. |
 
 ---
 
@@ -359,6 +369,7 @@ Révision:
 | UX-014 | `CANDIDATE` | Trust Center public. | À implémenter avant public. |
 | UX-015 | `LOCKED` | Toutes les métriques critiques ouvrent leur formule et source. | Explicabilité. |
 | UX-016 | `LOCKED` | La nature simulée est répétée aux moments critiques. | Éviter confusion. |
+| UX-017 | `LOCKED` | `preparing` et `sending` sont des états 100 % client de l’état d’exécution WariX, jamais persistés côté serveur, posés avant/pendant l’envoi WebSocket. | Design System §25.7 ne décrit que les états confirmés serveur, ce qui semblait en conflit avec UX Architecture §22.9 ; les deux restent cohérents une fois `ExecutionState` compris comme couvrant le cycle complet (client + serveur), pas seulement la partie serveur. |
 
 ---
 
@@ -382,6 +393,7 @@ Révision:
 | DS-014 | `LOCKED` | Support mobile à partir de 320 px. | Marché initial. |
 | DS-015 | `CANDIDATE` | Catalogue interne de composants. | QA et cohérence. |
 | DS-016 | `CANDIDATE` | Visual regression tests. | Prévenir régressions. |
+| DS-017 | `LOCKED` | `/offres` et le teaser WariX de la homepage adaptent l’agencement générique d’une page pricing SaaS/prop-firm (cartes de prix → règles nommées → glossaire dépliable → FAQ), avec les tokens, couleurs et contenu WARIBA uniquement. | Autorisé explicitement par le fondateur (session du 2026-08-04, après recherche structurelle sur `topstep.com/no-activation-fee`). Distingue un agencement générique et non protégé (positions des sections, pas de charte visuelle propriétaire) d’une copie visuelle interdite : ne reprend ni logo, ni imagerie, ni copie, ni palette d’un concurrent — reste conforme à DS-011 (anti-vibe-code) et à l’interdiction Topstep/FTMO/Tradeify du Prompt Pack §2.3. |
 
 ---
 
@@ -446,8 +458,10 @@ Révision:
 | ENG-026 | `LOCKED` | Le script `ci` (package.json) s'invoque via `pnpm run ci`, jamais `pnpm ci` seul. | pnpm réserve `ci` comme commande interne (équivalent `npm ci`) et ignore silencieusement le script du même nom sans `run` — trouvé lors de la vérification réelle de Prompt 01 (build agent), corrigé dans AGENTS.md, Engineering Constitution, Build Plan, Prompt Pack et README (2026-08-02). |
 | ENG-027 | `LOCKED` | Le runtime de référence passe à Node.js 24 LTS, épinglé par `.nvmrc`, avec une plage 24.x dans `package.json`. | Node.js 20 est EOL et le SDK Supabase émettait un avertissement de dépréciation au build. Migration validée dans l'audit Prompts 01–04 (2026-08-03). |
 | ENG-028 | `LOCKED` | Le Hub calcule le risque et la balance affichés à partir du solde réalisé (`trading_ledger_entries` + `account_daily_snapshots`) uniquement — `currentUnrealizedPnl` reste `"0"`, jamais une equity temps réel. | Le seul code capable de calculer une equity avec PnL latent (`services/realtime/src/snapshot.ts`) dépend d'un générateur de prix en mémoire propre au process WebSocket, non réutilisable dans une page serveur Next.js sans nouvelle dépendance d'architecture. Aucune colonne de prix courant par position n'existe en base de toute façon. Cohérent avec la règle WARIBA ONE elle-même (seul le profit net réalisé compte pour l'objectif) et avec l'exigence UX de ne jamais afficher une fausse précision : si des positions sont ouvertes, le Hub l'indique et renvoie vers WariX pour le PnL latent temps réel. Décidé avec Rod (2026-08-04). |
-| ENG-029 | `LOCKED` | Le scope "Notifications" du Hub (Prompt 06 #12) est servi par `recent_activity_view` (transitions d'état + violations de risque + exécutions) plutôt que par une table de notifications dédiée. | Aucune table de notifications n'existe et en construire une (avec statut lu/non-lu) serait un chantier séparé. Chaque événement pertinent pour un trader a déjà une ligne réelle dans une de ces trois tables — pas de nouvelle infrastructure, pas de donnée inventée. Réduction de scope assumée, décidée avec Rod (2026-08-04). |
-| ENG-030 | `LOCKED` | L'état d'affichage Hub « attention » (entre normal et soft lock) se déclenche à ≥ 70 % du budget de perte quotidienne utilisé, ou à ≤ 30 % du budget de perte maximale restant (`nominal_balance × maximum_loss_rate` comme dénominateur fixe). | Seuils d'affichage uniquement, dérivés de nombres déjà calculés par le moteur de risque — aucune nouvelle règle financière, pas de nouveau plancher. Nécessaire car le moteur de risque ne distingue aujourd'hui que normal (implicite) et soft-lock/breach (booléens), sans zone d'alerte intermédiaire. Décidé avec Rod (2026-08-04). |
+| ENG-029 | `LOCKED` | Répartition WariX : Risk Ribbon lit `snapshot.risk` (état compte permanent) ; Guardian reprend les mêmes valeurs pour l'impact de l'ordre en cours d'édition ; l'Order Ticket ne fait aucun calcul (champs bruts uniquement). | Évite trois endroits qui recalculent indépendamment « DLL restante » et risquent de diverger ; conforme à la règle Design System §48 déjà respectée par Risk Ribbon. |
+| ENG-030 | `LOCKED` | Les chiffres temps réel de Guardian/Risk Ribbon (equity, DLL restante, Maximum Loss restante) sont rafraîchis par une re-diffusion serveur périodique (~4 s) tant qu'un compte a au moins une position ouverte, jamais par un recalcul côté client. | `buildAccountSnapshot` calculait déjà ces valeurs avec le prix courant mais seulement à la (re)connexion ou après un ordre ; rester server-authoritative (ENG-002) plutôt que dupliquer la formule en client. |
+| ENG-031 | `LOCKED` | Le scope "Notifications" du Hub (Prompt 06 #12) est servi par `recent_activity_view` (transitions d'état + violations de risque + exécutions) plutôt que par une table de notifications dédiée. | Aucune table de notifications n'existe et en construire une (avec statut lu/non-lu) serait un chantier séparé. Chaque événement pertinent pour un trader a déjà une ligne réelle dans une de ces trois tables — pas de nouvelle infrastructure, pas de donnée inventée. Réduction de scope assumée, décidée avec Rod (2026-08-04). Numéroté ENG-031 (pas ENG-029) lors de la fusion avec `main` — ENG-029 était déjà pris par une décision WariX développée en parallèle sur une autre branche. |
+| ENG-032 | `LOCKED` | L'état d'affichage Hub « attention » (entre normal et soft lock) se déclenche à ≥ 70 % du budget de perte quotidienne utilisé, ou à ≤ 30 % du budget de perte maximale restant (`nominal_balance × maximum_loss_rate` comme dénominateur fixe). | Seuils d'affichage uniquement, dérivés de nombres déjà calculés par le moteur de risque — aucune nouvelle règle financière, pas de nouveau plancher. Nécessaire car le moteur de risque ne distingue aujourd'hui que normal (implicite) et soft-lock/breach (booléens), sans zone d'alerte intermédiaire. Décidé avec Rod (2026-08-04). Numéroté ENG-032 (pas ENG-030) pour la même raison qu'ENG-031. |
 
 ---
 
@@ -470,6 +484,7 @@ Révision:
 | SEC-013 | `OPEN` | Seuil final de double approbation. | Dépend du risque et des montants. |
 | SEC-014 | `OPEN` | Politique de rétention. | Dépend juridique/privacy. |
 | SEC-015 | `CANDIDATE` | Audit indépendant avant scale public. | Assurance sécurité. |
+| SEC-016 | `LOCKED` | SEC-006 s'étend explicitement aux providers `mock` et `replay` (Prompt 07B), pas seulement à la valeur littérale `sandbox` : `assertNotSandboxInProduction` refuse le démarrage en production pour `MARKET_DATA_PROVIDER` valant `sandbox`, `mock` ou `replay`. | Nécessaire car `.env.local` utilise désormais `MARKET_DATA_PROVIDER=mock` comme valeur par défaut locale — l'ancienne regex `/sandbox/i` ne l'aurait pas couverte, ce qui aurait silencieusement contourné le garde-fou en production. `packages/config/src/index.ts`. |
 
 ---
 
@@ -626,9 +641,60 @@ Ces décisions ne bloquent pas toutes la fondation, mais bloqueront des phases p
 
 ---
 
-# 25. Historique des versions
+# 25. Décisions — Marchés (catalogue)
 
-## v1.6 — 2026-08-04
+Appendice 07-A — corrige uniquement le périmètre de marché de Prompt 07B, sans
+toucher au terminal, au trading core, au risk engine, à la résilience, au
+trading manuel ni à la règle d'éligibilité de profit à 60 secondes (TRD-033).
+
+| ID | Statut | Décision | Motif / conséquence |
+|---|---|---|---|
+| MARKET-001 | `LOCKED` | Toutes les paires Forex temps réel disponibles chez le provider sont éligibles au catalogue WariX. | Le catalogue n'est plus une liste fixe à dix symboles ; découverte dynamique via le catalogue de symboles du provider, jamais de ticker inventé localement. |
+| MARKET-002 | `LOCKED` | XAUUSD est activé au lancement. | Déjà livré (Prompt 04) — confirmé, pas de changement de code. |
+| MARKET-003 | `LOCKED` | NAS100 et SPX500 sont activés au lancement comme instruments indices simulés. | NAS100 déjà livré et testé de bout en bout ; SPX500 est une extension du même modèle mais son pipeline de trading complet (spécification d'instrument, bucket d'exposition, prix) n'est pas encore construit — voir MARKET-004 pour le statut d'implémentation réel. |
+| MARKET-004 | `OPEN` | Les instruments énergie disponibles chez le provider peuvent être activés au lancement après validation de leur spécification de contrat. | Non implémenté cette session : `TradableSymbol`, `app.symbol_specs` et les buckets d'exposition agrégée (`forex_lots`/`xauusd_lots`/`nas100_contracts`, colonnes fixes une par bucket) devraient être étendus pour SPX500/WTIUSD/BRENTUSD/NGASUSD — changement de schéma réel, pas une simple activation de configuration. Décision produit verrouillée (le catalogue cible est MARKET-001/002/003/004), mais l'ingénierie correspondante reste `OPEN`. |
+| MARKET-005 | `LOCKED` | Les futures CME restent hors du périmètre de lancement initial. | `FUTURES_ENABLED = false` inchangé. |
+| MARKET-006 | `LOCKED` | Le catalogue est piloté par le provider et cherchable, jamais une liste codée en dur. | Objectif produit verrouillé ; la découverte dynamique complète du catalogue FCS (au-delà des cinq symboles actuellement dans `TradableSymbol`) reste un travail d'ingénierie distinct, non fait cette session — voir MARKET-004. |
+
+---
+
+# 26. Historique des versions
+
+## v1.7 — 2026-08-05
+
+Prompt 07B (Trading Core de production, market data live, résilience,
+trading manuel, éligibilité de profit) et Appendice 07-A (correction du
+catalogue de marchés) intégrés sur `feat/wariba-trade` : règle des 60
+secondes minimum d'éligibilité de profit câblée dans `closePositionLocked`
+(TRD-033/034/035, `eligible_realized_pnl`/`ineligible_short_duration_profit`
+par fill, surveillance glissante 24h des clôtures courtes) ; architecture
+market data à trois providers interchangeables — `MockMarketDataProvider`
+(renommage de `SandboxMarketDataProvider`), `ReplayMarketDataProvider`,
+`FcsMarketDataProvider` (adaptateur FCS structurellement complet mais
+jamais testé en live, faute de clé — DATA-011) — sélectionnés par
+`MARKET_DATA_PROVIDER`/`MARKET_DATA_REPLAY_MODE` (DATA-010) ; garde-fou
+production étendu à `mock`/`replay` (SEC-016) ; décisions de catalogue de
+marchés verrouillées (MARKET-001 à 006). Le pipeline de trading complet
+pour SPX500/WTIUSD/BRENTUSD/NGASUSD (spécifications d'instrument, buckets
+d'exposition, prix) et l'intégration de `program_eligible_balance` dans le
+moteur de risque restent `OPEN` — non construits cette session, pour éviter
+de précipiter un changement dans une logique de risque déjà verrouillée et
+testée. Idem pour la résilience active-standby, la détection anti-bot et
+les tests de charge, hors périmètre de cette passe.
+
+## v1.6 — 2026-08-05
+
+Prompt 07 (WariX) complété sur `feat/wariba-trade` : Guardian (nouveau, déterministe, TRD/UX/ENG-029), graphique en chandeliers, ticket d'ordre complet, machine d'états d'exécution client+serveur (UX-017), Watchlist enrichie, positions avec PnL flottant propre à WariX (par opposition au Hub), Close All protégé avec confirmation renforcée sur mobile et résultat détaillé, isolation des re-renders par tick (`useSyncExternalStore`), passe d'accessibilité (clavier, focus, `aria-current`, cibles tactiles 44px), et suite E2E réelle contre la pile complète. Deux bugs réels trouvés et corrigés en cours de route : une race de resynchronisation WebSocket côté client (un ordre rejeté ne faisait jamais avancer `trading_accounts.version`, donc jamais apparaître dans l'historique) et une erreur SSR (`useSyncExternalStore` sans `getServerSnapshot`). TRD-016/TRD-017 restent `OPEN` — aucun calendrier news/weekend n'a été fabriqué.
+
+## v1.8 — 2026-08-05
+
+Correction du levier WARIBA Performance (TRD-036, remplace TRD-024/025/026 — numéroté TRD-036 et non TRD-029 lors de la fusion avec `main`, TRD-029 ayant déjà été pris par Prompt 07) : `WARIBA_RULESET_v1.1.json` et `app.symbol_specs` encodaient le même levier pour Evaluation et Performance, contredisant silencieusement TRD-018 (jamais supersédé). Rod confirme le principe — Performance doit rester inférieur à Evaluation — et les ratios de TRD-018 sont reconduits sur les nouveaux plafonds v1.1 : Performance passe à Forex 1:60, XAUUSD 1:25, NAS100 1:10 (Evaluation inchangé : 1:100/1:50/1:20).
+
+## v1.9 — 2026-08-04
+
+Refonte du site public (homepage, `/warix`, `/offres`, `/programme`) : jargon interne retiré (statuts de sprint, occurrences résiduelles de « sandbox » dans les pages publiques et authentifiées, remplacées par « bêta privée »/« démonstration »/« environnement simulé »), section différenciateurs et FAQ ajoutées à la homepage, prix remontés et rendus visibles via un composant `PricingCard` partagé. WariX devient une démonstration réellement interactive et animée du terminal (graphique en bougies `lightweight-charts`, exécution d’ordres simulée, `RiskRibbon`/`AccountContext` réels), avec une séquence de démonstration automatique qui cède la main dès la première interaction du visiteur — voir DS-017 pour l’agencement de `/offres`.
+
+## v1.10 — 2026-08-04
 
 Prompt 06 — WARIBA Trader Hub implémenté sur `feat/trader-hub` (empilée sur
 `feat/policy-risk-evaluation`, PR #8, dont elle réutilise le moteur de risque
@@ -642,7 +708,9 @@ fil d'activité. Trois nouveaux composants `@wariba/ui` (`AccountSelector`,
 `ActivityTimeline`, `TradingDaysList`) ; cinq composants déjà construits au
 Prompt 02 mais jamais branchés (`MissionProgress`, `RiskRibbon`,
 `ConsistencyMeter`, `PolicyVersionChip`, `EvidencePanel`) sont maintenant
-réellement utilisés. Voir ENG-028/029/030 pour les décisions d'architecture
+réellement utilisés. Voir ENG-028/031/032 (numérotées ENG-031/032 et non
+ENG-029/030 lors de la fusion avec `main`, ces IDs ayant déjà été pris par
+une décision WariX développée en parallèle) pour les décisions d'architecture
 et de scope. Premier scaffolding Playwright du dépôt
 (`apps/web/tests/e2e`) : authentification via le vrai formulaire `/login`,
 comptes fixtures réels activés en base, scan d'accessibilité axe-core
@@ -686,7 +754,7 @@ Création initiale consolidée à partir de :
 
 ---
 
-# 26. Prochaine action opérationnelle
+# 27. Prochaine action opérationnelle
 
 Les Prompts 01 à 04 sont implémentés et audités sur la branche de travail. La séquence suivante est :
 
@@ -701,7 +769,7 @@ Les Prompts 01 à 04 sont implémentés et audités sur la branche de travail. L
 
 ---
 
-# 27. Principe final
+# 28. Principe final
 
 Une décision non écrite est une hypothèse.
 

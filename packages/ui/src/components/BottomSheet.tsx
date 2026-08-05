@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { cx } from '../lib/cx';
 
 export interface BottomSheetProps {
@@ -16,6 +16,7 @@ export interface BottomSheetProps {
  */
 export function BottomSheet({ open, onClose, title, children }: BottomSheetProps) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
 
   useEffect(() => {
     const node = ref.current;
@@ -27,6 +28,7 @@ export function BottomSheet({ open, onClose, title, children }: BottomSheetProps
   return (
     <dialog
       ref={ref}
+      aria-labelledby={title ? titleId : undefined}
       onClose={onClose}
       onCancel={onClose}
       onClick={(event) => {
@@ -46,7 +48,10 @@ export function BottomSheet({ open, onClose, title, children }: BottomSheetProps
       </div>
       <div className="p-[var(--wariba-component-bottom-sheet-padding)]">
         {title ? (
-          <h2 className="mb-3 text-[length:var(--wariba-font-size-heading-sm)] font-semibold text-[color:var(--wariba-text-primary)]">
+          <h2
+            id={titleId}
+            className="mb-3 text-[length:var(--wariba-font-size-heading-sm)] font-semibold text-[color:var(--wariba-text-primary)]"
+          >
             {title}
           </h2>
         ) : null}

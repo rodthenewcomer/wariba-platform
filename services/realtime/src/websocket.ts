@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
 import type { Db, TradableSymbol } from '@wariba/database';
-import type { SandboxMarketDataProvider } from '@wariba/adapters';
+import type { MarketDataProvider } from '@wariba/adapters';
 import {
   subscribeMessageSchema,
   unsubscribeMessageSchema,
@@ -10,18 +10,20 @@ import {
   submitOrderMessageSchema,
   closeAllMessageSchema,
   buildEnvelope,
+  accountStateChannel,
   accountOrdersChannel,
   accountPositionsChannel,
   marketSymbolChannel,
   TRADABLE_SYMBOLS,
   type OrderResultMessage,
+  type SymbolSpec,
 } from '@wariba/contracts';
 import type { Logger } from '@wariba/observability';
 import type { RealtimeConfig } from './config';
-import type { LoadedSymbolSpec } from './market';
+import { resolveLeverage, type LoadedSymbolSpec } from './market';
 import { verifyAccessToken } from './auth';
 import { ConnectionRegistry } from './registry';
-import { buildAccountSnapshot } from './snapshot';
+import { buildAccountSnapshot, buildAccountRiskPreview } from './snapshot';
 import { handleSubmitOrder, handleCloseAll, verifyAccountOwnership } from './order-handler';
 
 const clientMessageSchema = z.discriminatedUnion('type', [
@@ -41,7 +43,7 @@ export function registerWebSocketRoute(
   app: FastifyInstance,
   deps: {
     db: Db;
-    market: SandboxMarketDataProvider;
+    market: MarketDataProvider;
     symbolSpecs: Record<TradableSymbol, LoadedSymbolSpec>;
     config: RealtimeConfig;
     logger: Logger;
@@ -148,11 +150,69 @@ export function registerWebSocketRoute(
       }),
     );
   });
+
+  // Prompt 07 — Guardian/RiskRibbon liveness: buildAccountSnapshot already
+  // live-prices equity/risk on every call, but only runs on (re)subscribe or
+  // after an order. This periodically re-runs it (skipping accounts with no
+  // open positions) for every account with a live state-channel subscriber,
+  // as a separate untracked message type — see accountRiskPreviewMessageSchema's
+  // doc comment for why it can't just reuse account.snapshot's sequence.
+  //
+  // Self-rescheduling setTimeout, not setInterval: each round of per-account
+  // DB queries must fully finish before the next round is scheduled, or a
+  // slow round (many subscribed accounts, a slow DB) would let ticks pile up
+  // concurrently and exhaust the pg.Pool's default 10 connections — starving
+  // every other query the service needs to run, not just this loop's own.
+  let riskPreviewTimer: ReturnType<typeof setTimeout> | null = null;
+  const scheduleRiskPreviewTick = (): void => {
+    riskPreviewTimer = setTimeout(() => {
+      void broadcastRiskPreviews(registry, db, market, symbolSpecs, logger).finally(
+        scheduleRiskPreviewTick,
+      );
+    }, config.ACCOUNT_RISK_PREVIEW_INTERVAL_MS);
+  };
+  scheduleRiskPreviewTick();
+  app.addHook('onClose', (_instance, done) => {
+    if (riskPreviewTimer) clearTimeout(riskPreviewTimer);
+    done();
+  });
+}
+
+async function broadcastRiskPreviews(
+  registry: ConnectionRegistry,
+  db: Db,
+  market: MarketDataProvider,
+  symbolSpecs: Record<TradableSymbol, LoadedSymbolSpec>,
+  logger: Logger,
+): Promise<void> {
+  const accountIds = registry.subscribedAccountIds();
+  await Promise.all(
+    accountIds.map(async (accountId) => {
+      try {
+        const preview = await buildAccountRiskPreview(db, accountId, market, symbolSpecs);
+        if (!preview) return;
+        registry.broadcast(
+          accountStateChannel(accountId),
+          buildEnvelope({
+            type: 'account.risk_preview',
+            sequence: 0,
+            correlationId: accountId,
+            payload: preview,
+          }),
+        );
+      } catch (error) {
+        logger.error('ws.risk_preview_failed', {
+          accountId,
+          errorMessage: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }),
+  );
 }
 
 interface MessageDeps {
   db: Db;
-  market: SandboxMarketDataProvider;
+  market: MarketDataProvider;
   symbolSpecs: Record<TradableSymbol, LoadedSymbolSpec>;
   registry: ConnectionRegistry;
   logger: Logger;
@@ -201,8 +261,26 @@ async function processMessage(
   }
 
   if (msg.type === 'subscribe') {
-    for (const channel of msg.channels) {
-      if (!(await channelAllowed(db, userId, channel))) {
+    // Two passes, each fully parallel — not one sequential await-in-loop.
+    // registry.subscribe() must complete for every allowed channel before
+    // ANY of the slower sendInitialSnapshot I/O starts: a client that
+    // subscribes to [account.state, account.orders, ...] and then fires
+    // submit_order right away races broadcastOrderResult against this
+    // subscribe handler. If .orders were registered only after .state's
+    // (now heavier — buildAccountSnapshot + the symbol_specs query) initial
+    // snapshot finished, an order filled in that window would broadcast to
+    // .orders before this connection was listed as a subscriber, silently
+    // dropping order_result. Found via a real browser check against /trade
+    // where the Buy button never left its pending state.
+    const checks = await Promise.all(
+      msg.channels.map(async (channel) => ({
+        channel,
+        allowed: await channelAllowed(db, userId, channel),
+      })),
+    );
+    const allowedChannels: string[] = [];
+    for (const { channel, allowed } of checks) {
+      if (!allowed) {
         sendError(
           registry,
           connectionId,
@@ -212,8 +290,13 @@ async function processMessage(
         continue;
       }
       registry.subscribe(connectionId, channel);
-      await sendInitialSnapshot(registry, connectionId, db, market, symbolSpecs, channel);
+      allowedChannels.push(channel);
     }
+    await Promise.all(
+      allowedChannels.map((channel) =>
+        sendInitialSnapshot(registry, connectionId, db, market, symbolSpecs, channel),
+      ),
+    );
     return;
   }
 
@@ -262,13 +345,14 @@ async function sendInitialSnapshot(
   registry: ConnectionRegistry,
   connectionId: string,
   db: Db,
-  market: SandboxMarketDataProvider,
+  market: MarketDataProvider,
   symbolSpecs: Record<TradableSymbol, LoadedSymbolSpec>,
   channel: string,
 ): Promise<void> {
   const accountMatch = /^account\.([0-9a-f-]+)\.state$/.exec(channel);
   if (accountMatch?.[1]) {
-    const snapshot = await buildAccountSnapshot(db, accountMatch[1], market, symbolSpecs);
+    const accountId = accountMatch[1];
+    const snapshot = await buildAccountSnapshot(db, accountId, market, symbolSpecs);
     registry.send(
       connectionId,
       buildEnvelope({
@@ -276,6 +360,32 @@ async function sendInitialSnapshot(
         sequence: snapshot.accountSequence,
         correlationId: connectionId,
         payload: snapshot,
+      }),
+    );
+
+    // Static for the session — one program-resolved spec set per account,
+    // not re-sent on every resubscribe/reconnect noise, just once here.
+    const account = await db
+      .selectFrom('app.trading_accounts')
+      .select('program_type')
+      .where('id', '=', accountId)
+      .executeTakeFirstOrThrow();
+    const specs: SymbolSpec[] = (Object.keys(symbolSpecs) as TradableSymbol[]).map((symbol) => ({
+      symbol,
+      pricePrecision: symbolSpecs[symbol].pricePrecision,
+      contractSize: symbolSpecs[symbol].contractSize,
+      minimumQuantity: symbolSpecs[symbol].minimumQuantity,
+      maximumQuantity: symbolSpecs[symbol].maximumQuantity,
+      quantityStep: symbolSpecs[symbol].quantityStep,
+      leverage: resolveLeverage(symbolSpecs[symbol], account.program_type),
+    }));
+    registry.send(
+      connectionId,
+      buildEnvelope({
+        type: 'symbol_specs',
+        sequence: 0,
+        correlationId: connectionId,
+        payload: { specs },
       }),
     );
     return;

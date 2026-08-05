@@ -44,6 +44,10 @@ export * from './components/Skeleton';
 export * from './components/Card';
 export * from './components/DataTable';
 export * from './components/EmptyState';
+export * from './components/PricingCard';
+export * from './components/FeatureCard';
+export * from './components/StatTile';
+export * from './components/Accordion';
 
 // Layouts — Design System §26 / Prompt 02 scope
 export * from './layouts/PublicHeader';
@@ -67,3 +71,5 @@ export * from './wariba/AccountSelector';
 export * from './wariba/ActivityTimeline';
 export * from './wariba/TradingDaysList';
 export * from './wariba/OpenPositionsTable';
+export * from './wariba/Guardian';
+export * from './wariba/WariXPositionsTable';

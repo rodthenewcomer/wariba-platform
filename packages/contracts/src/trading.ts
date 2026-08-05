@@ -148,6 +148,19 @@ export const evaluationAccountStatusSchema = z.enum([
   'closed',
 ]);
 
+// Prompt 07 Guardian — "concentration informative" (Rulebook §9.5): never
+// blocking, the real gate is the aggregate exposure check at order time.
+// Reuses the same three buckets that check already groups by
+// (packages/database's FOREX_SYMBOLS/XAUUSD/NAS100 split).
+export const exposureBucketSchema = z.enum(['forex', 'xauusd', 'nas100']);
+export const concentrationBucketSchema = z.object({
+  bucket: exposureBucketSchema,
+  usedQuantity: z.string(),
+  limitQuantity: z.string(),
+  usedRatio: z.string(),
+});
+export type ConcentrationBucket = z.infer<typeof concentrationBucketSchema>;
+
 export const accountRiskSchema = z.object({
   status: evaluationAccountStatusSchema,
   target: z.object({ required: z.string(), reached: z.boolean() }),
@@ -155,6 +168,11 @@ export const accountRiskSchema = z.object({
     reference: z.string(),
     floor: z.string(),
     used: z.string(),
+    // Prompt 07 — mirrors maximumLoss.remaining below; the risk engine
+    // itself doesn't compute this (only reference/floor/used), so
+    // services/realtime/src/snapshot.ts derives it at the DTO boundary via
+    // @wariba/domain's computeDailyLossRemaining.
+    remaining: z.string(),
     softLockTriggered: z.boolean(),
   }),
   maximumLoss: z.object({ floor: z.string(), remaining: z.string(), breached: z.boolean() }),
@@ -163,6 +181,7 @@ export const accountRiskSchema = z.object({
     passEligible: z.boolean(),
     blockingReasons: z.array(z.string()),
   }),
+  concentration: z.array(concentrationBucketSchema),
 });
 export type AccountRisk = z.infer<typeof accountRiskSchema>;
 
@@ -189,3 +208,28 @@ export const orderResultMessageSchema = z.object({
   fill: fillDtoSchema.nullable(),
 });
 export type OrderResultMessage = z.infer<typeof orderResultMessageSchema>;
+
+/**
+ * Prompt 07 — Guardian/RiskRibbon liveness. `buildAccountSnapshot` already
+ * live-prices equity/dailyLoss/maximumLoss on every call, but only gets
+ * called on (re)subscribe or after an order; this is a periodic re-push
+ * (services/realtime/src/websocket.ts, ~4s, only while positions are open)
+ * of just the price-sensitive fields, computed by the same server-side logic
+ * — never a client-side recomputation.
+ *
+ * Deliberately NOT part of the account.snapshot sequence stream: it doesn't
+ * carry accountSequence and isn't gap-tracked (apps/web/lib/realtime-client.ts
+ * — see channelForEnvelope), because trading_accounts.version only advances
+ * on a real trade, not on a price tick, and this message fires on price
+ * ticks alone. Reusing account.snapshot's sequence here would make the
+ * client silently drop it as a stale duplicate.
+ *
+ * Payload shape only; `type` lives on the envelope, same convention as
+ * MarketTick/AccountSnapshot.
+ */
+export const accountRiskPreviewMessageSchema = z.object({
+  accountId: z.string().uuid(),
+  equity: z.string(),
+  risk: accountRiskSchema.nullable(),
+});
+export type AccountRiskPreviewMessage = z.infer<typeof accountRiskPreviewMessageSchema>;

@@ -265,7 +265,14 @@ describeIfDb('risk engine — real database', () => {
       now: NOW,
     });
     expect(allowedClose.order.status).toBe('filled');
-  }, 30000);
+    // 60s: this scenario's own several real round trips (two opens, a
+    // close, three reads, plus a rejection — insertRejectedOrder now also
+    // bumps trading_accounts.version under the account lock, packages/
+    // database/src/trading.ts — so slightly heavier than before) came in
+    // as high as 45s when run alongside the rest of the integration suite
+    // (more pg.Pool contention than in isolation) — matching the 60s budget
+    // trading.integration.test.ts already uses for its own heaviest cases.
+  }, 60000);
 
   it('a loss exceeding the 10% Maximum Loss floor hard-breaches the account and force-closes every remaining open position', async () => {
     const { accountId } = await createActiveAccount('maxloss');
@@ -364,7 +371,8 @@ describeIfDb('risk engine — real database', () => {
     });
     expect(blockedOpen.order.status).toBe('rejected');
     expect(blockedOpen.order.rejectionCode).toBe('account_not_active');
-  }, 30000);
+    // 60s — same reasoning as the Daily Loss Limit test above.
+  }, 60000);
 
   it('reaching the 10% target with Best Day compliant profit spread across two finalized days passes the evaluation', async () => {
     const { accountId } = await createActiveAccount('pass');
@@ -499,7 +507,11 @@ describeIfDb('risk engine — real database', () => {
       .executeTakeFirstOrThrow();
     expect(passTransition.from_status).toBe('pass_pending');
     expect(passTransition.reason).toBe('evaluation_pass_finalized');
-  }, 40000);
+    // 55s: two finalized trading days' worth of trades/finalization calls —
+    // this scenario doesn't touch a rejection path, so this budget is
+    // purely this environment's own real, confirmed latency, not related to
+    // any Prompt 07 change.
+  }, 55000);
 
   it('is idempotent — retrying the same triggerEventId writes no duplicate violation or transition', async () => {
     const { accountId } = await createActiveAccount('idempotency');

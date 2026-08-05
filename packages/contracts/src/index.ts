@@ -27,8 +27,12 @@ export {
   symbolSchema,
   marketStatusSchema,
   marketTickSchema,
+  symbolSpecSchema,
+  symbolSpecsMessageSchema,
   type MarketStatus,
   type MarketTick,
+  type SymbolSpec,
+  type SymbolSpecsMessage,
 } from './market';
 
 export {
@@ -42,9 +46,12 @@ export {
   fillDtoSchema,
   positionDtoSchema,
   evaluationAccountStatusSchema,
+  exposureBucketSchema,
+  concentrationBucketSchema,
   accountRiskSchema,
   accountSnapshotSchema,
   orderResultMessageSchema,
+  accountRiskPreviewMessageSchema,
   type OrderType,
   type Side,
   type SubmitOrderMessage,
@@ -52,9 +59,11 @@ export {
   type OrderDTO,
   type FillDTO,
   type PositionDTO,
+  type ConcentrationBucket,
   type AccountRisk,
   type AccountSnapshot,
   type OrderResultMessage,
+  type AccountRiskPreviewMessage,
 } from './trading';
 
 export {

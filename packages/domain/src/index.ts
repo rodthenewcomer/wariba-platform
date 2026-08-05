@@ -39,14 +39,20 @@ export {
   isPartialCloseQuantityValid,
   subtractQuantity,
   addRealizedPnl,
+  estimateRequiredMargin,
+  computeConcentration,
   type OrderSide,
   type FillAction,
+  type ExposureBucketUsage,
+  type ExposureBucketConcentration,
 } from './trading-math';
 export {
   computeDailyReference,
   computeDailyLossFloor,
   computeDailyLossUsed,
   isDailyLossSoftLockTriggered,
+  computeDailyLossRemaining,
+  computeDailyLossUsedRatio,
   computeInitialMaximumLossFloor,
   computeNextMaximumLossFloor,
   isMaximumLossBreached,
@@ -63,3 +69,14 @@ export {
   type HubAttentionSignal,
   type DeriveHubDisplayStateParams,
 } from './hub-state';
+export {
+  computeProfitEligibility,
+  MINIMUM_PROFIT_ELIGIBLE_DURATION_MS,
+  evaluateShortDurationMonitoring,
+  SHORT_DURATION_WARNING_THRESHOLD,
+  SHORT_DURATION_ENTRY_LOCK_THRESHOLD,
+  type ProfitEligibilityInput,
+  type ProfitEligibilityResult,
+  type ShortDurationMonitoringStatus,
+  type ShortDurationMonitoringResult,
+} from './profit-eligibility';

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { AxeBuilder } from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
-import { evaluateAndApplyAccountRisk } from '@wariba/database';
+import { evaluateAndApplyAccountRisk } from '@wariba/test-utils';
 import {
   attachFixtureAccountToUser,
   createFixtureAccount,

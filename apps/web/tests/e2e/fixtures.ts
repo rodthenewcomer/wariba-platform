@@ -1,133 +1,47 @@
-import { randomUUID } from 'node:crypto';
-import { activateEvaluationAccount, createDbClient, type Db } from '@wariba/database';
+import { test as base, expect } from '@playwright/test';
+import {
+  seedTradeAccount,
+  createFixtureDb,
+  createFixtureAccount,
+  attachFixtureAccountToUser,
+  deleteFixtureAccount,
+  E2E_TEST_PASSWORD,
+  type TradeAccountFixture,
+  type E2eFixtureAccount,
+} from '@wariba/test-utils';
 
-export const E2E_TEST_PASSWORD = `Hub-e2e-${randomUUID().slice(0, 12)}!`;
+export type TradeAccount = TradeAccountFixture;
 
-export interface E2eFixtureAccount {
-  userId: string;
-  email: string;
-  accountId: string;
-}
+export {
+  createFixtureDb,
+  createFixtureAccount,
+  attachFixtureAccountToUser,
+  deleteFixtureAccount,
+  E2E_TEST_PASSWORD,
+  type E2eFixtureAccount,
+};
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required env var ${name} for E2E fixtures.`);
-  return value;
-}
+/**
+ * One fresh user + one active WARIBA ONE account per test — every WariX E2E
+ * scenario here needs a real, isolated account (open positions/orders from
+ * one test must never bleed into another's assertions). No teardown: this
+ * points at the shared hosted Supabase dev project, same as every
+ * integration test in this repo — orphaned fixture rows are an accepted,
+ * already-established cost here, not something worth a cleanup pass per run.
+ */
+export const test = base.extend<{ tradeAccount: TradeAccount }>({
+  // Playwright's fixture API requires this literal `{}` destructuring shape
+  // to statically detect which fixtures a given fixture depends on — this
+  // one depends on none.
+  // eslint-disable-next-line no-empty-pattern
+  tradeAccount: async ({}, use) => {
+    const account = await seedTradeAccount({
+      databaseUrl: process.env.DATABASE_URL as string,
+      supabaseUrl: process.env.SUPABASE_URL as string,
+      supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
+    });
+    await use(account);
+  },
+});
 
-export function createFixtureDb(): Db {
-  return createDbClient(requireEnv('DATABASE_URL'));
-}
-
-async function createTestUser(email: string): Promise<string> {
-  const res = await fetch(`${requireEnv('SUPABASE_URL')}/auth/v1/admin/users`, {
-    method: 'POST',
-    headers: {
-      apikey: requireEnv('SUPABASE_SERVICE_ROLE_KEY'),
-      Authorization: `Bearer ${requireEnv('SUPABASE_SERVICE_ROLE_KEY')}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ email, password: E2E_TEST_PASSWORD, email_confirm: true }),
-  });
-  const body = (await res.json()) as { id: string };
-  return body.id;
-}
-
-async function deleteTestUser(id: string): Promise<void> {
-  await fetch(`${requireEnv('SUPABASE_URL')}/auth/v1/admin/users/${id}`, {
-    method: 'DELETE',
-    headers: {
-      apikey: requireEnv('SUPABASE_SERVICE_ROLE_KEY'),
-      Authorization: `Bearer ${requireEnv('SUPABASE_SERVICE_ROLE_KEY')}`,
-    },
-  });
-}
-
-/** Same direct-activation pattern as the packages' integration tests — real DB, no mocks. */
-export async function createFixtureAccount(
-  db: Db,
-  label: string,
-  productCode: '5K' | '10K' = '5K',
-): Promise<E2eFixtureAccount> {
-  const email = `hub-e2e-${label}-${Date.now()}-${randomUUID().slice(0, 8)}@wariba-test.invalid`;
-  const userId = await createTestUser(email);
-
-  const productVersion = await db
-    .selectFrom('app.product_versions')
-    .innerJoin('app.products', 'app.products.id', 'app.product_versions.product_id')
-    .select([
-      'app.product_versions.id',
-      'app.products.nominal_balance',
-      'app.products.nominal_currency',
-    ])
-    .where('app.products.code', '=', productCode)
-    .executeTakeFirstOrThrow();
-
-  const order = await db
-    .insertInto('app.purchase_orders')
-    .values({
-      user_id: userId,
-      product_version_id: productVersion.id,
-      idempotency_key: randomUUID(),
-      status: 'paid',
-      total_amount: productCode === '5K' ? '22500.00' : '39900.00',
-      total_currency: 'XOF',
-    })
-    .returning('id')
-    .executeTakeFirstOrThrow();
-
-  const account = await activateEvaluationAccount(db, {
-    purchaseOrderId: order.id,
-    userId,
-    nominalBalance: productVersion.nominal_balance,
-    currency: productVersion.nominal_currency,
-  });
-
-  return { userId, email, accountId: account.id };
-}
-
-/** For a second account under the SAME user (e.g. testing the account switcher). */
-export async function attachFixtureAccountToUser(
-  db: Db,
-  fixture: E2eFixtureAccount,
-  userId: string,
-): Promise<void> {
-  await db
-    .updateTable('app.trading_accounts')
-    .set({ user_id: userId })
-    .where('id', '=', fixture.accountId)
-    .execute();
-}
-
-export async function deleteFixtureAccount(db: Db, fixture: E2eFixtureAccount): Promise<void> {
-  await db.deleteFrom('app.trade_orders').where('account_id', '=', fixture.accountId).execute();
-  await db.deleteFrom('app.positions').where('account_id', '=', fixture.accountId).execute();
-  await db
-    .deleteFrom('app.trading_ledger_entries')
-    .where('account_id', '=', fixture.accountId)
-    .execute();
-  await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', fixture.accountId).execute();
-  await db.deleteFrom('app.risk_violations').where('account_id', '=', fixture.accountId).execute();
-  await db
-    .deleteFrom('app.account_daily_snapshots')
-    .where('account_id', '=', fixture.accountId)
-    .execute();
-  await db
-    .deleteFrom('app.account_state_transitions')
-    .where('account_id', '=', fixture.accountId)
-    .execute();
-  const account = await db
-    .selectFrom('app.trading_accounts')
-    .select('source_purchase_order_id')
-    .where('id', '=', fixture.accountId)
-    .executeTakeFirst();
-  await db.deleteFrom('app.trading_accounts').where('id', '=', fixture.accountId).execute();
-  if (account) {
-    await db
-      .deleteFrom('app.purchase_orders')
-      .where('id', '=', account.source_purchase_order_id)
-      .execute();
-  }
-  await db.deleteFrom('app.user_consents').where('user_id', '=', fixture.userId).execute();
-  await deleteTestUser(fixture.userId);
-}
+export { expect };

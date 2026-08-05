@@ -26,6 +26,7 @@ export {
   closePosition,
   closeAllPositions,
   modifyPositionRisk,
+  FOREX_SYMBOLS,
   type MarketSnapshot,
   type TradeOrderOutcome,
   type PositionSummary,

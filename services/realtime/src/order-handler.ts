@@ -14,7 +14,7 @@ import {
   type CloseAllMessage,
   type OrderResultMessage,
 } from '@wariba/contracts';
-import type { SandboxMarketDataProvider } from '@wariba/adapters';
+import type { MarketDataProvider } from '@wariba/adapters';
 import type { LoadedSymbolSpec } from './market';
 import { toOrderDTO, toPositionDTO, toFillDTO } from './dto-mappers';
 
@@ -26,10 +26,7 @@ export type OrderRejectionReason = 'not_owner';
  * it) — this is that read, translated into the MarketSnapshot shape
  * packages/database expects.
  */
-function readMarketSnapshot(
-  market: SandboxMarketDataProvider,
-  symbol: TradableSymbol,
-): MarketSnapshot {
+function readMarketSnapshot(market: MarketDataProvider, symbol: TradableSymbol): MarketSnapshot {
   const tick = market.getSnapshot(symbol);
   return {
     bid: tick.bid,
@@ -44,7 +41,7 @@ function readMarketSnapshot(
  * every open position on the account, not just the symbol being traded —
  * so it always needs live quotes for all tradable symbols, not just one.
  */
-function readAllMarkets(market: SandboxMarketDataProvider): Record<TradableSymbol, MarketSnapshot> {
+function readAllMarkets(market: MarketDataProvider): Record<TradableSymbol, MarketSnapshot> {
   const result = {} as Record<TradableSymbol, MarketSnapshot>;
   for (const symbol of TRADABLE_SYMBOLS) {
     result[symbol] = readMarketSnapshot(market, symbol);
@@ -124,7 +121,7 @@ function buildResultMessage(
 
 export async function handleSubmitOrder(
   db: Db,
-  market: SandboxMarketDataProvider,
+  market: MarketDataProvider,
   userId: string,
   msg: SubmitOrderMessage,
 ): Promise<{ result: TradeCommandResult; message: OrderResultMessage } | OrderRejectionReason> {
@@ -207,7 +204,7 @@ export async function handleSubmitOrder(
 
 export async function handleCloseAll(
   db: Db,
-  market: SandboxMarketDataProvider,
+  market: MarketDataProvider,
   symbolSpecs: Record<TradableSymbol, LoadedSymbolSpec>,
   userId: string,
   msg: CloseAllMessage,

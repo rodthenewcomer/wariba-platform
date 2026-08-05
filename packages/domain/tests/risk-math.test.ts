@@ -4,6 +4,8 @@ import {
   computeDailyLossFloor,
   computeDailyLossUsed,
   isDailyLossSoftLockTriggered,
+  computeDailyLossRemaining,
+  computeDailyLossUsedRatio,
   computeInitialMaximumLossFloor,
   computeNextMaximumLossFloor,
   isMaximumLossBreached,
@@ -55,6 +57,53 @@ describe('TV-ONE-002 — 10K daily loss exact threshold', () => {
     expect(
       isDailyLossSoftLockTriggered({ currentAdjustedEquity: '9701', dailyLossFloor: '9700.00' }),
     ).toBe(false);
+  });
+});
+
+describe('computeDailyLossRemaining — Prompt 07 RiskRibbon/Guardian', () => {
+  it('is the budget (reference - floor) minus what has been used', () => {
+    // budget = 10000 - 9700 = 300; used 120 -> 180 left
+    expect(
+      computeDailyLossRemaining({ reference: '10000.00', floor: '9700.00', used: '120.00' }),
+    ).toBe('180.00');
+  });
+
+  it('never goes negative once the floor has already been crossed', () => {
+    expect(
+      computeDailyLossRemaining({ reference: '10000.00', floor: '9700.00', used: '350.00' }),
+    ).toBe('0.00');
+  });
+
+  it('is the full budget when nothing has been used yet', () => {
+    expect(
+      computeDailyLossRemaining({ reference: '10000.00', floor: '9700.00', used: '0.00' }),
+    ).toBe('300.00');
+  });
+});
+
+describe('computeDailyLossUsedRatio — Prompt 07 RiskRibbon early-warning tiers', () => {
+  it('is 0 when nothing has been used', () => {
+    expect(
+      computeDailyLossUsedRatio({ reference: '10000.00', floor: '9700.00', used: '0.00' }),
+    ).toBe('0.0000');
+  });
+
+  it('is 1 exactly at the floor', () => {
+    expect(
+      computeDailyLossUsedRatio({ reference: '10000.00', floor: '9700.00', used: '300.00' }),
+    ).toBe('1.0000');
+  });
+
+  it('is 0.5 at half the budget', () => {
+    expect(
+      computeDailyLossUsedRatio({ reference: '10000.00', floor: '9700.00', used: '150.00' }),
+    ).toBe('0.5000');
+  });
+
+  it('is 0 rather than dividing by zero when the budget itself is zero', () => {
+    expect(
+      computeDailyLossUsedRatio({ reference: '10000.00', floor: '10000.00', used: '0.00' }),
+    ).toBe('0.0000');
   });
 });
 

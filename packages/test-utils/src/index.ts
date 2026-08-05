@@ -8,3 +8,15 @@
  */
 
 export const PACKAGE_NAME = '@wariba/test-utils';
+
+export { seedTradeAccount, type TradeAccountFixture } from './trade-account-fixture';
+export {
+  E2E_TEST_PASSWORD,
+  createFixtureDb,
+  createFixtureAccount,
+  attachFixtureAccountToUser,
+  deleteFixtureAccount,
+  type E2eFixtureAccount,
+} from './hub-account-fixture';
+// Re-exported so E2E specs never import @wariba/database directly (AGENTS.md §7.1).
+export { evaluateAndApplyAccountRisk, type Db } from '@wariba/database';
