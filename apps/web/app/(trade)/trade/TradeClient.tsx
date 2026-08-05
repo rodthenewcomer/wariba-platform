@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
-  AccountContext,
-  Alert,
   Badge,
   BottomSheet,
   Button,
@@ -15,25 +13,16 @@ import {
   DataTableHeaderCell,
   DataTableRow,
   Guardian,
-  RiskRibbon,
   Tab,
   TabList,
   TabPanel,
   Tabs,
   Text,
-  WariXPositionsTable,
   type BadgeVariant,
   type GuardianConcentrationBucket,
   type RiskRibbonStatus,
-  type WariXPosition,
 } from '@wariba/ui';
-import {
-  computeDailyLossUsedRatio,
-  computeRealizedPnl,
-  estimateRequiredMargin,
-  isQuantityWithinBounds,
-  quotedPrice,
-} from '@wariba/domain';
+import { computeDailyLossUsedRatio, estimateRequiredMargin, isQuantityWithinBounds } from '@wariba/domain';
 import {
   accountStateChannel,
   accountOrdersChannel,
@@ -55,9 +44,12 @@ import {
 } from '@wariba/contracts';
 import { RealtimeClient, type RealtimeConnectionState } from '../../../lib/realtime-client';
 import { createSupabaseBrowserClient } from '../../../lib/supabase/browser';
-import { TradeRiskDetail } from './TradeRiskDetail';
 import { OrderTicket, type OrderRejectionDetail } from './OrderTicket';
 import { CloseAllDialog, type CloseAllOutcome } from './CloseAllDialog';
+import { TradeHeaderPanel } from './TradeHeaderPanel';
+import { WatchlistPanel } from './WatchlistPanel';
+import { PositionsTabPanel } from './PositionsTabPanel';
+import { createTickStore, useTick } from './tick-store';
 import type { FillMarker } from './TradeChart';
 
 // lightweight-charts touches the DOM/canvas directly and has no useful
@@ -209,10 +201,12 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
     expectedCount: number;
     outcomes: Map<string, CloseAllOutcome>;
   } | null>(null);
+  // Ticks live outside React state — see tick-store.ts's doc comment. A
+  // stable, lazily-created store instance for this connection's lifetime.
+  const [tickStore] = useState(() => createTickStore());
   const [connectionState, setConnectionState] = useState<RealtimeConnectionState>('connecting');
   const [snapshot, setSnapshot] = useState<AccountSnapshot | null>(null);
   const [symbolSpecs, setSymbolSpecs] = useState<Partial<Record<TradableSymbol, SymbolSpec>>>({});
-  const [ticks, setTicks] = useState<Partial<Record<TradableSymbol, MarketTick>>>({});
   const [selectedSymbol, setSelectedSymbol] = useState<TradableSymbol>('EURUSD');
   const [quantity, setQuantity] = useState('0.10');
   const [stopLoss, setStopLoss] = useState('');
@@ -253,8 +247,7 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
           }
         }
       } else if (envelope.type === 'market.tick') {
-        const tick = envelope.payload as MarketTick;
-        setTicks((prev) => ({ ...prev, [tick.symbol]: tick }));
+        tickStore.update(envelope.payload as MarketTick);
       } else if (envelope.type === 'symbol_specs') {
         // Static for the session (services/realtime sends this once, right
         // after account.snapshot on the initial state-channel subscribe).
@@ -355,9 +348,12 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
       offMessage();
       client.close();
     };
-  }, [accountId, wsUrl]);
+  }, [accountId, wsUrl, tickStore]);
 
-  const selectedTick = ticks[selectedSymbol] ?? null;
+  // The only tick this component itself subscribes to — the selected
+  // symbol's, needed by the chart/ticket/guardian below. Every other
+  // symbol's ticks only ever reach WatchlistPanel's own rows.
+  const selectedTick = useTick(tickStore, selectedSymbol);
   const isStale = selectedTick?.marketStatus === 'stale';
   const connectionOk = connectionState === 'open';
   const isResyncing = connectionState === 'resyncing';
@@ -373,58 +369,6 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
     [fills, selectedSymbol],
   );
 
-  // WariX's positions table shows live PnL (unlike the Hub's, ENG-028) — the
-  // same formula services/realtime uses for equity (quotedPrice + close-side
-  // computeRealizedPnl against the current tick), just recomputed here so
-  // the number moves with every tick instead of waiting for the next
-  // throttled account.risk_preview push.
-  const wariXPositions: WariXPosition[] = useMemo(() => {
-    return (snapshot?.openPositions ?? []).map((position) => {
-      const tick = ticks[position.symbol];
-      const spec = symbolSpecs[position.symbol];
-      if (!tick || !spec) {
-        return {
-          id: position.id,
-          symbol: position.symbol,
-          sideLabel: position.side === 'buy' ? 'Achat' : 'Vente',
-          quantityFormatted: position.openQuantity,
-          entryPriceFormatted: position.averageOpenPrice,
-          currentPriceFormatted: '—',
-          livePnlFormatted: '—',
-          livePnlTone: 'neutral',
-          stopLossFormatted: position.stopLoss ?? '—',
-          takeProfitFormatted: position.takeProfit ?? '—',
-        };
-      }
-      const closePrice = quotedPrice({
-        bid: tick.bid,
-        ask: tick.ask,
-        positionSide: position.side,
-        action: 'close',
-      });
-      const unrealized = computeRealizedPnl({
-        openPrice: position.averageOpenPrice,
-        closePrice,
-        quantity: position.openQuantity,
-        contractSize: spec.contractSize,
-        positionSide: position.side,
-      });
-      const sign = Number(unrealized) > 0 ? '+' : '';
-      return {
-        id: position.id,
-        symbol: position.symbol,
-        sideLabel: position.side === 'buy' ? 'Achat' : 'Vente',
-        quantityFormatted: position.openQuantity,
-        entryPriceFormatted: position.averageOpenPrice,
-        currentPriceFormatted: closePrice,
-        livePnlFormatted: `${sign}${unrealized} USD`,
-        livePnlTone: Number(unrealized) > 0 ? 'positive' : Number(unrealized) < 0 ? 'negative' : 'neutral',
-        stopLossFormatted: position.stopLoss ?? '—',
-        takeProfitFormatted: position.takeProfit ?? '—',
-      };
-    });
-  }, [snapshot, ticks, symbolSpecs]);
-
   // Guardian (UX Architecture §22.8) — impact potentiel of the current
   // Order Ticket draft. Side-agnostic on purpose: the exposure gate
   // (isAggregateExposureAllowed) sums raw quantities regardless of buy/sell,
@@ -433,9 +377,10 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
   // fabricated numbers before then.
   const guardianProps = useMemo(() => {
     const spec = symbolSpecs[selectedSymbol];
-    const tick = ticks[selectedSymbol];
-    if (!spec || !tick || !risk) return null;
-    const midPrice = ((Number(tick.bid) + Number(tick.ask)) / 2).toFixed(spec.pricePrecision);
+    if (!spec || !selectedTick || !risk) return null;
+    const midPrice = ((Number(selectedTick.bid) + Number(selectedTick.ask)) / 2).toFixed(
+      spec.pricePrecision,
+    );
     const marginEstimated = estimateRequiredMargin({
       quantity,
       price: midPrice,
@@ -456,9 +401,9 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
       dailyLossRemainingFormatted: `${risk.dailyLoss.remaining} USD`,
       maximumLossRemainingFormatted: `${risk.maximumLoss.remaining} USD`,
       concentration,
-      isPriceStale: tick.marketStatus === 'stale',
+      isPriceStale: selectedTick.marketStatus === 'stale',
     };
-  }, [symbolSpecs, selectedSymbol, ticks, risk, quantity]);
+  }, [symbolSpecs, selectedSymbol, selectedTick, risk, quantity]);
 
   const submitMarketOrder = useCallback(
     (side: 'buy' | 'sell') => {
@@ -601,17 +546,20 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
   return (
     <div className="flex min-h-dvh flex-col">
       <div className="flex flex-col gap-2 border-b border-[color:var(--wariba-theme-border)] p-[var(--wariba-component-trade-panel-padding)]">
-        <AccountContext
-          program="WARIBA ONE"
-          nominalFormatted={snapshot ? `${snapshot.balance} USD` : '—'}
-          publicId={accountId.slice(0, 8).toUpperCase()}
-          statusLabel={connectionOk ? 'Actif' : 'Connexion...'}
-          statusVariant={connectionOk ? 'success' : 'warning'}
+        <TradeHeaderPanel
+          accountId={accountId}
+          balanceFormatted={snapshot ? `${snapshot.balance} USD` : '—'}
+          connectionOk={connectionOk}
+          riskRibbonStatus={riskRibbonStatus}
+          risk={risk}
+          isResyncing={isResyncing}
         />
         {/* UX Architecture §22.2's layout diagram lists "Market Status" as its
             own header element alongside Account Context/Risk Ribbon — the
             selected symbol's session state, distinct from RiskRibbon's own
-            dot (WS connection quality, a different concern entirely). */}
+            dot (WS connection quality, a different concern entirely). Stays
+            outside TradeHeaderPanel since, unlike the rest of the header, it
+            genuinely needs the selected symbol's tick. */}
         <div className="flex items-center gap-2 text-[length:var(--wariba-font-size-body-sm)]">
           <Text as="span" color="secondary">
             Marché {selectedSymbol}
@@ -626,66 +574,15 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
             {selectedTick ? MARKET_STATUS_LABEL[selectedTick.marketStatus] : '—'}
           </span>
         </div>
-        <RiskRibbon
-          status={riskRibbonStatus}
-          dailyLossRemaining={risk ? `${risk.dailyLoss.remaining} USD` : '—'}
-          maximumLossRemaining={risk ? `${risk.maximumLoss.remaining} USD` : '—'}
-          nextResetLabel="00:00 UTC"
-          connectionOk={connectionOk}
-        />
-        {risk && <TradeRiskDetail risk={risk} />}
-        {isResyncing && (
-          <Alert level="warning" title="Resynchronisation en cours">
-            Un écart de séquence a été détecté. Les ordres restent bloqués jusqu&apos;au nouveau
-            snapshot serveur.
-          </Alert>
-        )}
       </div>
 
       <div className="flex flex-1 flex-col lg:flex-row">
-        <aside className="flex flex-col gap-1 border-b border-[color:var(--wariba-theme-border)] p-[var(--wariba-component-trade-panel-padding)] lg:w-[var(--wariba-size-trade-watchlist-max)] lg:border-b-0 lg:border-r">
-          <Text variant="label-sm" color="tertiary" className="mb-1">
-            Watchlist
-          </Text>
-          {TRADABLE_SYMBOLS.map((symbol) => {
-            const t = ticks[symbol];
-            const spec = symbolSpecs[symbol];
-            const spread = t ? (Number(t.ask) - Number(t.bid)).toFixed(spec?.pricePrecision ?? 5) : null;
-            return (
-              <button
-                key={symbol}
-                type="button"
-                onClick={() => setSelectedSymbol(symbol)}
-                className={`flex flex-col gap-0.5 rounded-[var(--wariba-radius-sm)] px-2 py-2 text-left ${
-                  symbol === selectedSymbol ? 'bg-[color:var(--wariba-surface-selected)]' : ''
-                }`}
-              >
-                <span className="flex items-center justify-between gap-2">
-                  <span className="text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-theme-text)]">
-                    {symbol}
-                  </span>
-                  <span
-                    className={`text-[length:var(--wariba-font-size-label-sm)] ${
-                      t?.marketStatus === 'stale'
-                        ? 'text-[color:var(--wariba-status-warning-text)]'
-                        : 'text-[color:var(--wariba-text-secondary)]'
-                    }`}
-                  >
-                    {t ? MARKET_STATUS_LABEL[t.marketStatus] : '—'}
-                  </span>
-                </span>
-                <span className="flex items-center justify-between gap-2">
-                  <span className="wariba-data text-[length:var(--wariba-font-size-data-sm)] text-[color:var(--wariba-text-secondary)]">
-                    {t ? `${t.bid} / ${t.ask}` : '— / —'}
-                  </span>
-                  <span className="wariba-data text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
-                    {spread ?? '—'}
-                  </span>
-                </span>
-              </button>
-            );
-          })}
-        </aside>
+        <WatchlistPanel
+          store={tickStore}
+          symbolSpecs={symbolSpecs}
+          selectedSymbol={selectedSymbol}
+          onSelectSymbol={setSelectedSymbol}
+        />
 
         <div className="flex min-h-[280px] flex-1 flex-col gap-2 border-b border-[color:var(--wariba-theme-border)] p-[var(--wariba-component-trade-panel-padding)] lg:border-b-0 lg:border-r">
           <TradeChart
@@ -732,23 +629,14 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
             <Tab value="journal">Journal</Tab>
           </TabList>
           <TabPanel value="positions">
-            <WariXPositionsTable
-              positions={wariXPositions}
-              onClose={closePosition}
-              closeDisabled={pending}
-              emptyLabel="Aucune position ouverte."
+            <PositionsTabPanel
+              store={tickStore}
+              openPositions={snapshot?.openPositions ?? []}
+              symbolSpecs={symbolSpecs}
+              onClosePosition={closePosition}
+              onOpenCloseAll={openCloseAllDialog}
+              pending={pending}
             />
-            {snapshot && snapshot.openPositions.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="mt-2"
-                onClick={openCloseAllDialog}
-                disabled={pending}
-              >
-                Tout fermer
-              </Button>
-            )}
           </TabPanel>
           <TabPanel value="orders">
             <DataTable>
