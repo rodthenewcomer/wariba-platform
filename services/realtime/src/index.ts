@@ -4,7 +4,7 @@ import { createDbClient } from '@wariba/database';
 import { createLogger, createCorrelationId } from '@wariba/observability';
 import { loadRealtimeConfig } from './config';
 import { checkHealth } from './health';
-import { loadSymbolSpecs, buildMarketSimulator } from './market';
+import { loadSymbolSpecs, createMarketDataProvider } from './market';
 import { ConnectionRegistry } from './registry';
 import { registerWebSocketRoute } from './websocket';
 
@@ -20,12 +20,12 @@ app.addHook('onRequest', async (request) => {
 async function start(): Promise<void> {
   const db = createDbClient(config.DATABASE_URL);
   const symbolSpecs = await loadSymbolSpecs(db);
-  const market = buildMarketSimulator(
-    symbolSpecs,
-    config.SANDBOX_MARKET_SEED,
-    config.MARKET_TICK_INTERVAL_MS,
-  );
-  market.start();
+  const market = createMarketDataProvider(config, symbolSpecs);
+  if (config.MARKET_DATA_ENABLED) {
+    market.start();
+  } else {
+    logger.warn('realtime.market_data_disabled', { provider: market.providerName });
+  }
 
   app.get('/health', async () => checkHealth(db, market, 'EURUSD'));
 
@@ -45,6 +45,7 @@ async function start(): Promise<void> {
       address,
       port: config.REALTIME_PORT,
       seed: config.SANDBOX_MARKET_SEED,
+      marketDataProvider: market.providerName,
     });
   } catch (error) {
     logger.fatal('realtime.start_failed', { errorCode: (error as Error).message });

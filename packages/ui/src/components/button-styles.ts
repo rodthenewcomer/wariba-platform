@@ -47,7 +47,11 @@ export function buttonClassNames({
     'inline-flex items-center justify-center rounded-[var(--wariba-component-button-radius)] font-semibold',
     'gap-[var(--wariba-component-button-gap)] transition-colors duration-[var(--wariba-component-button-transition-duration)]',
     'disabled:cursor-not-allowed',
-    variant !== 'text' && 'min-w-[var(--wariba-size-touch-target-minimum)]',
+    // sm (32px) and md (40px) heights are both under the 44px touch-target
+    // floor — min-height only ever grows the hit box (lg's 48px is already
+    // past it, so this is a no-op there), never shrinks the visual label.
+    variant !== 'text' &&
+      'min-w-[var(--wariba-size-touch-target-minimum)] min-h-[var(--wariba-size-touch-target-minimum)]',
     SIZE[size],
     VARIANT[variant],
     className,

@@ -2,7 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDbClient, type Db } from '../src/client';
 import { activateEvaluationAccount } from '../src/activation';
-import { openPosition, closePosition, closeAllPositions, modifyPositionRisk } from '../src/trading';
+import {
+  openPosition,
+  closePosition,
+  closeAllPositions,
+  modifyPositionRisk,
+  countShortDurationProfitClosures,
+} from '../src/trading';
 
 /**
  * Real integration tests against the live hosted database — not mocked.
@@ -216,7 +222,15 @@ describeIfDb('trading — real database', () => {
     expect(positions).toHaveLength(1);
   }, 15000);
 
-  it('rejects a quantity below the minimum without mutating the account', async () => {
+  it('rejects a quantity below the minimum, still advancing account.version', async () => {
+    // A rejection touches no balance/position — but it must still bump
+    // trading_accounts.version. That counter is the only signal
+    // apps/web's realtime client has for "is this account.snapshot reply
+    // fresher than the last one" (System Architecture §62-64's sequence
+    // gate) — if a rejected order didn't advance it, the very next
+    // resubscribe-fetched snapshot would look identical to the last one
+    // and get silently dropped as a duplicate, hiding the rejection from
+    // Positions/Orders/History no matter how long the client waited.
     const before = await db
       .selectFrom('app.trading_accounts')
       .select('version')
@@ -239,7 +253,7 @@ describeIfDb('trading — real database', () => {
       .select('version')
       .where('id', '=', accountId)
       .executeTakeFirstOrThrow();
-    expect(after.version).toBe(before.version);
+    expect(after.version).toBe(before.version + 1);
   }, 15000);
 
   it('rejects stale market data', async () => {
@@ -409,6 +423,105 @@ describeIfDb('trading — real database', () => {
     expect(row.closed_at).not.toBeNull();
   }, 15000);
 
+  it('Prompt 07B §4 — marks a profitable close held under 60s as short-duration and excludes it from eligibleRealizedPnl', async () => {
+    const openedAt = NOW;
+    const closedAt = new Date(NOW.getTime() + 30_000); // 30s later — under the 60s threshold
+    const open = await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'XAUUSD',
+      side: 'buy',
+      // Deliberately tiny (minimum lot) — the shared test account already
+      // has 0.06 XAUUSD lots open from an earlier test (xauusd_lots limit
+      // is 0.10 for a 10K account) and each of these three tests fully
+      // closes its own position, so 0.01 never risks the exposure ceiling.
+      quantity: '0.01',
+      market: { bid: '2000.00', ask: '2000.30', timestamp: openedAt.toISOString(), sequence: '30' },
+      marketBySymbol: ALL_MARKETS,
+      now: openedAt,
+    });
+    const positionId = open.position?.id as string;
+
+    const close = await closePosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      positionId,
+      mode: 'full',
+      market: { bid: '2010.00', ask: '2010.30', timestamp: closedAt.toISOString(), sequence: '31' },
+      marketBySymbol: ALL_MARKETS,
+      now: closedAt,
+    });
+
+    expect(Number(close.fill?.realizedPnl)).toBeGreaterThan(0);
+    expect(close.fill?.durationMs).toBe('30000');
+    expect(close.fill?.isShortDurationProfit).toBe(true);
+    expect(close.fill?.eligibleRealizedPnl).toBe('0.00');
+    expect(close.fill?.ineligibleShortDurationProfit).toBe(close.fill?.realizedPnl);
+  }, 15000);
+
+  it('Prompt 07B §4 — marks a profitable close held at least 60s as fully eligible', async () => {
+    const openedAt = NOW;
+    const closedAt = new Date(NOW.getTime() + 61_000); // 61s later — over the 60s threshold
+    const open = await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'XAUUSD',
+      side: 'buy',
+      quantity: '0.01',
+      market: { bid: '2000.00', ask: '2000.30', timestamp: openedAt.toISOString(), sequence: '32' },
+      marketBySymbol: ALL_MARKETS,
+      now: openedAt,
+    });
+    const positionId = open.position?.id as string;
+
+    const close = await closePosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      positionId,
+      mode: 'full',
+      market: { bid: '2010.00', ask: '2010.30', timestamp: closedAt.toISOString(), sequence: '33' },
+      marketBySymbol: ALL_MARKETS,
+      now: closedAt,
+    });
+
+    expect(Number(close.fill?.realizedPnl)).toBeGreaterThan(0);
+    expect(close.fill?.durationMs).toBe('61000');
+    expect(close.fill?.isShortDurationProfit).toBe(false);
+    expect(close.fill?.eligibleRealizedPnl).toBe(close.fill?.realizedPnl);
+    expect(close.fill?.ineligibleShortDurationProfit).toBe('0.00');
+  }, 15000);
+
+  it('Prompt 07B §4 — counts a loss in full as eligible even when held under 60s', async () => {
+    const openedAt = NOW;
+    const closedAt = new Date(NOW.getTime() + 5_000); // 5s later
+    const open = await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'XAUUSD',
+      side: 'buy',
+      quantity: '0.01',
+      market: { bid: '2000.00', ask: '2000.30', timestamp: openedAt.toISOString(), sequence: '34' },
+      marketBySymbol: ALL_MARKETS,
+      now: openedAt,
+    });
+    const positionId = open.position?.id as string;
+
+    const close = await closePosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      positionId,
+      mode: 'full',
+      market: { bid: '1990.00', ask: '1990.30', timestamp: closedAt.toISOString(), sequence: '35' },
+      marketBySymbol: ALL_MARKETS,
+      now: closedAt,
+    });
+
+    expect(Number(close.fill?.realizedPnl)).toBeLessThan(0);
+    expect(close.fill?.isShortDurationProfit).toBe(false);
+    expect(close.fill?.eligibleRealizedPnl).toBe(close.fill?.realizedPnl);
+    expect(close.fill?.ineligibleShortDurationProfit).toBe('0.00');
+  }, 15000);
+
   it('rejects closing a position that does not belong to the account', async () => {
     const result = await closePosition(db, {
       accountId,
@@ -528,4 +641,106 @@ describeIfDb('trading — real database', () => {
       .execute();
     expect(remainingOpen).toHaveLength(0);
   }, 60000);
+
+  it('keeps closing later positions in a Close All batch after an earlier one in the loop is rejected', async () => {
+    // opened_at strictly increasing (not both `NOW`) so closeAllPositions'
+    // `ORDER BY opened_at ASC` deterministically processes XAUUSD before
+    // NAS100 — XAUUSD's close is rejected (stale price) first, then
+    // NAS100's must still succeed. That ordering exercises exactly the
+    // chain a rejection's account-version bump has to thread through
+    // (closePositionLocked's reject path returning nextAccount) — get it
+    // wrong and NAS100's optimistic-concurrency UPDATE throws because it's
+    // still holding the pre-rejection version number.
+    await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'XAUUSD',
+      side: 'buy',
+      quantity: '0.10',
+      market: { bid: '2000.00', ask: '2000.30', timestamp: FRESH_TICK, sequence: '20' },
+      marketBySymbol: ALL_MARKETS,
+      now: NOW,
+    });
+    await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'NAS100',
+      side: 'buy',
+      quantity: '1.0',
+      market: { bid: '18000.0', ask: '18002.0', timestamp: FRESH_TICK, sequence: '21' },
+      marketBySymbol: ALL_MARKETS,
+      now: new Date(NOW.getTime() + 1000),
+    });
+
+    const staleTick = new Date(NOW.getTime() - 60_000).toISOString();
+    const results = await closeAllPositions(db, {
+      accountId,
+      idempotencyKeyPrefix: `close-all-mixed-${randomUUID()}`,
+      marketBySymbol: {
+        ...ALL_MARKETS,
+        XAUUSD: { bid: '2010.00', ask: '2010.30', timestamp: staleTick, sequence: '22' },
+        NAS100: { bid: '17990.0', ask: '17992.0', timestamp: FRESH_TICK, sequence: '23' },
+      },
+      now: NOW,
+    });
+
+    expect(results).toHaveLength(2);
+    expect(results[0]?.order.status).toBe('rejected');
+    expect(results[0]?.order.rejectionCode).toBe('stale_market_data');
+    expect(results[1]?.order.status).toBe('filled');
+    expect(results[1]?.position?.symbol).toBe('NAS100');
+    expect(results[1]?.position?.status).toBe('closed');
+
+    const stillOpenXauusd = await db
+      .selectFrom('app.positions')
+      .select('id')
+      .where('account_id', '=', accountId)
+      .where('symbol', '=', 'XAUUSD')
+      .where('status', '=', 'open')
+      .execute();
+    expect(stillOpenXauusd).toHaveLength(1);
+  }, 60000);
+
+  it('Prompt 07B — countShortDurationProfitClosures counts only short-duration profit closes in the trailing 24h', async () => {
+    const openedAt = NOW;
+    const shortCloseAt = new Date(NOW.getTime() + 10_000);
+
+    const before = await countShortDurationProfitClosures(db, accountId, shortCloseAt);
+
+    const open = await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'EURUSD',
+      side: 'buy',
+      quantity: '0.10',
+      market: { bid: '1.08450', ask: '1.08460', timestamp: openedAt.toISOString(), sequence: '40' },
+      marketBySymbol: ALL_MARKETS,
+      now: openedAt,
+    });
+    await closePosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      positionId: open.position?.id as string,
+      mode: 'full',
+      market: {
+        bid: '1.09000',
+        ask: '1.09010',
+        timestamp: shortCloseAt.toISOString(),
+        sequence: '41',
+      },
+      marketBySymbol: ALL_MARKETS,
+      now: shortCloseAt,
+    });
+
+    const after = await countShortDurationProfitClosures(db, accountId, shortCloseAt);
+    expect(after).toBe(before + 1);
+
+    // A query point 25h after this close must not count it (outside the rolling 24h window).
+    const wellAfter = await countShortDurationProfitClosures(
+      db,
+      accountId,
+      new Date(shortCloseAt.getTime() + 25 * 60 * 60 * 1000),
+    );
+    expect(wellAfter).toBe(0);
+  }, 20000);
 });

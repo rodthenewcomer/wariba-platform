@@ -74,6 +74,35 @@
       "100000"
     ]
   },
+  "markets": {
+    "_comment": "MARKET-001 to MARKET-006 (DECISION_LOG.md section 25). Documentation/audit source of truth, not runtime-loaded config — the realtime service selects its live MarketDataProvider from env vars (packages/config), not from this file.",
+    "catalog_mode": "provider_driven",
+    "forex": {
+      "enabled": true,
+      "availability": "all_realtime_provider_pairs",
+      "implementation_status": "target_not_yet_built",
+      "note": "platform.supported_symbols above remains the actually-implemented set (EURUSD/GBPUSD/USDJPY) until provider-driven Forex-pair discovery (Appendix 07-A section 2) is built."
+    },
+    "metals": {
+      "enabled": true,
+      "initial_symbols": ["XAUUSD"],
+      "implementation_status": "implemented"
+    },
+    "indices": {
+      "enabled": true,
+      "initial_symbols": ["NAS100", "SPX500"],
+      "implementation_status": "NAS100 implemented; SPX500 not yet built (no symbol_specs row, no exposure bucket)."
+    },
+    "energies": {
+      "enabled": true,
+      "initial_symbols": ["WTIUSD", "BRENTUSD", "NGASUSD"],
+      "activation_condition": "provider_realtime_available",
+      "implementation_status": "target_not_yet_built"
+    },
+    "futures": {
+      "enabled": false
+    }
+  },
   "commercial_offers": {
     "price_status": "candidate_pending_actuarial_validation",
     "feature_flags": {

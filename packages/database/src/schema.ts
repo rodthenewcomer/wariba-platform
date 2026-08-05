@@ -376,6 +376,13 @@ export interface FillsTable {
   market_sequence: string;
   account_sequence: string;
   occurred_at: GeneratedTimestamp;
+  // Prompt 07B §4 — 60-second profit eligibility, close fills only (null on
+  // open fills). bigint, represented as a string on both read and write —
+  // same convention as market_sequence/account_sequence above.
+  duration_ms: string | null;
+  is_short_duration_profit: Generated<boolean>;
+  eligible_realized_pnl: string | null;
+  ineligible_short_duration_profit: Generated<string>;
 }
 
 export interface Database {

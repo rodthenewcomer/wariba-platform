@@ -11,6 +11,8 @@ import {
   isPartialCloseQuantityValid,
   subtractQuantity,
   addRealizedPnl,
+  estimateRequiredMargin,
+  computeConcentration,
 } from '../src/trading-math';
 
 const BID = '1.08450';
@@ -245,5 +247,76 @@ describe('subtractQuantity / addRealizedPnl', () => {
   it('accumulates realized PnL', () => {
     expect(addRealizedPnl('10.00', '5.50')).toBe('15.50');
     expect(addRealizedPnl('10.00', '-3.00')).toBe('7.00');
+  });
+});
+
+describe('estimateRequiredMargin — Prompt 07 Guardian/Order Ticket', () => {
+  it('divides notional exposure by leverage', () => {
+    // 1 lot EURUSD @ 1.08500, contract size 100000, leverage 1:100
+    // -> notional 108500, margin 1085.00
+    expect(
+      estimateRequiredMargin({
+        quantity: '1',
+        price: '1.08500',
+        contractSize: '100000',
+        leverage: 100,
+      }),
+    ).toBe('1085.00');
+  });
+
+  it('scales with a fractional quantity', () => {
+    expect(
+      estimateRequiredMargin({
+        quantity: '0.10',
+        price: '1.08500',
+        contractSize: '100000',
+        leverage: 100,
+      }),
+    ).toBe('108.50');
+  });
+
+  it('requires more margin at lower leverage', () => {
+    const lowLeverage = estimateRequiredMargin({
+      quantity: '1',
+      price: '1.08500',
+      contractSize: '100000',
+      leverage: 10,
+    });
+    const highLeverage = estimateRequiredMargin({
+      quantity: '1',
+      price: '1.08500',
+      contractSize: '100000',
+      leverage: 100,
+    });
+    expect(Number(lowLeverage)).toBeGreaterThan(Number(highLeverage));
+  });
+});
+
+describe('computeConcentration — Rules v1.1 exposure buckets, informative only', () => {
+  it('computes a used ratio per bucket without float arithmetic', () => {
+    const result = computeConcentration([
+      { bucket: 'forex', usedQuantity: '0.30', limitQuantity: '1.00' },
+      { bucket: 'xauusd', usedQuantity: '0', limitQuantity: '0.50' },
+    ]);
+    expect(result).toEqual([
+      { bucket: 'forex', usedQuantity: '0.30', limitQuantity: '1.00', usedRatio: '0.3000' },
+      { bucket: 'xauusd', usedQuantity: '0', limitQuantity: '0.50', usedRatio: '0.0000' },
+    ]);
+  });
+
+  it('treats a zero limit as zero concentration rather than dividing by zero', () => {
+    const result = computeConcentration([
+      { bucket: 'nas100', usedQuantity: '0', limitQuantity: '0' },
+    ]);
+    expect(result).toEqual([
+      { bucket: 'nas100', usedQuantity: '0', limitQuantity: '0', usedRatio: '0.0000' },
+    ]);
+  });
+
+  it('can exceed 1.0000 when usage is read after the limit tightened — still informative, not clamped', () => {
+    const result = computeConcentration([
+      { bucket: 'forex', usedQuantity: '1.20', limitQuantity: '1.00' },
+    ]);
+    expect(result[0]?.usedRatio).toBe('1.2000');
   });
 });

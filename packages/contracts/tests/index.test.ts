@@ -8,6 +8,10 @@ import {
   marketTickSchema,
   submitOrderMessageSchema,
   orderDtoSchema,
+  symbolSpecSchema,
+  symbolSpecsMessageSchema,
+  accountRiskSchema,
+  accountRiskPreviewMessageSchema,
 } from '../src/index';
 
 describe('@wariba/contracts scaffold', () => {
@@ -127,6 +131,95 @@ describe('orderDtoSchema', () => {
       rejectionCode: null,
       receivedAt: new Date().toISOString(),
       completedAt: new Date().toISOString(),
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('symbolSpecsMessageSchema — Prompt 07', () => {
+  it('accepts a well-formed symbol spec', () => {
+    const result = symbolSpecSchema.safeParse({
+      symbol: 'EURUSD',
+      pricePrecision: 5,
+      contractSize: '100000',
+      minimumQuantity: '0.01',
+      maximumQuantity: '10',
+      quantityStep: '0.01',
+      leverage: 100,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a full specs message with no top-level type field (lives on the envelope)', () => {
+    const result = symbolSpecsMessageSchema.safeParse({
+      specs: [
+        {
+          symbol: 'XAUUSD',
+          pricePrecision: 2,
+          contractSize: '100',
+          minimumQuantity: '0.01',
+          maximumQuantity: '5',
+          quantityStep: '0.01',
+          leverage: 20,
+        },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('accountRiskSchema — concentration (Prompt 07 Guardian)', () => {
+  const base = {
+    status: 'active' as const,
+    target: { required: '1000.00', reached: false },
+    dailyLoss: {
+      reference: '10000.00',
+      floor: '9700.00',
+      used: '0.00',
+      remaining: '300.00',
+      softLockTriggered: false,
+    },
+    maximumLoss: { floor: '9000.00', remaining: '1000.00', breached: false },
+    bestDay: { ratio: null, compliant: true },
+    eligibility: { passEligible: false, blockingReasons: [] },
+  };
+
+  it('requires a concentration array — dropping partial-fill-era assumptions forward, not silently optional', () => {
+    expect(accountRiskSchema.safeParse(base).success).toBe(false);
+  });
+
+  it('accepts an empty concentration array (legacy account with no v1.1 exposure row)', () => {
+    const result = accountRiskSchema.safeParse({ ...base, concentration: [] });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts populated concentration buckets', () => {
+    const result = accountRiskSchema.safeParse({
+      ...base,
+      concentration: [
+        { bucket: 'forex', usedQuantity: '0.30', limitQuantity: '1.00', usedRatio: '0.3000' },
+        { bucket: 'xauusd', usedQuantity: '0', limitQuantity: '0.50', usedRatio: '0.0000' },
+        { bucket: 'nas100', usedQuantity: '0', limitQuantity: '1', usedRatio: '0.0000' },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects an unknown bucket name', () => {
+    const result = accountRiskSchema.safeParse({
+      ...base,
+      concentration: [{ bucket: 'crypto', usedQuantity: '0', limitQuantity: '1', usedRatio: '0' }],
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('accountRiskPreviewMessageSchema — Prompt 07 throttled push', () => {
+  it('accepts a preview with risk still null (no daily snapshot yet)', () => {
+    const result = accountRiskPreviewMessageSchema.safeParse({
+      accountId: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+      equity: '10050.00',
+      risk: null,
     });
     expect(result.success).toBe(true);
   });

@@ -3222,3 +3222,1950 @@ Contexte
 La prochaine étape n’est pas encore de construire tout le produit.
 
 La prochaine étape est de préparer le dépôt local avec les documents, créer les quatre fichiers machine de Semaine 0, installer l’outil de l’agent IA retenu, lancer Prompt 00, puis Prompt 01 sur la branche `feat/repository-foundation`.
+
+---
+
+# 31. Prompt 07B — WariX Production Trading Core, Live Market Data, Resilience, Manual Trading and Profit Eligibility
+
+## Branche
+
+```text
+feat/wariba-trade-core
+```
+
+## Objectif
+
+Construire le socle production du Trading Core derrière WariX — marché temps réel
+provider-agnostic (FCS en premier adaptateur), architecture active/standby,
+règle d'éligibilité de profit à 60 secondes, protections anti-bot — en
+préservant le terminal WariX déjà livré par le Prompt 07. Audit obligatoire
+avant tout changement structurel ; ne pas remplacer une architecture qui
+fonctionne sans raison concrète.
+
+## Statut des dépendances externes
+
+Ce prompt suppose l'existence d'une clé FCS API Business, de deux serveurs
+temps réel (actif + standby) et d'une infrastructure de load testing. Aucune
+de ces trois choses n'existe dans ce dépôt au moment où ce prompt est ajouté.
+L'agent qui l'exécute doit implémenter l'intégralité de l'adaptateur, du
+provider mock, du provider replay, du contrat d'environnement et des tests —
+sans jamais simuler une connexion live réussie. Voir §18 (« Production
+Readiness ») du prompt ci-dessous pour la classification obligatoire par zone
+(READY / READY WITH CONFIGURATION / BLOCKED BY CREDENTIAL / BLOCKED BY
+INFRASTRUCTURE / NOT READY).
+
+## Prompt prêt à copier
+
+```text
+PROMPT 7B — WARIX PRODUCTION TRADING CORE, LIVE MARKET DATA,
+RESILIENCE, MANUAL TRADING AND PROFIT ELIGIBILITY
+
+You are continuing the construction of WARIBA at Prompt 7.
+
+The native WARIBA trading platform is called WariX.
+
+This prompt is not for creating another isolated UI mockup.
+It must audit, plan and implement the production-grade trading core behind WariX,
+while preserving and completing the premium trader-facing terminal already being built.
+
+Do not replace the existing architecture blindly.
+Inspect the repository, project documentation, AGENTS.md, DECISION_LOG.md,
+WARIBA_RULESET_v1.1.json, Product Master, Rulebook, Engineering Constitution,
+System Architecture, Design System and the existing Prompt 7 implementation first.
+
+Follow this execution sequence:
+
+1. AUDIT
+2. GAP ANALYSIS
+3. IMPLEMENTATION PLAN
+4. IMPLEMENTATION
+5. TESTS
+6. DOCUMENTATION UPDATE
+7. FINAL VERIFICATION
+
+Do not stop after the audit or plan.
+Proceed through implementation and testing unless a genuinely blocking secret,
+provider credential or unavailable external dependency prevents execution.
+
+When an external credential is unavailable, implement the full adapter,
+mock provider, replay provider, environment contract and tests.
+Do not fake a successful live connection.
+
+======================================================================
+1. PRODUCT CONTEXT
+======================================================================
+
+WARIBA is launching its own native simulated trading platform, WariX.
+
+Initial commercial scope:
+
+- WariX only
+- Simulated trading only
+- Forex currency pairs
+- XAUUSD / Gold
+- No NAS100 at launch
+- No futures at launch
+- No MetaTrader 5 at launch
+- No cTrader at launch
+- No TradingView broker integration at launch
+- No real-money brokerage execution
+- No public execution API
+- No bots
+- No Expert Advisors
+- No trade copiers
+- No automated trading
+- Manual trading only
+
+Initial capacity target:
+
+- Up to 500 registered traders during the first month
+- Design for at least 150 concurrent traders
+- Architecture must be capable of scaling beyond this without rewriting the trading core
+
+Initial market-data provider:
+
+- FCS API WebSocket Business
+- Provider integration must remain replaceable through an adapter
+- WariX clients must never connect directly to FCS API
+- Provider secrets must never reach the browser
+
+Initial infrastructure model:
+
+- One active real-time trading node
+- One warm standby node
+- Shared PostgreSQL/Supabase persistence
+- Health-checked routing through a load balancer
+- No Redis, Kafka or Kubernetes in the initial architecture
+- No premature microservices
+
+======================================================================
+2. REQUIRED 35-ROLE AUDIT
+======================================================================
+
+Read AGENTS.md and use the existing WARIBA 35-role review framework.
+
+At minimum, provide explicit findings from these perspectives:
+
+- Founder / CEO
+- Chief Product Officer
+- Product Manager
+- Product Designer
+- UX Researcher
+- UX Writer
+- Design Systems Lead
+- CTO / Technical Architect
+- Frontend Architect
+- Backend Architect
+- Trading Systems Engineer
+- Risk Engine Engineer
+- Data Engineer
+- DevOps / Platform Engineer
+- Security Engineer
+- QA / Test Engineer
+- Head of Trading
+- Risk Manager / CRO
+- Quant / Data Scientist
+- Actuarial / Quant Analyst
+- Fraud Lead
+- Treasury
+- CFO
+- Payments Architect
+- Compliance
+- Legal
+- Customer Support
+- Data / Analytics Lead
+
+The audit must identify:
+
+- what already exists;
+- what is incomplete;
+- what is only visual;
+- what is simulated incorrectly;
+- what creates a single point of failure;
+- what can freeze the browser;
+- what can duplicate or lose orders;
+- what can calculate PnL incorrectly;
+- what can trigger an invalid breach;
+- what can allow bots;
+- what can create inconsistent account balances;
+- what can break during reconnect or server failover.
+
+Do not redesign working components without a concrete reason.
+
+======================================================================
+3. NON-NEGOTIABLE PRODUCT DECISIONS
+======================================================================
+
+Implement these decisions as authoritative configuration.
+
+PLATFORM
+
+NATIVE_PLATFORM = "WariX"
+SIMULATED_TRADING_ONLY = true
+MT5_ENABLED = false
+CTRADER_ENABLED = false
+TRADINGVIEW_BROKER_ENABLED = false
+FUTURES_ENABLED = false
+NAS100_ENABLED = false
+
+MARKETS
+
+INITIAL_MARKETS = [
+  "EURUSD",
+  "GBPUSD",
+  "USDJPY",
+  "AUDUSD",
+  "USDCAD",
+  "USDCHF",
+  "NZDUSD",
+  "EURJPY",
+  "GBPJPY",
+  "XAUUSD"
+]
+
+The symbol list must be configuration-driven.
+Do not hardcode provider-specific symbol names throughout the domain.
+
+TRADING MODE
+
+MANUAL_TRADING_ONLY = true
+BOTS_ALLOWED = false
+EXPERT_ADVISORS_ALLOWED = false
+TRADE_COPIERS_ALLOWED = false
+AUTOMATED_EXECUTION_ALLOWED = false
+PUBLIC_EXECUTION_API_ENABLED = false
+THIRD_PARTY_ACCOUNT_MANAGEMENT_ALLOWED = false
+
+NATIVE RISK TOOLS ALLOWED
+
+- Stop loss
+- Take profit
+- Trailing stop
+- Break-even
+- OCO orders
+- Bracket orders
+- Partial close
+- Flatten
+- Personal daily-loss limit
+- Price alerts
+
+These tools are server-side risk-management functions.
+They must not autonomously decide when to open a new position.
+
+======================================================================
+4. PROFIT ELIGIBILITY — 60-SECOND RULE
+======================================================================
+
+WARIBA traders may close positions at any time.
+
+Never disable or delay the close button merely because a trade has not yet reached
+the eligibility duration.
+
+However, a positive closed trade portion is eligible only after 60 completed seconds.
+
+MINIMUM_PROFIT_ELIGIBLE_DURATION_SECONDS = 60
+
+Exact rule:
+
+- Duration >= 60,000 milliseconds: positive net PnL is eligible.
+- Duration < 60,000 milliseconds: positive net PnL is not eligible.
+- Any negative net PnL always counts in full, regardless of duration.
+- A zero-PnL closure produces no eligible profit.
+- The duration is measured from the authoritative server execution timestamp
+  of the opening lot to the authoritative server execution timestamp of the closing lot.
+- Never use the browser clock.
+- Never use the order-submission timestamp.
+- Use execution timestamps.
+
+A positive net result closed before 60 seconds must not contribute to:
+
+- evaluation profit target;
+- Performance buffer;
+- Performance Day calculation;
+- Best Day consistency;
+- payout availability;
+- progression to WARIBA Review;
+- advancement of the EOD trailing maximum-loss floor.
+
+It remains visible in trade history as:
+
+SHORT_DURATION_PROFIT
+Profit realized but not program-eligible
+
+Create and maintain separate accounting concepts:
+
+- realized_pnl
+- eligible_realized_pnl
+- ineligible_short_duration_profit
+- program_pnl
+- account_balance
+- program_eligible_balance
+
+Do not overwrite or hide actual simulated PnL.
+
+ACCOUNT BALANCE
+
+The regular simulated account balance reflects all realized PnL.
+
+PROGRAM ELIGIBLE BALANCE
+
+The program-eligible balance is used for:
+
+- evaluation target;
+- Performance buffer;
+- Performance Days;
+- Best Day consistency;
+- payout eligibility;
+- payout excess;
+- advancement of the EOD trailing floor.
+
+All negative realized PnL must reduce the program-eligible balance.
+
+Use net realized PnL after applicable commissions, fees and adjustments.
+
+Eligibility logic for each closed lot:
+
+if net_realized_pnl > 0 and holding_duration_ms >= 60000:
+    eligible_realized_pnl = net_realized_pnl
+
+if net_realized_pnl > 0 and holding_duration_ms < 60000:
+    eligible_realized_pnl = 0
+    ineligible_short_duration_profit = net_realized_pnl
+
+if net_realized_pnl <= 0:
+    eligible_realized_pnl = net_realized_pnl
+    ineligible_short_duration_profit = 0
+
+PARTIAL CLOSES
+
+Use deterministic FIFO lot accounting.
+
+Example:
+
+- 1.00 lot opens at 10:00:00.
+- 0.50 closes at 10:00:35 with a positive net result.
+- That closed portion is not eligible.
+- Remaining 0.50 closes at 10:01:20 with a positive net result.
+- That portion is eligible.
+
+Each closed lot portion must have its own:
+
+- opening execution ID;
+- closing execution ID;
+- opened_at;
+- closed_at;
+- duration_ms;
+- gross PnL;
+- fees;
+- net PnL;
+- eligible PnL;
+- eligibility reason.
+
+SHORT-DURATION MONITORING
+
+Implement configurable behavioural controls:
+
+SHORT_PROFIT_WARNING_THRESHOLD_24H = 3
+SHORT_PROFIT_REVIEW_THRESHOLD_24H = 6
+
+At 3 positive closures below 60 seconds within a rolling 24-hour window:
+
+- display an educational warning;
+- log a risk signal;
+- do not breach the account.
+
+At 6 within 24 hours:
+
+- block new entries temporarily;
+- continue allowing position reductions and closes;
+- place the account under risk review;
+- do not automatically terminate the account.
+
+Losses and stop-loss closures below 60 seconds do not increment this counter.
+
+A breach for prohibited strategy must require a reviewed and auditable decision.
+Do not create an automatic permanent breach based only on this counter.
+
+======================================================================
+5. MARKET DATA PROVIDER ARCHITECTURE
+======================================================================
+
+Create a provider-agnostic market-data domain.
+
+Required interfaces should cover concepts equivalent to:
+
+MarketDataProvider
+MarketDataConnection
+MarketDataSubscription
+MarketDataSnapshotProvider
+MarketDataHealthMonitor
+
+Provide these implementations:
+
+1. FcsMarketDataProvider
+2. MockMarketDataProvider
+3. ReplayMarketDataProvider
+
+Do not spread FCS-specific payload types across the trading domain.
+
+The normalized market tick must include at least:
+
+- internal symbol
+- provider symbol
+- bid
+- ask
+- optional mid
+- provider timestamp
+- received timestamp
+- local monotonic sequence
+- source connection ID
+- provider name
+- freshness state
+- validation state
+
+Use decimal-safe arithmetic.
+Never calculate money or prices with binary floating-point numbers.
+
+Use the existing project standard, including decimal.js where already specified.
+
+FCS INTEGRATION
+
+Use the official current FCS WebSocket protocol and documentation.
+Do not invent endpoint URLs, field names or authentication syntax.
+
+Required environment contract:
+
+MARKET_DATA_PROVIDER=fcs
+FCS_API_KEY=
+FCS_WS_PRIMARY_URL=
+FCS_WS_SECONDARY_URL=
+FCS_REST_BASE_URL=
+FCS_SYMBOL_MAP=
+MARKET_DATA_ENABLED=
+MARKET_DATA_REPLAY_MODE=
+
+Do not commit secrets.
+
+Both primary and standby trading nodes may maintain an authenticated market-data
+connection, but only the elected active node may publish authoritative ticks,
+accept new orders or mutate trading state.
+
+BROWSER RULE
+
+The browser connects only to WARIBA.
+
+Forbidden:
+
+Browser → FCS
+
+Required:
+
+FCS → WARIBA Market Data Core → WARIBA WebSocket Gateway → WariX
+
+======================================================================
+6. FEED HEALTH, RECONNECTION AND OUTAGE STATES
+======================================================================
+
+Implement per-symbol and system-wide feed health.
+
+Default configurable thresholds:
+
+HEALTHY:
+latest valid tick age < 2 seconds
+
+DEGRADED:
+latest valid tick age >= 2 seconds and < 5 seconds
+
+STALE:
+latest valid tick age >= 5 seconds and < 15 seconds
+
+OUTAGE:
+latest valid tick age >= 15 seconds
+
+These values must live in configuration and the versioned ruleset.
+
+HEALTHY
+
+- New orders allowed.
+- Pending orders can trigger.
+- Stops and take-profits can trigger.
+- PnL and risk calculations update normally.
+
+DEGRADED
+
+- Keep the system operational.
+- Show a subtle degraded-data indicator.
+- Increase monitoring.
+- Do not hide the condition.
+
+STALE
+
+- Reject new entries.
+- Reject position increases.
+- Continue accepting position-reduction or close requests.
+- A close request is recorded with the exact server timestamp.
+- Do not execute the close against an old price.
+- Mark the close request as PENDING_MARKET_RESUME.
+- Execute it against the first new valid authoritative tick.
+- Do not trigger new SL/TP executions on stale prices.
+- Do not create a drawdown breach from stale prices.
+- Do not advance the EOD trailing floor.
+- Display a clear market-data warning.
+
+OUTAGE
+
+- Switch from the primary provider endpoint to the secondary endpoint.
+- Continue automatic reconnection with exponential backoff and jitter.
+- Preserve subscriptions.
+- Preserve the latest sequence and timestamps.
+- Keep account state available.
+- Keep close requests queued.
+- Block new exposure.
+- Show a prominent but calm outage state.
+- Never display a moving synthetic price.
+- Never invent ticks.
+- Never replay old ticks as though they were live.
+
+RECOVERY
+
+After reconnection:
+
+- authenticate;
+- restore symbol subscriptions;
+- retrieve a fresh snapshot when supported;
+- discard duplicate and out-of-order ticks;
+- require valid recovery checks before resuming new entries;
+- resynchronize account state;
+- resynchronize open orders and positions;
+- broadcast a fresh authoritative account snapshot;
+- execute queued close requests using the first valid post-recovery price;
+- record the entire incident timeline.
+
+Do not require the trader to reload the browser.
+
+======================================================================
+7. ACTIVE–STANDBY SERVER ARCHITECTURE
+======================================================================
+
+Implement an active–warm-standby real-time trading architecture.
+
+NODE A
+
+Primary target:
+
+- Market data ingestion
+- Trading engine
+- Order engine
+- Position engine
+- PnL engine
+- Risk engine
+- WebSocket trading gateway
+
+NODE B
+
+Warm standby target:
+
+- Secondary market-data connection
+- Standby trading core
+- Application workers
+- Recovery capability
+- Non-critical application workloads where appropriate
+
+Use PostgreSQL/Supabase for durable state.
+
+Do not use Redis initially.
+
+LEADER ELECTION
+
+Implement a PostgreSQL-backed lease or advisory-lock strategy.
+
+Requirements:
+
+- only one real-time node can be authoritative;
+- the active node renews a short lease;
+- the standby monitors lease expiry;
+- the standby takes over only after safe expiry;
+- each leadership term receives a fencing token or epoch;
+- every trading-state mutation includes the active epoch;
+- stale leaders must be unable to commit orders or executions;
+- prevent split brain.
+
+LOAD BALANCER
+
+The active trading node exposes readiness only while it:
+
+- owns the valid leader lease;
+- has a healthy database connection;
+- has a usable market-data connection;
+- has loaded authoritative account state;
+- is permitted to accept trading commands.
+
+The standby must not return ready for trading until takeover is complete.
+
+WebSocket clients must reconnect automatically through the load balancer.
+
+TARGETS
+
+- Server failover target: under 10 seconds.
+- No duplicated order.
+- No lost acknowledged order.
+- No stale-leader execution.
+- No breach during feed unavailability.
+- No manual page refresh required after failover.
+
+======================================================================
+8. ORDER AND EXECUTION ENGINE
+======================================================================
+
+The WARIBA server is authoritative.
+
+Never trust balances, prices, PnL, order status, risk values or eligibility values
+calculated by the browser.
+
+Support at least:
+
+- Market order
+- Limit order
+- Stop order
+- Stop loss
+- Take profit
+- Bracket order
+- OCO
+- Partial close
+- Cancel pending order
+- Flatten account
+
+EXECUTION SEMANTICS
+
+Use bid/ask correctly.
+
+Long position:
+
+- Opens at ask.
+- Closes at bid.
+- Long stop-loss and take-profit triggers use the bid side.
+
+Short position:
+
+- Opens at bid.
+- Closes at ask.
+- Short stop-loss and take-profit triggers use the ask side.
+
+Buy pending orders trigger against the appropriate ask price.
+Sell pending orders trigger against the appropriate bid price.
+
+All execution decisions use:
+
+- latest authoritative valid tick;
+- server receive time;
+- server processing time;
+- immutable execution record.
+
+No order may execute using a STALE or OUTAGE tick.
+
+IDEMPOTENCY
+
+Every trading command must include a unique client_order_id or idempotency key.
+
+The server must guarantee that a retry cannot create a duplicate order.
+
+Store:
+
+- request ID;
+- idempotency key;
+- account ID;
+- command type;
+- normalized payload hash;
+- response;
+- created timestamp;
+- final result.
+
+If the same idempotency key is reused with a different payload, reject it.
+
+ORDER STATES
+
+At minimum:
+
+- RECEIVED
+- VALIDATING
+- ACCEPTED
+- PENDING
+- TRIGGERED
+- EXECUTED
+- PARTIALLY_CLOSED
+- FILLED
+- CANCELLED
+- REJECTED
+- PENDING_MARKET_RESUME
+- FAILED
+
+Every state transition must be auditable.
+
+SERVER-SIDE RISK CHECKS BEFORE ACCEPTANCE
+
+Check:
+
+- account status;
+- platform status;
+- symbol availability;
+- feed freshness;
+- market session;
+- allowed direction;
+- max aggregate lot exposure;
+- margin usage;
+- daily-loss state;
+- maximum-loss state;
+- soft lock;
+- manual-trading controls;
+- account review status;
+- duplicate request;
+- pending close state.
+
+Never rely on disabled UI buttons as the only control.
+
+======================================================================
+9. WARIx TERMINAL UX
+======================================================================
+
+Preserve the premium WARIBA visual identity and existing Design System.
+
+Do not copy MetaTrader, cTrader, TradingView or TopstepX visually.
+
+WariX must feel:
+
+- premium;
+- fast;
+- calm;
+- modern;
+- trustworthy;
+- mobile-first;
+- purpose-built for WARIBA rules.
+
+The terminal must include:
+
+- chart;
+- watchlist;
+- order ticket;
+- open positions;
+- pending orders;
+- trade history;
+- account metrics;
+- Risk HUD;
+- market status;
+- connection status;
+- eligible profit information;
+- manual-trading policy information.
+
+RISK HUD
+
+Show live server-authoritative values:
+
+- Balance
+- Equity
+- Program-eligible balance
+- Daily Loss remaining
+- Maximum Loss floor
+- Evaluation progress
+- Best Day percentage
+- Performance buffer
+- Performance Days
+- Eligible payout
+- Margin usage
+- Aggregate exposure
+
+Do not overload the user.
+Use progressive disclosure and tooltips.
+
+TRADE HISTORY
+
+Each closed trade or closed portion should display:
+
+- symbol;
+- side;
+- quantity;
+- opening price;
+- closing price;
+- opening time;
+- closing time;
+- duration;
+- realized PnL;
+- eligible PnL;
+- eligibility status.
+
+Examples of statuses:
+
+- ELIGIBLE
+- SHORT_DURATION_PROFIT
+- LOSS_COUNTED
+- BREAKEVEN
+- UNDER_REVIEW
+
+For a short-duration profit, show:
+
+“Profit réalisé, mais non éligible : position conservée moins de 60 secondes.”
+
+MARKET STATUS UI
+
+HEALTHY:
+small green/live indication
+
+DEGRADED:
+subtle amber indication
+
+STALE:
+visible banner:
+“Données de marché momentanément indisponibles. Les nouvelles entrées sont suspendues.”
+
+OUTAGE:
+prominent status:
+“Connexion au marché en cours de rétablissement. Vos positions et demandes de fermeture sont conservées.”
+
+Do not use fake animation that implies prices are moving during an outage.
+
+RECONNECT UX
+
+When a user changes from Wi-Fi to mobile data or temporarily loses connectivity:
+
+- reconnect automatically;
+- restore chart subscriptions;
+- retrieve the latest account snapshot;
+- restore positions and orders;
+- display reconciliation status;
+- never duplicate an order;
+- never show stale local account state as authoritative.
+
+======================================================================
+10. CHART PERFORMANCE AND ANTI-FREEZE REQUIREMENTS
+======================================================================
+
+The chart must be isolated from the execution and risk engines.
+
+A browser rendering issue must never stop:
+
+- server-side stops;
+- take-profits;
+- pending orders;
+- PnL;
+- drawdown monitoring;
+- account lock;
+- risk calculations.
+
+Initial chart timeframes:
+
+- 5 seconds
+- 15 seconds
+- 30 seconds
+- 1 minute
+- 3 minutes
+- 5 minutes
+- 15 minutes
+- 1 hour
+- 4 hours
+- 1 day
+
+Tick charts are disabled at launch.
+
+TICK_CHARTS_ENABLED = false
+
+Chart limits:
+
+- Maximum 5 active indicators per chart
+- Maximum 4 open charts on desktop
+- Maximum 2 open charts on mobile
+- Configurable limits
+- Clear user feedback when a limit is reached
+
+Performance requirements:
+
+- calculate indicators in Web Workers;
+- keep heavy calculations off the main UI thread;
+- use bounded ring buffers;
+- aggregate candles server-side where appropriate;
+- throttle UI rendering without throttling the authoritative engine;
+- use requestAnimationFrame for chart painting;
+- do not rerender the entire terminal on every tick;
+- virtualize large history tables;
+- unsubscribe hidden charts;
+- clean up WebSocket subscriptions;
+- avoid memory leaks;
+- limit retained client-side tick history;
+- profile XAUUSD volatility bursts.
+
+The authoritative engine may process every required valid provider update.
+The browser can receive a controlled rendering cadence.
+
+Do not confuse chart-rendering frequency with execution accuracy.
+
+======================================================================
+11. BOT AND AUTOMATION PREVENTION
+======================================================================
+
+No public trading API may be exposed.
+
+Do not build:
+
+- API keys for order execution;
+- webhooks that open trades;
+- EA bridges;
+- MetaTrader connectors;
+- browser automation endpoints;
+- copy-trading endpoints;
+- bulk order upload;
+- automated signal execution.
+
+Protect trading command endpoints with:
+
+- authenticated session;
+- CSRF protection where applicable;
+- origin checks;
+- short-lived authorization;
+- server-side account ownership checks;
+- rate limits;
+- idempotency;
+- device and session telemetry;
+- audit logs.
+
+Generate behavioural risk signals for patterns such as:
+
+- impossible order frequency;
+- perfectly repeated millisecond intervals;
+- repeated identical order sequences;
+- excessive SL/TP modifications;
+- continuous activity inconsistent with manual trading;
+- synchronized trading across unrelated accounts;
+- identical trades across multiple identities;
+- suspicious session sharing;
+- headless browser indicators;
+- Selenium or Playwright automation indicators;
+- repeated requests outside the WariX UI flow.
+
+Do not automatically terminate an account based solely on a heuristic.
+
+Use statuses such as:
+
+- NORMAL
+- FLAGGED
+- ENTRY_LOCKED
+- UNDER_REVIEW
+- CLEARED
+- BREACHED_AFTER_REVIEW
+
+All sanctions must create an auditable reason code.
+
+======================================================================
+12. PERSISTENCE AND DATA MODEL
+======================================================================
+
+Inspect the existing schema first.
+Extend existing tables rather than creating duplicate concepts.
+
+Ensure the domain can persist:
+
+- market-data provider configuration;
+- provider symbol mappings;
+- normalized symbols;
+- market-data health state;
+- feed connection incidents;
+- leadership lease;
+- fencing epoch;
+- orders;
+- order state transitions;
+- idempotency keys;
+- executions;
+- position lots;
+- partial closes;
+- PnL allocations;
+- eligible PnL;
+- ineligible short-duration profit;
+- account snapshots;
+- risk snapshots;
+- Performance Day state;
+- consistency state;
+- queued close requests;
+- automation-risk signals;
+- account-review cases;
+- system incidents;
+- audit events;
+- transactional outbox events.
+
+Do not retain every UI-rendered tick indefinitely.
+
+Persist at minimum:
+
+- exact authoritative tick used for each execution;
+- exact authoritative tick used for each risk breach;
+- exact authoritative tick used for each SL/TP trigger;
+- connection and outage events;
+- normalized candle history required by the product;
+- sufficient context to reproduce disputed trades.
+
+Add appropriate indexes and retention rules.
+
+All monetary fields must use fixed-precision decimal database types.
+
+======================================================================
+13. OBSERVABILITY
+======================================================================
+
+Add structured logs, metrics and alerts for:
+
+MARKET DATA
+
+- tick age;
+- ticks per symbol;
+- duplicate ticks;
+- out-of-order ticks;
+- invalid spreads;
+- primary connection state;
+- secondary connection state;
+- reconnect count;
+- failover count;
+- stale duration;
+- outage duration.
+
+TRADING
+
+- order commands;
+- accepted orders;
+- rejected orders;
+- order latency;
+- duplicate-prevention hits;
+- executions;
+- pending close requests;
+- execution errors.
+
+RISK
+
+- daily-loss events;
+- maximum-loss events;
+- soft locks;
+- stale-price protections;
+- short-duration profit events;
+- bot-risk signals;
+- manual reviews.
+
+PLATFORM
+
+- active leader node;
+- fencing epoch;
+- lease renewal;
+- database latency;
+- WebSocket connections;
+- reconnect rate;
+- memory;
+- CPU;
+- event-loop lag;
+- browser error rate.
+
+Create health endpoints:
+
+- /health/live
+- /health/ready
+- /health/market-data
+- /health/trading-core
+
+The trading readiness endpoint must be strict.
+
+======================================================================
+14. REQUIRED TESTING
+======================================================================
+
+Use the existing test stack.
+Add unit, integration, end-to-end, property-based where appropriate,
+replay, load and failure tests.
+
+UNIT TESTS
+
+Test:
+
+- bid/ask execution;
+- long and short PnL;
+- spread handling;
+- partial closes;
+- FIFO lot matching;
+- exact 60-second boundary;
+- 59,999 ms positive close;
+- 60,000 ms positive close;
+- short-duration loss;
+- zero-PnL close;
+- fees turning gross profit into net loss;
+- eligible-program balance;
+- ineligible profit exclusion;
+- Performance Day calculation;
+- consistency exclusion;
+- payout exclusion;
+- trailing-floor exclusion;
+- idempotency;
+- stale tick rejection;
+- out-of-order tick rejection.
+
+INTEGRATION TESTS
+
+Test:
+
+- FCS adapter with recorded fixtures;
+- mock provider;
+- replay provider;
+- subscription recovery;
+- primary endpoint failure;
+- secondary endpoint takeover;
+- queued close during outage;
+- execution after first valid recovery tick;
+- leadership transfer;
+- fencing-token rejection;
+- database transaction rollback;
+- transactional outbox;
+- browser reconnect;
+- account snapshot reconciliation.
+
+END-TO-END TESTS
+
+Test:
+
+- sign in;
+- open WariX;
+- subscribe to EURUSD;
+- place market order;
+- attach SL and TP;
+- partial close before 60 seconds;
+- close remaining quantity after 60 seconds;
+- verify realized and eligible PnL;
+- disconnect user network;
+- reconnect;
+- verify no duplicate order;
+- simulate feed outage;
+- verify new entries blocked;
+- submit close request;
+- restore feed;
+- verify close executed once;
+- verify no incorrect breach.
+
+LOAD TESTS
+
+Use k6 or the repository’s chosen load-testing tool.
+
+Minimum launch simulation:
+
+- 500 registered accounts;
+- 150 concurrent traders;
+- 100 traders viewing or trading XAUUSD;
+- 50 traders viewing or trading EURUSD;
+- multiple timeframes;
+- 20 near-simultaneous order submissions;
+- WebSocket reconnect storm;
+- volatility burst;
+- 500 SL/TP mutations;
+- primary feed interruption;
+- primary node termination;
+- standby takeover.
+
+PASS CRITERIA
+
+- Lost acknowledged orders: 0
+- Duplicate executions: 0
+- Breaches created from stale prices: 0
+- Executions created from stale prices: 0
+- Ineligible profits counted toward objectives: 0
+- Losses excluded because of short duration: 0
+- Reconnect without page reload
+- Server failover target: under 10 seconds
+- P95 internal order-command response: under 250 ms under expected load
+- No unbounded memory growth
+- No chart-main-thread freeze during tested volatility
+- No client secret exposure
+- No browser connection to FCS
+
+CHAOS TESTS
+
+Deliberately test:
+
+- primary FCS socket terminated;
+- both FCS endpoints unavailable;
+- primary server process killed;
+- database temporarily slow;
+- user submits the same order twice;
+- delayed out-of-order tick;
+- provider timestamp jump;
+- extreme spread;
+- corrupted tick;
+- browser offline/online transition;
+- Wi-Fi to mobile-network transition.
+
+======================================================================
+15. DOCUMENTATION AND RULESET UPDATES
+======================================================================
+
+Update the existing documents rather than creating conflicting replacements.
+
+Update at minimum:
+
+- WARIBA_RULESET_v1.1.json
+- DECISION_LOG.md
+- WARIBA Program Rulebook v1.1
+- WARIBA Product Master Document v1.1
+- WARIBA System Architecture
+- WARIBA Security QA Operations Standard
+- WARIBA Build Plan
+- WARIBA Prompt Pack
+- .env.example
+- operational runbook
+
+Add or update rules equivalent to:
+
+{
+  "platform": {
+    "native": "WariX",
+    "simulated_trading_only": true,
+    "mt5_enabled": false,
+    "ctrader_enabled": false,
+    "tradingview_broker_enabled": false,
+    "futures_enabled": false,
+    "nas100_enabled": false
+  },
+  "market_data": {
+    "provider": "fcs",
+    "transport": "websocket",
+    "primary_and_standby_connections": true,
+    "browser_direct_provider_access": false,
+    "healthy_threshold_seconds": 2,
+    "stale_threshold_seconds": 5,
+    "outage_threshold_seconds": 15
+  },
+  "capacity": {
+    "registered_users_initial_target": 500,
+    "concurrent_traders_initial_target": 150
+  },
+  "execution": {
+    "simulated": true,
+    "manual_only": true,
+    "bots_allowed": false,
+    "expert_advisors_allowed": false,
+    "trade_copiers_allowed": false,
+    "automated_execution_allowed": false,
+    "public_execution_api_enabled": false
+  },
+  "profit_eligibility": {
+    "minimum_duration_seconds": 60,
+    "positive_pnl_below_minimum_eligible": false,
+    "loss_below_minimum_counts": true,
+    "counts_toward_evaluation_target": false,
+    "counts_toward_buffer": false,
+    "counts_toward_performance_days": false,
+    "counts_toward_consistency": false,
+    "counts_toward_payout": false,
+    "moves_eod_trailing_floor": false,
+    "warning_threshold_24h": 3,
+    "review_threshold_24h": 6,
+    "automatic_breach": false
+  },
+  "charts": {
+    "tick_charts_enabled": false,
+    "max_indicators_per_chart": 5,
+    "max_desktop_charts": 4,
+    "max_mobile_charts": 2,
+    "timeframes": [
+      "5s",
+      "15s",
+      "30s",
+      "1m",
+      "3m",
+      "5m",
+      "15m",
+      "1h",
+      "4h",
+      "1d"
+    ]
+  }
+}
+
+Do not copy this JSON blindly if the existing schema uses another structure.
+Map the decisions into the existing canonical schema.
+
+Add explicit Decision Log entries for:
+
+- WariX-only launch;
+- Forex and XAUUSD launch scope;
+- FCS as replaceable initial provider;
+- active–standby real-time architecture;
+- 500 registered / 150 concurrent target;
+- manual trading only;
+- bots and trade copiers prohibited;
+- no public execution API;
+- 60-second positive-profit eligibility;
+- all losses always counted;
+- short-duration positive profits excluded from all program progression;
+- no automatic breach based only on heuristics;
+- tick charts disabled;
+- MT5, cTrader and futures deferred.
+
+======================================================================
+16. FORBIDDEN IMPLEMENTATION SHORTCUTS
+======================================================================
+
+Do not:
+
+- connect browsers directly to FCS;
+- expose the FCS API key;
+- calculate authoritative PnL in React;
+- use JavaScript Number for monetary calculations;
+- execute orders on stale prices;
+- invent prices during outages;
+- hide outages;
+- block users from closing positions;
+- discard losses below 60 seconds;
+- count quick profits toward payouts;
+- use browser timestamps for eligibility;
+- create duplicate orders after retry;
+- trigger permanent breaches solely from bot heuristics;
+- add Redis without proving it is necessary;
+- add Kafka;
+- add Kubernetes;
+- split the system into premature microservices;
+- implement MT5;
+- implement cTrader;
+- implement futures;
+- implement NAS100;
+- implement public trading APIs;
+- implement bots or EA support;
+- create fake live-data behavior;
+- claim FCS connectivity works without a real credential test.
+
+======================================================================
+17. IMPLEMENTATION ORDER
+======================================================================
+
+Implement in this sequence:
+
+PHASE A — Audit and domain decisions
+
+- inspect repository;
+- map existing modules;
+- identify conflicting logic;
+- publish gap analysis;
+- confirm canonical domain ownership.
+
+PHASE B — Market-data domain
+
+- provider interfaces;
+- normalized ticks;
+- mock provider;
+- replay provider;
+- FCS adapter;
+- health monitoring;
+- primary/secondary reconnection.
+
+PHASE C — Trading core
+
+- server-authoritative orders;
+- execution;
+- positions;
+- FIFO lots;
+- partial closes;
+- PnL;
+- idempotency;
+- stale-price controls.
+
+PHASE D — Profit eligibility
+
+- 60-second rule;
+- eligible PnL ledger;
+- program-eligible balance;
+- short-duration tracking;
+- warning and review states;
+- Rulebook calculations.
+
+PHASE E — Resilience
+
+- leader lease;
+- fencing token;
+- active/standby takeover;
+- strict readiness;
+- queued closes;
+- client resynchronization.
+
+PHASE F — WariX frontend
+
+- live chart;
+- Risk HUD;
+- order ticket;
+- market status;
+- reconnection;
+- trade eligibility labels;
+- performance optimizations;
+- mobile behavior.
+
+PHASE G — Anti-automation
+
+- endpoint restrictions;
+- rate limits;
+- telemetry;
+- risk signals;
+- review workflow.
+
+PHASE H — Tests and operational validation
+
+- unit;
+- integration;
+- E2E;
+- replay;
+- load;
+- chaos;
+- runbook;
+- final acceptance report.
+
+======================================================================
+18. REQUIRED FINAL OUTPUT
+======================================================================
+
+At completion, return:
+
+1. AUDIT SUMMARY
+
+- existing strengths;
+- defects found;
+- risks found;
+- decisions preserved;
+- decisions changed.
+
+2. IMPLEMENTATION SUMMARY
+
+- files created;
+- files changed;
+- database migrations;
+- new modules;
+- APIs;
+- WebSocket channels;
+- environment variables.
+
+3. TRADING RULE SUMMARY
+
+- exact 60-second behavior;
+- partial-close behavior;
+- losses;
+- quick profits;
+- bots;
+- account-review behavior.
+
+4. RESILIENCE SUMMARY
+
+- feed failover;
+- server failover;
+- stale-price behavior;
+- queued closes;
+- client reconnect.
+
+5. TEST RESULTS
+
+- unit tests;
+- integration tests;
+- E2E tests;
+- load tests;
+- chaos tests;
+- failures still unresolved.
+
+6. PRODUCTION READINESS
+
+Classify every major area as:
+
+- READY
+- READY WITH CONFIGURATION
+- BLOCKED BY CREDENTIAL
+- BLOCKED BY INFRASTRUCTURE
+- NOT READY
+
+7. MANUAL ACTIONS REQUIRED
+
+List only genuine actions required from the WARIBA owner, such as:
+
+- obtaining the FCS API key;
+- configuring production URLs;
+- provisioning the two servers;
+- configuring DNS and load balancer;
+- entering secrets;
+- running the final live-feed test.
+
+Do not claim production readiness when live provider credentials,
+failover infrastructure or load tests have not actually been validated.
+
+======================================================================
+19. SUCCESS DEFINITION
+======================================================================
+
+The implementation is successful only when:
+
+- WariX receives real bid/ask Forex and XAUUSD data through a replaceable provider adapter;
+- clients never connect directly to the provider;
+- the server remains authoritative;
+- chart rendering cannot stop the trading engine;
+- stale prices cannot execute trades or create breaches;
+- acknowledged orders cannot be duplicated;
+- users reconnect without reloading;
+- the standby can safely replace the primary;
+- positive profit below 60 seconds is recorded but excluded;
+- every loss counts;
+- partial closes are handled correctly;
+- bots and external automated execution are unavailable;
+- the system supports 500 registered and 150 concurrent users under test;
+- every material decision is reflected in code, ruleset, tests and documentation.
+
+Begin by reading the project documentation and auditing the current Prompt 7 implementation.
+Then proceed through the full implementation.
+```
+
+## Non-scope confirmé
+
+- MT5, cTrader, TradingView broker integration, futures, NAS100 : hors scope, `DEFERRED`.
+- Bots, EA, trade copiers, API d'exécution publique : interdits en permanence pour WariX, pas seulement différés.
+- Redis, Kafka, Kubernetes : à ne pas ajouter sans preuve concrète de nécessité.
+
+## Stop conditions
+
+Arrête-toi (au sens : documente `BLOCKED BY CREDENTIAL`, n'improvise pas une
+fausse réussite) si :
+
+- `FCS_API_KEY` n'est pas fourni — implémente `FcsMarketDataProvider` en
+  entier mais ne prétends jamais qu'une connexion live a été testée ;
+- une infrastructure à deux nœuds réels n'existe pas — implémente et teste le
+  bail PostgreSQL/l'élection de leader avec des processus locaux, mais
+  classe le déploiement physique `BLOCKED BY INFRASTRUCTURE` ;
+- un outil de load testing à l'échelle demandée (500 comptes/150 concurrents)
+  ne peut pas être exécuté dans cet environnement — documente le script et la
+  méthode, classe le résultat `BLOCKED BY INFRASTRUCTURE`.
+
+---
+
+# 32. Appendice 07-A — Correction du catalogue de marchés WariX
+
+## Portée
+
+Cet appendice corrige uniquement les restrictions de scope de marché
+énoncées dans le Prompt 07 et le Prompt 07B. Il ne remplace ni le
+terminal, ni le trading core, ni le risk engine, ni la résilience,
+ni le trading manuel, ni la règle d'éligibilité de profit à 60 secondes.
+
+En particulier, il annule :
+
+- `NAS100_ENABLED = false` (Prompt 07B §3) — NAS100 est déjà un symbole
+  supporté au niveau du ruleset et du code (`packages/adapters`,
+  `packages/database`) depuis le Prompt 04 ; cette restriction aurait
+  constitué une régression contre une fonctionnalité déjà livrée et
+  testée. L'appendice réactive NAS100 explicitement et ajoute SPX500.
+- la liste fixe à dix symboles (`INITIAL_MARKETS`) comme plafond
+  définitif du catalogue.
+
+## Prompt prêt à copier
+
+```text
+APPENDIX 07-A — CORRECTION DU CATALOGUE DE MARCHÉS WARIX
+
+This appendix overrides only the market-scope restrictions previously stated
+in Prompt 7 or Prompt 7B.
+
+Do not regenerate or replace Prompt 7.
+Do not remove existing terminal, trading-core, risk, resilience,
+manual-trading or 60-second profit-eligibility requirements.
+
+======================================================================
+1. CORRECTED MARKET SCOPE
+======================================================================
+
+WariX must not be limited to a manually selected list of ten Forex pairs.
+
+The production market catalogue must support:
+
+1. All Forex currency pairs made available in real time by the configured
+   FCS API WebSocket Business subscription.
+
+2. Gold:
+   - XAUUSD
+
+3. Major indices:
+   - NAS100 / Nasdaq 100
+   - SPX500 / S&P 500
+
+4. Energy instruments included in the provider subscription and returned
+   as active real-time instruments:
+   - WTI crude oil
+   - Brent crude oil
+   - Natural gas
+
+5. Additional instruments may be activated later through configuration
+   without rewriting the trading engine.
+
+The following previous restrictions are cancelled:
+
+NAS100_ENABLED = false
+INITIAL_MARKETS = fixed ten-symbol list
+
+Replace them with:
+
+FOREX_CATALOG_MODE = "ALL_PROVIDER_AVAILABLE"
+NAS100_ENABLED = true
+SPX500_ENABLED = true
+XAUUSD_ENABLED = true
+ENERGY_MARKETS_ENABLED = true
+FUTURES_ENABLED = false
+
+NASDAQ and S&P 500 in this launch scope are simulated index/CFD-style
+instruments based on the available provider feed.
+
+They are not CME futures contracts.
+
+======================================================================
+2. PROVIDER-DRIVEN SYMBOL DISCOVERY
+======================================================================
+
+Do not manually hardcode every available Forex pair.
+
+The market-data service must retrieve the available provider catalogue
+through the official FCS Symbols List API or equivalent current provider
+endpoint.
+
+At startup and on a scheduled refresh:
+
+1. Retrieve the current FCS symbol catalogue.
+2. Filter symbols by the enabled asset classes.
+3. Validate that the instrument has a current real-time quote.
+4. Map the provider symbol to a stable WARIBA internal symbol.
+5. Store the mapping in the database.
+6. Mark unavailable or stale symbols as temporarily unavailable.
+7. Never invent a provider ticker.
+
+Required internal asset classes:
+
+FOREX
+METAL
+INDEX
+ENERGY
+
+Example internal canonical symbols:
+
+EURUSD
+GBPUSD
+USDJPY
+XAUUSD
+NAS100
+SPX500
+WTIUSD
+BRENTUSD
+NGASUSD
+
+Provider-specific names must remain inside the provider adapter.
+
+Example:
+
+WARIBA internal symbol:
+NAS100
+
+Possible provider symbol:
+resolved dynamically from FCS catalogue
+
+Do not assume that the provider always uses NAS100, NDX, US100
+or another specific identifier.
+
+======================================================================
+3. ALL FOREX PAIRS AVAILABLE, BUT NOT ALL STREAMED SIMULTANEOUSLY
+======================================================================
+
+Every eligible Forex pair returned by the provider must be searchable
+and available in WariX.
+
+This includes, when present:
+
+- major pairs;
+- minor pairs;
+- cross pairs;
+- exotic pairs.
+
+However, do not subscribe every connected trader to every symbol.
+
+Use on-demand subscriptions:
+
+- subscribe when the symbol is visible in a watchlist;
+- subscribe when its chart is open;
+- subscribe when an order or position exists;
+- unsubscribe after the symbol is no longer required;
+- maintain server-side subscriptions for symbols with open exposure;
+- aggregate identical symbol subscriptions across users.
+
+One upstream subscription must serve all WariX clients interested
+in the same instrument.
+
+Example:
+
+100 traders viewing EURUSD
+=
+one or a small controlled number of upstream EURUSD subscriptions,
+then internal WARIBA redistribution.
+
+Do not open one FCS connection per trader.
+
+======================================================================
+4. MARKET CATALOGUE UX
+======================================================================
+
+The WariX market selector must provide these categories:
+
+- Favoris
+- Forex
+- Métaux
+- Indices
+- Énergies
+
+Default featured instruments:
+
+Forex:
+- EURUSD
+- GBPUSD
+- USDJPY
+- AUDUSD
+- USDCAD
+- USDCHF
+- NZDUSD
+- EURJPY
+- GBPJPY
+
+Metals:
+- XAUUSD
+
+Indices:
+- NAS100
+- SPX500
+
+Energies:
+- WTI
+- Brent
+- Natural Gas
+
+All other available Forex pairs remain accessible through search.
+
+Do not display thousands of symbols in one unfiltered list.
+
+Provide:
+
+- instant symbol search;
+- favourites;
+- recently viewed;
+- recently traded;
+- asset-class filters;
+- market availability state;
+- spread;
+- bid;
+- ask;
+- daily change when available.
+
+======================================================================
+5. ENERGY INSTRUMENT ACTIVATION
+======================================================================
+
+Energy instruments must be enabled only when all of these conditions are met:
+
+- the symbol exists in the provider catalogue;
+- a valid bid and ask are available;
+- the feed is classified as real time;
+- the instrument is currently enabled in WARIBA configuration;
+- its contract specification exists;
+- its trading schedule exists;
+- its margin and exposure limits exist.
+
+Initial energy candidates:
+
+- WTI crude oil
+- Brent crude oil
+- Natural gas
+
+If an energy instrument is included in the FCS Business package
+but lacks a valid real-time bid/ask feed, keep it hidden or marked
+temporarily unavailable.
+
+Do not substitute delayed values for live values.
+
+======================================================================
+6. INSTRUMENT SPECIFICATIONS
+======================================================================
+
+Market data alone does not define a simulated trading instrument.
+
+Create a versioned Instrument Specification for every enabled symbol.
+
+Each specification must include:
+
+- internal symbol;
+- provider symbol;
+- display name;
+- asset class;
+- base currency;
+- quote currency;
+- price precision;
+- tick size;
+- contract size;
+- lot step;
+- minimum lot;
+- maximum lot by WARIBA account size;
+- margin rate or leverage;
+- commission;
+- spread treatment;
+- trading sessions;
+- daily maintenance window;
+- swap or overnight-financing policy;
+- weekend policy;
+- status;
+- effective version date.
+
+Do not reuse Forex contract specifications blindly for:
+
+- Gold;
+- Nasdaq;
+- S&P 500;
+- WTI;
+- Brent;
+- Natural Gas.
+
+Each asset class requires its own PnL and exposure tests.
+
+======================================================================
+7. CONFIGURATION OVERRIDE
+======================================================================
+
+Map the following decisions into the existing canonical ruleset schema:
+
+{
+  "markets": {
+    "catalog_mode": "provider_driven",
+    "forex": {
+      "enabled": true,
+      "availability": "all_realtime_provider_pairs"
+    },
+    "metals": {
+      "enabled": true,
+      "initial_symbols": ["XAUUSD"]
+    },
+    "indices": {
+      "enabled": true,
+      "initial_symbols": ["NAS100", "SPX500"]
+    },
+    "energies": {
+      "enabled": true,
+      "initial_symbols": ["WTIUSD", "BRENTUSD", "NGASUSD"],
+      "activation_condition": "provider_realtime_available"
+    },
+    "futures": {
+      "enabled": false
+    }
+  }
+}
+
+Do not copy this structure blindly when the repository already has
+a different canonical schema.
+
+The final configuration must preserve these meanings.
+
+======================================================================
+8. TESTS TO ADD
+======================================================================
+
+Add automated tests covering:
+
+- provider catalogue discovery;
+- all eligible Forex pairs becoming searchable;
+- unknown provider symbols being rejected;
+- provider-to-WARIBA symbol mapping;
+- NAS100 live subscription;
+- SPX500 live subscription;
+- XAUUSD live subscription;
+- WTI subscription when available;
+- Brent subscription when available;
+- natural-gas subscription when available;
+- unavailable energy symbol remaining disabled;
+- delayed symbol not being represented as live;
+- one upstream symbol stream serving multiple WariX clients;
+- automatic subscribe and unsubscribe;
+- open positions preserving their market-data subscription;
+- correct bid/ask execution for Forex;
+- correct PnL for Gold;
+- correct PnL for indices;
+- correct PnL for energy instruments;
+- asset-specific trading sessions;
+- asset-specific contract sizes;
+- stale-price protections for every asset class.
+
+======================================================================
+9. DOCUMENTATION UPDATE
+======================================================================
+
+Update only the affected market-scope sections in:
+
+- WARIBA_RULESET_v1.1.json
+- DECISION_LOG.md
+- WARIBA Program Rulebook
+- WARIBA Product Master
+- WARIBA System Architecture
+- Prompt Pack
+- Instrument Specification documentation
+
+Add Decision Log entries equivalent to:
+
+MARKET-001 — LOCKED
+All real-time Forex pairs made available by the provider are eligible
+for the WariX catalogue.
+
+MARKET-002 — LOCKED
+XAUUSD is enabled at launch.
+
+MARKET-003 — LOCKED
+NAS100 and SPX500 are enabled at launch as simulated index instruments.
+
+MARKET-004 — LOCKED
+Available real-time energy instruments included in the provider package
+may be enabled at launch after contract-specification validation.
+
+MARKET-005 — LOCKED
+CME futures remain outside the initial launch.
+
+MARKET-006 — LOCKED
+The catalogue is provider-driven and searchable rather than hardcoded.
+
+======================================================================
+10. FINAL MARKET DECISION
+======================================================================
+
+WariX launch catalogue:
+
+- All available real-time Forex pairs
+- XAUUSD
+- NAS100
+- SPX500
+- WTI, Brent and Natural Gas when present as valid real-time instruments
+
+Not included yet:
+
+- CME futures contracts
+- Cryptocurrency
+- Individual equities
+- ETFs
+- options
+
+Do not remove the previously locked requirements concerning:
+
+- simulated trading;
+- server-authoritative execution;
+- manual trading only;
+- prohibition of bots and trade copiers;
+- 60-second minimum profit eligibility;
+- active–standby resilience;
+- stale-price protection;
+- no direct browser connection to FCS.
+```
+
+## Note d'implémentation
+
+`packages/adapters/src/market-data-provider.ts` expose aujourd'hui
+`TradableSymbol` comme une union TypeScript figée à cinq valeurs
+(`EURUSD | GBPUSD | USDJPY | XAUUSD | NAS100`), reprise telle quelle dans
+`packages/contracts`, `packages/database` et l'intégralité du terminal
+WariX livré au Prompt 07. Migrer vers un catalogue « n'importe quelle
+paire Forex retournée par FCS » sans rupture nécessite une refonte de
+cette frontière de type à travers cinq paquets — voir le Gap Analysis
+et le plan de phases publiés lors de l'exécution de ce prompt dans
+DECISION_LOG.md pour l'approche retenue (catalogue de découverte séparé
+du jeu « featured/tradable » entièrement spécifié).

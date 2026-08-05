@@ -63,3 +63,5 @@ export * from './wariba/ExecutionState';
 export * from './wariba/PolicyVersionChip';
 export * from './wariba/EvidencePanel';
 export * from './wariba/ReserveCoverage';
+export * from './wariba/Guardian';
+export * from './wariba/WariXPositionsTable';
