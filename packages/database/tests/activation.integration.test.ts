@@ -172,6 +172,21 @@ describeIfDb('activateEvaluationAccount — real database', () => {
     expect(policy.status).toBe('published');
   }, 15000);
 
+  it('pins the latest sandbox symbol spec version independent of replay timestamps', async () => {
+    const account = await db
+      .selectFrom('app.trading_accounts')
+      .innerJoin(
+        'app.symbol_spec_sets',
+        'app.symbol_spec_sets.id',
+        'app.trading_accounts.symbol_spec_set_id',
+      )
+      .select('app.symbol_spec_sets.set_id')
+      .where('app.trading_accounts.source_purchase_order_id', '=', purchaseOrderId)
+      .executeTakeFirstOrThrow();
+
+    expect(account.set_id).toBe('WARIBA-SANDBOX-SYMBOLS-1.1.0');
+  }, 15000);
+
   it('the pinned policy machine_hash is verified — regression for the backfill migration', async () => {
     const account = await db
       .selectFrom('app.trading_accounts')

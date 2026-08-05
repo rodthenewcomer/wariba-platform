@@ -18,6 +18,52 @@ export interface ActivatedAccount {
   alreadyExisted: boolean;
 }
 
+const SANDBOX_SPEC_SET_PREFIX = 'WARIBA-SANDBOX-SYMBOLS-';
+
+function parseSandboxSpecSetVersion(setId: string): readonly [number, number, number] {
+  const match = new RegExp(`^${SANDBOX_SPEC_SET_PREFIX}(\\d+)\\.(\\d+)\\.(\\d+)$`).exec(setId);
+  const version: [number, number, number] = [
+    Number(match?.[1]),
+    Number(match?.[2]),
+    Number(match?.[3]),
+  ];
+  if (!match || version.some((part) => !Number.isSafeInteger(part))) {
+    throw new Error(`Invalid WARIBA sandbox symbol spec set ID: ${setId}.`);
+  }
+  return version;
+}
+
+function compareSandboxSpecSetIds(left: string, right: string): number {
+  const leftVersion = parseSandboxSpecSetVersion(left);
+  const rightVersion = parseSandboxSpecSetVersion(right);
+  for (let index = 0; index < leftVersion.length; index += 1) {
+    const difference = (leftVersion[index] ?? 0) - (rightVersion[index] ?? 0);
+    if (difference !== 0) return difference;
+  }
+  return 0;
+}
+
+async function loadLatestSandboxSymbolSpecSet(trx: Transaction<Database>) {
+  const candidates = await trx
+    .selectFrom('app.symbol_spec_sets')
+    .select(['id', 'set_id'])
+    .where('status', '=', 'sandbox_candidate')
+    .execute();
+  if (candidates.length === 0) {
+    throw new Error(
+      'No sandbox symbol spec set published — cannot activate an account without one.',
+    );
+  }
+
+  // `published_at` cannot rank immutable versions safely: the legacy 1.0
+  // seed uses DB `now()` while 1.1 carries its business publication date,
+  // so a fresh database replay makes 1.0 look newer. The versioned set ID is
+  // the durable contract identifier and is compared numerically (1.10 > 1.9).
+  return candidates.reduce((latest, candidate) =>
+    compareSandboxSpecSetIds(candidate.set_id, latest.set_id) > 0 ? candidate : latest,
+  );
+}
+
 /**
  * "Après payment.confirmed: créer exactement un compte Evaluation" —
  * Prompt 03 activation scope. Idempotent under retry and safe under
@@ -90,15 +136,7 @@ export async function activateEvaluationAccountInTransaction(
 
   const policyVersion = await loadPublishedPolicy(trx, 'WARIBA_ONE');
 
-  const symbolSpecSet = await trx
-    .selectFrom('app.symbol_spec_sets')
-    .select('id')
-    .where('status', '=', 'sandbox_candidate')
-    .orderBy('published_at', 'desc')
-    .executeTakeFirstOrThrow(
-      () =>
-        new Error('No sandbox symbol spec set published — cannot activate an account without one.'),
-    );
+  const symbolSpecSet = await loadLatestSandboxSymbolSpecSet(trx);
 
   const publicId = `EVAL-${params.nominalBalance.split('.')[0]}-${randomUUID().slice(0, 8).toUpperCase()}`;
 
