@@ -61,7 +61,7 @@ const FAQS = [
     category: 'WariX',
     question: 'Qu’est-ce que WariX ?',
     answer:
-      'WariX est le terminal web de WARIBA. Il affiche le contexte du compte et permet les ordres de marché, la clôture complète d’une position, ainsi que Close All.',
+      'WariX est le terminal web de WARIBA. Il affiche le contexte du compte et permet les ordres de marché, la modification SL/TP sur une position ouverte, la clôture complète d’une position, ainsi que Close All.',
   },
   {
     category: 'WariX',

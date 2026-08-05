@@ -193,7 +193,16 @@ describeIfDb('trading — real database', () => {
       .where('entry_type', '=', 'commission')
       .execute();
     expect(ledgerEntries).toHaveLength(1);
-    expect(ledgerEntries[0]?.amount).toBe('-0.70');
+    // numeric(20,8) always displays its full declared scale on read, same
+    // reason fill.commission (numeric(10,4)) reads back as '0.7000' above.
+    expect(ledgerEntries[0]?.amount).toBe('-0.70000000');
+    // Reconciliation: the ledger entry and the fill's own stored evidence
+    // must agree at the precision that actually matters (4dp, what
+    // app.fills.commission holds) — this is the invariant Appendix 07-B's
+    // ledger-precision migration exists to guarantee.
+    expect(new Decimal(ledgerEntries[0]?.amount ?? '0').negated().toFixed(4)).toBe(
+      result.fill?.commission,
+    );
   }, 15000);
 
   it('is idempotent on retry — a second call with the same idempotency key returns the same fill, no duplicate position', async () => {
@@ -637,6 +646,41 @@ describeIfDb('trading — real database', () => {
     expect(modified.order.status).toBe('filled');
     expect(modified.position?.stopLoss).toBe('149.50000');
     expect(modified.position?.openQuantity).toBe(open.position?.openQuantity);
+  }, 15000);
+
+  it('rejects a stop-loss/take-profit modification against stale market data', async () => {
+    const open = await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'USDJPY',
+      side: 'buy',
+      quantity: '0.10',
+      market: { bid: '150.100', ask: '150.120', timestamp: FRESH_TICK, sequence: '9' },
+      marketBySymbol: ALL_MARKETS,
+      now: NOW,
+    });
+    const positionId = open.position?.id as string;
+
+    const staleTick = new Date(NOW.getTime() - 60_000).toISOString();
+    const modified = await modifyPositionRisk(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      positionId,
+      field: 'stop_loss',
+      value: '149.500',
+      marketBySymbol: { ...ALL_MARKETS, USDJPY: { ...ALL_MARKETS.USDJPY, timestamp: staleTick } },
+      now: NOW,
+    });
+
+    expect(modified.order.status).toBe('rejected');
+    expect(modified.order.rejectionCode).toBe('stale_market_data');
+    // The position itself must be untouched by a rejected modification.
+    const unchanged = await db
+      .selectFrom('app.positions')
+      .select('stop_loss')
+      .where('id', '=', positionId)
+      .executeTakeFirstOrThrow();
+    expect(unchanged.stop_loss).toBeNull();
   }, 15000);
 
   it('stays at exactly one position under 5-way concurrent opens with the same idempotency key', async () => {

@@ -51,6 +51,7 @@ import { RealtimeClient, type RealtimeConnectionState } from '../../../lib/realt
 import { createSupabaseBrowserClient } from '../../../lib/supabase/browser';
 import { OrderTicket, type OrderRejectionDetail } from './OrderTicket';
 import { CloseAllDialog, type CloseAllOutcome } from './CloseAllDialog';
+import { ModifyPositionDialog } from './ModifyPositionDialog';
 import { TradeHeaderPanel } from './TradeHeaderPanel';
 import { WatchlistPanel } from './WatchlistPanel';
 import { PositionsTabPanel } from './PositionsTabPanel';
@@ -251,6 +252,7 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
   const [tab, setTab] = useState('positions');
   const [ticketOpen, setTicketOpen] = useState(false);
   const [closeAllDialogOpen, setCloseAllDialogOpen] = useState(false);
+  const [modifyPositionId, setModifyPositionId] = useState<string | null>(null);
   const [closeAllResult, setCloseAllResult] = useState<CloseAllOutcome[] | null>(null);
   // §22.6 "historique d'exécution" — AccountSnapshot.recentFills only ever
   // contains close fills (services/realtime/src/snapshot.ts), so an 'open'
@@ -575,6 +577,41 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
     [accountId],
   );
 
+  const openModifyDialog = useCallback((positionId: string) => {
+    setModifyPositionId(positionId);
+  }, []);
+
+  const closeModifyDialog = useCallback(() => {
+    setModifyPositionId(null);
+  }, []);
+
+  const submitPositionRiskModification = useCallback(
+    (params: { positionId: string; field: 'stop_loss' | 'take_profit'; value: string | null }) => {
+      if (!clientRef.current) return;
+      const command: SubmitOrderMessage =
+        params.field === 'stop_loss'
+          ? {
+              orderType: 'modify_sl',
+              accountId,
+              idempotencyKey: crypto.randomUUID(),
+              positionId: params.positionId,
+              stopLoss: params.value,
+            }
+          : {
+              orderType: 'modify_tp',
+              accountId,
+              idempotencyKey: crypto.randomUUID(),
+              positionId: params.positionId,
+              takeProfit: params.value,
+            };
+      setPending(true);
+      setOrderError(null);
+      pendingCommandRef.current = { kind: 'order', payload: command };
+      clientRef.current.submitOrder(command);
+    },
+    [accountId],
+  );
+
   const openCloseAllDialog = useCallback(() => {
     setCloseAllResult(null);
     setCloseAllDialogOpen(true);
@@ -725,6 +762,16 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
         result={closeAllResult}
       />
 
+      <ModifyPositionDialog
+        open={modifyPositionId !== null}
+        onClose={closeModifyDialog}
+        position={snapshot?.openPositions.find((p) => p.id === modifyPositionId) ?? null}
+        store={tickStore}
+        pending={pending}
+        rejection={rejection}
+        onSubmit={submitPositionRiskModification}
+      />
+
       <div className="border-t border-[color:var(--wariba-theme-border)] p-[var(--wariba-component-trade-panel-padding)]">
         <Tabs value={tab} onValueChange={setTab}>
           <TabList aria-label="Compte">
@@ -739,6 +786,7 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
               openPositions={snapshot?.openPositions ?? []}
               symbolSpecs={symbolSpecs}
               onClosePosition={closePosition}
+              onModifyPosition={openModifyDialog}
               onOpenCloseAll={openCloseAllDialog}
               pending={pending}
             />
