@@ -10,7 +10,8 @@
     "start": "next start",
     "lint": "eslint --config ../../eslint.config.mjs .",
     "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run",
+    "test:unit": "vitest run --exclude 'tests/e2e/**'",
+    "test:e2e": "playwright test",
     "visual-verify": "node scripts/visual-verify.mjs",
     "test:visual": "node scripts/visual-verify.mjs"
   },
@@ -43,6 +44,7 @@
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
+    "@wariba/test-utils": "workspace:*",
     "jsdom": "^25.0.1",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.2",

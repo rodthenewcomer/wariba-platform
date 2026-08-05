@@ -16,6 +16,21 @@ const LEVEL: Record<AlertLevel, string> = {
     'border-[color:var(--wariba-status-danger-border)] bg-[color:var(--wariba-status-danger-background)]',
 };
 
+// Text must pair with LEVEL's *-background above, not the page's generic
+// --wariba-text-primary/-secondary: those flip to near-white on WariX's
+// always-dark canvas while these status backgrounds stay a fixed light
+// tint unless the design-tokens dark-theme block overrides them too — using
+// the page's generic text color here would silently pair light-on-light
+// the moment this renders inside a dark theme scope. Found via a real
+// browser check against /trade rendering a genuine server rejection
+// (Prompt 07) — the title was unreadable.
+const TEXT: Record<AlertLevel, string> = {
+  information: 'text-[color:var(--wariba-status-information-text)]',
+  success: 'text-[color:var(--wariba-status-success-text)]',
+  warning: 'text-[color:var(--wariba-status-warning-text)]',
+  danger: 'text-[color:var(--wariba-status-danger-text)]',
+};
+
 export interface AlertProps {
   level?: AlertLevel;
   title: string;
@@ -36,11 +51,16 @@ export function Alert({ level = 'information', title, children, action, onDismis
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <p className="text-[length:var(--wariba-font-size-body-md)] font-semibold text-[color:var(--wariba-text-primary)]">
+          <p
+            className={cx(
+              'text-[length:var(--wariba-font-size-body-md)] font-semibold',
+              TEXT[level],
+            )}
+          >
             {title}
           </p>
           {children ? (
-            <div className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
+            <div className={cx('text-[length:var(--wariba-font-size-body-sm)]', TEXT[level])}>
               {children}
             </div>
           ) : null}

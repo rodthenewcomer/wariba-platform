@@ -5,6 +5,8 @@ import {
   marketTickSchema,
   accountSnapshotSchema,
   orderResultMessageSchema,
+  symbolSpecsMessageSchema,
+  accountRiskPreviewMessageSchema,
   type MessageEnvelope,
   type SubmitOrderMessage,
   type CloseAllMessage,
@@ -99,6 +101,10 @@ export class RealtimeClient {
       return accountSnapshotSchema.safeParse(envelope.payload).success;
     if (envelope.type === 'order_result')
       return orderResultMessageSchema.safeParse(envelope.payload).success;
+    if (envelope.type === 'symbol_specs')
+      return symbolSpecsMessageSchema.safeParse(envelope.payload).success;
+    if (envelope.type === 'account.risk_preview')
+      return accountRiskPreviewMessageSchema.safeParse(envelope.payload).success;
     if (envelope.type === 'error') {
       const payload = envelope.payload as { code?: unknown; message?: unknown };
       return typeof payload.code === 'string' && typeof payload.message === 'string';
@@ -115,6 +121,10 @@ export class RealtimeClient {
       const payload = envelope.payload as { accountId?: unknown };
       return typeof payload.accountId === 'string' ? `account.${payload.accountId}.state` : null;
     }
+    // symbol_specs and account.risk_preview are deliberately untracked here —
+    // see accountRiskPreviewMessageSchema's doc comment (packages/contracts):
+    // they don't carry trading_accounts.version-based sequence numbers, so
+    // gap-detection would misfire on them.
     return null;
   }
 

@@ -48,7 +48,17 @@ export interface SandboxAssertionInput {
 }
 
 /**
- * Sandbox providers must fail-fast if ever selected in production.
+ * Non-live provider values that must never run in production. Matched as
+ * whole words (not substrings) so a real provider name that merely contains
+ * one of these as a fragment doesn't false-positive.
+ * "mock" and "replay" cover the market-data providers added for Prompt 07B —
+ * MARKET_DATA_PROVIDER=mock/replay are exactly as unsafe in production as
+ * the legacy "sandbox" value (SEC-006).
+ */
+const NON_PRODUCTION_PROVIDER_PATTERN = /\b(sandbox|mock|replay)\b/i;
+
+/**
+ * Sandbox/mock/replay providers must fail-fast if ever selected in production.
  * System Architecture §112: "if provider is sandbox → refuse startup".
  */
 export function assertNotSandboxInProduction({
@@ -56,9 +66,9 @@ export function assertNotSandboxInProduction({
   providerName,
   providerValue,
 }: SandboxAssertionInput): void {
-  if (environment === 'production' && /sandbox/i.test(providerValue)) {
+  if (environment === 'production' && NON_PRODUCTION_PROVIDER_PATTERN.test(providerValue)) {
     throw new ConfigValidationError([
-      `${providerName}="${providerValue}" is a sandbox provider and cannot run in production.`,
+      `${providerName}="${providerValue}" is a non-production provider and cannot run in production.`,
     ]);
   }
 }

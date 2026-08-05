@@ -98,4 +98,15 @@ export class ConnectionRegistry {
     }
     return stale;
   }
+
+  /** Prompt 07 — account IDs with at least one live subscriber on their state channel, for the throttled risk preview loop. */
+  subscribedAccountIds(): string[] {
+    const ids = new Set<string>();
+    for (const [channel, subscribers] of this.channelSubscribers) {
+      if (subscribers.size === 0) continue;
+      const match = /^account\.([0-9a-f-]+)\.state$/.exec(channel);
+      if (match?.[1]) ids.add(match[1]);
+    }
+    return [...ids];
+  }
 }

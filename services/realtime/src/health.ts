@@ -1,5 +1,5 @@
 import type { Db, TradableSymbol } from '@wariba/database';
-import type { SandboxMarketDataProvider } from '@wariba/adapters';
+import type { MarketDataProvider } from '@wariba/adapters';
 
 export interface HealthReport {
   status: 'ok' | 'degraded';
@@ -15,7 +15,7 @@ export interface HealthReport {
  */
 export async function checkHealth(
   db: Db,
-  market: SandboxMarketDataProvider,
+  market: MarketDataProvider,
   sampleSymbol: TradableSymbol,
   now: () => Date = () => new Date(),
 ): Promise<HealthReport> {
