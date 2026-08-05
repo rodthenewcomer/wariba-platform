@@ -472,7 +472,11 @@ export async function openPosition(
       .where('id', '=', order.id)
       .execute();
 
-    if (commission !== '0.00') {
+    // Decimal-valued, not string-equality: computeCommission's own output
+    // precision is an implementation detail (4dp today) this check must
+    // not be coupled to — '0.00' !== '0.0000' as strings even though both
+    // are zero.
+    if (!new Decimal(commission).isZero()) {
       await trx
         .insertInto('app.trading_ledger_entries')
         .values({
@@ -853,7 +857,9 @@ async function closePositionLocked(
     })
     .execute();
 
-  if (commission !== '0.00') {
+  // Decimal-valued, not string-equality — see the matching comment in
+  // openPosition above.
+  if (!new Decimal(commission).isZero()) {
     await trx
       .insertInto('app.trading_ledger_entries')
       .values({
@@ -1187,6 +1193,28 @@ export async function modifyPositionRisk(
     // SL/TP edits don't change exposure — allowed under a soft lock, same as reduce/close.
     if (account.status !== 'active' && account.status !== 'soft_locked') {
       return reject(REJECTION.ACCOUNT_NOT_ACTIVE, position.symbol, position.side, position.id);
+    }
+
+    // A stop-loss/take-profit level is only meaningful relative to where the
+    // market actually is right now — the same reason closePositionLocked
+    // blocks on stale data before letting a close proceed. Without this, a
+    // client with a frozen/interrupted feed could set an SL/TP against a
+    // price that's already moved well past it, with no server-side check
+    // that the request reflects current reality.
+    const spec = await loadSymbolSpec(trx, account.symbol_spec_set_id, position.symbol);
+    if (!spec) {
+      return reject(REJECTION.UNKNOWN_SYMBOL_SPEC, position.symbol, position.side, position.id);
+    }
+    const market = params.marketBySymbol[position.symbol];
+    if (
+      !market ||
+      isStale({
+        tickTimestamp: market.timestamp,
+        now: params.now,
+        staleThresholdMs: spec.stale_threshold_ms,
+      })
+    ) {
+      return reject(REJECTION.STALE_MARKET_DATA, position.symbol, position.side, position.id);
     }
 
     const nextSequence = account.version + 1;

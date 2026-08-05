@@ -26,6 +26,7 @@ export interface WariXPosition {
 export interface WariXPositionsTableProps {
   positions: WariXPosition[];
   onClose: (positionId: string) => void;
+  onModify: (positionId: string) => void;
   closeDisabled: boolean;
   emptyLabel: string;
 }
@@ -46,6 +47,7 @@ const PNL_TONE_CLASS: Record<WariXPosition['livePnlTone'], string> = {
 export function WariXPositionsTable({
   positions,
   onClose,
+  onModify,
   closeDisabled,
   emptyLabel,
 }: WariXPositionsTableProps) {
@@ -91,15 +93,25 @@ export function WariXPositionsTable({
                 {position.livePnlFormatted}
               </DataTableCell>
               <DataTableCell align="right">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onClose(position.id)}
-                  disabled={closeDisabled}
-                  aria-label={`Fermer ${position.symbol} · ${position.sideLabel}`}
-                >
-                  Fermer
-                </Button>
+                <div className="flex justify-end gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onModify(position.id)}
+                    aria-label={`Modifier SL/TP — ${position.symbol} · ${position.sideLabel}`}
+                  >
+                    Modifier
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onClose(position.id)}
+                    disabled={closeDisabled}
+                    aria-label={`Fermer ${position.symbol} · ${position.sideLabel}`}
+                  >
+                    Fermer
+                  </Button>
+                </div>
               </DataTableCell>
             </DataTableRow>
           ))

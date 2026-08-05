@@ -18,5 +18,13 @@ export {
   deleteFixtureAccount,
   type E2eFixtureAccount,
 } from './hub-account-fixture';
+export {
+  STAFF_E2E_TEST_PASSWORD,
+  createFixtureDb as createStaffFixtureDb,
+  seedStaffUser,
+  seedTraderUser,
+  deleteStaffFixtureUser,
+  type StaffFixtureUser,
+} from './staff-fixture';
 // Re-exported so E2E specs never import @wariba/database directly (AGENTS.md §7.1).
-export { evaluateAndApplyAccountRisk, type Db } from '@wariba/database';
+export { evaluateAndApplyAccountRisk, type Db, type StaffRole } from '@wariba/database';

@@ -9,7 +9,8 @@
 export const PACKAGE_NAME = '@wariba/database';
 
 export { createDbClient, type Db, type DbExecutor } from './client';
-export type { Database, TradableSymbol, OrderSide } from './schema';
+export type { Database, TradableSymbol, OrderSide, StaffRole } from './schema';
+export { getStaffRole, staffRoleSatisfies } from './staff';
 export {
   activateEvaluationAccount,
   activateEvaluationAccountInTransaction,

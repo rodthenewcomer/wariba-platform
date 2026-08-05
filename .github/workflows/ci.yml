@@ -118,6 +118,28 @@ jobs:
       - name: End-to-end tests
         run: pnpm test:e2e
 
+      - name: Start realtime service (kept alive for the load test below)
+        run: |
+          nohup pnpm --filter @wariba/realtime start > /tmp/wariba-realtime.log 2>&1 &
+          echo $! > /tmp/wariba-realtime.pid
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:4001/health > /dev/null; then
+              echo "realtime is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "realtime did not become healthy in time"
+          cat /tmp/wariba-realtime.log
+          exit 1
+
+      - name: Load test — 150 concurrent connections (Prompt 7 Appendix 07-B, gate 5)
+        run: pnpm --filter @wariba/realtime test:load
+
+      - name: Stop realtime service
+        if: always()
+        run: kill "$(cat /tmp/wariba-realtime.pid)" 2>/dev/null || true
+
       - name: Stop Supabase
         if: always()
         run: supabase stop --no-backup

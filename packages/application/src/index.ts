@@ -13,6 +13,7 @@ export const PACKAGE_NAME = '@wariba/application';
 // is "no raw queries in the frontend", not "the frontend can't hold a
 // handle to pass into these functions".
 export { createDbClient, type Db } from '@wariba/database';
+export { getStaffRole, staffRoleSatisfies, type StaffRole } from '@wariba/database';
 
 export {
   createUserProfile,

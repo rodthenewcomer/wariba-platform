@@ -247,6 +247,20 @@ export interface TradingLedgerEntriesTable {
   reversal_of: string | null;
 }
 
+// "trader" (any regular account holder) is not a row here at all — it's
+// the absence of one. admin/super_admin are treated as supersets of
+// support/risk/finance in application code (packages/application's
+// authorization helper), not by holding multiple rows.
+export type StaffRole = 'support' | 'risk' | 'finance' | 'admin' | 'super_admin';
+
+export interface StaffMembersTable {
+  id: Generated<string>;
+  user_id: string;
+  role: StaffRole;
+  granted_by: string | null;
+  created_at: GeneratedTimestamp;
+}
+
 export interface OutboxEventsTable {
   id: Generated<string>;
   aggregate_type: string;
@@ -417,5 +431,6 @@ export interface Database {
   'app.trade_orders': TradeOrdersTable;
   'app.fills': FillsTable;
   'app.outbox_events': OutboxEventsTable;
+  'app.staff_members': StaffMembersTable;
   'audit.audit_events': AuditEventsTable;
 }

@@ -95,6 +95,54 @@ test.describe('WariX order lifecycle', () => {
   });
 });
 
+test.describe('WariX position risk modification', () => {
+  test('sets a stop loss on an open position, independently of take profit, and it persists across a resubscribe', async ({
+    page,
+    tradeAccount,
+  }) => {
+    await login(page, tradeAccount.email, tradeAccount.password);
+    await page.goto('/trade');
+    await page.waitForTimeout(4000);
+
+    await page.getByRole('button', { name: 'Buy' }).first().click();
+    await page.waitForTimeout(9000);
+
+    await page.getByRole('tab', { name: 'Positions' }).click();
+    await page
+      .getByRole('button', { name: /Modifier SL\/TP — EURUSD/ })
+      .first()
+      .click();
+
+    const dialog = page.getByRole('dialog', { name: /Modifier SL\/TP — EURUSD/ });
+    await expect(dialog).toBeVisible();
+
+    const stopLossInput = dialog.getByLabel('Stop Loss');
+    await stopLossInput.fill('1.00000');
+    const saveStopLoss = dialog.getByRole('button', { name: 'Enregistrer le Stop Loss' });
+    // Idempotent/server-authoritative round trip: the button must reflect
+    // in-flight state and re-enable only once the server has actually
+    // responded, same double-submit guard as every other command in WariX.
+    await Promise.all([expect(saveStopLoss).toBeDisabled(), saveStopLoss.click()]);
+    await page.waitForTimeout(6000);
+
+    // Take Profit was never touched — its own save button must still be
+    // disabled (nothing changed there), proving the two fields are
+    // independently submitted rather than coupled into one command.
+    await expect(dialog.getByRole('button', { name: 'Enregistrer le Take Profit' })).toBeDisabled();
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).not.toBeVisible();
+
+    // Reconciliation proof: force a fresh account.snapshot (same mechanism
+    // a reconnect uses) and confirm the modification is reflected from the
+    // server's own data, not just optimistic local state.
+    await page.reload();
+    await page.waitForTimeout(4000);
+    await page.getByRole('tab', { name: 'Positions' }).click();
+    await expect(page.getByText('1.00000')).toBeVisible();
+  });
+});
+
 test.describe('WariX Close All', () => {
   test('confirms with the real position count, disables itself immediately, and shows a per-symbol result', async ({
     page,

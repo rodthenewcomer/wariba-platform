@@ -22,6 +22,7 @@ describe('WariXPositionsTable', () => {
       <WariXPositionsTable
         positions={[]}
         onClose={() => {}}
+        onModify={() => {}}
         closeDisabled={false}
         emptyLabel="Aucune position ouverte."
       />,
@@ -34,6 +35,7 @@ describe('WariXPositionsTable', () => {
       <WariXPositionsTable
         positions={[POSITION]}
         onClose={() => {}}
+        onModify={() => {}}
         closeDisabled={false}
         emptyLabel="Aucune position ouverte."
       />,
@@ -52,6 +54,7 @@ describe('WariXPositionsTable', () => {
           { ...POSITION, id: 'pos-2', livePnlFormatted: '-8.00 USD', livePnlTone: 'negative' },
         ]}
         onClose={() => {}}
+        onModify={() => {}}
         closeDisabled={false}
         emptyLabel="Aucune position ouverte."
       />,
@@ -66,6 +69,7 @@ describe('WariXPositionsTable', () => {
       <WariXPositionsTable
         positions={[POSITION]}
         onClose={onClose}
+        onModify={() => {}}
         closeDisabled={false}
         emptyLabel="Aucune position ouverte."
       />,
@@ -74,11 +78,32 @@ describe('WariXPositionsTable', () => {
     expect(onClose).toHaveBeenCalledWith('pos-1');
   });
 
+  it('calls onModify with the position id when Modifier is clicked, even while close is disabled', async () => {
+    const user = userEvent.setup();
+    const onModify = vi.fn();
+    render(
+      <WariXPositionsTable
+        positions={[POSITION]}
+        onClose={() => {}}
+        onModify={onModify}
+        closeDisabled
+        emptyLabel="Aucune position ouverte."
+      />,
+    );
+    const modifyButton = screen.getByRole('button', {
+      name: 'Modifier SL/TP — EURUSD · Achat',
+    });
+    expect(modifyButton).not.toBeDisabled();
+    await user.click(modifyButton);
+    expect(onModify).toHaveBeenCalledWith('pos-1');
+  });
+
   it('disables the close button when closeDisabled is true', () => {
     render(
       <WariXPositionsTable
         positions={[POSITION]}
         onClose={() => {}}
+        onModify={() => {}}
         closeDisabled
         emptyLabel="Aucune position ouverte."
       />,
@@ -86,19 +111,26 @@ describe('WariXPositionsTable', () => {
     expect(screen.getByRole('button', { name: 'Fermer EURUSD · Achat' })).toBeDisabled();
   });
 
-  it('gives each row a disambiguating accessible name for the close button', () => {
+  it('gives each row a disambiguating accessible name for the close and modify buttons', () => {
     render(
       <WariXPositionsTable
         positions={[POSITION, { ...POSITION, id: 'pos-2', symbol: 'XAUUSD', sideLabel: 'Vente' }]}
         onClose={() => {}}
+        onModify={() => {}}
         closeDisabled={false}
         emptyLabel="Aucune position ouverte."
       />,
     );
     // Multiple rows with an identical visible label ("Fermer") would be
     // indistinguishable to a screen reader user tabbing through buttons —
-    // each row's close button needs its own name.
+    // each row's close/modify button needs its own name.
     expect(screen.getByRole('button', { name: 'Fermer EURUSD · Achat' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Fermer XAUUSD · Vente' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Modifier SL/TP — EURUSD · Achat' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Modifier SL/TP — XAUUSD · Vente' }),
+    ).toBeInTheDocument();
   });
 });
