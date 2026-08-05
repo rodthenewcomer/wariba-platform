@@ -1,6 +1,9 @@
 import { EmptyState, Text } from '@wariba/ui';
+import { requireStaffRole } from '../../../../lib/staff-auth';
 
-export default function ControlPayoutsPage() {
+export default async function ControlPayoutsPage() {
+  await requireStaffRole('finance');
+
   return (
     <div className="flex flex-col gap-6">
       <Text as="h1" variant="heading-lg">

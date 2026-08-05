@@ -1,32 +1,26 @@
-'use client';
-
-import { ControlSidebar, OverviewIcon, PayoutsIcon, ShieldIcon, UsersIcon } from '@wariba/ui';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import type { StaffRole } from '@wariba/application';
+import { requireStaffRole } from '../../lib/staff-auth';
+import { ControlShell } from './ControlShell';
 
-const ITEMS = [
-  { href: '/control', label: 'Overview', icon: <OverviewIcon size="sm" /> },
-  { href: '/control/users', label: 'Users', icon: <UsersIcon size="sm" /> },
-  { href: '/control/payouts', label: 'Payouts', icon: <PayoutsIcon size="sm" /> },
-  { href: '/control/integrity', label: 'Integrity', icon: <ShieldIcon size="sm" /> },
-] as const;
+const ROLE_LABEL: Record<StaffRole, string> = {
+  support: 'Support',
+  risk: 'Risque',
+  finance: 'Finance',
+  admin: 'Admin',
+  super_admin: 'Super-admin',
+};
 
-/** UX Architecture §35 — dense, clear, no super-admin catch-all. Never reachable from trader nav. */
-export default function ControlLayout({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
-  return (
-    <div
-      data-wariba-section="control"
-      className="flex min-h-dvh bg-[color:var(--wariba-background-canvas)]"
-    >
-      <ControlSidebar
-        LinkComponent={Link}
-        currentPath={pathname}
-        items={[...ITEMS]}
-        staffLabel="DEMO — staff@wariba.app"
-      />
-      <main className="flex-1 p-6">{children}</main>
-    </div>
-  );
+/**
+ * Server Component on purpose (not 'use client', unlike the sidebar it
+ * renders): this is the actual /control authorization boundary — see
+ * lib/staff-auth.ts's doc comment for why the check can't live in
+ * middleware.ts instead. Any staff role passes here; individual sections
+ * layer their own requireStaffRole(specificRole) check on top.
+ */
+export default async function ControlLayout({ children }: { children: ReactNode }) {
+  const session = await requireStaffRole();
+  const staffLabel = `${ROLE_LABEL[session.role]} — ${session.email ?? session.userId}`;
+
+  return <ControlShell staffLabel={staffLabel}>{children}</ControlShell>;
 }
