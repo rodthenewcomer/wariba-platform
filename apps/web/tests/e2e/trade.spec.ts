@@ -2,7 +2,8 @@ import AxeBuilder from '@axe-core/playwright';
 import { test, expect } from './fixtures';
 
 /**
- * Requires the dev stack running (see playwright.config.ts's doc comment).
+ * Playwright starts the required Next.js and realtime processes itself
+ * when they are not already running (see playwright.config.ts).
  *
  * Two things this file deliberately does NOT test, and why:
  * - Cross-account WS authorization (can user A ever subscribe to user B's
