@@ -44,7 +44,7 @@ export async function getLatestAccountForUser(
     .$if(Boolean(params.purchaseOrderId), (qb) =>
       qb.where('source_purchase_order_id', '=', params.purchaseOrderId as string),
     )
-    .orderBy('created_at', 'desc')
+    .orderBy('app.trading_accounts.created_at', 'desc')
     .executeTakeFirst();
 
   if (!account) return undefined;

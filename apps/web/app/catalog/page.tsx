@@ -226,8 +226,9 @@ export default function CatalogPage() {
           statusVariant="success"
         />
         <Stack direction="row" gap="4">
+          <ExecutionState state="preparing" />
+          <ExecutionState state="sending" />
           <ExecutionState state="filled" />
-          <ExecutionState state="partially-filled" />
           <ExecutionState state="rejected" />
         </Stack>
         <PolicyVersionChip version="1.1.0" status="published" effectiveDateLabel="3 août 2026" />

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDbClient, type Db } from '../src/client';
 import { activateEvaluationAccount } from '../src/activation';
+import { loadPolicyById } from '../src/policy';
 import { recordPaymentEvent } from '../src/payment-events';
 
 /**
@@ -149,6 +150,40 @@ describeIfDb('activateEvaluationAccount — real database', () => {
       .executeTakeFirstOrThrow();
     expect(order.status).toBe('fulfilled');
   }, 30000);
+
+  it('pins the published v1.1.0 policy, not the stale v1.0.0 one (regression for the effective_from ordering bug)', async () => {
+    const account = await db
+      .selectFrom('app.trading_accounts')
+      .select('policy_version_id')
+      .where('source_purchase_order_id', '=', purchaseOrderId)
+      .executeTakeFirstOrThrow();
+
+    const policy = await db
+      .selectFrom('app.policy_versions')
+      .select(['program', 'semantic_version', 'status'])
+      .where('id', '=', account.policy_version_id)
+      .executeTakeFirstOrThrow();
+
+    // Both a v1.0.0 and a v1.1.0 WARIBA_ONE row are published; v1.0.0's
+    // effective_from is `now()` at migration time while v1.1.0's is a
+    // hardcoded earlier timestamp, so ordering by effective_from picks the
+    // stale row — activation.ts must order by created_at instead.
+    expect(policy.program).toBe('WARIBA_ONE');
+    expect(policy.semantic_version).toBe('1.1.0');
+    expect(policy.status).toBe('published');
+  }, 15000);
+
+  it('the pinned policy machine_hash is verified — regression for the backfill migration', async () => {
+    const account = await db
+      .selectFrom('app.trading_accounts')
+      .select('policy_version_id')
+      .where('source_purchase_order_id', '=', purchaseOrderId)
+      .executeTakeFirstOrThrow();
+
+    const loaded = await loadPolicyById(db, account.policy_version_id);
+    expect(loaded.hashVerified).toBe(true);
+    expect(loaded.storedMachineHash).toBe(loaded.machineHash);
+  }, 15000);
 
   it('is idempotent on retry — a second call for the same order returns the same account, no duplicate', async () => {
     const first = await activateEvaluationAccount(db, {

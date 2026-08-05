@@ -128,6 +128,38 @@ describeIfDb('trading tables — row level security (real database)', () => {
         timestamp: new Date().toISOString(),
         sequence: '1',
       },
+      marketBySymbol: {
+        EURUSD: {
+          bid: '1.08450',
+          ask: '1.08460',
+          timestamp: new Date().toISOString(),
+          sequence: '1',
+        },
+        GBPUSD: {
+          bid: '1.26000',
+          ask: '1.26020',
+          timestamp: new Date().toISOString(),
+          sequence: '1',
+        },
+        USDJPY: {
+          bid: '150.100',
+          ask: '150.120',
+          timestamp: new Date().toISOString(),
+          sequence: '1',
+        },
+        XAUUSD: {
+          bid: '2000.00',
+          ask: '2000.30',
+          timestamp: new Date().toISOString(),
+          sequence: '1',
+        },
+        NAS100: {
+          bid: '18000.0',
+          ask: '18002.0',
+          timestamp: new Date().toISOString(),
+          sequence: '1',
+        },
+      },
       now: new Date(),
     });
     positionA = opened.position?.id as string;
@@ -157,6 +189,10 @@ describeIfDb('trading tables — row level security (real database)', () => {
         await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', p.id).execute();
       }
       await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', id).execute();
+      // risk_violations references both account_state_transitions and
+      // account_daily_snapshots — must be deleted before either.
+      await db.deleteFrom('app.risk_violations').where('account_id', '=', id).execute();
+      await db.deleteFrom('app.account_daily_snapshots').where('account_id', '=', id).execute();
       await db.deleteFrom('app.account_state_transitions').where('account_id', '=', id).execute();
       const account = await db
         .selectFrom('app.trading_accounts')

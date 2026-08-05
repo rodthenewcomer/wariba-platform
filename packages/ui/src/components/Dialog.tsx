@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { cx } from '../lib/cx';
 
 export type DialogSize = 'sm' | 'md' | 'lg';
@@ -27,6 +27,7 @@ export interface DialogProps {
  */
 export function Dialog({ open, onClose, title, size = 'md', children, footer }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
 
   useEffect(() => {
     const node = ref.current;
@@ -38,6 +39,7 @@ export function Dialog({ open, onClose, title, size = 'md', children, footer }: 
   return (
     <dialog
       ref={ref}
+      aria-labelledby={titleId}
       onClose={onClose}
       onCancel={onClose}
       onClick={(event) => {
@@ -52,7 +54,10 @@ export function Dialog({ open, onClose, title, size = 'md', children, footer }: 
     >
       <div className="p-[var(--wariba-component-dialog-padding)]">
         <div className="mb-4 flex items-start justify-between gap-4">
-          <h2 className="text-[length:var(--wariba-font-size-heading-md)] font-semibold text-[color:var(--wariba-text-primary)]">
+          <h2
+            id={titleId}
+            className="text-[length:var(--wariba-font-size-heading-md)] font-semibold text-[color:var(--wariba-text-primary)]"
+          >
             {title}
           </h2>
           <button

@@ -8,3 +8,5 @@
  */
 
 export const PACKAGE_NAME = '@wariba/test-utils';
+
+export { seedTradeAccount, type TradeAccountFixture } from './trade-account-fixture';

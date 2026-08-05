@@ -118,6 +118,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.0.2
         version: 19.2.4(@types/react@19.2.18)
+      '@wariba/test-utils':
+        specifier: workspace:*
+        version: link:../../packages/test-utils
       jsdom:
         specifier: ^25.0.1
         version: 25.0.1
@@ -194,6 +197,9 @@ importers:
       '@wariba/domain':
         specifier: workspace:*
         version: link:../domain
+      '@wariba/policies':
+        specifier: workspace:*
+        version: link:../policies
       kysely:
         specifier: ^0.28.17
         version: 0.28.17
@@ -249,6 +255,16 @@ importers:
         version: 2.1.9(@types/node@22.20.1)(jsdom@25.0.1)(lightningcss@1.32.0)
 
   packages/policies:
+    dependencies:
+      '@wariba/domain':
+        specifier: workspace:*
+        version: link:../domain
+      decimal.js:
+        specifier: ^10.4.3
+        version: 10.6.0
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
     devDependencies:
       typescript:
         specifier: ^5.7.2
@@ -258,6 +274,10 @@ importers:
         version: 2.1.9(@types/node@22.20.1)(jsdom@25.0.1)(lightningcss@1.32.0)
 
   packages/test-utils:
+    dependencies:
+      '@wariba/database':
+        specifier: workspace:*
+        version: link:../database
     devDependencies:
       typescript:
         specifier: ^5.7.2
@@ -373,6 +393,9 @@ importers:
       '@wariba/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@wariba/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@wariba/observability':
         specifier: workspace:*
         version: link:../../packages/observability

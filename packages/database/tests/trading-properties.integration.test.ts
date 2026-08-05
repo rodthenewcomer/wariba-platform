@@ -24,6 +24,16 @@ const describeIfDb = DATABASE_URL ? describe : describe.skip;
 
 const NOW = new Date();
 const FRESH_TICK = NOW.toISOString();
+// Used only for the post-trade risk evaluation's equity calc (fill pricing
+// always uses the per-call `market` param) — full 5-symbol coverage so an
+// account with positions in multiple symbols always gets an accurate check.
+const ALL_MARKETS = {
+  EURUSD: { bid: '1.08450', ask: '1.08460', timestamp: FRESH_TICK, sequence: '900' },
+  GBPUSD: { bid: '1.26000', ask: '1.26020', timestamp: FRESH_TICK, sequence: '900' },
+  USDJPY: { bid: '150.100', ask: '150.120', timestamp: FRESH_TICK, sequence: '900' },
+  XAUUSD: { bid: '2000.00', ask: '2000.30', timestamp: FRESH_TICK, sequence: '900' },
+  NAS100: { bid: '18000.0', ask: '18002.0', timestamp: FRESH_TICK, sequence: '900' },
+};
 
 describeIfDb('trading invariants — real database', () => {
   let db: Db;
@@ -55,7 +65,15 @@ describeIfDb('trading invariants — real database', () => {
     });
   };
 
-  const createActiveAccount = async (uid: string): Promise<string> => {
+  // 100K by default (not 10K): this suite shares one account across many
+  // independent test cases and now runs against the real Prompt 05 risk
+  // engine — a 100K nominal gives enough DLL (3%) / Maximum Loss (10%)
+  // headroom that ordinary test-sized fills (0.01-1 lot) can't accidentally
+  // soft-lock or breach the account and starve a later test of an active one.
+  const createActiveAccount = async (
+    uid: string,
+    productCode: '10K' | '100K' = '100K',
+  ): Promise<string> => {
     const productVersion = await db
       .selectFrom('app.product_versions')
       .innerJoin('app.products', 'app.products.id', 'app.product_versions.product_id')
@@ -64,7 +82,7 @@ describeIfDb('trading invariants — real database', () => {
         'app.products.nominal_balance',
         'app.products.nominal_currency',
       ])
-      .where('app.products.code', '=', '10K')
+      .where('app.products.code', '=', productCode)
       .executeTakeFirstOrThrow();
 
     const order = await db
@@ -113,6 +131,10 @@ describeIfDb('trading invariants — real database', () => {
         await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', p.id).execute();
       }
       await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', id).execute();
+      // risk_violations references both account_state_transitions and
+      // account_daily_snapshots — must be deleted before either.
+      await db.deleteFrom('app.risk_violations').where('account_id', '=', id).execute();
+      await db.deleteFrom('app.account_daily_snapshots').where('account_id', '=', id).execute();
       await db.deleteFrom('app.account_state_transitions').where('account_id', '=', id).execute();
       const acct = await db
         .selectFrom('app.trading_accounts')
@@ -142,6 +164,7 @@ describeIfDb('trading invariants — real database', () => {
         side: 'buy',
         quantity: '0.10',
         market: { bid: '1.26000', ask: '1.26020', timestamp: FRESH_TICK, sequence: '20' },
+        marketBySymbol: ALL_MARKETS,
         now: NOW,
       });
       const positionId = open.position?.id as string;
@@ -153,6 +176,7 @@ describeIfDb('trading invariants — real database', () => {
         mode: 'partial',
         quantity: '0.15', // more than the 0.10 that's open
         market: { bid: '1.26000', ask: '1.26020', timestamp: FRESH_TICK, sequence: '21' },
+        marketBySymbol: ALL_MARKETS,
         now: NOW,
       });
       expect(overClose.order.status).toBe('rejected');
@@ -174,6 +198,7 @@ describeIfDb('trading invariants — real database', () => {
         side: 'sell',
         quantity: '0.10',
         market: { bid: '1.26000', ask: '1.26020', timestamp: FRESH_TICK, sequence: '22' },
+        marketBySymbol: ALL_MARKETS,
         now: NOW,
       });
       const positionId = open.position?.id as string;
@@ -185,6 +210,7 @@ describeIfDb('trading invariants — real database', () => {
         mode: 'partial',
         quantity: '0.10', // equal to open — must be strictly less for a partial close
         market: { bid: '1.26000', ask: '1.26020', timestamp: FRESH_TICK, sequence: '23' },
+        marketBySymbol: ALL_MARKETS,
         now: NOW,
       });
       expect(equalClose.order.status).toBe('rejected');
@@ -218,6 +244,7 @@ describeIfDb('trading invariants — real database', () => {
         side: 'buy',
         quantity: '0.10',
         market: { bid: '2000.00', ask: '2000.30', timestamp: FRESH_TICK, sequence: '24' },
+        marketBySymbol: ALL_MARKETS,
         now: NOW,
       });
       const positionId = open.position?.id as string;
@@ -235,6 +262,7 @@ describeIfDb('trading invariants — real database', () => {
         mode: 'partial',
         quantity: '0.03',
         market: { bid: '2010.00', ask: '2010.30', timestamp: FRESH_TICK, sequence: '25' },
+        marketBySymbol: ALL_MARKETS,
         now: NOW,
       });
       const fill2Id = close1.fill?.id as string;
@@ -251,6 +279,7 @@ describeIfDb('trading invariants — real database', () => {
         mode: 'partial',
         quantity: '0.02',
         market: { bid: '2020.00', ask: '2020.30', timestamp: FRESH_TICK, sequence: '26' },
+        marketBySymbol: ALL_MARKETS,
         now: NOW,
       });
 
@@ -274,7 +303,10 @@ describeIfDb('trading invariants — real database', () => {
         .where('position_id', '=', positionId)
         .execute();
       expect(allFills).toHaveLength(3); // 1 open + 2 partial closes, never merged/updated in place
-    }, 20000);
+      // 30s: an open plus two partial closes, each a real round trip in
+      // this environment's confirmed latency — not related to any
+      // Prompt 07 change (no rejection path here).
+    }, 30000);
   });
 
   describe('balance = ledger (reconciliation)', () => {
@@ -312,6 +344,7 @@ describeIfDb('trading invariants — real database', () => {
         side: 'buy',
         quantity: '0.10',
         market: { bid: '1.09990', ask: '1.10000', timestamp: FRESH_TICK, sequence: '27' },
+        marketBySymbol: ALL_MARKETS,
         now: NOW,
       });
       expect(open.position?.averageOpenPrice).toBe('1.10002');
@@ -323,6 +356,7 @@ describeIfDb('trading invariants — real database', () => {
         positionId: open.position?.id as string,
         mode: 'full',
         market: { bid: '1.12000', ask: '1.12010', timestamp: FRESH_TICK, sequence: '28' },
+        marketBySymbol: ALL_MARKETS,
         now: NOW,
       });
       expect(close.fill?.realizedPnl).toBe('199.60');
@@ -375,6 +409,7 @@ describeIfDb('trading invariants — real database', () => {
         side: 'sell',
         quantity: '0.10',
         market: { bid: '150.100', ask: '150.120', timestamp: FRESH_TICK, sequence: '29' },
+        marketBySymbol: ALL_MARKETS,
         now: NOW,
       });
       const close = await closePosition(db, {
@@ -383,6 +418,7 @@ describeIfDb('trading invariants — real database', () => {
         positionId: open.position?.id as string,
         mode: 'full',
         market: { bid: '150.200', ask: '150.220', timestamp: FRESH_TICK, sequence: '30' },
+        marketBySymbol: ALL_MARKETS,
         now: NOW,
       });
       expect(close.position?.openQuantity).toBe('0.0000');
@@ -399,6 +435,7 @@ describeIfDb('trading invariants — real database', () => {
         side: 'buy',
         quantity: '1',
         market: { bid: '18000.0', ask: '18002.0', timestamp: FRESH_TICK, sequence: '31' },
+        marketBySymbol: ALL_MARKETS,
         now: NOW,
       });
       const positionId = open.position?.id as string;
@@ -411,6 +448,7 @@ describeIfDb('trading invariants — real database', () => {
         positionId,
         mode: 'full',
         market: closeMarket,
+        marketBySymbol: ALL_MARKETS,
         now: NOW,
       });
       const second = await closePosition(db, {
@@ -419,6 +457,7 @@ describeIfDb('trading invariants — real database', () => {
         positionId,
         mode: 'full',
         market: closeMarket,
+        marketBySymbol: ALL_MARKETS,
         now: NOW,
       });
 
@@ -443,6 +482,7 @@ describeIfDb('trading invariants — real database', () => {
         side: 'sell',
         quantity: '1',
         market: { bid: '18000.0', ask: '18002.0', timestamp: FRESH_TICK, sequence: '33' },
+        marketBySymbol: ALL_MARKETS,
         now: NOW,
       });
       const positionId = open.position?.id as string;
@@ -457,6 +497,7 @@ describeIfDb('trading invariants — real database', () => {
             positionId,
             mode: 'full',
             market: closeMarket,
+            marketBySymbol: ALL_MARKETS,
             now: NOW,
           }),
         ),
