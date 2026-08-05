@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
 import type { Db, TradableSymbol } from '@wariba/database';
-import type { SandboxMarketDataProvider } from '@wariba/adapters';
+import type { MarketDataProvider } from '@wariba/adapters';
 import {
   subscribeMessageSchema,
   unsubscribeMessageSchema,
@@ -43,7 +43,7 @@ export function registerWebSocketRoute(
   app: FastifyInstance,
   deps: {
     db: Db;
-    market: SandboxMarketDataProvider;
+    market: MarketDataProvider;
     symbolSpecs: Record<TradableSymbol, LoadedSymbolSpec>;
     config: RealtimeConfig;
     logger: Logger;
@@ -181,7 +181,7 @@ export function registerWebSocketRoute(
 async function broadcastRiskPreviews(
   registry: ConnectionRegistry,
   db: Db,
-  market: SandboxMarketDataProvider,
+  market: MarketDataProvider,
   symbolSpecs: Record<TradableSymbol, LoadedSymbolSpec>,
   logger: Logger,
 ): Promise<void> {
@@ -212,7 +212,7 @@ async function broadcastRiskPreviews(
 
 interface MessageDeps {
   db: Db;
-  market: SandboxMarketDataProvider;
+  market: MarketDataProvider;
   symbolSpecs: Record<TradableSymbol, LoadedSymbolSpec>;
   registry: ConnectionRegistry;
   logger: Logger;
@@ -345,7 +345,7 @@ async function sendInitialSnapshot(
   registry: ConnectionRegistry,
   connectionId: string,
   db: Db,
-  market: SandboxMarketDataProvider,
+  market: MarketDataProvider,
   symbolSpecs: Record<TradableSymbol, LoadedSymbolSpec>,
   channel: string,
 ): Promise<void> {

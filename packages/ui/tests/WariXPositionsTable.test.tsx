@@ -89,10 +89,7 @@ describe('WariXPositionsTable', () => {
   it('gives each row a disambiguating accessible name for the close button', () => {
     render(
       <WariXPositionsTable
-        positions={[
-          POSITION,
-          { ...POSITION, id: 'pos-2', symbol: 'XAUUSD', sideLabel: 'Vente' },
-        ]}
+        positions={[POSITION, { ...POSITION, id: 'pos-2', symbol: 'XAUUSD', sideLabel: 'Vente' }]}
         onClose={() => {}}
         closeDisabled={false}
         emptyLabel="Aucune position ouverte."

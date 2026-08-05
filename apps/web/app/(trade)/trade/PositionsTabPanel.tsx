@@ -76,7 +76,8 @@ export const PositionsTabPanel = memo(function PositionsTabPanel({
         entryPriceFormatted: position.averageOpenPrice,
         currentPriceFormatted: closePrice,
         livePnlFormatted: `${sign}${unrealized} USD`,
-        livePnlTone: Number(unrealized) > 0 ? 'positive' : Number(unrealized) < 0 ? 'negative' : 'neutral',
+        livePnlTone:
+          Number(unrealized) > 0 ? 'positive' : Number(unrealized) < 0 ? 'negative' : 'neutral',
         stopLossFormatted: position.stopLoss ?? '—',
         takeProfitFormatted: position.takeProfit ?? '—',
       };
@@ -92,7 +93,13 @@ export const PositionsTabPanel = memo(function PositionsTabPanel({
         emptyLabel="Aucune position ouverte."
       />
       {openPositions.length > 0 && (
-        <Button variant="ghost" size="sm" className="mt-2" onClick={onOpenCloseAll} disabled={pending}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mt-2"
+          onClick={onOpenCloseAll}
+          disabled={pending}
+        >
           Tout fermer
         </Button>
       )}

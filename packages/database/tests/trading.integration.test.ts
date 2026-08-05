@@ -2,7 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDbClient, type Db } from '../src/client';
 import { activateEvaluationAccount } from '../src/activation';
-import { openPosition, closePosition, closeAllPositions, modifyPositionRisk } from '../src/trading';
+import {
+  openPosition,
+  closePosition,
+  closeAllPositions,
+  modifyPositionRisk,
+  countShortDurationProfitClosures,
+} from '../src/trading';
 
 /**
  * Real integration tests against the live hosted database — not mocked.
@@ -417,6 +423,105 @@ describeIfDb('trading — real database', () => {
     expect(row.closed_at).not.toBeNull();
   }, 15000);
 
+  it('Prompt 07B §4 — marks a profitable close held under 60s as short-duration and excludes it from eligibleRealizedPnl', async () => {
+    const openedAt = NOW;
+    const closedAt = new Date(NOW.getTime() + 30_000); // 30s later — under the 60s threshold
+    const open = await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'XAUUSD',
+      side: 'buy',
+      // Deliberately tiny (minimum lot) — the shared test account already
+      // has 0.06 XAUUSD lots open from an earlier test (xauusd_lots limit
+      // is 0.10 for a 10K account) and each of these three tests fully
+      // closes its own position, so 0.01 never risks the exposure ceiling.
+      quantity: '0.01',
+      market: { bid: '2000.00', ask: '2000.30', timestamp: openedAt.toISOString(), sequence: '30' },
+      marketBySymbol: ALL_MARKETS,
+      now: openedAt,
+    });
+    const positionId = open.position?.id as string;
+
+    const close = await closePosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      positionId,
+      mode: 'full',
+      market: { bid: '2010.00', ask: '2010.30', timestamp: closedAt.toISOString(), sequence: '31' },
+      marketBySymbol: ALL_MARKETS,
+      now: closedAt,
+    });
+
+    expect(Number(close.fill?.realizedPnl)).toBeGreaterThan(0);
+    expect(close.fill?.durationMs).toBe('30000');
+    expect(close.fill?.isShortDurationProfit).toBe(true);
+    expect(close.fill?.eligibleRealizedPnl).toBe('0.00');
+    expect(close.fill?.ineligibleShortDurationProfit).toBe(close.fill?.realizedPnl);
+  }, 15000);
+
+  it('Prompt 07B §4 — marks a profitable close held at least 60s as fully eligible', async () => {
+    const openedAt = NOW;
+    const closedAt = new Date(NOW.getTime() + 61_000); // 61s later — over the 60s threshold
+    const open = await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'XAUUSD',
+      side: 'buy',
+      quantity: '0.01',
+      market: { bid: '2000.00', ask: '2000.30', timestamp: openedAt.toISOString(), sequence: '32' },
+      marketBySymbol: ALL_MARKETS,
+      now: openedAt,
+    });
+    const positionId = open.position?.id as string;
+
+    const close = await closePosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      positionId,
+      mode: 'full',
+      market: { bid: '2010.00', ask: '2010.30', timestamp: closedAt.toISOString(), sequence: '33' },
+      marketBySymbol: ALL_MARKETS,
+      now: closedAt,
+    });
+
+    expect(Number(close.fill?.realizedPnl)).toBeGreaterThan(0);
+    expect(close.fill?.durationMs).toBe('61000');
+    expect(close.fill?.isShortDurationProfit).toBe(false);
+    expect(close.fill?.eligibleRealizedPnl).toBe(close.fill?.realizedPnl);
+    expect(close.fill?.ineligibleShortDurationProfit).toBe('0.00');
+  }, 15000);
+
+  it('Prompt 07B §4 — counts a loss in full as eligible even when held under 60s', async () => {
+    const openedAt = NOW;
+    const closedAt = new Date(NOW.getTime() + 5_000); // 5s later
+    const open = await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'XAUUSD',
+      side: 'buy',
+      quantity: '0.01',
+      market: { bid: '2000.00', ask: '2000.30', timestamp: openedAt.toISOString(), sequence: '34' },
+      marketBySymbol: ALL_MARKETS,
+      now: openedAt,
+    });
+    const positionId = open.position?.id as string;
+
+    const close = await closePosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      positionId,
+      mode: 'full',
+      market: { bid: '1990.00', ask: '1990.30', timestamp: closedAt.toISOString(), sequence: '35' },
+      marketBySymbol: ALL_MARKETS,
+      now: closedAt,
+    });
+
+    expect(Number(close.fill?.realizedPnl)).toBeLessThan(0);
+    expect(close.fill?.isShortDurationProfit).toBe(false);
+    expect(close.fill?.eligibleRealizedPnl).toBe(close.fill?.realizedPnl);
+    expect(close.fill?.ineligibleShortDurationProfit).toBe('0.00');
+  }, 15000);
+
   it('rejects closing a position that does not belong to the account', async () => {
     const result = await closePosition(db, {
       accountId,
@@ -595,4 +700,47 @@ describeIfDb('trading — real database', () => {
       .execute();
     expect(stillOpenXauusd).toHaveLength(1);
   }, 60000);
+
+  it('Prompt 07B — countShortDurationProfitClosures counts only short-duration profit closes in the trailing 24h', async () => {
+    const openedAt = NOW;
+    const shortCloseAt = new Date(NOW.getTime() + 10_000);
+
+    const before = await countShortDurationProfitClosures(db, accountId, shortCloseAt);
+
+    const open = await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'EURUSD',
+      side: 'buy',
+      quantity: '0.10',
+      market: { bid: '1.08450', ask: '1.08460', timestamp: openedAt.toISOString(), sequence: '40' },
+      marketBySymbol: ALL_MARKETS,
+      now: openedAt,
+    });
+    await closePosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      positionId: open.position?.id as string,
+      mode: 'full',
+      market: {
+        bid: '1.09000',
+        ask: '1.09010',
+        timestamp: shortCloseAt.toISOString(),
+        sequence: '41',
+      },
+      marketBySymbol: ALL_MARKETS,
+      now: shortCloseAt,
+    });
+
+    const after = await countShortDurationProfitClosures(db, accountId, shortCloseAt);
+    expect(after).toBe(before + 1);
+
+    // A query point 25h after this close must not count it (outside the rolling 24h window).
+    const wellAfter = await countShortDurationProfitClosures(
+      db,
+      accountId,
+      new Date(shortCloseAt.getTime() + 25 * 60 * 60 * 1000),
+    );
+    expect(wellAfter).toBe(0);
+  }, 20000);
 });

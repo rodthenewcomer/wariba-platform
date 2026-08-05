@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  SandboxMarketDataProvider,
+  MockMarketDataProvider,
   SANDBOX_BASE_PRICES,
   type TradableSymbol,
 } from '../src/market-data-provider';
@@ -38,10 +38,10 @@ const CONFIG = {
   },
 } as const;
 
-describe('SandboxMarketDataProvider — DATA-001/002 determinism', () => {
+describe('MockMarketDataProvider — DATA-001/002 determinism', () => {
   it('produces the exact same tick sequence for the same seed', () => {
-    const providerA = new SandboxMarketDataProvider(42, CONFIG);
-    const providerB = new SandboxMarketDataProvider(42, CONFIG);
+    const providerA = new MockMarketDataProvider(42, CONFIG);
+    const providerB = new MockMarketDataProvider(42, CONFIG);
 
     const now = new Date();
     const seqA = Array.from({ length: 5 }, () => providerA.tick(now));
@@ -51,8 +51,8 @@ describe('SandboxMarketDataProvider — DATA-001/002 determinism', () => {
   });
 
   it('produces a different sequence for a different seed', () => {
-    const providerA = new SandboxMarketDataProvider(1, CONFIG);
-    const providerB = new SandboxMarketDataProvider(2, CONFIG);
+    const providerA = new MockMarketDataProvider(1, CONFIG);
+    const providerB = new MockMarketDataProvider(2, CONFIG);
     const now = new Date();
 
     const tickA = providerA.tick(now);
@@ -62,7 +62,7 @@ describe('SandboxMarketDataProvider — DATA-001/002 determinism', () => {
   });
 
   it('increments sequence monotonically per symbol', () => {
-    const provider = new SandboxMarketDataProvider(7, CONFIG);
+    const provider = new MockMarketDataProvider(7, CONFIG);
     const now = new Date();
     provider.tick(now);
     provider.tick(now);
@@ -71,9 +71,9 @@ describe('SandboxMarketDataProvider — DATA-001/002 determinism', () => {
   });
 });
 
-describe('SandboxMarketDataProvider — bid/ask/precision', () => {
+describe('MockMarketDataProvider — bid/ask/precision', () => {
   it('bid is always below ask by exactly the configured spread', () => {
-    const provider = new SandboxMarketDataProvider(3, CONFIG);
+    const provider = new MockMarketDataProvider(3, CONFIG);
     const [tick] = provider.tick(new Date());
     expect(tick).toBeDefined();
     if (!tick) return;
@@ -82,7 +82,7 @@ describe('SandboxMarketDataProvider — bid/ask/precision', () => {
   });
 
   it('formats each symbol to its own price precision', () => {
-    const provider = new SandboxMarketDataProvider(9, CONFIG);
+    const provider = new MockMarketDataProvider(9, CONFIG);
     const ticks = provider.tick(new Date());
     const bySymbol = Object.fromEntries(ticks.map((t) => [t.symbol, t])) as Record<
       TradableSymbol,
@@ -94,9 +94,9 @@ describe('SandboxMarketDataProvider — bid/ask/precision', () => {
   });
 });
 
-describe('SandboxMarketDataProvider — pause/resume (stale scenario, DATA-005)', () => {
+describe('MockMarketDataProvider — pause/resume (stale scenario, DATA-005)', () => {
   it('marks a paused symbol as stale and stops advancing its sequence', () => {
-    const provider = new SandboxMarketDataProvider(11, CONFIG);
+    const provider = new MockMarketDataProvider(11, CONFIG);
     provider.pause('EURUSD');
     const before = provider.getSnapshot('EURUSD');
     provider.tick(new Date());
@@ -107,7 +107,7 @@ describe('SandboxMarketDataProvider — pause/resume (stale scenario, DATA-005)'
   });
 
   it('resumes generating ticks after resume()', () => {
-    const provider = new SandboxMarketDataProvider(11, CONFIG);
+    const provider = new MockMarketDataProvider(11, CONFIG);
     provider.pause('EURUSD');
     provider.tick(new Date());
     provider.resume('EURUSD');
@@ -116,9 +116,9 @@ describe('SandboxMarketDataProvider — pause/resume (stale scenario, DATA-005)'
   });
 });
 
-describe('SandboxMarketDataProvider — subscribe', () => {
+describe('MockMarketDataProvider — subscribe', () => {
   it('notifies subscribers only for the symbols they subscribed to', () => {
-    const provider = new SandboxMarketDataProvider(5, CONFIG);
+    const provider = new MockMarketDataProvider(5, CONFIG);
     const received: string[] = [];
     const unsubscribe = provider.subscribe(['EURUSD'], (tick) => received.push(tick.symbol));
 

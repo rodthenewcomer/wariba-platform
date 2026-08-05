@@ -60,4 +60,34 @@ describe('assertNotSandboxInProduction', () => {
       }),
     ).toThrow(ConfigValidationError);
   });
+
+  it('throws (fail-fast) for a mock market-data provider detected in production', () => {
+    expect(() =>
+      assertNotSandboxInProduction({
+        environment: 'production',
+        providerName: 'MARKET_DATA_PROVIDER',
+        providerValue: 'mock',
+      }),
+    ).toThrow(ConfigValidationError);
+  });
+
+  it('throws (fail-fast) for a replay market-data provider detected in production', () => {
+    expect(() =>
+      assertNotSandboxInProduction({
+        environment: 'production',
+        providerName: 'MARKET_DATA_PROVIDER',
+        providerValue: 'replay',
+      }),
+    ).toThrow(ConfigValidationError);
+  });
+
+  it('does not throw for the real fcs provider in production', () => {
+    expect(() =>
+      assertNotSandboxInProduction({
+        environment: 'production',
+        providerName: 'MARKET_DATA_PROVIDER',
+        providerValue: 'fcs',
+      }),
+    ).not.toThrow();
+  });
 });

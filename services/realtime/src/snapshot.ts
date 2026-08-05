@@ -19,7 +19,7 @@ import type {
   ConcentrationBucket,
   PositionDTO,
 } from '@wariba/contracts';
-import type { SandboxMarketDataProvider } from '@wariba/adapters';
+import type { MarketDataProvider } from '@wariba/adapters';
 import type { LoadedSymbolSpec } from './market';
 import { toPositionDTO, toOrderDTO } from './dto-mappers';
 
@@ -36,7 +36,7 @@ import { toPositionDTO, toOrderDTO } from './dto-mappers';
 export async function buildAccountSnapshot(
   db: Db,
   accountId: string,
-  market: SandboxMarketDataProvider,
+  market: MarketDataProvider,
   symbolSpecs: Record<TradableSymbol, LoadedSymbolSpec>,
 ): Promise<AccountSnapshot> {
   const account = await db
@@ -78,7 +78,14 @@ export async function buildAccountSnapshot(
     }),
   );
 
-  const risk = await buildAccountRisk(db, accountId, account, live.balance, live.equity, live.openPositionRows);
+  const risk = await buildAccountRisk(
+    db,
+    accountId,
+    account,
+    live.balance,
+    live.equity,
+    live.openPositionRows,
+  );
 
   return {
     accountId,
@@ -102,7 +109,7 @@ export async function buildAccountSnapshot(
 export async function buildAccountRiskPreview(
   db: Db,
   accountId: string,
-  market: SandboxMarketDataProvider,
+  market: MarketDataProvider,
   symbolSpecs: Record<TradableSymbol, LoadedSymbolSpec>,
 ): Promise<{ accountId: string; equity: string; risk: AccountRisk | null } | null> {
   const account = await db
@@ -114,7 +121,14 @@ export async function buildAccountRiskPreview(
   const live = await computeLiveBalanceAndEquity(db, accountId, market, symbolSpecs);
   if (live.openPositionRows.length === 0) return null;
 
-  const risk = await buildAccountRisk(db, accountId, account, live.balance, live.equity, live.openPositionRows);
+  const risk = await buildAccountRisk(
+    db,
+    accountId,
+    account,
+    live.balance,
+    live.equity,
+    live.openPositionRows,
+  );
   return { accountId, equity: live.equity, risk };
 }
 
@@ -135,9 +149,14 @@ interface OpenPositionRow {
 async function computeLiveBalanceAndEquity(
   db: Db,
   accountId: string,
-  market: SandboxMarketDataProvider,
+  market: MarketDataProvider,
   symbolSpecs: Record<TradableSymbol, LoadedSymbolSpec>,
-): Promise<{ balance: string; equity: string; openPositionRows: OpenPositionRow[]; openPositions: PositionDTO[] }> {
+): Promise<{
+  balance: string;
+  equity: string;
+  openPositionRows: OpenPositionRow[];
+  openPositions: PositionDTO[];
+}> {
   const ledgerEntries = await db
     .selectFrom('app.trading_ledger_entries')
     .select('amount')

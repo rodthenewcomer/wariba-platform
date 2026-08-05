@@ -342,7 +342,8 @@ describeIfDb('realtime service — auth, isolation, reconnect (real end-to-end)'
       await waitForOpen(ws);
       ws.send(JSON.stringify({ type: 'subscribe', channels: [accountStateChannel(accountB)] }));
       const specsMessage = await waitForMessage(ws, (m) => m.type === 'symbol_specs');
-      const specs = (specsMessage.payload as { specs: { symbol: string; leverage: number }[] }).specs;
+      const specs = (specsMessage.payload as { specs: { symbol: string; leverage: number }[] })
+        .specs;
       expect(specs).toHaveLength(5);
       expect(specs.every((s) => s.leverage > 0)).toBe(true);
       expect(specs.map((s) => s.symbol).sort()).toEqual(

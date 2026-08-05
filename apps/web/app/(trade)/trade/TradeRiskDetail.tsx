@@ -67,10 +67,9 @@ export function TradeRiskDetail({ risk }: TradeRiskDetailProps) {
           </div>
 
           <Text variant="body-sm" color="tertiary">
-            Ces chiffres sont calculés côté serveur à chaque ordre et se
-            réinitialisent chaque jour à 00:00 UTC. Le blocage temporaire
-            (soft lock) n’efface jamais de position — il empêche seulement
-            l’ouverture de nouvelles positions jusqu’au reset.
+            Ces chiffres sont calculés côté serveur à chaque ordre et se réinitialisent chaque jour
+            à 00:00 UTC. Le blocage temporaire (soft lock) n’efface jamais de position — il empêche
+            seulement l’ouverture de nouvelles positions jusqu’au reset.
           </Text>
         </div>
       </BottomSheet>

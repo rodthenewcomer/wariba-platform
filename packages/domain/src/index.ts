@@ -61,3 +61,14 @@ export {
   computeProfitTargetRequired,
   isProfitTargetReached,
 } from './risk-math';
+export {
+  computeProfitEligibility,
+  MINIMUM_PROFIT_ELIGIBLE_DURATION_MS,
+  evaluateShortDurationMonitoring,
+  SHORT_DURATION_WARNING_THRESHOLD,
+  SHORT_DURATION_ENTRY_LOCK_THRESHOLD,
+  type ProfitEligibilityInput,
+  type ProfitEligibilityResult,
+  type ShortDurationMonitoringStatus,
+  type ShortDurationMonitoringResult,
+} from './profit-eligibility';

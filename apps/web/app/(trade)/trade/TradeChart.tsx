@@ -287,7 +287,8 @@ export function TradeChart({ symbol, tick, positions, fills, connectionState }: 
   }, [fills]);
 
   const overlayLabel = useMemo(() => {
-    if (isDisconnected) return connectionState === 'resyncing' ? 'Resynchronisation…' : 'Reconnexion…';
+    if (isDisconnected)
+      return connectionState === 'resyncing' ? 'Resynchronisation…' : 'Reconnexion…';
     if (isStale) return 'Prix obsolète';
     return null;
   }, [isDisconnected, isStale, connectionState]);

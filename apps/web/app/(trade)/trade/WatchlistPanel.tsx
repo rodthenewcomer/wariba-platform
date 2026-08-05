@@ -28,7 +28,9 @@ const WatchlistRow = memo(function WatchlistRow({
   onSelect,
 }: WatchlistRowProps) {
   const tick = useTick(store, symbol);
-  const spread = tick ? (Number(tick.ask) - Number(tick.bid)).toFixed(spec?.pricePrecision ?? 5) : null;
+  const spread = tick
+    ? (Number(tick.ask) - Number(tick.bid)).toFixed(spec?.pricePrecision ?? 5)
+    : null;
   return (
     <button
       type="button"

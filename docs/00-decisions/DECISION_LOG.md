@@ -324,6 +324,9 @@ Révision:
 | TRD-030 | `LOCKED` | Le levier effectif et les bornes de quantité (min/max/pas) par symbole sont exposés au client WebSocket via un message `symbol_specs` (une fois par connexion), lu depuis `app.symbol_specs` déjà en base. | Nécessaire pour que WariX calcule marge estimée et validation de quantité côté client sans deviner une valeur ; `services/realtime` sélectionnait déjà ces colonnes en base sans les transmettre. |
 | TRD-031 | `LOCKED` | La concentration par bucket d’exposition (Forex combiné, XAUUSD, NAS100) affichée dans Guardian est purement informative et réutilise les mêmes buckets que la porte d’exposition agrégée (`packages/database/src/trading.ts`, `FOREX_SYMBOLS`). | Évite la dérive entre ce qui bloque réellement un ordre et ce qui est affiché comme concentration ; jamais bloquant par elle-même (Rulebook §9.5). |
 | TRD-032 | `OPEN` | Aucun calendrier news/weekend n’existe encore — le champ de restriction dans Guardian et Risk Ribbon reste présent mais toujours vide. | Ne prolonge pas TRD-016 (déjà `OPEN`) : fabriquer un faux calendrier violerait la clause d’arrêt du prompt. Absence honnête plutôt que valeur inventée, en attendant la résolution de TRD-016/TRD-017. |
+| TRD-033 | `LOCKED` | Règle des 60 secondes minimum d'éligibilité de profit (Prompt 07B §4) : sur un close (partiel ou total), un `realized_pnl` positif n'est compté dans `eligible_realized_pnl` que si la durée entre `positions.opened_at` et l'horodatage serveur du fill de clôture est ≥ 60000 ms ; en dessous, il est enregistré dans `ineligible_short_duration_profit` (toujours visible, jamais masqué). Toute PnL négative ou nulle compte intégralement dans `eligible_realized_pnl`, quelle que soit la durée. Durée mesurée exclusivement à partir d'horodatages serveur (`app.positions.opened_at`, `params.now` du close), jamais d'une horloge client. | Le modèle de position hedging de WARIBA (TRD-020, verrouillé : un seul fill d'ouverture par position) fait que ce contrôle par durée simple équivaut exactement à un FIFO lot-matching classique, sans complexité additionnelle. `packages/domain/src/profit-eligibility.ts` (`computeProfitEligibility`), câblé dans `closePositionLocked`. |
+| TRD-034 | `OPEN` | `program_eligible_balance` (la somme d'`eligible_realized_pnl` sur les fills de clôture d'un compte) est calculable mais n'est pas encore branchée dans le moteur de risque (`packages/database/src/risk.ts`, `daily-finalization.ts`) : DLL, Maximum Loss, Best Day, target d'évaluation et EOD trailing floor utilisent toujours le PnL réalisé total, sans distinguer profit éligible/court terme. | Câbler `program_eligible_balance` dans ces formules touche une logique de risque déjà verrouillée et testée (PR #8) ; le faire sans une passe dédiée aurait risqué de la déstabiliser. Fait à part entière du champ TRD-033 (l'enregistrement par fill), reste `OPEN` jusqu'à cette intégration. |
+| TRD-035 | `LOCKED` | Surveillance glissante 24h des clôtures profitables sous 60s (Prompt 07B) : 3 occurrences = avertissement pédagogique + signal de risque journalisé, sans conséquence ; 6 occurrences = verrouillage temporaire des nouvelles ouvertures (clôtures/réductions toujours autorisées) + compte marqué pour revue manuelle. Jamais de breach automatique permanent à partir de ce seul signal. | `packages/domain/src/profit-eligibility.ts` (`evaluateShortDurationMonitoring`) + `packages/database/src/trading.ts` (`countShortDurationProfitClosures`, lecture directe sur `app.fills`, pas de table de compteur séparée). Détection uniquement — l'application réelle du verrouillage d'entrée (nouveau statut de compte + porte dans le handler d'ordre) reste `OPEN`, non construite cette session. |
 
 ---
 
@@ -340,6 +343,8 @@ Révision:
 | DATA-007 | `OPEN` | Provider market data réel. | Gate avant public. |
 | DATA-008 | `OPEN` | Licence commerciale market data. | Obligatoire avant utilisation publique réelle. |
 | DATA-009 | `OPEN` | Région/provider optimal pour latence Côte d’Ivoire. | À mesurer. |
+| DATA-010 | `LOCKED` | L'architecture provider de market data (Prompt 07B §5) devient à trois implémentations interchangeables derrière la même interface `MarketDataProvider` : `MockMarketDataProvider` (renommage de `SandboxMarketDataProvider`, générateur synthétique déterministe), `ReplayMarketDataProvider` (rejoue une séquence de ticks enregistrée, jamais de prix inventé hors de l'enregistrement), `FcsMarketDataProvider` (adaptateur FCS Business réel — voir DATA-011). La sélection se fait uniquement par `MARKET_DATA_PROVIDER` (`mock`\|`replay`\|`fcs`), jamais par une classe concrète nommée en dur côté appelant. | `packages/adapters/src/{market-data-provider,replay-market-data-provider,fcs-market-data-provider}.ts` ; sélection dans `services/realtime/src/market.ts` (`createMarketDataProvider`). `MARKET_DATA_REPLAY_MODE=true` force `ReplayMarketDataProvider` même si `MARKET_DATA_PROVIDER=fcs` — garde-fou explicite pour ne jamais risquer une connexion live par accident. |
+| DATA-011 | `OPEN` | Classification Prompt 7B §18 : `BLOCKED BY CREDENTIAL`. `FcsMarketDataProvider` est structurellement complet (contrat d'environnement, échec immédiat sans `FCS_API_KEY`, failover primaire/secondaire avec backoff, cache de ticks, souscriptions) mais son parsing du message WebSocket (`parseFcsMessage`) n'est pas vérifié contre le protocole réel FCS — aucune clé FCS Business n'a jamais existé dans cet environnement pour le tester. Ne jamais prétendre qu'une connexion live fonctionne sans un test réel. | Quiconque obtient une clé FCS réelle doit vérifier/ajuster `parseFcsMessage` et le format de souscription contre une session réelle avant toute mise en production. |
 
 ---
 
@@ -474,6 +479,7 @@ Révision:
 | SEC-013 | `OPEN` | Seuil final de double approbation. | Dépend du risque et des montants. |
 | SEC-014 | `OPEN` | Politique de rétention. | Dépend juridique/privacy. |
 | SEC-015 | `CANDIDATE` | Audit indépendant avant scale public. | Assurance sécurité. |
+| SEC-016 | `LOCKED` | SEC-006 s'étend explicitement aux providers `mock` et `replay` (Prompt 07B), pas seulement à la valeur littérale `sandbox` : `assertNotSandboxInProduction` refuse le démarrage en production pour `MARKET_DATA_PROVIDER` valant `sandbox`, `mock` ou `replay`. | Nécessaire car `.env.local` utilise désormais `MARKET_DATA_PROVIDER=mock` comme valeur par défaut locale — l'ancienne regex `/sandbox/i` ne l'aurait pas couverte, ce qui aurait silencieusement contourné le garde-fou en production. `packages/config/src/index.ts`. |
 
 ---
 
@@ -630,7 +636,46 @@ Ces décisions ne bloquent pas toutes la fondation, mais bloqueront des phases p
 
 ---
 
-# 25. Historique des versions
+# 25. Décisions — Marchés (catalogue)
+
+Appendice 07-A — corrige uniquement le périmètre de marché de Prompt 07B, sans
+toucher au terminal, au trading core, au risk engine, à la résilience, au
+trading manuel ni à la règle d'éligibilité de profit à 60 secondes (TRD-033).
+
+| ID | Statut | Décision | Motif / conséquence |
+|---|---|---|---|
+| MARKET-001 | `LOCKED` | Toutes les paires Forex temps réel disponibles chez le provider sont éligibles au catalogue WariX. | Le catalogue n'est plus une liste fixe à dix symboles ; découverte dynamique via le catalogue de symboles du provider, jamais de ticker inventé localement. |
+| MARKET-002 | `LOCKED` | XAUUSD est activé au lancement. | Déjà livré (Prompt 04) — confirmé, pas de changement de code. |
+| MARKET-003 | `LOCKED` | NAS100 et SPX500 sont activés au lancement comme instruments indices simulés. | NAS100 déjà livré et testé de bout en bout ; SPX500 est une extension du même modèle mais son pipeline de trading complet (spécification d'instrument, bucket d'exposition, prix) n'est pas encore construit — voir MARKET-004 pour le statut d'implémentation réel. |
+| MARKET-004 | `OPEN` | Les instruments énergie disponibles chez le provider peuvent être activés au lancement après validation de leur spécification de contrat. | Non implémenté cette session : `TradableSymbol`, `app.symbol_specs` et les buckets d'exposition agrégée (`forex_lots`/`xauusd_lots`/`nas100_contracts`, colonnes fixes une par bucket) devraient être étendus pour SPX500/WTIUSD/BRENTUSD/NGASUSD — changement de schéma réel, pas une simple activation de configuration. Décision produit verrouillée (le catalogue cible est MARKET-001/002/003/004), mais l'ingénierie correspondante reste `OPEN`. |
+| MARKET-005 | `LOCKED` | Les futures CME restent hors du périmètre de lancement initial. | `FUTURES_ENABLED = false` inchangé. |
+| MARKET-006 | `LOCKED` | Le catalogue est piloté par le provider et cherchable, jamais une liste codée en dur. | Objectif produit verrouillé ; la découverte dynamique complète du catalogue FCS (au-delà des cinq symboles actuellement dans `TradableSymbol`) reste un travail d'ingénierie distinct, non fait cette session — voir MARKET-004. |
+
+---
+
+# 26. Historique des versions
+
+## v1.7 — 2026-08-05
+
+Prompt 07B (Trading Core de production, market data live, résilience,
+trading manuel, éligibilité de profit) et Appendice 07-A (correction du
+catalogue de marchés) intégrés sur `feat/wariba-trade` : règle des 60
+secondes minimum d'éligibilité de profit câblée dans `closePositionLocked`
+(TRD-033/034/035, `eligible_realized_pnl`/`ineligible_short_duration_profit`
+par fill, surveillance glissante 24h des clôtures courtes) ; architecture
+market data à trois providers interchangeables — `MockMarketDataProvider`
+(renommage de `SandboxMarketDataProvider`), `ReplayMarketDataProvider`,
+`FcsMarketDataProvider` (adaptateur FCS structurellement complet mais
+jamais testé en live, faute de clé — DATA-011) — sélectionnés par
+`MARKET_DATA_PROVIDER`/`MARKET_DATA_REPLAY_MODE` (DATA-010) ; garde-fou
+production étendu à `mock`/`replay` (SEC-016) ; décisions de catalogue de
+marchés verrouillées (MARKET-001 à 006). Le pipeline de trading complet
+pour SPX500/WTIUSD/BRENTUSD/NGASUSD (spécifications d'instrument, buckets
+d'exposition, prix) et l'intégration de `program_eligible_balance` dans le
+moteur de risque restent `OPEN` — non construits cette session, pour éviter
+de précipiter un changement dans une logique de risque déjà verrouillée et
+testée. Idem pour la résilience active-standby, la détection anti-bot et
+les tests de charge, hors périmètre de cette passe.
 
 ## v1.6 — 2026-08-05
 
@@ -674,7 +719,7 @@ Création initiale consolidée à partir de :
 
 ---
 
-# 26. Prochaine action opérationnelle
+# 27. Prochaine action opérationnelle
 
 Les Prompts 01 à 04 sont implémentés et audités sur la branche de travail. La séquence suivante est :
 
@@ -689,7 +734,7 @@ Les Prompts 01 à 04 sont implémentés et audités sur la branche de travail. L
 
 ---
 
-# 27. Principe final
+# 28. Principe final
 
 Une décision non écrite est une hypothèse.
 

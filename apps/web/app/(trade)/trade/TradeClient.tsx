@@ -22,7 +22,11 @@ import {
   type GuardianConcentrationBucket,
   type RiskRibbonStatus,
 } from '@wariba/ui';
-import { computeDailyLossUsedRatio, estimateRequiredMargin, isQuantityWithinBounds } from '@wariba/domain';
+import {
+  computeDailyLossUsedRatio,
+  estimateRequiredMargin,
+  isQuantityWithinBounds,
+} from '@wariba/domain';
 import {
   accountStateChannel,
   accountOrdersChannel,
@@ -90,7 +94,8 @@ const REJECTION_DETAIL: Record<string, { reason: string; action: string }> = {
     action: 'Consultez le Hub pour connaître le statut exact de votre compte.',
   },
   stale_market_data: {
-    reason: 'Le prix pour ce symbole n’était plus à jour au moment où le serveur a traité votre ordre.',
+    reason:
+      'Le prix pour ce symbole n’était plus à jour au moment où le serveur a traité votre ordre.',
     action: 'Réessayez une fois le prix rafraîchi.',
   },
   invalid_quantity: {
@@ -262,7 +267,11 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
         // here, positions/orders/balance stay whatever the last real
         // account.snapshot said (see accountRiskPreviewMessageSchema's doc
         // comment for why this is a separate, untracked message type).
-        const preview = envelope.payload as { accountId: string; equity: string; risk: AccountRisk | null };
+        const preview = envelope.payload as {
+          accountId: string;
+          equity: string;
+          risk: AccountRisk | null;
+        };
         setSnapshot((prev) =>
           prev && prev.accountId === preview.accountId
             ? { ...prev, equity: preview.equity, risk: preview.risk }
@@ -709,7 +718,9 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
                       <DataTableCell numeric>{formatOrderTimestamp(o.receivedAt)}</DataTableCell>
                       <DataTableCell>{ORDER_TYPE_LABEL[o.orderType]}</DataTableCell>
                       <DataTableCell>{o.symbol ?? '—'}</DataTableCell>
-                      <DataTableCell>{o.side === 'buy' ? 'Achat' : o.side === 'sell' ? 'Vente' : '—'}</DataTableCell>
+                      <DataTableCell>
+                        {o.side === 'buy' ? 'Achat' : o.side === 'sell' ? 'Vente' : '—'}
+                      </DataTableCell>
                       <DataTableCell numeric>
                         {o.status === 'filled' ? o.filledQuantity : (o.requestedQuantity ?? '—')}
                       </DataTableCell>
@@ -720,7 +731,8 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
                       </DataTableCell>
                       <DataTableCell className="text-[color:var(--wariba-text-secondary)]">
                         {o.status === 'rejected'
-                          ? (REJECTION_DETAIL[o.rejectionCode ?? '']?.reason ?? UNKNOWN_REJECTION_DETAIL.reason)
+                          ? (REJECTION_DETAIL[o.rejectionCode ?? '']?.reason ??
+                            UNKNOWN_REJECTION_DETAIL.reason)
                           : '—'}
                       </DataTableCell>
                     </DataTableRow>

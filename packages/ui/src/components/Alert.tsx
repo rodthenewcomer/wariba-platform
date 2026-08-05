@@ -51,7 +51,12 @@ export function Alert({ level = 'information', title, children, action, onDismis
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <p className={cx('text-[length:var(--wariba-font-size-body-md)] font-semibold', TEXT[level])}>
+          <p
+            className={cx(
+              'text-[length:var(--wariba-font-size-body-md)] font-semibold',
+              TEXT[level],
+            )}
+          >
             {title}
           </p>
           {children ? (

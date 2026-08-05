@@ -4,6 +4,7 @@ import {
   computeFillPrice,
   computeRealizedPnl,
   computeCommission,
+  computeProfitEligibility,
   openingAveragePrice,
   isQuantityWithinBounds,
   isAggregateExposureAllowed,
@@ -49,6 +50,11 @@ export interface FillSummary {
   commission: string;
   realizedPnl: string;
   occurredAt: Date;
+  /** Prompt 07B §4 — null on open fills; always set on close fills. */
+  durationMs: string | null;
+  isShortDurationProfit: boolean;
+  eligibleRealizedPnl: string | null;
+  ineligibleShortDurationProfit: string;
 }
 
 export interface TradeCommandResult {
@@ -161,6 +167,10 @@ async function loadFillSummary(trx: Db, orderId: string): Promise<FillSummary> {
     commission: row.commission,
     realizedPnl: row.realized_pnl,
     occurredAt: row.occurred_at,
+    durationMs: row.duration_ms,
+    isShortDurationProfit: row.is_short_duration_profit,
+    eligibleRealizedPnl: row.eligible_realized_pnl,
+    ineligibleShortDurationProfit: row.ineligible_short_duration_profit,
   };
 }
 
@@ -476,6 +486,11 @@ export async function openPosition(
         commission: fill.commission,
         realizedPnl: fill.realized_pnl,
         occurredAt: fill.occurred_at,
+        // Open fills never carry a duration or eligibility outcome — only closes do.
+        durationMs: null,
+        isShortDurationProfit: false,
+        eligibleRealizedPnl: null,
+        ineligibleShortDurationProfit: '0.00',
       },
     };
   });
@@ -619,6 +634,16 @@ async function closePositionLocked(
     quantity: closeQuantity,
     commissionPerLot: spec.commission_per_lot,
   });
+  // Prompt 07B §4 — duration measured strictly from the position's server
+  // opening timestamp to this closing fill's server timestamp (params.now),
+  // never a client-supplied time. TRD-020's hedging model (one opening fill
+  // per position) means this single-timestamp check is exactly right — see
+  // computeProfitEligibility's doc comment for why no FIFO lot-matching is needed.
+  const eligibility = computeProfitEligibility({
+    openedAt: position.opened_at,
+    closedAt: params.now,
+    realizedPnl,
+  });
   const remainingQuantity = subtractQuantity(position.open_quantity, closeQuantity);
   const newPositionStatus = remainingQuantity === '0.0000' ? 'closed' : 'open';
   if (newPositionStatus === 'closed') {
@@ -684,8 +709,23 @@ async function closePositionLocked(
       market_sequence: params.market.sequence,
       account_sequence: String(nextSequence),
       occurred_at: params.now,
+      duration_ms: String(eligibility.durationMs),
+      is_short_duration_profit: eligibility.isShortDurationProfit,
+      eligible_realized_pnl: eligibility.eligibleRealizedPnl,
+      ineligible_short_duration_profit: eligibility.ineligibleShortDurationProfit,
     })
-    .returning(['id', 'price', 'quantity', 'commission', 'realized_pnl', 'occurred_at'])
+    .returning([
+      'id',
+      'price',
+      'quantity',
+      'commission',
+      'realized_pnl',
+      'occurred_at',
+      'duration_ms',
+      'is_short_duration_profit',
+      'eligible_realized_pnl',
+      'ineligible_short_duration_profit',
+    ])
     .executeTakeFirstOrThrow();
 
   assertTradeOrderTransition('accepted', 'filled');
@@ -764,6 +804,10 @@ async function closePositionLocked(
         commission: fill.commission,
         realizedPnl: fill.realized_pnl,
         occurredAt: fill.occurred_at,
+        durationMs: fill.duration_ms,
+        isShortDurationProfit: fill.is_short_duration_profit,
+        eligibleRealizedPnl: fill.eligible_realized_pnl,
+        ineligibleShortDurationProfit: fill.ineligible_short_duration_profit,
       },
     },
     nextAccount: { ...account, version: nextSequence, updated_at: params.now },
@@ -1082,4 +1126,30 @@ export async function modifyPositionRisk(
       fill: null,
     };
   });
+}
+
+/**
+ * Prompt 07B — rolling 24h short-duration profit count, read directly from
+ * app.fills (fills_account_short_duration_idx) rather than a separate
+ * counter table, so there is exactly one durable record of each occurrence.
+ * Feed the result into @wariba/domain's evaluateShortDurationMonitoring to
+ * get the warning/entry_locked status. Detection only — see DECISION_LOG
+ * for why actual entry-lock enforcement (a new account status + order-
+ * handler gate) is tracked as a separate follow-up rather than wired here.
+ */
+export async function countShortDurationProfitClosures(
+  db: Db,
+  accountId: string,
+  now: Date,
+): Promise<number> {
+  const windowStart = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const { count } = await db
+    .selectFrom('app.fills')
+    .select((eb) => eb.fn.countAll<string>().as('count'))
+    .where('account_id', '=', accountId)
+    .where('is_short_duration_profit', '=', true)
+    .where('occurred_at', '>=', windowStart)
+    .where('occurred_at', '<=', now)
+    .executeTakeFirstOrThrow();
+  return Number(count);
 }

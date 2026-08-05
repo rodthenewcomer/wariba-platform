@@ -1,9 +1,14 @@
 import type { Db, TradableSymbol } from '@wariba/database';
 import {
-  SandboxMarketDataProvider,
+  MockMarketDataProvider,
+  ReplayMarketDataProvider,
+  FcsMarketDataProvider,
   SANDBOX_BASE_PRICES,
+  type MarketDataProvider,
   type SymbolSimConfig,
+  type FcsSymbolConfig,
 } from '@wariba/adapters';
+import type { RealtimeConfig } from './config';
 
 export interface LoadedSymbolSpec {
   pricePrecision: number;
@@ -95,7 +100,7 @@ export function buildMarketSimulator(
   specs: Record<TradableSymbol, LoadedSymbolSpec>,
   seed: number,
   tickIntervalMs: number,
-): SandboxMarketDataProvider {
+): MockMarketDataProvider {
   const configs = {} as Record<TradableSymbol, SymbolSimConfig>;
   for (const symbol of Object.keys(specs) as TradableSymbol[]) {
     configs[symbol] = {
@@ -105,5 +110,64 @@ export function buildMarketSimulator(
       staleThresholdMs: specs[symbol].staleThresholdMs,
     };
   }
-  return new SandboxMarketDataProvider(seed, configs, tickIntervalMs);
+  return new MockMarketDataProvider(seed, configs, tickIntervalMs);
+}
+
+/**
+ * Parses FCS_SYMBOL_MAP (Appendix 07-A §2 — provider symbol mapping, never
+ * hardcoded). Empty/invalid input yields an empty map rather than throwing,
+ * because it is only consulted when MARKET_DATA_PROVIDER=fcs is actually
+ * selected — FcsMarketDataProvider's own constructor is what fails fast in
+ * that case, not this parser.
+ */
+function parseFcsSymbolMap(raw: string): Record<string, string> {
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null) return {};
+    return parsed as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Prompt 07B §5 — selects the live MarketDataProvider implementation purely
+ * from config: MARKET_DATA_PROVIDER (mock | replay | fcs), with
+ * MARKET_DATA_REPLAY_MODE=true forcing replay regardless of that value (a
+ * safety override so an fcs config can be staged without risking a live
+ * connection). No caller outside this function ever names a concrete
+ * provider class.
+ */
+export function createMarketDataProvider(
+  config: RealtimeConfig,
+  specs: Record<TradableSymbol, LoadedSymbolSpec>,
+): MarketDataProvider {
+  if (config.MARKET_DATA_REPLAY_MODE || config.MARKET_DATA_PROVIDER === 'replay') {
+    // No recorded fixture is wired yet — an empty recording still satisfies
+    // the interface (every symbol reports 'closed', never a fabricated
+    // price). Replace with a real captured session once one exists.
+    return new ReplayMarketDataProvider(
+      [],
+      Object.keys(specs) as TradableSymbol[],
+      config.MARKET_TICK_INTERVAL_MS,
+    );
+  }
+  if (config.MARKET_DATA_PROVIDER === 'fcs') {
+    const symbolMap = parseFcsSymbolMap(config.FCS_SYMBOL_MAP);
+    const symbols = {} as Record<TradableSymbol, FcsSymbolConfig>;
+    for (const symbol of Object.keys(specs) as TradableSymbol[]) {
+      const providerSymbol = symbolMap[symbol];
+      if (!providerSymbol) continue; // unmapped symbol stays unavailable rather than guessing a ticker
+      symbols[symbol] = { providerSymbol, staleThresholdMs: specs[symbol].staleThresholdMs };
+    }
+    return new FcsMarketDataProvider({
+      apiKey: config.FCS_API_KEY,
+      wsPrimaryUrl: config.FCS_WS_PRIMARY_URL,
+      wsSecondaryUrl: config.FCS_WS_SECONDARY_URL,
+      restBaseUrl: config.FCS_REST_BASE_URL,
+      symbols,
+    });
+  }
+  return buildMarketSimulator(specs, config.SANDBOX_MARKET_SEED, config.MARKET_TICK_INTERVAL_MS);
 }

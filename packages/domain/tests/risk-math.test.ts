@@ -83,9 +83,9 @@ describe('computeDailyLossRemaining — Prompt 07 RiskRibbon/Guardian', () => {
 
 describe('computeDailyLossUsedRatio — Prompt 07 RiskRibbon early-warning tiers', () => {
   it('is 0 when nothing has been used', () => {
-    expect(computeDailyLossUsedRatio({ reference: '10000.00', floor: '9700.00', used: '0.00' })).toBe(
-      '0.0000',
-    );
+    expect(
+      computeDailyLossUsedRatio({ reference: '10000.00', floor: '9700.00', used: '0.00' }),
+    ).toBe('0.0000');
   });
 
   it('is 1 exactly at the floor', () => {
@@ -101,9 +101,9 @@ describe('computeDailyLossUsedRatio — Prompt 07 RiskRibbon early-warning tiers
   });
 
   it('is 0 rather than dividing by zero when the budget itself is zero', () => {
-    expect(computeDailyLossUsedRatio({ reference: '10000.00', floor: '10000.00', used: '0.00' })).toBe(
-      '0.0000',
-    );
+    expect(
+      computeDailyLossUsedRatio({ reference: '10000.00', floor: '10000.00', used: '0.00' }),
+    ).toBe('0.0000');
   });
 });
 

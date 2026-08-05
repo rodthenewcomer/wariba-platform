@@ -84,7 +84,10 @@ export function WariXPositionsTable({
               <DataTableCell numeric>{position.currentPriceFormatted}</DataTableCell>
               <DataTableCell numeric>{position.stopLossFormatted}</DataTableCell>
               <DataTableCell numeric>{position.takeProfitFormatted}</DataTableCell>
-              <DataTableCell numeric className={cx('font-medium', PNL_TONE_CLASS[position.livePnlTone])}>
+              <DataTableCell
+                numeric
+                className={cx('font-medium', PNL_TONE_CLASS[position.livePnlTone])}
+              >
                 {position.livePnlFormatted}
               </DataTableCell>
               <DataTableCell align="right">

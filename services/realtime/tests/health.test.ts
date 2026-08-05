@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Db } from '@wariba/database';
-import type { SandboxMarketDataProvider } from '@wariba/adapters';
+import type { MarketDataProvider } from '@wariba/adapters';
 import { checkHealth } from '../src/health';
 
 function fakeDb(execute: () => Promise<unknown[]>): Db {
@@ -13,8 +13,8 @@ function fakeDb(execute: () => Promise<unknown[]>): Db {
   } as unknown as Db;
 }
 
-function fakeMarket(getSnapshot: () => unknown): SandboxMarketDataProvider {
-  return { getSnapshot } as unknown as SandboxMarketDataProvider;
+function fakeMarket(getSnapshot: () => unknown): MarketDataProvider {
+  return { getSnapshot } as unknown as MarketDataProvider;
 }
 
 describe('realtime checkHealth', () => {

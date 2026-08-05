@@ -75,10 +75,8 @@ export function CloseAllDialog({
         <div className="flex flex-col gap-4">
           <Text variant="body-sm" color="secondary">
             {closedCount} position{closedCount > 1 ? 's' : ''} fermée{closedCount > 1 ? 's' : ''}
-            {failedCount > 0
-              ? `, ${failedCount} échec${failedCount > 1 ? 's' : ''}`
-              : ''}{' '}
-            — compte {accountPublicId}.
+            {failedCount > 0 ? `, ${failedCount} échec${failedCount > 1 ? 's' : ''}` : ''} — compte{' '}
+            {accountPublicId}.
           </Text>
           <DataTable>
             <DataTableHead>
