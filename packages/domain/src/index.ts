@@ -42,3 +42,16 @@ export {
   type OrderSide,
   type FillAction,
 } from './trading-math';
+export {
+  computeDailyReference,
+  computeDailyLossFloor,
+  computeDailyLossUsed,
+  isDailyLossSoftLockTriggered,
+  computeInitialMaximumLossFloor,
+  computeNextMaximumLossFloor,
+  isMaximumLossBreached,
+  computeBestDayRatio,
+  isBestDayCompliant,
+  computeProfitTargetRequired,
+  isProfitTargetReached,
+} from './risk-math';

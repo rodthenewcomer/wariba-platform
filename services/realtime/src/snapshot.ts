@@ -1,7 +1,13 @@
 import Decimal from 'decimal.js';
 import { quotedPrice, computeRealizedPnl } from '@wariba/domain';
-import type { Db, TradableSymbol } from '@wariba/database';
-import type { AccountSnapshot } from '@wariba/contracts';
+import {
+  loadPolicyById,
+  evaluateAccountRisk,
+  type Db,
+  type TradableSymbol,
+  type DailySnapshotInput,
+} from '@wariba/database';
+import type { AccountRisk, AccountSnapshot } from '@wariba/contracts';
 import type { SandboxMarketDataProvider } from '@wariba/adapters';
 import type { LoadedSymbolSpec } from './market';
 import { toPositionDTO, toOrderDTO } from './dto-mappers';
@@ -24,7 +30,7 @@ export async function buildAccountSnapshot(
 ): Promise<AccountSnapshot> {
   const account = await db
     .selectFrom('app.trading_accounts')
-    .select('version')
+    .select(['version', 'status', 'nominal_balance', 'policy_version_id'])
     .where('id', '=', accountId)
     .executeTakeFirstOrThrow();
 
@@ -107,6 +113,15 @@ export async function buildAccountSnapshot(
     }),
   );
 
+  const risk = await buildAccountRisk(
+    db,
+    accountId,
+    account,
+    balance,
+    equity,
+    openPositionRows.length,
+  );
+
   return {
     accountId,
     balance,
@@ -114,5 +129,102 @@ export async function buildAccountSnapshot(
     accountSequence: Number(account.version),
     openPositions,
     recentOrders,
+    risk,
+  };
+}
+
+function toDailySnapshotInput(row: {
+  trading_day: string;
+  status: 'open' | 'finalized';
+  daily_reference: string;
+  maximum_loss_floor_before: string;
+  eod_balance: string | null;
+  maximum_loss_floor_after: string | null;
+  realized_net_profit_for_day: string | null;
+}): DailySnapshotInput {
+  return {
+    tradingDay: row.trading_day,
+    status: row.status,
+    dailyReference: row.daily_reference,
+    maximumLossFloorBefore: row.maximum_loss_floor_before,
+    eodBalance: row.eod_balance,
+    maximumLossFloorAfter: row.maximum_loss_floor_after,
+    realizedNetProfitForDay: row.realized_net_profit_for_day,
+  };
+}
+
+/**
+ * Read-only — never writes. Prices every open position with the same live
+ * market snapshot the rest of this function already used, so the risk view
+ * shown to the trader always matches the equity shown alongside it. Returns
+ * null only before the account's first-ever trade, when no daily snapshot
+ * exists yet to evaluate against (one gets created lazily by risk.ts on
+ * that first trade, or by the daily worker — see packages/database).
+ */
+async function buildAccountRisk(
+  db: Db,
+  accountId: string,
+  account: { status: string; nominal_balance: string; policy_version_id: string },
+  balance: string,
+  equity: string,
+  openPositionCount: number,
+): Promise<AccountRisk | null> {
+  const today = await db
+    .selectFrom('app.account_daily_snapshots')
+    .selectAll()
+    .where('account_id', '=', accountId)
+    .orderBy('trading_day', 'desc')
+    .executeTakeFirst();
+  if (!today) return null;
+
+  const historicalSnapshots = await db
+    .selectFrom('app.account_daily_snapshots')
+    .select([
+      'trading_day',
+      'status',
+      'daily_reference',
+      'maximum_loss_floor_before',
+      'eod_balance',
+      'maximum_loss_floor_after',
+      'realized_net_profit_for_day',
+    ])
+    .where('account_id', '=', accountId)
+    .where('trading_day', '<', today.trading_day)
+    .orderBy('trading_day', 'asc')
+    .execute();
+
+  const policy = await loadPolicyById(db, account.policy_version_id);
+
+  const result = evaluateAccountRisk({
+    clock: { now: () => new Date() },
+    account: {
+      id: accountId,
+      status: account.status as Parameters<typeof evaluateAccountRisk>[0]['account']['status'],
+      nominalBalance: account.nominal_balance,
+    },
+    policy: policy.parameters,
+    currentBalance: balance,
+    currentUnrealizedPnl: new Decimal(equity).minus(balance).toFixed(2),
+    openPositionCount,
+    pendingOrderCount: 0,
+    dailySnapshots: [...historicalSnapshots.map(toDailySnapshotInput), toDailySnapshotInput(today)],
+  });
+
+  // `status` is the actual persisted, enforced status — the one trading.ts's
+  // guards check — never the engine's live-computed `recommendedStatus`,
+  // which could differ from what's actually in effect until the next
+  // trade-triggered or daily-worker-triggered evaluation applies it. Every
+  // other field here IS that live, fully-priced preview (useful for e.g.
+  // an early soft-lock warning), just never mistaken for the applied status.
+  return {
+    status: account.status as AccountRisk['status'],
+    target: result.target,
+    dailyLoss: result.dailyLoss,
+    maximumLoss: result.maximumLoss,
+    bestDay: result.bestDay,
+    eligibility: {
+      passEligible: result.eligibility.passEligible,
+      blockingReasons: [...result.eligibility.blockingReasons],
+    },
   };
 }

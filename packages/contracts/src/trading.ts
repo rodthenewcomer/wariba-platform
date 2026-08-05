@@ -134,6 +134,38 @@ export const positionDtoSchema = z.object({
 });
 export type PositionDTO = z.infer<typeof positionDtoSchema>;
 
+// Prompt 05 — mirrors @wariba/policies' RiskEngineResult, decoupled into its
+// own DTO shape rather than importing the engine's internal type directly
+// (same boundary discipline as every other DTO in this file).
+export const evaluationAccountStatusSchema = z.enum([
+  'pending_activation',
+  'active',
+  'soft_locked',
+  'pass_pending',
+  'inactive',
+  'passed',
+  'breached',
+  'closed',
+]);
+
+export const accountRiskSchema = z.object({
+  status: evaluationAccountStatusSchema,
+  target: z.object({ required: z.string(), reached: z.boolean() }),
+  dailyLoss: z.object({
+    reference: z.string(),
+    floor: z.string(),
+    used: z.string(),
+    softLockTriggered: z.boolean(),
+  }),
+  maximumLoss: z.object({ floor: z.string(), remaining: z.string(), breached: z.boolean() }),
+  bestDay: z.object({ ratio: z.string().nullable(), compliant: z.boolean() }),
+  eligibility: z.object({
+    passEligible: z.boolean(),
+    blockingReasons: z.array(z.string()),
+  }),
+});
+export type AccountRisk = z.infer<typeof accountRiskSchema>;
+
 export const accountSnapshotSchema = z.object({
   accountId: z.string().uuid(),
   balance: z.string(),
@@ -141,6 +173,9 @@ export const accountSnapshotSchema = z.object({
   accountSequence: z.number().int().nonnegative(),
   openPositions: z.array(positionDtoSchema),
   recentOrders: z.array(orderDtoSchema),
+  // Null only before the account's first-ever trade (no daily snapshot
+  // exists yet to evaluate against) — see buildAccountSnapshot.
+  risk: accountRiskSchema.nullable(),
 });
 export type AccountSnapshot = z.infer<typeof accountSnapshotSchema>;
 

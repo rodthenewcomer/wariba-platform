@@ -41,6 +41,8 @@ export {
   orderDtoSchema,
   fillDtoSchema,
   positionDtoSchema,
+  evaluationAccountStatusSchema,
+  accountRiskSchema,
   accountSnapshotSchema,
   orderResultMessageSchema,
   type OrderType,
@@ -50,6 +52,7 @@ export {
   type OrderDTO,
   type FillDTO,
   type PositionDTO,
+  type AccountRisk,
   type AccountSnapshot,
   type OrderResultMessage,
 } from './trading';

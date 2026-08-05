@@ -172,6 +172,53 @@ export interface AccountStateTransitionsTable {
   occurred_at: GeneratedTimestamp;
 }
 
+export type AccountDailySnapshotStatus = 'open' | 'finalized';
+
+export interface AccountDailySnapshotsTable {
+  id: Generated<string>;
+  account_id: string;
+  trading_day: string;
+  policy_version_id: string;
+  status: Generated<AccountDailySnapshotStatus>;
+  sod_balance: string;
+  sod_equity: string;
+  daily_reference: string;
+  maximum_loss_floor_before: string;
+  eod_balance: string | null;
+  eod_equity: string | null;
+  maximum_loss_floor_after: string | null;
+  highest_eod_balance_after: string | null;
+  realized_net_profit_for_day: string | null;
+  finalized_at: Timestamp | null;
+  created_at: GeneratedTimestamp;
+}
+
+export type RiskViolationRuleCode =
+  | 'RISK_DAILY_LOSS_LOCK'
+  | 'RISK_MAXIMUM_LOSS_BREACH'
+  | 'RISK_CONSISTENCY_NON_COMPLIANT'
+  | 'RISK_TARGET_NOT_REALIZED'
+  | 'RISK_OPEN_POSITIONS_BLOCK_TRANSITION'
+  | 'RISK_PENDING_ORDERS_BLOCK_TRANSITION';
+
+export interface RiskViolationsTable {
+  id: Generated<string>;
+  account_id: string;
+  rule_code: RiskViolationRuleCode;
+  severity: 'information' | 'warning' | 'critical';
+  consequence: 'soft_lock' | 'hard_breach' | 'blocks_pass' | 'none';
+  policy_version_id: string;
+  threshold_value: string | null;
+  observed_value: string | null;
+  account_daily_snapshot_id: string | null;
+  account_state_transition_id: string | null;
+  trigger_event_type: 'trade_order' | 'daily_finalization' | 'manual_review';
+  trigger_event_id: string | null;
+  price_snapshot: unknown;
+  calculation_version: Generated<string>;
+  occurred_at: GeneratedTimestamp;
+}
+
 export type LedgerEntryType =
   | 'initial_balance'
   | 'realized_pnl'
@@ -344,6 +391,8 @@ export interface Database {
   'app.receipts': ReceiptsTable;
   'app.trading_accounts': TradingAccountsTable;
   'app.account_state_transitions': AccountStateTransitionsTable;
+  'app.account_daily_snapshots': AccountDailySnapshotsTable;
+  'app.risk_violations': RiskViolationsTable;
   'app.trading_ledger_entries': TradingLedgerEntriesTable;
   'app.symbol_specs': SymbolSpecsTable;
   'app.account_exposure_limits': AccountExposureLimitsTable;

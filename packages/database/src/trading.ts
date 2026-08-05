@@ -13,15 +13,12 @@ import {
   addRealizedPnl,
   type OrderSide,
 } from '@wariba/domain';
+import { lockAccount, loadSymbolSpec, type LockedAccount, type MarketSnapshot } from './accounts';
 import type { Db } from './client';
+import { evaluateAndApplyAccountRiskInTransaction } from './risk';
 import type { TradableSymbol } from './schema';
 
-export interface MarketSnapshot {
-  bid: string;
-  ask: string;
-  timestamp: string;
-  sequence: string;
-}
+export type { MarketSnapshot };
 
 export interface TradeOrderOutcome {
   orderId: string;
@@ -116,33 +113,6 @@ async function isWithinAggregateExposureLimit(
     requestedQuantity,
     maximumAggregateQuantity,
   });
-}
-
-/**
- * Locks the account row for the duration of the transaction (TRD-012: one
- * financial command per account is serialized), reloads it under that lock,
- * and returns the freshly-read row. Every trading write function calls this
- * first — Engineering Constitution §37/§73: lock -> reload -> validate ->
- * execute -> ledger/position -> outbox -> commit, and the market snapshot
- * (bid/ask) must already have been fetched by the caller *before* this
- * transaction opens, never inside it.
- */
-async function lockAccount(trx: Db, accountId: string) {
-  return trx
-    .selectFrom('app.trading_accounts')
-    .selectAll()
-    .where('id', '=', accountId)
-    .forUpdate()
-    .executeTakeFirstOrThrow();
-}
-
-async function loadSymbolSpec(trx: Db, symbolSpecSetId: string, symbol: TradableSymbol) {
-  return trx
-    .selectFrom('app.symbol_specs')
-    .selectAll()
-    .where('symbol_spec_set_id', '=', symbolSpecSetId)
-    .where('symbol', '=', symbol)
-    .executeTakeFirst();
 }
 
 async function findExistingOrder(trx: Db, accountId: string, idempotencyKey: string) {
@@ -271,6 +241,11 @@ export interface OpenPositionParams {
   stopLoss?: string;
   takeProfit?: string;
   market: MarketSnapshot;
+  /** Live quotes for every tradable symbol — used only for the post-fill risk
+   * evaluation's equity calc (fill pricing itself uses `market` above), so
+   * an account holding positions in symbols other than the one just traded
+   * still gets an accurate breach/soft-lock check. */
+  marketBySymbol: Record<TradableSymbol, MarketSnapshot>;
   now: Date;
 }
 
@@ -454,6 +429,17 @@ export async function openPosition(
       })
       .execute();
 
+    const riskOutcome = await evaluateAndApplyAccountRiskInTransaction(trx, {
+      accountId: params.accountId,
+      now: params.now,
+      marketBySymbol: params.marketBySymbol,
+      triggerEventType: 'trade_order',
+      triggerEventId: order.id,
+    });
+    if (riskOutcome.transitioned && riskOutcome.newStatus === 'breached') {
+      await closeAllOpenPositionsOnBreach(trx, params.accountId, params.marketBySymbol, params.now);
+    }
+
     return {
       order: {
         orderId: order.id,
@@ -482,10 +468,10 @@ export interface ClosePositionParams {
   mode: 'partial' | 'full';
   quantity?: string;
   market: MarketSnapshot;
+  /** See OpenPositionParams.marketBySymbol — same purpose. */
+  marketBySymbol: Record<TradableSymbol, MarketSnapshot>;
   now: Date;
 }
-
-type LockedAccount = Awaited<ReturnType<typeof lockAccount>>;
 
 interface ClosePositionExecution {
   result: TradeCommandResult;
@@ -547,7 +533,16 @@ async function closePositionLocked(
   if (position.status !== 'open') {
     return reject(REJECTION.POSITION_ALREADY_CLOSED, position.symbol, position.side, position.id);
   }
-  if (account.status !== 'active') {
+  // Reducing/closing exposure stays allowed under a soft lock (RULESET v1.1
+  // enforcement.soft_lock: reduce_position/close_position = allowed), and
+  // under a breach too — closing is exactly what the forced close-all in
+  // closeAllOpenPositionsOnBreach needs to do. Only new/increased exposure
+  // (openPosition) is ever blocked.
+  if (
+    account.status !== 'active' &&
+    account.status !== 'soft_locked' &&
+    account.status !== 'breached'
+  ) {
     return reject(REJECTION.ACCOUNT_NOT_ACTIVE, position.symbol, position.side, position.id);
   }
 
@@ -717,6 +712,17 @@ async function closePositionLocked(
     })
     .execute();
 
+  const riskOutcome = await evaluateAndApplyAccountRiskInTransaction(trx, {
+    accountId: params.accountId,
+    now: params.now,
+    marketBySymbol: params.marketBySymbol,
+    triggerEventType: 'trade_order',
+    triggerEventId: order.id,
+  });
+  if (riskOutcome.transitioned && riskOutcome.newStatus === 'breached') {
+    await closeAllOpenPositionsOnBreach(trx, params.accountId, params.marketBySymbol, params.now);
+  }
+
   return {
     result: {
       order: {
@@ -738,6 +744,50 @@ async function closePositionLocked(
     },
     nextAccount: { ...account, version: nextSequence, updated_at: params.now },
   };
+}
+
+/**
+ * Prompt 05 — RULESET v1.1 `maximum_loss.close_positions_on_breach: true`:
+ * a hard breach is terminal, so every remaining open position is force-
+ * closed in the same transaction as the breach itself, not left dangling.
+ * Re-locks the account (safe no-op under an already-held lock) rather than
+ * trusting a caller-supplied account object, since callers may have bumped
+ * `version` since they last read it.
+ */
+async function closeAllOpenPositionsOnBreach(
+  trx: Db,
+  accountId: string,
+  marketBySymbol: Record<TradableSymbol, MarketSnapshot>,
+  now: Date,
+): Promise<void> {
+  let account = await lockAccount(trx, accountId);
+  const openPositions = await trx
+    .selectFrom('app.positions')
+    .select(['id', 'symbol'])
+    .where('account_id', '=', accountId)
+    .where('status', '=', 'open')
+    .orderBy('opened_at', 'asc')
+    .forUpdate()
+    .execute();
+
+  for (const position of openPositions) {
+    const market = marketBySymbol[position.symbol];
+    if (!market) continue; // no live quote for this symbol — left open for the next opportunity to price and close it.
+    const execution = await closePositionLocked(
+      trx,
+      {
+        accountId,
+        idempotencyKey: `breach-close:${accountId}:${position.id}`,
+        positionId: position.id,
+        mode: 'full',
+        market,
+        marketBySymbol,
+        now,
+      },
+      account,
+    );
+    account = execution.nextAccount;
+  }
 }
 
 export async function closePosition(
@@ -821,6 +871,7 @@ export async function closeAllPositions(
           positionId: position.id,
           mode: 'full',
           market,
+          marketBySymbol: params.marketBySymbol,
           now: params.now,
         },
         account,
@@ -870,6 +921,10 @@ export interface ModifyPositionRiskParams {
   positionId: string;
   field: 'stop_loss' | 'take_profit';
   value: string | null;
+  /** See OpenPositionParams.marketBySymbol — same purpose (an SL/TP edit
+   * doesn't change exposure, but the risk check it triggers still needs
+   * full market coverage to value every open position accurately). */
+  marketBySymbol: Record<TradableSymbol, MarketSnapshot>;
   now: Date;
 }
 
@@ -919,7 +974,8 @@ export async function modifyPositionRisk(
     if (position.status !== 'open') {
       return reject(REJECTION.POSITION_ALREADY_CLOSED, position.symbol, position.side, position.id);
     }
-    if (account.status !== 'active') {
+    // SL/TP edits don't change exposure — allowed under a soft lock, same as reduce/close.
+    if (account.status !== 'active' && account.status !== 'soft_locked') {
       return reject(REJECTION.ACCOUNT_NOT_ACTIVE, position.symbol, position.side, position.id);
     }
 
@@ -978,6 +1034,17 @@ export async function modifyPositionRisk(
         occurred_at: params.now,
       })
       .execute();
+
+    const riskOutcome = await evaluateAndApplyAccountRiskInTransaction(trx, {
+      accountId: params.accountId,
+      now: params.now,
+      marketBySymbol: params.marketBySymbol,
+      triggerEventType: 'trade_order',
+      triggerEventId: order.id,
+    });
+    if (riskOutcome.transitioned && riskOutcome.newStatus === 'breached') {
+      await closeAllOpenPositionsOnBreach(trx, params.accountId, params.marketBySymbol, params.now);
+    }
 
     return {
       order: {
