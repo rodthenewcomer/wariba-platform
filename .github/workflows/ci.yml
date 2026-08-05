@@ -9,6 +9,14 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Least-privilege default: neither job needs anything beyond reading repo
+# contents (no PR comments, no releases, no pushes). Without this, the
+# GITHUB_TOKEN inherits the repo/org default permissions, which may be
+# broader than this workflow needs — a supply-chain compromise of any
+# action used below would then have more ambient access than it should.
+permissions:
+  contents: read
+
 jobs:
   ci:
     name: Static, unit and build
