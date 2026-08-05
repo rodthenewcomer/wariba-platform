@@ -1,4 +1,11 @@
 import { cx } from '../lib/cx';
+import { VisuallyHidden } from '../primitives/VisuallyHidden';
+
+function qualificationStatusLabel(day: { qualified: boolean; finalized: boolean }): string {
+  if (day.qualified) return 'Qualifiée';
+  if (day.finalized) return 'Non qualifiée';
+  return 'En attente';
+}
 
 export interface QualifiedDay {
   /** e.g. "1 août" */
@@ -52,6 +59,7 @@ export function QualifiedDaysTracker({
             <span className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]">
               {day.dateLabel}
             </span>
+            <VisuallyHidden>{qualificationStatusLabel(day)}</VisuallyHidden>
             <span className="wariba-data text-[length:var(--wariba-font-size-data-sm)] font-medium text-[color:var(--wariba-text-primary)]">
               {day.netPnlFormatted}
             </span>

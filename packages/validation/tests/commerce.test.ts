@@ -78,4 +78,19 @@ describe('sandboxWebhookEventSchema', () => {
       sandboxWebhookEventSchema.safeParse({ ...valid, eventType: 'payment.pending' }).success,
     ).toBe(false);
   });
+
+  it('rejects a zero amount — never a real "payment.confirmed" event', () => {
+    expect(sandboxWebhookEventSchema.safeParse({ ...valid, amount: '0.00' }).success).toBe(false);
+  });
+
+  it('rejects an unbounded digit count', () => {
+    expect(
+      sandboxWebhookEventSchema.safeParse({ ...valid, amount: '99999999999999999999.00' }).success,
+    ).toBe(false);
+  });
+
+  it('rejects a lowercase or malformed currency code', () => {
+    expect(sandboxWebhookEventSchema.safeParse({ ...valid, currency: 'xof' }).success).toBe(false);
+    expect(sandboxWebhookEventSchema.safeParse({ ...valid, currency: '12$' }).success).toBe(false);
+  });
 });

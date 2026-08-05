@@ -10,15 +10,25 @@ const SIZE: Record<ButtonSize, string> = {
 };
 
 // Design System §24.1 — one look per intent, no arbitrary color per usage.
+// hover/active MUST use the theme-aware --wariba-action-*-hover/-pressed
+// custom properties, never raw Tailwind color utilities: a raw utility like
+// bg-cobalt-600 is a fixed color that doesn't flip with
+// [data-theme="dark"]/prefers-color-scheme, so it's only ever correct in
+// one theme. Applied to the (trade) app's forced-dark theme, the previous
+// hardcoded light-theme hover/active shades produced button text/background
+// contrast as low as ~1.09:1 (WCAG AA requires 4.5:1) — the label was
+// effectively invisible the instant a button was hovered or pressed. Where
+// no dedicated "pressed" token exists (secondary, destructive), the hover
+// token is reused for active rather than inventing a new design token here.
 const VARIANT: Record<ButtonVariant, string> = {
   primary:
-    'bg-[color:var(--wariba-action-primary)] text-[color:var(--wariba-action-primary-text)] hover:bg-cobalt-600 active:bg-cobalt-700 disabled:bg-[color:var(--wariba-border-disabled)] disabled:text-[color:var(--wariba-text-disabled)]',
+    'bg-[color:var(--wariba-action-primary)] text-[color:var(--wariba-action-primary-text)] hover:bg-[color:var(--wariba-action-primary-hover)] active:bg-[color:var(--wariba-action-primary-pressed)] disabled:bg-[color:var(--wariba-border-disabled)] disabled:text-[color:var(--wariba-text-disabled)]',
   secondary:
-    'bg-[color:var(--wariba-action-secondary)] text-[color:var(--wariba-action-secondary-text)] border border-[color:var(--wariba-border-default)] hover:bg-[color:var(--wariba-action-secondary-hover)] active:bg-cobalt-100 disabled:text-[color:var(--wariba-text-disabled)] disabled:border-[color:var(--wariba-border-disabled)]',
+    'bg-[color:var(--wariba-action-secondary)] text-[color:var(--wariba-action-secondary-text)] border border-[color:var(--wariba-border-default)] hover:bg-[color:var(--wariba-action-secondary-hover)] active:bg-[color:var(--wariba-action-secondary-hover)] disabled:text-[color:var(--wariba-text-disabled)] disabled:border-[color:var(--wariba-border-disabled)]',
   tertiary:
     'bg-transparent text-[color:var(--wariba-action-secondary-text)] hover:bg-[color:var(--wariba-background-subtle)] active:bg-[color:var(--wariba-background-selected)] disabled:text-[color:var(--wariba-text-disabled)]',
   destructive:
-    'bg-[color:var(--wariba-action-destructive)] text-[color:var(--wariba-action-destructive-text)] hover:bg-[color:var(--wariba-status-danger-strong)] active:bg-danger-700 disabled:bg-[color:var(--wariba-border-disabled)] disabled:text-[color:var(--wariba-text-disabled)]',
+    'bg-[color:var(--wariba-action-destructive)] text-[color:var(--wariba-action-destructive-text)] hover:bg-[color:var(--wariba-status-danger-strong)] active:bg-[color:var(--wariba-status-danger-strong)] disabled:bg-[color:var(--wariba-border-disabled)] disabled:text-[color:var(--wariba-text-disabled)]',
   ghost:
     'bg-transparent text-[color:var(--wariba-text-secondary)] hover:bg-[color:var(--wariba-background-subtle)] hover:text-[color:var(--wariba-text-primary)] disabled:text-[color:var(--wariba-text-disabled)]',
   text: 'bg-transparent px-0 h-auto text-[color:var(--wariba-text-link)] underline-offset-2 hover:underline disabled:text-[color:var(--wariba-text-disabled)]',

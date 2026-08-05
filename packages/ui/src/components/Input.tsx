@@ -28,7 +28,12 @@ export function Input({
   const id = providedId ?? generatedId;
   const helperId = helperText ? `${id}-helper` : undefined;
   const errorId = errorText ? `${id}-error` : undefined;
-  const describedBy = [helperId, errorId].filter(Boolean).join(' ') || undefined;
+  const suffixId = suffix ? `${id}-suffix` : undefined;
+  // Suffix first: it's the unit (e.g. "lots", "USD") right next to the
+  // value, so a screen reader announces it before the longer helper/error
+  // prose — otherwise a suffix-only Input (no helperText/errorText) had its
+  // unit visible to sighted users but never announced at all.
+  const describedBy = [suffixId, helperId, errorId].filter(Boolean).join(' ') || undefined;
 
   return (
     <div className="flex flex-col gap-[var(--wariba-component-input-label-gap)]">
@@ -62,7 +67,10 @@ export function Input({
           {...props}
         />
         {suffix ? (
-          <span className="wariba-data pointer-events-none absolute right-3 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
+          <span
+            id={suffixId}
+            className="wariba-data pointer-events-none absolute right-3 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]"
+          >
             {suffix}
           </span>
         ) : null}

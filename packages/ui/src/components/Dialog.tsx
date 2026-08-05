@@ -40,10 +40,20 @@ export function Dialog({ open, onClose, title, size = 'md', children, footer }: 
     <dialog
       ref={ref}
       aria-labelledby={titleId}
+      // The native 'close' event is the single source of truth for calling
+      // onClose — it fires exactly once per dismissal (Escape's default
+      // cancel-then-close behavior, or our own ref.current.close() calls
+      // below), so nothing else should call the onClose prop directly.
+      // Doing so used to double-fire it: Escape called onClose via onCancel
+      // AND the browser's default cancel action then closed the dialog,
+      // firing 'close' a second time; backdrop/× clicks called onClose
+      // directly AND the effect below reacted to the resulting open=false
+      // by calling node.close(), which fired 'close' a second time too. Any
+      // onClose side effect beyond idempotent state (analytics, a mutation)
+      // ran twice per single user dismissal.
       onClose={onClose}
-      onCancel={onClose}
       onClick={(event) => {
-        if (event.target === ref.current) onClose();
+        if (event.target === ref.current) ref.current?.close();
       }}
       className={cx(
         'rounded-[var(--wariba-component-dialog-radius)] p-0 backdrop:bg-[color:var(--wariba-background-inverse)]',
@@ -62,7 +72,7 @@ export function Dialog({ open, onClose, title, size = 'md', children, footer }: 
           </h2>
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => ref.current?.close()}
             aria-label="Fermer"
             className="shrink-0 rounded-[var(--wariba-radius-xs)] p-1 text-[color:var(--wariba-text-secondary)] hover:text-[color:var(--wariba-text-primary)]"
           >

@@ -29,10 +29,12 @@ export function BottomSheet({ open, onClose, title, children }: BottomSheetProps
     <dialog
       ref={ref}
       aria-labelledby={title ? titleId : undefined}
+      // See Dialog.tsx's onClose comment: the native 'close' event is the
+      // single source of truth here — nothing else should call the onClose
+      // prop directly, or Escape/backdrop dismissal double-fires it.
       onClose={onClose}
-      onCancel={onClose}
       onClick={(event) => {
-        if (event.target === ref.current) onClose();
+        if (event.target === ref.current) ref.current?.close();
       }}
       className={cx(
         'm-0 mt-auto mb-0 w-full max-w-full rounded-t-[var(--wariba-component-bottom-sheet-radius-top)] rounded-b-none',
