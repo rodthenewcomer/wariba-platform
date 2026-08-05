@@ -35,18 +35,24 @@ test.describe('WariX order lifecycle', () => {
     await page.goto('/trade');
     await page.waitForTimeout(4000);
 
-    await page.getByRole('button', { name: 'Buy' }).first().click();
-    // Buttons show a spinner (Button's `loading` prop) the moment a command
-    // is in flight — the real, generous latency this environment has (real
-    // hosted Supabase, pg.Pool) is why this waits rather than asserting
-    // near-instant completion.
-    await expect(page.getByRole('button', { name: 'Buy' }).first()).toBeDisabled();
+    const buyButton = page.getByRole('button', { name: 'Buy' }).first();
+    // Buttons show a spinner (Button's `loading` prop) the instant a command
+    // is in flight. Against this sandbox's local Supabase the round trip can
+    // resolve in a handful of milliseconds, so the disabled state must be
+    // asserted concurrently with the click — awaiting the click first would
+    // let the round trip finish (and the button re-enable) before this
+    // assertion starts polling at all.
+    await Promise.all([expect(buyButton).toBeDisabled(), buyButton.click()]);
     await page.waitForTimeout(10_000);
 
     await page.getByRole('tab', { name: 'Positions' }).click();
     await expect(page.getByText('EURUSD · Achat')).toBeVisible();
 
-    await page.getByRole('tab', { name: 'Historique' }).click();
+    // Order status/reason lives in "Ordres" — "Historique" is the
+    // closed-position PnL/eligibility ledger (only positions that have been
+    // closed appear there), so a still-open market order never shows up
+    // there.
+    await page.getByRole('tab', { name: 'Ordres' }).click();
     await expect(page.getByRole('cell', { name: 'Ouverture' })).toBeVisible();
     await expect(page.getByText('Exécuté')).toBeVisible();
   });
@@ -74,14 +80,17 @@ test.describe('WariX order lifecycle', () => {
     await expect(page.getByText('Ordre refusé').first()).toBeVisible();
     await expect(page.getByText('exposure_limit_exceeded').first()).toBeVisible();
 
-    await page.getByRole('tab', { name: 'Historique' }).click();
+    // Order status/reason lives in "Ordres" — "Historique" is the
+    // closed-position PnL/eligibility ledger and never shows rejections
+    // (a rejected order never produces a fill to close).
+    await page.getByRole('tab', { name: 'Ordres' }).click();
     // Scoped to the active tabpanel: the rejection reason also appears in
     // OrderTicket's own Alert (which stays mounted regardless of which tab
     // is active), so an unscoped match would be ambiguous here too.
-    const historyPanel = page.getByRole('tabpanel');
-    await expect(historyPanel.getByText('Rejeté')).toBeVisible();
+    const ordersPanel = page.getByRole('tabpanel');
+    await expect(ordersPanel.getByText('Rejeté')).toBeVisible();
     await expect(
-      historyPanel.getByText('Cet ordre dépasserait votre exposition maximale autorisée'),
+      ordersPanel.getByText('Cet ordre dépasserait votre exposition maximale autorisée'),
     ).toBeVisible();
   });
 });
@@ -108,11 +117,15 @@ test.describe('WariX Close All', () => {
     await expect(page.getByText(/Cette action fermera 2 positions ouvertes/)).toBeVisible();
 
     const confirmButton = page.getByRole('dialog').getByRole('button', { name: 'Confirmer' });
-    await confirmButton.click();
     // Double-submit protection: the button must be disabled/loading the
-    // instant it's clicked, before the (slow, real) server round trip
-    // finishes — a second rapid click must not be able to land.
-    await expect(confirmButton).toBeDisabled();
+    // instant it's clicked, before the server round trip finishes — a
+    // second rapid click must not be able to land. Against this sandbox's
+    // local Supabase, a 2-position close-all batch can fully resolve (and
+    // the dialog can flip to its result view) in a handful of
+    // milliseconds, so this must be asserted concurrently with the click —
+    // awaiting the click first would let that happen before the assertion
+    // starts polling at all.
+    await Promise.all([expect(confirmButton).toBeDisabled(), confirmButton.click()]);
 
     await expect(page.getByText('Résultat — Tout fermer')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/2 positions? fermées?/)).toBeVisible();

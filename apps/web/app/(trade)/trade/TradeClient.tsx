@@ -704,13 +704,14 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
                   <DataTableHeaderCell>Type</DataTableHeaderCell>
                   <DataTableHeaderCell>Symbole</DataTableHeaderCell>
                   <DataTableHeaderCell align="right">Statut</DataTableHeaderCell>
+                  <DataTableHeaderCell>Raison</DataTableHeaderCell>
                 </DataTableRow>
               </DataTableHead>
               <DataTableBody>
                 {!snapshot || snapshot.recentOrders.length === 0 ? (
                   <DataTableRow>
                     <DataTableCell
-                      colSpan={3}
+                      colSpan={4}
                       className="text-center text-[color:var(--wariba-text-secondary)]"
                     >
                       Aucun ordre.
@@ -725,6 +726,12 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
                         <Badge variant={ORDER_STATUS_BADGE_VARIANT[o.status]}>
                           {ORDER_STATUS_LABEL[o.status]}
                         </Badge>
+                      </DataTableCell>
+                      <DataTableCell className="text-[color:var(--wariba-text-secondary)]">
+                        {o.status === 'rejected'
+                          ? (REJECTION_DETAIL[o.rejectionCode ?? '']?.reason ??
+                            UNKNOWN_REJECTION_DETAIL.reason)
+                          : '—'}
                       </DataTableCell>
                     </DataTableRow>
                   ))
