@@ -122,7 +122,9 @@ describeIfDb('activateEvaluationAccount — real database', () => {
       .execute();
     expect(ledgerEntries).toHaveLength(1);
     expect(ledgerEntries[0]?.entry_type).toBe('initial_balance');
-    expect(ledgerEntries[0]?.amount).toBe('10000.00'); // string, not float
+    // string, not float — numeric(20,8) always displays its full declared
+    // scale on read, same reason a 2-decimal value pads out below.
+    expect(ledgerEntries[0]?.amount).toBe('10000.00000000');
 
     const transitions = await db
       .selectFrom('app.account_state_transitions')

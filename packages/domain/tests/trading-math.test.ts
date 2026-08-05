@@ -150,8 +150,13 @@ describe('computeRealizedPnl', () => {
 
 describe('computeCommission', () => {
   it('scales linearly with quantity', () => {
-    expect(computeCommission({ quantity: '0.10', commissionPerLot: '7.00' })).toBe('0.70');
-    expect(computeCommission({ quantity: '2', commissionPerLot: '7.00' })).toBe('14.00');
+    expect(computeCommission({ quantity: '0.10', commissionPerLot: '7.00' })).toBe('0.7000');
+    expect(computeCommission({ quantity: '2', commissionPerLot: '7.00' })).toBe('14.0000');
+  });
+
+  it('preserves 4 decimal places for a genuinely fractional per-lot rate, matching app.fills.commission numeric(10,4)', () => {
+    // 0.375 * 0.33 = 0.12375 -> rounds to 4dp, not truncated to 2dp
+    expect(computeCommission({ quantity: '0.33', commissionPerLot: '0.375' })).toBe('0.1238');
   });
 });
 
