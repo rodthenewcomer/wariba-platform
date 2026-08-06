@@ -1308,6 +1308,24 @@ Viewports :
 - payout ;
 - dispute.
 
+## 39.4 Contrôles de graphique glissables (Prompt 7 Appendice 07-C)
+
+Chaque interaction de glissement (chip SL/TP, poignée de niveau) sur le
+graphique WariX doit rester utilisable sans glissement :
+
+- ajustement clavier (flèches haut/bas) sur la poignée elle-même ;
+- saisie de prix exact comme alternative complète (ouverte par clic/Entrée
+  sur la même poignée) ;
+- Échap annule un glissement en cours sans le confirmer ;
+- taille de cible tactile minimale respectée sur mobile pour les chips/
+  poignées ;
+- `prefers-reduced-motion` déjà couvert globalement (`apps/web/app/
+  globals.css`) s'applique aussi aux transitions de position du survol.
+
+Couverture automatisée : `apps/web/tests/ChartPositionOverlay.test.tsx`
+(clavier), `apps/web/tests/e2e/trade.spec.ts` (scan axe étendu à un état
+avec position ouverte).
+
 ---
 
 # 40. Mobile QA

@@ -7,7 +7,7 @@ language: "fr-FR"
 brand: "WARIBA"
 domain: "wariba.app"
 owner: "WARIBA Leadership, Product, Risk, Engineering & Operations"
-last_updated: "2026-08-05"
+last_updated: "2026-08-06"
 ---
 
 # WARIBA Decision Log v1.0
@@ -370,6 +370,14 @@ Révision:
 | UX-015 | `LOCKED` | Toutes les métriques critiques ouvrent leur formule et source. | Explicabilité. |
 | UX-016 | `LOCKED` | La nature simulée est répétée aux moments critiques. | Éviter confusion. |
 | UX-017 | `LOCKED` | `preparing` et `sending` sont des états 100 % client de l’état d’exécution WariX, jamais persistés côté serveur, posés avant/pendant l’envoi WebSocket. | Design System §25.7 ne décrit que les états confirmés serveur, ce qui semblait en conflit avec UX Architecture §22.9 ; les deux restent cohérents une fois `ExecutionState` compris comme couvrant le cycle complet (client + serveur), pas seulement la partie serveur. |
+| UX-TRADING-001 | `LOCKED` | WariX affiche les lignes de position autoritatives directement sur le graphique. | Prompt 7 Appendice 07-C — position visible et gérable sans quitter le graphique. |
+| UX-TRADING-002 | `LOCKED` | Le SL et le TP peuvent être activés et modifiés via des contrôles graphiques glissables et une saisie de prix exact. | Chaque glissement reste un aperçu local jusqu’à confirmation serveur ; la saisie exacte est l’alternative non-glissée obligatoire (accessibilité clavier/lecteur d’écran). |
+| UX-TRADING-003 | `LOCKED` | Le clic droit sur le graphique ouvre un menu contextuel d’actions manuelles côté desktop. | Aucun ordre en attente (Limit/Stop) ni alerte de prix n’existe dans ce build (seuls market_open/partial_close/full_close/modify_sl/modify_tp sont implémentés) — le menu n’propose donc que des actions réellement supportées, jamais un choix invalide. |
+| UX-TRADING-004 | `LOCKED` | Le mobile utilise l’appui long et des feuilles de gestion de position (bottom sheets). | Aucun clic droit n’existe sur mobile. |
+| UX-TRADING-005 | `LOCKED` | La clôture partielle propose 25 %, 50 %, 75 % et une quantité personnalisée valide. | Un pourcentage qui s’arrondirait à zéro ou à la position entière est désactivé avec explication plutôt que silencieusement corrigé. |
+| UX-TRADING-006 | `LOCKED` | Les clôtures partielles utilisent la comptabilité par fill déjà en place (un fill d’ouverture, allocation déterministe de la commission) et la règle d’éligibilité 60 secondes déjà verrouillée (v1.11), appliquée par portion clôturée. | TRD-020 (modèle hedging, verrouillé) reste inchangé — un modèle FIFO multi-lots n’est ni nécessaire ni introduit ; `app.fills` porte déjà tous les champs d’audit par clôture partielle. |
+| UX-TRADING-007 | `LOCKED` | Toutes les mutations de trading restent server-authoritative et idempotentes, y compris la réduction de risque mise en file pendant une donnée de marché obsolète (`app.position_reduction_queue`), exécutée une seule fois sur le premier prix à jour. | Réduire l’exposition doit rester possible pendant une donnée obsolète, sans jamais exécuter contre un ancien prix ni dupliquer l’exécution. |
+| UX-TRADING-008 | `LOCKED` | L’interaction de WariX peut s’inspirer de terminaux établis, mais son langage visuel (couleurs, espacement, icônes, typographie, formes) reste original — jetons `--wariba-chart-*`/`--wariba-status-*` existants uniquement. | Positionnement de marque distinct ; aucune copie visuelle d’une autre plateforme. |
 
 ---
 
@@ -659,6 +667,22 @@ trading manuel ni à la règle d'éligibilité de profit à 60 secondes (TRD-033
 ---
 
 # 26. Historique des versions
+
+## v1.12 — 2026-08-06
+
+Prompt 7 Appendice 07-C (gestion visuelle de position WariX) intégré :
+ligne de position sur le graphique avec PnL live et état de synchronisation,
+SL/TP glissables avec aperçu local distinct de la valeur confirmée serveur
+et alternative clavier/saisie exacte, menu contextuel clic droit (desktop)
+et appui long (mobile) limité aux actions réellement supportées, clôture
+partielle 25/50/75/personnalisé avec avertissement d’éligibilité sous 60
+secondes reprenant la règle v1.11, et file d’attente de réduction de
+position pendant une donnée de marché obsolète (`app.position_reduction_queue`,
+exécutée une seule fois sur le premier prix à jour). Aucun moteur d’ordres
+en attente (Limit/Stop) ni d’alertes de prix n’est introduit — absents de ce
+build, ils ne sont donc jamais proposés dans le menu contextuel. Le modèle
+de position hedging (TRD-020) et la comptabilité par fill existants restent
+inchangés. Voir UX-TRADING-001 à UX-TRADING-008 ci-dessus.
 
 ## v1.11 — 2026-08-05
 

@@ -1235,6 +1235,22 @@ sequenceDiagram
     end
 ```
 
+**Prompt 7 Appendice 07-C (UX-TRADING-007, DECISION_LOG.md §13/§26) —**
+`partial_close`/`full_close` gagnent un chemin différé pour l'atténuation de
+risque quand la donnée de marché du symbole est obsolète : la demande est
+enregistrée dans `app.position_reduction_queue` (`queue_reduction`/
+`cancel_queued_reduction` sur le même WebSocket) et exécutée une seule fois,
+au tick frais suivant pour ce symbole — le seul endroit du système à
+disposer de données de marché live est `services/realtime` (packages/database
+n'en a aucune, par conception, ENG-028), donc l'exécution a lieu dans la
+boucle de diffusion des ticks existante, jamais dans un nouveau processus.
+Aucun nouveau type d'événement WebSocket granulaire n'est introduit : la
+confirmation réutilise `order_result` (même forme que pour un ordre
+immédiat) et `account.snapshot` continue de porter `queuedReductions` (les
+entrées encore `queued` uniquement), cohérent avec le modèle "snapshot
+complet + resynchronisation sur écart" déjà en place ici plutôt qu'une
+reconstruction par relecture d'événements.
+
 ---
 
 # 39. Market data sandbox

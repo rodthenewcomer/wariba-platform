@@ -5169,3 +5169,139 @@ cette frontière de type à travers cinq paquets — voir le Gap Analysis
 et le plan de phases publiés lors de l'exécution de ce prompt dans
 DECISION_LOG.md pour l'approche retenue (catalogue de découverte séparé
 du jeu « featured/tradable » entièrement spécifié).
+
+---
+
+# 33. Appendice 07-C — Gestion visuelle de position WariX
+
+## Portée
+
+Cet appendice ferme les lacunes restantes de l'interface de trading WariX :
+ligne de position et lignes SL/TP interactives directement sur le
+graphique, activation et glissement des niveaux, menu contextuel manuel
+(clic droit desktop, appui long mobile), et clôture partielle complète
+(25/50/75/personnalisé). Il ne remplace ni Prompt 7, ni l'Appendice 07-A,
+ni l'Appendice 07-B.
+
+Deux capacités explicitement demandées par l'appendice ne sont pas
+implémentées, faute d'exister sous quelque forme que ce soit dans ce
+build : les ordres en attente (Buy/Sell Limit/Stop) et les alertes de
+prix. Ni l'un ni l'autre n'a de moteur d'exécution/notification
+correspondant (seuls `market_open`/`partial_close`/`full_close`/
+`modify_sl`/`modify_tp` existent) — les construire est une nouvelle
+fonctionnalité, pas une fermeture de lacune ; le menu contextuel n'offre
+donc jamais ces choix plutôt que de les afficher désactivés. Voir
+DECISION_LOG.md, UX-TRADING-001 à 008, pour le détail des décisions
+verrouillées et `docs/08-delivery/` pour le rapport final READY/NOT READY.
+
+## Prompt prêt à copier
+
+```text
+APPENDIX 07-C — WARIX VISUAL POSITION MANAGEMENT
+CHART SL/TP, CONTEXTUAL ORDERS AND PARTIAL CLOSE
+
+You are continuing Prompt 7 and the previously approved Prompt 7 appendices.
+
+Do not restart the project.
+Do not redo completed CRITICAL/HIGH remediation.
+Do not proceed to Prompt 8.
+
+Audit the current repository and the existing WariX trading implementation,
+then design and implement the missing production-quality position-management UI:
+
+1. chart position lines;
+2. visual Stop Loss and Take Profit controls;
+3. drag-and-drop SL/TP;
+4. chart right-click context menu;
+5. complete partial-close experience;
+6. desktop and mobile equivalents;
+7. server-authoritative validation;
+8. reconciliation, accessibility and automated tests.
+
+The interaction quality may be inspired by professional terminals such as
+TopstepX, but WariX must retain its own visual identity.
+
+Do not copy TopstepX typography, colors, dimensions, icons, component shapes,
+spacing or exact layout.
+
+======================================================================
+1. REQUIRED 35-ROLE REVIEW
+======================================================================
+
+Before writing implementation code, inspect the current design and produce
+a concise audit using all 35 WARIBA roles.
+
+[... full 35-role list and required questions — see the executed session's
+own condensed review in the Prompt 7 final report, docs/08-delivery/, for
+the answers actually given against this codebase's real architecture ...]
+
+Proceed to implementation after the audit.
+Do not stop at recommendations.
+
+======================================================================
+2. AUTHORITATIVE PRODUCT DECISIONS
+======================================================================
+
+CHART_POSITION_LINES_ENABLED = true
+CHART_SL_TP_CONTROLS_ENABLED = true
+CHART_SL_TP_DRAG_ENABLED = true
+CHART_CONTEXT_MENU_ENABLED = true
+PARTIAL_CLOSE_ENABLED = true
+
+MANUAL_TRADING_ONLY = true
+PUBLIC_EXECUTION_API_ENABLED = false
+BOTS_ALLOWED = false
+TRADE_COPIERS_ALLOWED = false
+
+MINIMUM_PROFIT_ELIGIBLE_DURATION_SECONDS = 60
+
+The browser is never authoritative. The server remains authoritative for:
+current position quantity; average entry price; SL; TP; realized PnL;
+eligible realized PnL; account balance; equity; margin; trading
+permissions; market-data freshness; order and modification status.
+
+[... sections 3-22 (position line, SL/TP chips, existing SL/TP lines,
+long/short validation, chart context menu, quick order UX, partial close
+UX/confirmation/accounting/stale-data handling, mobile interaction, visual
+design direction, accessibility, commands and idempotency, real-time
+synchronization, UX error states, analytics and audit, tests, documentation
+updates, implementation order) reproduced in full in the session transcript
+that executed this appendix — omitted here for length, not authority.
+Every numbered requirement in the original message governs; see the final
+report for what was implemented as specified, scoped down with an explicit
+reason, or left as an unresolved blocker. ...]
+
+======================================================================
+23. FINAL REPORT
+======================================================================
+
+Return:
+1. 35-role audit summary.
+2. UX decisions implemented.
+3. Changed files.
+4. Database migrations.
+5. New or changed server commands.
+6. WebSocket events.
+7. Tests executed and results.
+8. Screens or routes available for review.
+9. Remaining blockers.
+10. Final READY or NOT READY verdict for these features.
+
+Do not claim the features are complete when only the UI exists.
+Do not proceed to Prompt 8.
+```
+
+## Note d'implémentation
+
+Le graphique reste `lightweight-charts` (aucune nouvelle librairie) :
+`createPriceLine` continue de dessiner le trait natif et l'étiquette d'axe,
+tandis qu'une surcouche HTML positionnée via `series.priceToCoordinate`
+(`apps/web/app/(trade)/trade/ChartPositionOverlay.tsx`) porte tout ce qui
+est réellement interactif (badge de position, chips SL/TP, poignées,
+aperçu de glissement). La clôture partielle réutilise sans modification la
+commande `partial_close` déjà livrée au Prompt 07 (`packages/database/src/
+trading.ts`) — seule l'interface est nouvelle. La seule capacité
+serveur véritablement nouvelle est la file d'attente de réduction de
+position pendant une donnée de marché obsolète (`app.position_reduction_queue`,
+`packages/database/src/position-reduction-queue.ts`), exécutée par
+`services/realtime` sur le premier tick frais du symbole concerné.
