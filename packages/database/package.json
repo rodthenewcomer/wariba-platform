@@ -10,8 +10,8 @@
     "lint": "eslint --config ../../eslint.config.mjs .",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run --exclude 'tests/*.integration.test.ts' --passWithNoTests",
-    "test:integration": "vitest run --no-file-parallelism tests/activation.integration.test.ts tests/trading.integration.test.ts tests/trading-properties.integration.test.ts tests/risk.integration.test.ts tests/daily-finalization.integration.test.ts",
-    "test:rls": "vitest run --no-file-parallelism --testTimeout=15000 tests/identity-commerce-rls.integration.test.ts tests/trading-rls.integration.test.ts tests/risk-rls.integration.test.ts tests/staff-rls.integration.test.ts"
+    "test:integration": "vitest run --no-file-parallelism tests/activation.integration.test.ts tests/trading.integration.test.ts tests/trading-properties.integration.test.ts tests/risk.integration.test.ts tests/daily-finalization.integration.test.ts tests/position-reduction-queue.integration.test.ts tests/pending-orders.integration.test.ts tests/price-alerts.integration.test.ts",
+    "test:rls": "vitest run --no-file-parallelism --testTimeout=15000 tests/identity-commerce-rls.integration.test.ts tests/trading-rls.integration.test.ts tests/risk-rls.integration.test.ts tests/staff-rls.integration.test.ts tests/pending-orders-alerts-rls.integration.test.ts"
   },
   "dependencies": {
     "@wariba/domain": "workspace:*",

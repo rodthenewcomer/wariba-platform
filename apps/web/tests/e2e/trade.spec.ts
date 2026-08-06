@@ -46,7 +46,14 @@ test.describe('WariX order lifecycle', () => {
     await page.waitForTimeout(10_000);
 
     await page.getByRole('tab', { name: 'Positions' }).click();
-    await expect(page.getByText('EURUSD · Achat')).toBeVisible();
+    // Not getByText: QuickOrderConfirm/PendingOrderConfirm render a
+    // "{symbol} · {side} · {quantity} lot" summary line unconditionally
+    // (Dialog keeps children mounted, closed via the native <dialog>'s
+    // `open` attribute rather than unmounting) — for the default 0.10 lot
+    // quantity that string is itself an "EURUSD · Achat" substring match,
+    // ambiguous with this Positions row even while both confirm dialogs
+    // are closed. The positions table cell is unambiguous.
+    await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toBeVisible();
 
     // Order status/reason lives in "Ordres" — "Historique" is the
     // closed-position PnL/eligibility ledger (only positions that have been
@@ -54,7 +61,12 @@ test.describe('WariX order lifecycle', () => {
     // there.
     await page.getByRole('tab', { name: 'Ordres' }).click();
     await expect(page.getByRole('cell', { name: 'Ouverture' })).toBeVisible();
-    await expect(page.getByText('Exécuté')).toBeVisible();
+    // Not getByText: PendingOrderConfirm's always-mounted GTC disclaimer
+    // ("...exécuté par le serveur...") is a case-insensitive substring
+    // match for 'Exécuté' too — exact: true also makes this case-sensitive,
+    // which the status Badge's all-uppercase-styled but literally-cased
+    // "Exécuté" text still satisfies exactly.
+    await expect(page.getByText('Exécuté', { exact: true })).toBeVisible();
   });
 
   test('a rejected order (exposure limit) shows its reason in Historique, not just a raw code', async ({
@@ -139,7 +151,10 @@ test.describe('WariX position risk modification', () => {
     await page.reload();
     await page.waitForTimeout(4000);
     await page.getByRole('tab', { name: 'Positions' }).click();
-    await expect(page.getByText('1.00000')).toBeVisible();
+    // Not getByText: the chart's own SL handle also renders "SL · 1.00000 ·
+    // ... USD" once a position with a stop loss exists — ambiguous with the
+    // positions table's own SL cell. The table cell is unambiguous.
+    await expect(page.getByRole('cell', { name: '1.00000' })).toBeVisible();
   });
 });
 
@@ -230,7 +245,7 @@ test.describe('WariX mobile', () => {
     await page.keyboard.press('Escape');
     await expect(sheet).not.toBeVisible();
     await page.getByRole('tab', { name: 'Positions' }).click();
-    await expect(page.getByText('EURUSD · Achat')).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toBeVisible();
   });
 });
 
@@ -248,7 +263,7 @@ test.describe('WariX keyboard access', () => {
     await page.keyboard.press('b');
     await page.waitForTimeout(500);
     await expect(page.getByText('Ordre refusé')).not.toBeVisible();
-    const positionsRow = page.getByText('EURUSD · Achat');
+    const positionsRow = page.getByRole('cell', { name: 'EURUSD · Achat', exact: true });
     await expect(positionsRow).not.toBeVisible();
 
     const buyButton = page.getByRole('button', { name: 'Buy' }).first();
@@ -258,7 +273,7 @@ test.describe('WariX keyboard access', () => {
     await page.waitForTimeout(10_000);
 
     await page.getByRole('tab', { name: 'Positions' }).click();
-    await expect(page.getByText('EURUSD · Achat')).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toBeVisible();
   });
 
   test('watchlist selection is keyboard-operable and exposes aria-current, not color alone', async ({
@@ -300,5 +315,183 @@ test.describe('WariX accessibility scan', () => {
       );
     }
     expect(critical).toHaveLength(0);
+  });
+});
+
+/**
+ * Prompt 7 Appendix 07-C — chart context menu, partial close and the
+ * accessible on-chart SL/TP path. Deliberately NOT covered here: dragging
+ * an SL/TP line/chip via continuous pointermove simulation. A right-click
+ * or a button click is one deterministic event Playwright can fire
+ * reliably; a multi-step drag against lightweight-charts' own canvas
+ * coordinate math is exactly the kind of interaction that produces flaky,
+ * environment-sensitive E2E tests. The drag math itself is covered by
+ * packages/domain's unit tests (roundPriceToTick, computeLevelPnlPreview)
+ * and TradeChart/ChartPositionOverlay's own drag-state-machine logic by
+ * apps/web/tests/ChartPositionOverlay.test.tsx's keyboard-adjustment
+ * tests — and every drag has this same click-driven exact-price path as
+ * its required non-drag alternative, which is what these tests exercise.
+ */
+test.describe('WariX chart context menu', () => {
+  test('right-click shows the clicked price and only market actions with no open position; Market Buy asks for confirmation before submitting', async ({
+    page,
+    tradeAccount,
+  }) => {
+    await login(page, tradeAccount.email, tradeAccount.password);
+    await page.goto('/trade');
+    await page.waitForTimeout(4000);
+
+    // role=group, not the raw <canvas>: lightweight-charts stacks more
+    // than one canvas element for a single pane, and Playwright's
+    // actionability check requires the resolved locator's own element (or
+    // an ancestor of the actual hit-tested element) to receive the click —
+    // picking a specific canvas by DOM order doesn't reliably land on
+    // whichever one is actually topmost. The container div (aria-labelled
+    // role=group in TradeChart.tsx — not role=img, which axe correctly
+    // flags for nested-interactive against lightweight-charts' own
+    // TradingView attribution link) is an ancestor of every canvas it
+    // holds, so a right-click here is a stable, correct target regardless
+    // of internal stacking order.
+    const chartCanvas = page.getByRole('group', { name: 'Graphique EURUSD' });
+    await chartCanvas.click({ button: 'right' });
+
+    const menu = page.getByRole('menu');
+    await expect(menu).toBeVisible();
+    // Not page.getByText: NotificationCenter's always-mounted "Prix seuil"/
+    // "Prix moyen (bid/ask)" text (Dialog keeps children mounted while
+    // closed) also matches /^Prix /, ambiguous with the menu's own heading.
+    // Scoping to the menu itself is unambiguous.
+    await expect(menu.getByText(/^Prix /)).toBeVisible();
+    await expect(menu.getByRole('menuitem', { name: 'Achat au marché' })).toBeVisible();
+    await expect(menu.getByRole('menuitem', { name: 'Vente au marché' })).toBeVisible();
+    // Appendix 07-D — "Créer une alerte ici" is always offered, and one or
+    // two of the four Buy/Sell Limit/Stop suggestions are valid for any
+    // given clicked price relative to the live bid/ask
+    // (isPendingOrderCreationPriceValid, @wariba/domain): normally exactly
+    // two (below bid, between bid/ask, or above ask each make a different
+    // two valid), but if the clicked price happens to round to exactly bid
+    // or exactly ask, the strict inequalities on both sides of that
+    // boundary drop to only one — a real, if narrow, edge case against this
+    // sandbox's live feed, not a bug. Never zero, never all four either
+    // way. Which ones depends on where this click landed at that instant,
+    // so this only asserts the count is in range, not which labels.
+    await expect(menu.getByRole('menuitem', { name: 'Créer une alerte ici' })).toBeVisible();
+    const pendingOrderLabels = [
+      'Achat Limite ici',
+      'Vente Limite ici',
+      'Achat Stop ici',
+      'Vente Stop ici',
+    ];
+    let visiblePendingSuggestions = 0;
+    for (const label of pendingOrderLabels) {
+      if (await menu.getByRole('menuitem', { name: label }).isVisible()) {
+        visiblePendingSuggestions += 1;
+      }
+    }
+    expect(visiblePendingSuggestions).toBeGreaterThanOrEqual(1);
+    expect(visiblePendingSuggestions).toBeLessThanOrEqual(2);
+
+    await menu.getByRole('menuitem', { name: 'Achat au marché' }).click();
+    await expect(menu).not.toBeVisible();
+
+    // one-click trading is off by default (ONE_CLICK_TRADING_DEFAULT = false)
+    // — a confirmation must appear, never an immediate submit.
+    const confirmDialog = page.getByRole('dialog', { name: /Achat au marché/ });
+    await expect(confirmDialog).toBeVisible();
+    await confirmDialog.getByRole('button', { name: /Confirmer achat/ }).click();
+    await page.waitForTimeout(10_000);
+
+    await page.getByRole('tab', { name: 'Positions' }).click();
+    await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toBeVisible();
+  });
+
+  test('Escape and outside click both dismiss the menu without submitting anything', async ({
+    page,
+    tradeAccount,
+  }) => {
+    await login(page, tradeAccount.email, tradeAccount.password);
+    await page.goto('/trade');
+    await page.waitForTimeout(4000);
+
+    const chartCanvas = page.getByRole('group', { name: 'Graphique EURUSD' });
+    await chartCanvas.click({ button: 'right' });
+    await expect(page.getByRole('menu')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).not.toBeVisible();
+
+    await chartCanvas.click({ button: 'right' });
+    await expect(page.getByRole('menu')).toBeVisible();
+    await page.mouse.click(10, 10);
+    await expect(page.getByRole('menu')).not.toBeVisible();
+
+    await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).not.toBeVisible();
+  });
+
+  test('once a position exists, the menu also offers SL/TP, partial close and close — and SL opens the exact-price dialog', async ({
+    page,
+    tradeAccount,
+  }) => {
+    await login(page, tradeAccount.email, tradeAccount.password);
+    await page.goto('/trade');
+    await page.waitForTimeout(4000);
+
+    await page.getByRole('button', { name: 'Buy' }).first().click();
+    await page.waitForTimeout(9000);
+
+    const chartCanvas = page.getByRole('group', { name: 'Graphique EURUSD' });
+    await chartCanvas.click({ button: 'right' });
+    const menu = page.getByRole('menu');
+    await expect(menu.getByRole('menuitem', { name: 'Ajouter un Stop Loss' })).toBeVisible();
+    await expect(menu.getByRole('menuitem', { name: 'Ajouter un Take Profit' })).toBeVisible();
+    await expect(
+      menu.getByRole('menuitem', { name: 'Clôturer une partie de la position' }),
+    ).toBeVisible();
+    await expect(menu.getByRole('menuitem', { name: 'Fermer la position' })).toBeVisible();
+
+    await menu.getByRole('menuitem', { name: 'Ajouter un Stop Loss' }).click();
+    await expect(page.getByRole('dialog', { name: /Modifier SL\/TP — EURUSD/ })).toBeVisible();
+  });
+});
+
+test.describe('WariX partial close', () => {
+  test('closing 50% leaves the position open at half size, never labelled just "Fermer"', async ({
+    page,
+    tradeAccount,
+  }) => {
+    await login(page, tradeAccount.email, tradeAccount.password);
+    await page.goto('/trade');
+    await page.waitForTimeout(4000);
+
+    await page.getByRole('button', { name: 'Buy' }).first().click();
+    await page.waitForTimeout(9000);
+
+    await page.getByRole('tab', { name: 'Positions' }).click();
+    await page
+      .getByRole('button', { name: /Clôture partielle — EURUSD/ })
+      .first()
+      .click();
+
+    const sheet = page.getByRole('dialog', { name: /Clôture partielle/ });
+    await expect(sheet).toBeVisible();
+    await sheet.getByRole('button', { name: '50%' }).click();
+    await expect(sheet.getByText(/Clôturer 0\.05 sur 0\.10 lot/)).toBeVisible();
+
+    // Not the disabled-during-click pattern used elsewhere (Buy, Close
+    // All): PartialCloseSheet's onSubmitPartialClose closes the sheet
+    // synchronously on click, before any server round trip — a deliberate
+    // choice (unlike CloseAllDialog, this sheet has no "result" view of
+    // its own; a rejection surfaces through OrderTicket's own persistent
+    // Alert and the aria-live status announcement instead). So the sheet
+    // is expected to disappear immediately, not linger in a disabled state.
+    const confirmButton = sheet.getByRole('button', { name: 'Confirmer la clôture partielle' });
+    await confirmButton.click();
+    await expect(sheet).not.toBeVisible();
+    await page.waitForTimeout(6000);
+
+    // The position stays open at half its original size — never fully closed.
+    await expect(page.getByText(/0\.05/).first()).toBeVisible();
+
+    await page.getByRole('tab', { name: 'Historique' }).click();
+    await expect(page.getByRole('cell', { name: '0.0500' })).toBeVisible();
   });
 });

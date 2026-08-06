@@ -5,11 +5,26 @@ import {
   marketTickSchema,
   accountSnapshotSchema,
   orderResultMessageSchema,
+  queueReductionResultMessageSchema,
   symbolSpecsMessageSchema,
   accountRiskPreviewMessageSchema,
+  pendingOrderResultMessageSchema,
+  alertResultMessageSchema,
+  notificationsSnapshotMessageSchema,
+  newAlertNotificationMessageSchema,
   type MessageEnvelope,
   type SubmitOrderMessage,
   type CloseAllMessage,
+  type QueueReductionMessage,
+  type CancelQueuedReductionMessage,
+  type CreatePendingOrderMessage,
+  type ModifyPendingOrderMessage,
+  type CancelPendingOrderMessage,
+  type CancelAllPendingOrdersMessage,
+  type CreatePriceAlertMessage,
+  type ModifyPriceAlertMessage,
+  type AlertIdMessage,
+  type MarkNotificationsReadMessage,
 } from '@wariba/contracts';
 
 export type RealtimeConnectionState = 'connecting' | 'resyncing' | 'open' | 'closed';
@@ -112,10 +127,20 @@ export class RealtimeClient {
       return accountSnapshotSchema.safeParse(envelope.payload).success;
     if (envelope.type === 'order_result')
       return orderResultMessageSchema.safeParse(envelope.payload).success;
+    if (envelope.type === 'queue_reduction_result')
+      return queueReductionResultMessageSchema.safeParse(envelope.payload).success;
     if (envelope.type === 'symbol_specs')
       return symbolSpecsMessageSchema.safeParse(envelope.payload).success;
     if (envelope.type === 'account.risk_preview')
       return accountRiskPreviewMessageSchema.safeParse(envelope.payload).success;
+    if (envelope.type === 'pending_order_result')
+      return pendingOrderResultMessageSchema.safeParse(envelope.payload).success;
+    if (envelope.type === 'alert_result')
+      return alertResultMessageSchema.safeParse(envelope.payload).success;
+    if (envelope.type === 'notifications.snapshot')
+      return notificationsSnapshotMessageSchema.safeParse(envelope.payload).success;
+    if (envelope.type === 'notification.new')
+      return newAlertNotificationMessageSchema.safeParse(envelope.payload).success;
     if (envelope.type === 'error') {
       const payload = envelope.payload as { code?: unknown; message?: unknown };
       return typeof payload.code === 'string' && typeof payload.message === 'string';
@@ -176,6 +201,54 @@ export class RealtimeClient {
 
   closeAll(closeAll: CloseAllMessage): void {
     this.send({ type: 'close_all', closeAll });
+  }
+
+  queueReduction(reduction: QueueReductionMessage): void {
+    this.send({ type: 'queue_reduction', reduction });
+  }
+
+  cancelQueuedReduction(cancelReduction: CancelQueuedReductionMessage): void {
+    this.send({ type: 'cancel_queued_reduction', cancelReduction });
+  }
+
+  createPendingOrder(pendingOrder: CreatePendingOrderMessage): void {
+    this.send({ type: 'create_pending_order', pendingOrder });
+  }
+
+  modifyPendingOrder(pendingOrder: ModifyPendingOrderMessage): void {
+    this.send({ type: 'modify_pending_order', pendingOrder });
+  }
+
+  cancelPendingOrder(pendingOrder: CancelPendingOrderMessage): void {
+    this.send({ type: 'cancel_pending_order', pendingOrder });
+  }
+
+  cancelAllPendingOrders(pendingOrder: CancelAllPendingOrdersMessage): void {
+    this.send({ type: 'cancel_all_pending_orders', pendingOrder });
+  }
+
+  createPriceAlert(alert: CreatePriceAlertMessage): void {
+    this.send({ type: 'create_price_alert', alert });
+  }
+
+  modifyPriceAlert(alert: ModifyPriceAlertMessage): void {
+    this.send({ type: 'modify_price_alert', alert });
+  }
+
+  enablePriceAlert(alert: AlertIdMessage): void {
+    this.send({ type: 'enable_price_alert', alert });
+  }
+
+  disablePriceAlert(alert: AlertIdMessage): void {
+    this.send({ type: 'disable_price_alert', alert });
+  }
+
+  deletePriceAlert(alert: AlertIdMessage): void {
+    this.send({ type: 'delete_price_alert', alert });
+  }
+
+  markNotificationsRead(notifications: MarkNotificationsReadMessage): void {
+    this.send({ type: 'mark_notifications_read', notifications });
   }
 
   private send(payload: unknown): void {

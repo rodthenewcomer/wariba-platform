@@ -2,7 +2,7 @@
   "document": {
     "id": "WARIBA-RULESET",
     "title": "WARIBA Ruleset",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "status": "candidate_simulation",
     "language": "fr-FR",
     "brand": "WARIBA",
@@ -405,6 +405,42 @@
       "trailing_model": "eod",
       "hard_breach": true
     }
+  },
+  "wariX_visual_trading": {
+    "_decision_ref": "DECISION_LOG.md UX-TRADING-001..008",
+    "chart_position_lines_enabled": true,
+    "chart_sl_tp_controls_enabled": true,
+    "chart_sl_tp_drag_enabled": true,
+    "chart_context_menu_enabled": true,
+    "partial_close_enabled": true,
+    "partial_close_presets": [
+      25,
+      50,
+      75,
+      "custom"
+    ],
+    "manual_trading_only": true,
+    "public_execution_api_enabled": false,
+    "bots_allowed": false,
+    "trade_copiers_allowed": false,
+    "one_click_trading_default": false,
+    "pending_orders_supported": false,
+    "price_alerts_supported": false,
+    "_pending_orders_note": "No limit/stop order engine exists in this build (only market_open/partial_close/full_close/modify_sl/modify_tp) — the chart context menu offers market actions and SL/TP/close only, never a pending-order or price-alert choice.",
+    "server_authoritative_for": [
+      "current_position_quantity",
+      "average_entry_price",
+      "stop_loss",
+      "take_profit",
+      "realized_pnl",
+      "eligible_realized_pnl",
+      "account_balance",
+      "equity",
+      "margin",
+      "trading_permissions",
+      "market_data_freshness",
+      "order_and_modification_status"
+    ]
   },
   "programs": {
     "WARIBA_ONE": {

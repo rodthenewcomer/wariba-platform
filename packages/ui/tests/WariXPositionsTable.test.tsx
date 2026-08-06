@@ -23,6 +23,7 @@ describe('WariXPositionsTable', () => {
         positions={[]}
         onClose={() => {}}
         onModify={() => {}}
+        onPartialClose={() => {}}
         closeDisabled={false}
         emptyLabel="Aucune position ouverte."
       />,
@@ -36,6 +37,7 @@ describe('WariXPositionsTable', () => {
         positions={[POSITION]}
         onClose={() => {}}
         onModify={() => {}}
+        onPartialClose={() => {}}
         closeDisabled={false}
         emptyLabel="Aucune position ouverte."
       />,
@@ -55,6 +57,7 @@ describe('WariXPositionsTable', () => {
         ]}
         onClose={() => {}}
         onModify={() => {}}
+        onPartialClose={() => {}}
         closeDisabled={false}
         emptyLabel="Aucune position ouverte."
       />,
@@ -70,6 +73,7 @@ describe('WariXPositionsTable', () => {
         positions={[POSITION]}
         onClose={onClose}
         onModify={() => {}}
+        onPartialClose={() => {}}
         closeDisabled={false}
         emptyLabel="Aucune position ouverte."
       />,
@@ -86,6 +90,7 @@ describe('WariXPositionsTable', () => {
         positions={[POSITION]}
         onClose={() => {}}
         onModify={onModify}
+        onPartialClose={() => {}}
         closeDisabled
         emptyLabel="Aucune position ouverte."
       />,
@@ -98,17 +103,38 @@ describe('WariXPositionsTable', () => {
     expect(onModify).toHaveBeenCalledWith('pos-1');
   });
 
-  it('disables the close button when closeDisabled is true', () => {
+  it('calls onPartialClose with the position id when Clôture % is clicked', async () => {
+    const user = userEvent.setup();
+    const onPartialClose = vi.fn();
     render(
       <WariXPositionsTable
         positions={[POSITION]}
         onClose={() => {}}
         onModify={() => {}}
+        onPartialClose={onPartialClose}
+        closeDisabled={false}
+        emptyLabel="Aucune position ouverte."
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Clôture partielle — EURUSD · Achat' }));
+    expect(onPartialClose).toHaveBeenCalledWith('pos-1');
+  });
+
+  it('disables the close and partial-close buttons when closeDisabled is true', () => {
+    render(
+      <WariXPositionsTable
+        positions={[POSITION]}
+        onClose={() => {}}
+        onModify={() => {}}
+        onPartialClose={() => {}}
         closeDisabled
         emptyLabel="Aucune position ouverte."
       />,
     );
     expect(screen.getByRole('button', { name: 'Fermer EURUSD · Achat' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Clôture partielle — EURUSD · Achat' }),
+    ).toBeDisabled();
   });
 
   it('gives each row a disambiguating accessible name for the close and modify buttons', () => {
@@ -117,6 +143,7 @@ describe('WariXPositionsTable', () => {
         positions={[POSITION, { ...POSITION, id: 'pos-2', symbol: 'XAUUSD', sideLabel: 'Vente' }]}
         onClose={() => {}}
         onModify={() => {}}
+        onPartialClose={() => {}}
         closeDisabled={false}
         emptyLabel="Aucune position ouverte."
       />,

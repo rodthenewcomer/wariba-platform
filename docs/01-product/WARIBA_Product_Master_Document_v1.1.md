@@ -83,3 +83,7 @@ Cette métrique complète la progression globale sans remplacer la North Star pr
 ## 7. Nom du terminal
 
 **WariX** est le nom public du terminal propriétaire de trading simulé de WARIBA. Il remplace l’appellation active « WARIBA Trade » dans le produit et la documentation. La route technique `/trade` peut rester stable.
+
+## 8. WariX — gestion visuelle de position
+
+WariX affiche la position et ses niveaux Stop Loss / Take Profit directement sur le graphique, modifiables par glissement (avec alternative clavier et saisie de prix exact), un menu contextuel manuel au clic droit (appui long sur mobile) et une clôture partielle par pourcentage ou quantité personnalisée. L’exécution reste exclusivement server-authoritative ; aucun ordre en attente (Limit/Stop) ni alerte de prix n’est proposé tant que le moteur correspondant n’existe pas. Voir DECISION_LOG.md, UX-TRADING-001 à 008.

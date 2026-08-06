@@ -1,6 +1,23 @@
-import type { PositionSummary, TradeOrderOutcome, FillSummary } from '@wariba/database';
+import type {
+  PositionSummary,
+  TradeOrderOutcome,
+  FillSummary,
+  QueuedReductionSummary,
+  PendingOrderSummary,
+  PriceAlertSummary,
+  AlertNotificationSummary,
+} from '@wariba/database';
 import type { TradableSymbol, OrderSide } from '@wariba/database';
-import type { OrderDTO, PositionDTO, FillDTO, OrderType } from '@wariba/contracts';
+import type {
+  OrderDTO,
+  PositionDTO,
+  FillDTO,
+  OrderType,
+  QueuedReductionDTO,
+  PendingOrderDTO,
+  PriceAlertDTO,
+  AlertNotificationDTO,
+} from '@wariba/contracts';
 
 export function toPositionDTO(accountId: string, p: PositionSummary): PositionDTO {
   return {
@@ -81,5 +98,77 @@ export function toFillDTO(
     eligibleRealizedPnl: f.eligibleRealizedPnl,
     ineligibleShortDurationProfit: f.ineligibleShortDurationProfit,
     eligibilityReason: f.eligibilityReason,
+  };
+}
+
+export function toQueuedReductionDTO(q: QueuedReductionSummary): QueuedReductionDTO {
+  return {
+    id: q.id,
+    positionId: q.positionId,
+    symbol: q.symbol,
+    mode: q.mode,
+    requestedQuantity: q.requestedQuantity,
+    status: q.status,
+    queuedAt: q.queuedAt.toISOString(),
+    executedAt: q.executedAt ? q.executedAt.toISOString() : null,
+    cancelledAt: q.cancelledAt ? q.cancelledAt.toISOString() : null,
+    executionOrderId: q.executionOrderId,
+    failureReason: q.failureReason,
+  };
+}
+
+export function toPendingOrderDTO(o: PendingOrderSummary): PendingOrderDTO {
+  return {
+    id: o.id,
+    accountId: o.accountId,
+    symbol: o.symbol,
+    side: o.side,
+    orderType: o.orderType,
+    quantity: o.quantity,
+    triggerPrice: o.triggerPrice,
+    requestedStopLoss: o.requestedStopLoss,
+    requestedTakeProfit: o.requestedTakeProfit,
+    status: o.status,
+    version: o.version,
+    rejectionCode: o.rejectionCode,
+    executionOrderId: o.executionOrderId,
+    createdAt: o.createdAt.toISOString(),
+    updatedAt: o.updatedAt.toISOString(),
+    triggeredAt: o.triggeredAt ? o.triggeredAt.toISOString() : null,
+    filledAt: o.filledAt ? o.filledAt.toISOString() : null,
+    cancelledAt: o.cancelledAt ? o.cancelledAt.toISOString() : null,
+  };
+}
+
+export function toPriceAlertDTO(a: PriceAlertSummary): PriceAlertDTO {
+  return {
+    id: a.id,
+    userId: a.userId,
+    symbol: a.symbol,
+    direction: a.direction,
+    thresholdPrice: a.thresholdPrice,
+    source: a.source,
+    recurrence: a.recurrence,
+    enabled: a.enabled,
+    lastObservedSideAbove: a.lastObservedSideAbove,
+    lastTriggeredAt: a.lastTriggeredAt ? a.lastTriggeredAt.toISOString() : null,
+    triggerCount: a.triggerCount,
+    version: a.version,
+    createdAt: a.createdAt.toISOString(),
+    updatedAt: a.updatedAt.toISOString(),
+  };
+}
+
+export function toAlertNotificationDTO(n: AlertNotificationSummary): AlertNotificationDTO {
+  return {
+    id: n.id,
+    alertId: n.alertId,
+    symbol: n.symbol,
+    direction: n.direction,
+    thresholdPrice: n.thresholdPrice,
+    triggeringPrice: n.triggeringPrice,
+    source: n.source,
+    readAt: n.readAt ? n.readAt.toISOString() : null,
+    occurredAt: n.occurredAt.toISOString(),
   };
 }

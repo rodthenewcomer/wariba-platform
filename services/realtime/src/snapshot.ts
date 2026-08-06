@@ -13,6 +13,8 @@ import {
   loadAccountBalanceProjection,
   countShortDurationProfitClosures,
   resolveProfitEligibilityPolicy,
+  loadQueuedReductionsForAccount,
+  loadActivePendingOrdersForAccount,
   type Db,
   type TradableSymbol,
   type DailySnapshotInput,
@@ -25,7 +27,13 @@ import type {
 } from '@wariba/contracts';
 import type { MarketDataProvider } from '@wariba/adapters';
 import type { LoadedSymbolSpec } from './market';
-import { toPositionDTO, toOrderDTO, toFillDTO } from './dto-mappers';
+import {
+  toPositionDTO,
+  toOrderDTO,
+  toFillDTO,
+  toQueuedReductionDTO,
+  toPendingOrderDTO,
+} from './dto-mappers';
 
 /**
  * Full account state — used both for the initial subscribe (System
@@ -159,6 +167,9 @@ export async function buildAccountSnapshot(
     live.openPositionRows,
   );
 
+  const queuedReductions = await loadQueuedReductionsForAccount(db, accountId);
+  const pendingOrders = await loadActivePendingOrdersForAccount(db, accountId);
+
   return {
     accountId,
     nominalBalance: account.nominal_balance,
@@ -174,6 +185,8 @@ export async function buildAccountSnapshot(
       minimumDurationMs: eligibilityPolicy.minimumDurationMs,
     },
     risk,
+    queuedReductions: queuedReductions.map(toQueuedReductionDTO),
+    pendingOrders: pendingOrders.map(toPendingOrderDTO),
   };
 }
 

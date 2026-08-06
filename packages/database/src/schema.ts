@@ -409,6 +409,89 @@ export interface FillsTable {
   eligibility_reason: 'eligible' | 'short_duration_profit' | 'loss_counted' | 'breakeven' | null;
 }
 
+export type PositionReductionQueueStatus = 'queued' | 'executed' | 'cancelled' | 'failed';
+
+// Prompt 7 Appendix 07-C §12 — see the matching migration's doc comment.
+export interface PositionReductionQueueTable {
+  id: Generated<string>;
+  account_id: string;
+  position_id: string;
+  idempotency_key: string;
+  mode: 'partial' | 'full';
+  requested_quantity: string | null;
+  status: Generated<PositionReductionQueueStatus>;
+  queued_at: Timestamp;
+  executed_at: Timestamp | null;
+  cancelled_at: Timestamp | null;
+  execution_order_id: string | null;
+  failure_reason: string | null;
+  created_at: GeneratedTimestamp;
+}
+
+export type PendingOrderType = 'buy_limit' | 'sell_limit' | 'buy_stop' | 'sell_stop';
+export type PendingOrderStatus =
+  'active' | 'triggered' | 'filled' | 'cancelled' | 'rejected' | 'suspended_market_data' | 'failed';
+
+// Prompt 7 Appendix 07-D — see the matching migration's doc comment.
+export interface PendingOrdersTable {
+  id: Generated<string>;
+  account_id: string;
+  symbol: TradableSymbol;
+  side: OrderSide;
+  order_type: PendingOrderType;
+  quantity: string;
+  trigger_price: string;
+  requested_stop_loss: string | null;
+  requested_take_profit: string | null;
+  time_in_force: Generated<'GTC'>;
+  status: Generated<PendingOrderStatus>;
+  version: Generated<number>;
+  idempotency_key: string;
+  rejection_code: string | null;
+  execution_order_id: string | null;
+  trigger_market_sequence: string | null;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+  triggered_at: Timestamp | null;
+  filled_at: Timestamp | null;
+  cancelled_at: Timestamp | null;
+}
+
+export type AlertDirection = 'cross_above' | 'cross_below';
+export type AlertSource = 'bid' | 'ask' | 'mid';
+export type AlertRecurrence = 'once' | 'every_crossing';
+
+export interface PriceAlertsTable {
+  id: Generated<string>;
+  user_id: string;
+  symbol: TradableSymbol;
+  direction: AlertDirection;
+  threshold_price: string;
+  source: Generated<AlertSource>;
+  recurrence: AlertRecurrence;
+  enabled: Generated<boolean>;
+  last_observed_side_above: boolean | null;
+  last_triggered_at: Timestamp | null;
+  trigger_count: Generated<number>;
+  version: Generated<number>;
+  idempotency_key: string;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface AlertNotificationsTable {
+  id: Generated<string>;
+  alert_id: string;
+  user_id: string;
+  symbol: TradableSymbol;
+  direction: AlertDirection;
+  threshold_price: string;
+  triggering_price: string;
+  source: AlertSource;
+  read_at: Timestamp | null;
+  occurred_at: GeneratedTimestamp;
+}
+
 export interface Database {
   'app.user_profiles': UserProfilesTable;
   'app.user_consents': UserConsentsTable;
@@ -432,5 +515,9 @@ export interface Database {
   'app.fills': FillsTable;
   'app.outbox_events': OutboxEventsTable;
   'app.staff_members': StaffMembersTable;
+  'app.position_reduction_queue': PositionReductionQueueTable;
+  'app.pending_orders': PendingOrdersTable;
+  'app.price_alerts': PriceAlertsTable;
+  'app.alert_notifications': AlertNotificationsTable;
   'audit.audit_events': AuditEventsTable;
 }

@@ -1370,6 +1370,19 @@ Fonctions V1 :
 
 Indicateurs différés ou limités.
 
+**Prompt 7 Appendice 07-C (UX-TRADING-001 à 008, DECISION_LOG.md §13/§26) —**
+les lignes position et SL/TP ci-dessus sont désormais interactives, pas
+seulement affichées : badge de position avec PnL live et état de
+synchronisation, chips d’activation SL/TP, poignées glissables avec aperçu
+local visuellement distinct de la valeur confirmée serveur, alternative
+clavier (flèches haut/bas) et saisie de prix exact pour chaque interaction
+de glissement, menu contextuel clic droit (desktop) / appui long (mobile)
+limité aux actions réellement implémentées (Achat/Vente au marché, SL/TP,
+clôture partielle, fermeture — aucun ordre en attente Limit/Stop ni alerte
+de prix, absents de ce build), et clôture partielle 25/50/75/personnalisé.
+Le graphique reste `lightweight-charts` ; ces contrôles sont une surcouche
+HTML positionnée par `series.priceToCoordinate`, pas une nouvelle librairie.
+
 ## 22.7 Order Ticket
 
 Champs :
