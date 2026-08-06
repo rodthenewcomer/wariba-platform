@@ -834,15 +834,14 @@ Création initiale consolidée à partir de :
 
 # 27. Prochaine action opérationnelle
 
-Les Prompts 01 à 04 sont implémentés et audités sur la branche de travail. La séquence suivante est :
+Les Prompts 01 à 07 sont implémentés et audités sur `main`, y compris les
+Appendices 07-A à 07-D (v1.11 à v1.13 ci-dessus). La séquence suivante est :
 
 ```text
-1. Revue indépendante du diff et de la PR Prompts 01–04
-2. CI GitHub avec base de test isolée
-3. Merge par un humain ou un agent distinct
-4. Créer feat/policy-risk-evaluation
-5. Exécuter Prompt 00 puis Prompt 05
-6. Ne pas ouvrir la vente publique avant les gates actuariels, juridiques et de réserve
+1. Prompt 08 — Performance & Payout (buffer permanent 10 %, cinq Performance
+   Days à 0,50 %, calcul et review de payout) — voir Prompt Pack §11
+2. Continuer d'auditer chaque prompt avant de l'implémenter, comme jusqu'ici
+3. Ne pas ouvrir la vente publique avant les gates actuariels, juridiques et de réserve
 ```
 
 ---
