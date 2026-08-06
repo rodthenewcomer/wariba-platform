@@ -50,8 +50,16 @@ export function PendingOrderConfirm({
   onConfirm,
 }: PendingOrderConfirmProps) {
   const isStale = tick?.marketStatus === 'stale';
+  // Dialog (@wariba/ui) keeps its children mounted even while closed
+  // (toggled via the native <dialog>'s showModal()/close(), never
+  // unmounted) — so this renders on every /trade load regardless of
+  // whether a pending-order request is in flight, with triggerPrice as the
+  // caller's closed-state default (''). Both domain functions below do
+  // `new Decimal(triggerPrice)`, which throws on an empty string — gating
+  // on `open` (the only time triggerPrice is ever a real value) avoids
+  // calling them with one at all, rather than crashing the whole render tree.
   const stillValid =
-    tick && !isStale
+    open && tick && !isStale
       ? isPendingOrderCreationPriceValid({
           orderType,
           triggerPrice,
@@ -60,7 +68,7 @@ export function PendingOrderConfirm({
         })
       : false;
   const distancePoints =
-    tick && spec
+    open && tick && spec
       ? pendingOrderDistancePoints({
           triggerPrice,
           referencePrice: ((Number(tick.bid) + Number(tick.ask)) / 2).toFixed(spec.pricePrecision),
