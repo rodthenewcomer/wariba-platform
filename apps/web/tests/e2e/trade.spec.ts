@@ -476,10 +476,17 @@ test.describe('WariX partial close', () => {
     await sheet.getByRole('button', { name: '50%' }).click();
     await expect(sheet.getByText(/Clôturer 0\.05 sur 0\.10 lot/)).toBeVisible();
 
+    // Not the disabled-during-click pattern used elsewhere (Buy, Close
+    // All): PartialCloseSheet's onSubmitPartialClose closes the sheet
+    // synchronously on click, before any server round trip — a deliberate
+    // choice (unlike CloseAllDialog, this sheet has no "result" view of
+    // its own; a rejection surfaces through OrderTicket's own persistent
+    // Alert and the aria-live status announcement instead). So the sheet
+    // is expected to disappear immediately, not linger in a disabled state.
     const confirmButton = sheet.getByRole('button', { name: 'Confirmer la clôture partielle' });
-    await Promise.all([expect(confirmButton).toBeDisabled(), confirmButton.click()]);
-    await page.waitForTimeout(6000);
+    await confirmButton.click();
     await expect(sheet).not.toBeVisible();
+    await page.waitForTimeout(6000);
 
     // The position stays open at half its original size — never fully closed.
     await expect(page.getByText(/0\.05/).first()).toBeVisible();
