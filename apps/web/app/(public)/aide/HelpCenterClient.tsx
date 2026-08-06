@@ -61,13 +61,19 @@ const FAQS = [
     category: 'WariX',
     question: 'Qu’est-ce que WariX ?',
     answer:
-      'WariX est le terminal web de WARIBA. Il affiche le contexte du compte et permet les ordres de marché, la modification SL/TP sur une position ouverte, la clôture complète d’une position, ainsi que Close All.',
+      'WariX est le terminal web de WARIBA. Il affiche le contexte du compte et permet les ordres de marché, la modification SL/TP sur une position ouverte (directement sur le graphique par glissement, saisie de prix exact ou menu contextuel), la clôture partielle ou complète d’une position, ainsi que Close All.',
   },
   {
     category: 'WariX',
     question: 'Quels instruments sont disponibles ?',
     answer:
       'Les instruments disponibles sont EURUSD, GBPUSD, USDJPY, XAUUSD et NAS100. Le navigateur n’envoie jamais de prix autoritaire : le serveur seul décide du prix, du spread, du slippage et du fill.',
+  },
+  {
+    category: 'WariX',
+    question: 'Comment clôturer une partie seulement d’une position ?',
+    answer:
+      'Depuis le graphique (menu au clic droit ou bouton « Clôture % » sur la position), l’onglet Positions, ou le menu de gestion de la ligne de position : choisissez 25 %, 50 %, 75 % ou une quantité personnalisée, puis confirmez. Le reste de la position demeure ouvert. Si le prix du marché est momentanément obsolète, la demande est mise en file et exécutée automatiquement dès qu’un prix à jour redevient disponible — jamais contre un ancien prix.',
   },
   {
     category: 'Performance',

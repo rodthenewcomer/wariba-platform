@@ -302,3 +302,134 @@ test.describe('WariX accessibility scan', () => {
     expect(critical).toHaveLength(0);
   });
 });
+
+/**
+ * Prompt 7 Appendix 07-C — chart context menu, partial close and the
+ * accessible on-chart SL/TP path. Deliberately NOT covered here: dragging
+ * an SL/TP line/chip via continuous pointermove simulation. A right-click
+ * or a button click is one deterministic event Playwright can fire
+ * reliably; a multi-step drag against lightweight-charts' own canvas
+ * coordinate math is exactly the kind of interaction that produces flaky,
+ * environment-sensitive E2E tests. The drag math itself is covered by
+ * packages/domain's unit tests (roundPriceToTick, computeLevelPnlPreview)
+ * and TradeChart/ChartPositionOverlay's own drag-state-machine logic by
+ * apps/web/tests/ChartPositionOverlay.test.tsx's keyboard-adjustment
+ * tests — and every drag has this same click-driven exact-price path as
+ * its required non-drag alternative, which is what these tests exercise.
+ */
+test.describe('WariX chart context menu', () => {
+  test('right-click shows the clicked price and only market actions with no open position; Market Buy asks for confirmation before submitting', async ({
+    page,
+    tradeAccount,
+  }) => {
+    await login(page, tradeAccount.email, tradeAccount.password);
+    await page.goto('/trade');
+    await page.waitForTimeout(4000);
+
+    const chartCanvas = page.locator('canvas').first();
+    await chartCanvas.click({ button: 'right' });
+
+    const menu = page.getByRole('menu');
+    await expect(menu).toBeVisible();
+    await expect(page.getByText(/^Prix /)).toBeVisible();
+    await expect(menu.getByRole('menuitem')).toHaveCount(2);
+    await expect(menu.getByRole('menuitem', { name: 'Achat au marché' })).toBeVisible();
+    await expect(menu.getByRole('menuitem', { name: 'Vente au marché' })).toBeVisible();
+
+    await menu.getByRole('menuitem', { name: 'Achat au marché' }).click();
+    await expect(menu).not.toBeVisible();
+
+    // one-click trading is off by default (ONE_CLICK_TRADING_DEFAULT = false)
+    // — a confirmation must appear, never an immediate submit.
+    const confirmDialog = page.getByRole('dialog', { name: /Achat au marché/ });
+    await expect(confirmDialog).toBeVisible();
+    await confirmDialog.getByRole('button', { name: /Confirmer achat/ }).click();
+    await page.waitForTimeout(10_000);
+
+    await page.getByRole('tab', { name: 'Positions' }).click();
+    await expect(page.getByText('EURUSD · Achat')).toBeVisible();
+  });
+
+  test('Escape and outside click both dismiss the menu without submitting anything', async ({
+    page,
+    tradeAccount,
+  }) => {
+    await login(page, tradeAccount.email, tradeAccount.password);
+    await page.goto('/trade');
+    await page.waitForTimeout(4000);
+
+    const chartCanvas = page.locator('canvas').first();
+    await chartCanvas.click({ button: 'right' });
+    await expect(page.getByRole('menu')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).not.toBeVisible();
+
+    await chartCanvas.click({ button: 'right' });
+    await expect(page.getByRole('menu')).toBeVisible();
+    await page.mouse.click(10, 10);
+    await expect(page.getByRole('menu')).not.toBeVisible();
+
+    await expect(page.getByText('EURUSD · Achat')).not.toBeVisible();
+  });
+
+  test('once a position exists, the menu also offers SL/TP, partial close and close — and SL opens the exact-price dialog', async ({
+    page,
+    tradeAccount,
+  }) => {
+    await login(page, tradeAccount.email, tradeAccount.password);
+    await page.goto('/trade');
+    await page.waitForTimeout(4000);
+
+    await page.getByRole('button', { name: 'Buy' }).first().click();
+    await page.waitForTimeout(9000);
+
+    const chartCanvas = page.locator('canvas').first();
+    await chartCanvas.click({ button: 'right' });
+    const menu = page.getByRole('menu');
+    await expect(menu.getByRole('menuitem', { name: 'Ajouter un Stop Loss' })).toBeVisible();
+    await expect(menu.getByRole('menuitem', { name: 'Ajouter un Take Profit' })).toBeVisible();
+    await expect(
+      menu.getByRole('menuitem', { name: 'Clôturer une partie de la position' }),
+    ).toBeVisible();
+    await expect(menu.getByRole('menuitem', { name: 'Fermer la position' })).toBeVisible();
+
+    await menu.getByRole('menuitem', { name: 'Ajouter un Stop Loss' }).click();
+    await expect(page.getByRole('dialog', { name: /Modifier SL\/TP — EURUSD/ })).toBeVisible();
+  });
+});
+
+test.describe('WariX partial close', () => {
+  test('closing 50% leaves the position open at half size, never labelled just "Fermer"', async ({
+    page,
+    tradeAccount,
+  }) => {
+    await login(page, tradeAccount.email, tradeAccount.password);
+    await page.goto('/trade');
+    await page.waitForTimeout(4000);
+
+    await page.getByRole('button', { name: 'Buy' }).first().click();
+    await page.waitForTimeout(9000);
+
+    await page.getByRole('tab', { name: 'Positions' }).click();
+    await page
+      .getByRole('button', { name: /Clôture partielle — EURUSD/ })
+      .first()
+      .click();
+
+    const sheet = page.getByRole('dialog', { name: /Clôture partielle/ });
+    await expect(sheet).toBeVisible();
+    await sheet.getByRole('button', { name: '50%' }).click();
+    await expect(sheet.getByText(/Clôturer 0\.05 sur 0\.10 lot/)).toBeVisible();
+
+    const confirmButton = sheet.getByRole('button', { name: 'Confirmer la clôture partielle' });
+    await Promise.all([expect(confirmButton).toBeDisabled(), confirmButton.click()]);
+    await page.waitForTimeout(6000);
+    await expect(sheet).not.toBeVisible();
+
+    // The position stays open at half its original size — never fully closed.
+    await expect(page.getByText(/0\.05/).first()).toBeVisible();
+
+    await page.getByRole('tab', { name: 'Historique' }).click();
+    await expect(page.getByRole('cell', { name: '0.0500' })).toBeVisible();
+  });
+});
