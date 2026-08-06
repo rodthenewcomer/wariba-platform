@@ -43,6 +43,11 @@ export const symbolSpecSchema = z.object({
   maximumQuantity: z.string(),
   quantityStep: z.string(),
   leverage: z.number().positive(),
+  // Prompt 7 Appendix 07-C — needed client-side for the partial-close
+  // preview's "fees/commission" line (§9). Not sensitive: it's the same
+  // published rate every account on this spec set pays, already implied by
+  // every fill's own commission the client already sees in recentFills.
+  commissionPerLot: z.string(),
 });
 export type SymbolSpec = z.infer<typeof symbolSpecSchema>;
 
