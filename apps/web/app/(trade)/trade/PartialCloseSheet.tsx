@@ -208,8 +208,8 @@ export function PartialCloseSheet({
     <BottomSheet open={open} onClose={onClose} title={`Clôture partielle — ${position.symbol}`}>
       <div className="flex flex-col gap-4">
         <Text variant="body-sm" color="secondary" className="wariba-data">
-          Position actuelle : {position.side === 'buy' ? 'ACHAT' : 'VENTE'} {position.openQuantity}{' '}
-          {position.symbol}
+          Position actuelle : {position.side === 'buy' ? 'ACHAT' : 'VENTE'}{' '}
+          {formatQuantityForDisplay(position.openQuantity, spec.quantityStep)} {position.symbol}
         </Text>
 
         {existingQueued && existingQueued.status === 'queued' && (
@@ -274,7 +274,7 @@ export function PartialCloseSheet({
               name="partialCloseQuantity"
               value={customQuantity}
               onChange={(e) => setCustomQuantity(e.target.value)}
-              helperText={`Pas ${spec.quantityStep} · Maximum ${position.openQuantity}`}
+              helperText={`Pas ${spec.quantityStep} · Maximum ${formatQuantityForDisplay(position.openQuantity, spec.quantityStep)}`}
             />
           )}
         </div>
@@ -345,7 +345,8 @@ export function PartialCloseSheet({
 
         {quantityValid && quantity && (
           <Text variant="body-sm" color="secondary">
-            Clôturer {quantity} sur {position.openQuantity} lot ?
+            Clôturer {quantity} sur{' '}
+            {formatQuantityForDisplay(position.openQuantity, spec.quantityStep)} lot ?
             {preview && (
               <>
                 {' '}

@@ -899,7 +899,7 @@ export function TradeChart({
         <div
           ref={containerRef}
           className="w-full"
-          role="img"
+          role="group"
           aria-label={`Graphique ${symbol}`}
           onContextMenu={handleContextMenuEvent}
           onPointerDown={handleContainerPointerDown}

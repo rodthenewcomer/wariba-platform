@@ -61,7 +61,12 @@ test.describe('WariX order lifecycle', () => {
     // there.
     await page.getByRole('tab', { name: 'Ordres' }).click();
     await expect(page.getByRole('cell', { name: 'Ouverture' })).toBeVisible();
-    await expect(page.getByText('Exécuté')).toBeVisible();
+    // Not getByText: PendingOrderConfirm's always-mounted GTC disclaimer
+    // ("...exécuté par le serveur...") is a case-insensitive substring
+    // match for 'Exécuté' too — exact: true also makes this case-sensitive,
+    // which the status Badge's all-uppercase-styled but literally-cased
+    // "Exécuté" text still satisfies exactly.
+    await expect(page.getByText('Exécuté', { exact: true })).toBeVisible();
   });
 
   test('a rejected order (exposure limit) shows its reason in Historique, not just a raw code', async ({
@@ -336,21 +341,27 @@ test.describe('WariX chart context menu', () => {
     await page.goto('/trade');
     await page.waitForTimeout(4000);
 
-    // role=img, not the raw <canvas>: lightweight-charts stacks more
+    // role=group, not the raw <canvas>: lightweight-charts stacks more
     // than one canvas element for a single pane, and Playwright's
     // actionability check requires the resolved locator's own element (or
     // an ancestor of the actual hit-tested element) to receive the click —
     // picking a specific canvas by DOM order doesn't reliably land on
     // whichever one is actually topmost. The container div (aria-labelled
-    // role=img in TradeChart.tsx) is an ancestor of every canvas it holds,
-    // so a right-click here is a stable, correct target regardless of
-    // internal stacking order.
-    const chartCanvas = page.getByRole('img', { name: 'Graphique EURUSD' });
+    // role=group in TradeChart.tsx — not role=img, which axe correctly
+    // flags for nested-interactive against lightweight-charts' own
+    // TradingView attribution link) is an ancestor of every canvas it
+    // holds, so a right-click here is a stable, correct target regardless
+    // of internal stacking order.
+    const chartCanvas = page.getByRole('group', { name: 'Graphique EURUSD' });
     await chartCanvas.click({ button: 'right' });
 
     const menu = page.getByRole('menu');
     await expect(menu).toBeVisible();
-    await expect(page.getByText(/^Prix /)).toBeVisible();
+    // Not page.getByText: NotificationCenter's always-mounted "Prix seuil"/
+    // "Prix moyen (bid/ask)" text (Dialog keeps children mounted while
+    // closed) also matches /^Prix /, ambiguous with the menu's own heading.
+    // Scoping to the menu itself is unambiguous.
+    await expect(menu.getByText(/^Prix /)).toBeVisible();
     await expect(menu.getByRole('menuitem', { name: 'Achat au marché' })).toBeVisible();
     await expect(menu.getByRole('menuitem', { name: 'Vente au marché' })).toBeVisible();
     // Appendix 07-D — "Créer une alerte ici" is always offered, and exactly
@@ -396,7 +407,7 @@ test.describe('WariX chart context menu', () => {
     await page.goto('/trade');
     await page.waitForTimeout(4000);
 
-    const chartCanvas = page.getByRole('img', { name: 'Graphique EURUSD' });
+    const chartCanvas = page.getByRole('group', { name: 'Graphique EURUSD' });
     await chartCanvas.click({ button: 'right' });
     await expect(page.getByRole('menu')).toBeVisible();
     await page.keyboard.press('Escape');
@@ -421,7 +432,7 @@ test.describe('WariX chart context menu', () => {
     await page.getByRole('button', { name: 'Buy' }).first().click();
     await page.waitForTimeout(9000);
 
-    const chartCanvas = page.getByRole('img', { name: 'Graphique EURUSD' });
+    const chartCanvas = page.getByRole('group', { name: 'Graphique EURUSD' });
     await chartCanvas.click({ button: 'right' });
     const menu = page.getByRole('menu');
     await expect(menu.getByRole('menuitem', { name: 'Ajouter un Stop Loss' })).toBeVisible();
