@@ -296,7 +296,7 @@ Révision:
 | TRD-002 | `LOCKED` | Market orders d’abord. | Réduire complexité. |
 | TRD-003 | `LOCKED` | Stop Loss et Take Profit supportés. | Fonctionnalité minimale de trading. |
 | TRD-004 | `LOCKED` | Partial close, full close et Close All supportés. | Gestion pratique des positions. |
-| TRD-005 | `OPEN` | Pending orders avancés. | Hors première vertical slice sauf validation. |
+| TRD-005 | `SUPERSEDED par TRADING-ORDER-001` | Pending orders avancés. | Prompt 7 Appendice 07-D résout ce point, override explicite de la décision de scope prise au 07-C (UX-TRADING-003, désormais `SUPERSEDED par UX-TRADING-009`) — voir la nouvelle série TRADING-ORDER-*/TRADING-ALERT-* ci-dessous pour le détail verrouillé. |
 | TRD-006 | `LOCKED` | Prix d’exécution serveur. | Le client n’est jamais autoritaire. |
 | TRD-007 | `LOCKED` | Buy open sur ask, sell open sur bid. | Convention de marché. |
 | TRD-008 | `LOCKED` | Buy close sur bid, sell close sur ask. | Convention de marché. |
@@ -328,6 +328,14 @@ Révision:
 | TRD-034 | `LOCKED` | `program_eligible_balance` est la balance ledger réelle moins la somme durable des `ineligible_short_duration_profit`. Cette projection autoritaire est utilisée par la DLL, le Maximum Loss courant, la Best Day Rule, l'objectif d'évaluation et le plancher EOD trailing ; les snapshots quotidiens conservent balance réelle et balance éligible. | Intégration dédiée dans `program-eligibility.ts`, `risk.ts`, `risk-engine-inputs.ts`, `daily-finalization.ts` et le snapshot realtime, avec backfill et contraintes SQL. Aucune balance mutable parallèle n'est introduite. |
 | TRD-035 | `LOCKED` | Surveillance glissante 24h des clôtures profitables sous 60s (Prompt 07B) : 3 occurrences = avertissement pédagogique + signal de risque journalisé, sans conséquence ; 6 occurrences = verrouillage temporaire des nouvelles ouvertures (clôtures/réductions toujours autorisées) + compte marqué pour revue manuelle. Jamais de breach automatique permanent à partir de ce seul signal. | `evaluateShortDurationMonitoring` lit directement les fills durables. La porte serveur `openPosition` refuse uniquement `market_open` à partir de six occurrences ; les clôtures ne passent pas par cette porte. Les franchissements exacts 3/6 sont audités sans doublon. |
 | TRD-036 | `LOCKED` | Réaffirme TRD-018 sur les valeurs v1.1 : levier Evaluation inchangé (Forex 1:100, XAUUSD 1:50, NAS100 1:20) ; levier Performance abaissé à Forex 1:60, XAUUSD 1:25, NAS100 1:10 (mêmes ratios que TRD-018 : 0,60× Forex, 0,50× XAUUSD/NAS100, appliqués aux nouveaux plafonds Evaluation v1.1). | Trouvé lors de l'audit préparatoire du Prompt 05 : `symbol_specs`/`WARIBA_RULESET_v1.1.json` encodaient le même levier pour les deux programmes, contredisant TRD-018 sans jamais le superséder explicitement. Rod confirme le principe (Performance doit rester inférieur) ; les ratios de TRD-018 sont reconduits plutôt qu'un nouveau jugement de risque. Numéroté TRD-036 (pas TRD-029) lors de la fusion avec `main` — TRD-029 était déjà pris par la décision `ExecutionStateValue` du Prompt 07, développée en parallèle sur une autre branche. |
+| TRADING-ORDER-001 | `LOCKED` | Prompt 7 Appendice 07-D — Buy/Sell Limit/Stop supportés, GTC uniquement (`time_in_force` fixé à `'GTC'` en base, `app.pending_orders`) ; aucune autre durée n'est proposée. | Résout TRD-005. Machine d'états canonique : `active` → `triggered` → `filled` \| `failed`, ou `active` → `cancelled`, ou rejet direct à la création (`rejected` n'est jamais une ligne persistée — un rejet à la création ne crée pas de ligne du tout). `suspended_market_data` existe dans le schéma mais n'est pas encore atteint par ce build (aucun scénario d'outage n'écrit ce statut). |
+| TRADING-ORDER-002 | `LOCKED` | Un ordre en attente déclenché se remplit via la transaction `openPosition()` existante et inchangée (`packages/database/src/trading.ts`, nouveau paramètre `fillPriceOverride`), jamais un second chemin d'exécution divergent. Le SL/TP demandé à la création s'active atomiquement dans ce même fill. | Un seul chemin d'exécution financière autoritatif dans tout le système, plutôt que dupliquer commission/ledger/évaluation de risque pour les ordres en attente. |
+| TRADING-ORDER-003 | `LOCKED` | La vérification d'exposition agrégée à la création d'un ordre en attente ne considère que les positions actuellement ouvertes, jamais la quantité d'autres ordres en attente sur le même symbole. | Limitation documentée et acceptée : plusieurs ordres en attente peuvent en théorie, une fois tous déclenchés, dépasser ensemble la limite d'exposition. Le filet de sécurité réel est la re-vérification propre d'`openPosition()` au moment du déclenchement — un ordre qui dépasserait la limite au moment de se remplir est marqué `failed`, jamais silencieusement exécuté en sur-exposition. |
+| TRADING-ORDER-004 | `LOCKED` | Aucune infrastructure d'élection de leader / fencing / active-standby n'existe dans ce dépôt (`services/realtime` est un processus unique ; `packages/database` n'a aucune primitive de coordination distribuée). La sécurité des ordres en attente repose sur le même modèle que toute autre commande du système : un unique écrivain autoritatif, verrous de ligne Postgres, et clés d'idempotence. | Le prompt suppose à tort qu'une telle infrastructure existe déjà ; construire un vrai basculement multi-nœud serait un projet d'infrastructure séparé, non demandé par ailleurs et hors du périmètre de cet appendice. Documenté explicitement plutôt que fabriqué ou passé sous silence. |
+| TRADING-ORDER-005 | `LOCKED` | L'ordre en attente extension le ticket d'ordre existant (sélecteur de type Market/Limit/Stop), jamais un second ticket. Le menu contextuel du graphique ne propose que les types Achat/Vente Limite/Stop réellement valides au prix cliqué par rapport au bid/ask courant (`isPendingOrderCreationPriceValid`, `@wariba/domain`), jamais un choix invalide en façade désactivée. | Remplace la décision de scope UX-TRADING-003 (07-C) — voir UX-TRADING-009. |
+| TRADING-ALERT-001 | `LOCKED` | Les alertes de prix sont évaluées exclusivement côté serveur, sur chaque tick réel de `services/realtime` (`evaluateAlerts`), jamais côté client. | Cohérent avec TRD-006 (prix d'exécution serveur, le client n'est jamais autoritaire) appliqué au domaine des alertes. |
+| TRADING-ALERT-002 | `LOCKED` | Les alertes sont basées sur un franchissement (`cross_above`/`cross_below`, détecteur de transition via `last_observed_side_above`), jamais une égalité de seuil. La toute première évaluation après création ou réactivation établit seulement la base de référence et ne déclenche jamais. | Une alerte créée alors que le prix est déjà du côté "déclenchant" ne doit pas se déclencher immédiatement sans franchissement réel observé. |
+| TRADING-ALERT-003 | `LOCKED` | Les alertes sont propres à l'utilisateur, pas au compte (une surveillance personnelle d'un symbole, indépendante de tout compte de trading spécifique), livrées via le canal `user.{userId}.notifications` (existait sans producteur/consommateur depuis le Prompt 01) et persistées dans `app.alert_notifications`. | Un trader avec plusieurs comptes n'a besoin que d'un seul jeu d'alertes par symbole, pas d'un jeu dupliqué par compte. |
 
 ---
 
@@ -372,12 +380,13 @@ Révision:
 | UX-017 | `LOCKED` | `preparing` et `sending` sont des états 100 % client de l’état d’exécution WariX, jamais persistés côté serveur, posés avant/pendant l’envoi WebSocket. | Design System §25.7 ne décrit que les états confirmés serveur, ce qui semblait en conflit avec UX Architecture §22.9 ; les deux restent cohérents une fois `ExecutionState` compris comme couvrant le cycle complet (client + serveur), pas seulement la partie serveur. |
 | UX-TRADING-001 | `LOCKED` | WariX affiche les lignes de position autoritatives directement sur le graphique. | Prompt 7 Appendice 07-C — position visible et gérable sans quitter le graphique. |
 | UX-TRADING-002 | `LOCKED` | Le SL et le TP peuvent être activés et modifiés via des contrôles graphiques glissables et une saisie de prix exact. | Chaque glissement reste un aperçu local jusqu’à confirmation serveur ; la saisie exacte est l’alternative non-glissée obligatoire (accessibilité clavier/lecteur d’écran). |
-| UX-TRADING-003 | `LOCKED` | Le clic droit sur le graphique ouvre un menu contextuel d’actions manuelles côté desktop. | Aucun ordre en attente (Limit/Stop) ni alerte de prix n’existe dans ce build (seuls market_open/partial_close/full_close/modify_sl/modify_tp sont implémentés) — le menu n’propose donc que des actions réellement supportées, jamais un choix invalide. |
+| UX-TRADING-003 | `SUPERSEDED par UX-TRADING-009` | Le clic droit sur le graphique ouvre un menu contextuel d’actions manuelles côté desktop. | Aucun ordre en attente (Limit/Stop) ni alerte de prix n’existe dans ce build (seuls market_open/partial_close/full_close/modify_sl/modify_tp sont implémentés) — le menu n’propose donc que des actions réellement supportées, jamais un choix invalide. |
 | UX-TRADING-004 | `LOCKED` | Le mobile utilise l’appui long et des feuilles de gestion de position (bottom sheets). | Aucun clic droit n’existe sur mobile. |
 | UX-TRADING-005 | `LOCKED` | La clôture partielle propose 25 %, 50 %, 75 % et une quantité personnalisée valide. | Un pourcentage qui s’arrondirait à zéro ou à la position entière est désactivé avec explication plutôt que silencieusement corrigé. |
 | UX-TRADING-006 | `LOCKED` | Les clôtures partielles utilisent la comptabilité par fill déjà en place (un fill d’ouverture, allocation déterministe de la commission) et la règle d’éligibilité 60 secondes déjà verrouillée (v1.11), appliquée par portion clôturée. | TRD-020 (modèle hedging, verrouillé) reste inchangé — un modèle FIFO multi-lots n’est ni nécessaire ni introduit ; `app.fills` porte déjà tous les champs d’audit par clôture partielle. |
 | UX-TRADING-007 | `LOCKED` | Toutes les mutations de trading restent server-authoritative et idempotentes, y compris la réduction de risque mise en file pendant une donnée de marché obsolète (`app.position_reduction_queue`), exécutée une seule fois sur le premier prix à jour. | Réduire l’exposition doit rester possible pendant une donnée obsolète, sans jamais exécuter contre un ancien prix ni dupliquer l’exécution. |
 | UX-TRADING-008 | `LOCKED` | L’interaction de WariX peut s’inspirer de terminaux établis, mais son langage visuel (couleurs, espacement, icônes, typographie, formes) reste original — jetons `--wariba-chart-*`/`--wariba-status-*` existants uniquement. | Positionnement de marque distinct ; aucune copie visuelle d’une autre plateforme. |
+| UX-TRADING-009 | `LOCKED` | Prompt 7 Appendice 07-D — le menu contextuel du graphique propose désormais dynamiquement les types d'ordre en attente réellement valides au prix cliqué (jamais plus de deux des quatre : Achat/Vente Limite/Stop, selon la position du prix par rapport au bid/ask courant) et « Créer une alerte ici » (toujours proposé, sans contrainte directionnelle). Les ordres en attente et les alertes actives sur le symbole affiché apparaissent comme des lignes de prix natives avec une poignée glissable interactive (même mécanisme que les lignes SL/TP de 07-C — `series.createPriceLine` pour le trait, overlay HTML pour l'interactivité), chacune avec sa propre alternative non-glissée (flèches clavier, bouton « Gérer »). Un centre de notifications accessible depuis l'en-tête liste l'historique des alertes déclenchées (marquage lu) et gère les alertes existantes (activer/désactiver/supprimer/créer). | Remplace UX-TRADING-003, dont la justification (« aucun ordre en attente ni alerte n'existe ») n'est plus vraie après cet appendice. |
 
 ---
 
@@ -667,6 +676,38 @@ trading manuel ni à la règle d'éligibilité de profit à 60 secondes (TRD-033
 ---
 
 # 26. Historique des versions
+
+## v1.13 — 2026-08-06
+
+Prompt 7 Appendice 07-D (ordres en attente et alertes de prix WariX)
+intégré, override explicite de la décision de scope prise au 07-C (v1.12) :
+Achat/Vente Limite/Stop server-authoritative, GTC uniquement, machine
+d'états `active → triggered → filled|failed` (ou `cancelled`), déclenchement
+évalué sur chaque tick réel par `services/realtime` puis remplis via la
+transaction `openPosition()` existante et inchangée (`fillPriceOverride`),
+SL/TP demandé activé atomiquement dans ce même fill. Alertes de prix
+server-side par franchissement (jamais égalité de seuil), propres à
+l'utilisateur et non au compte, avec historique de notifications persistant
+et centre de notifications dans l'en-tête (marquage lu, activer/désactiver/
+supprimer/créer). Ticket d'ordre existant étendu (sélecteur Market/Limit/
+Stop), jamais dupliqué ; menu contextuel du graphique désormais dynamique
+(suggestions Limit/Stop valides au prix cliqué, jamais un choix invalide) ;
+lignes d'ordres en attente et d'alertes glissables sur le graphique, même
+mécanisme que les lignes SL/TP de 07-C. Absence honnête documentée :
+aucune infrastructure d'élection de leader / fencing / active-standby
+n'existe dans ce dépôt malgré la prémisse de l'appendice — la sécurité
+repose sur le modèle déjà en place (écrivain unique, verrous de ligne,
+clés d'idempotence), pas sur un vrai basculement multi-nœud qui resterait
+à construire séparément. Résout TRD-005 ; remplace UX-TRADING-003. Voir
+TRADING-ORDER-001 à 005, TRADING-ALERT-001 à 003 et UX-TRADING-009
+ci-dessus. Deux bugs pré-existants réels trouvés et corrigés en cours de
+route sur la suite E2E de 07-C (sans lien direct avec 07-D) : le contenu
+d'un `<dialog>` fermé reste dans le DOM (jamais démonté), rendant certains
+`getByText` ambigus avec des cellules de tableau identiques ; et
+`lightweight-charts` empile plusieurs éléments `<canvas>`, rendant
+`page.locator('canvas').first()` instable pour un clic droit — corrigé en
+donnant au conteneur du graphique un rôle accessible (`role="img"`,
+`aria-label`) ciblé à la place.
 
 ## v1.12 — 2026-08-06
 
