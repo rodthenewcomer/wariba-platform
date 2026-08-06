@@ -11,8 +11,25 @@ import {
   type Time,
   type UTCTimestamp,
 } from 'lightweight-charts';
-import type { MarketTick, PositionDTO, TradableSymbol } from '@wariba/contracts';
+import type { MarketTick, PositionDTO, SymbolSpec, TradableSymbol } from '@wariba/contracts';
+import {
+  computeRealizedPnl,
+  quotedPrice,
+  roundPriceToTick,
+  computeLevelPnlPreview,
+  computeRiskRewardRatio,
+} from '@wariba/domain';
+import { BottomSheet } from '@wariba/ui';
 import type { RealtimeConnectionState } from '../../../lib/realtime-client';
+import { resolveLabelCollisions } from './chart-overlay-geometry';
+import {
+  PositionBadge,
+  LevelChip,
+  LevelHandle,
+  DragPreviewPanel,
+  type LevelSyncState,
+} from './ChartPositionOverlay';
+import { ChartContextMenuPopover, ChartContextMenuContent } from './ChartContextMenu';
 
 export interface FillMarker {
   id: string;
@@ -23,12 +40,33 @@ export interface FillMarker {
   effect: 'open' | 'close';
 }
 
+export type RiskLevelField = 'stop_loss' | 'take_profit';
+
+export interface PendingRiskAction {
+  positionId: string;
+  field: RiskLevelField;
+}
+
 export interface TradeChartProps {
   symbol: TradableSymbol;
   tick: MarketTick | null;
   positions: PositionDTO[];
   fills: FillMarker[];
   connectionState: RealtimeConnectionState;
+  spec: SymbolSpec | null;
+  accountEquity: string;
+  dailyLossRemaining: string | null;
+  pendingRiskAction: PendingRiskAction | null;
+  commandPending: boolean;
+  onCommitLevel: (params: {
+    positionId: string;
+    field: RiskLevelField;
+    value: string | null;
+  }) => void;
+  onOpenManage: (positionId: string) => void;
+  onClosePosition: (positionId: string) => void;
+  onMarketOrderRequest: (side: 'buy' | 'sell') => void;
+  onOpenPartialClose: (positionId: string) => void;
 }
 
 interface Candle {
@@ -54,11 +92,42 @@ function bucketStart(unixSeconds: number, timeframeSeconds: number): UTCTimestam
   return (Math.floor(unixSeconds / timeframeSeconds) * timeframeSeconds) as UTCTimestamp;
 }
 
+interface ChartColors {
+  bid: string;
+  ask: string;
+  position: string;
+  stopLoss: string;
+  takeProfit: string;
+  preview: string;
+  axis: string;
+}
+
+/** Drag/exact-price session, both for an existing SL/TP line and for activating a chip that has none yet. */
+interface DragSession {
+  positionId: string;
+  field: RiskLevelField;
+  previewPrice: string;
+  /** Screen Y where the drag started — a mouseup within DRAG_CLICK_THRESHOLD_PX of this is treated as a tap, not a drag. */
+  startClientY: number;
+  moved: boolean;
+}
+
+const DRAG_CLICK_THRESHOLD_PX = 4;
+
 /**
  * UX Architecture §22.6 — chandeliers, sélection timeframe, crosshair, zoom,
  * pan, lignes position, lignes SL/TP, prix bid/ask, historique d'exécution,
  * thème adapté. Crosshair/zoom/pan are lightweight-charts defaults, not
  * built here.
+ *
+ * Prompt 7 Appendix 07-C — position/SL/TP lines are now interactive: a
+ * draggable HTML overlay (ChartPositionOverlay.tsx), positioned every tick
+ * via `series.priceToCoordinate`, sits on top of the native `createPriceLine`
+ * strokes (which stay purely visual — the stroke and its plain axis price
+ * tag, nothing clickable). A drag never touches the confirmed native line;
+ * it draws a second, visually distinct preview line and only commits
+ * server-side on drop (`onCommitLevel`) — see the component doc comment on
+ * DragSession below for the click-vs-drag disambiguation.
  *
  * DATA-003 (same constraint PriceChart.tsx documented): no tick history is
  * persisted or fetched anywhere in this system — candles are built purely
@@ -72,22 +141,30 @@ function bucketStart(unixSeconds: number, timeframeSeconds: number): UTCTimestam
  * AccountSnapshot.recentFills and updated from order_result. Tick candles
  * remain session-local because DATA-003 does not persist market history.
  */
-interface ChartColors {
-  bid: string;
-  ask: string;
-  position: string;
-  stopLoss: string;
-  takeProfit: string;
-  axis: string;
-}
-
-export function TradeChart({ symbol, tick, positions, fills, connectionState }: TradeChartProps) {
+export function TradeChart({
+  symbol,
+  tick,
+  positions,
+  fills,
+  connectionState,
+  spec,
+  accountEquity,
+  dailyLossRemaining,
+  pendingRiskAction,
+  commandPending,
+  onCommitLevel,
+  onOpenManage,
+  onClosePosition,
+  onMarketOrderRequest,
+  onOpenPartialClose,
+}: TradeChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const bidLineRef = useRef<IPriceLine | null>(null);
   const askLineRef = useRef<IPriceLine | null>(null);
   const positionLinesRef = useRef<IPriceLine[]>([]);
+  const previewLineRef = useRef<IPriceLine | null>(null);
   const candlesRef = useRef<Map<number, Candle>>(new Map());
   // lightweight-charts renders to canvas and never resolves CSS custom
   // properties itself — a raw 'var(...)' string crashes it (the same class
@@ -100,12 +177,28 @@ export function TradeChart({ symbol, tick, positions, fills, connectionState }: 
     position: '#6684FF',
     stopLoss: '#C94D4D',
     takeProfit: '#258A61',
+    preview: '#9AA3B1',
     axis: '#3A4251',
   });
   const [timeframeSeconds, setTimeframeSeconds] = useState<number>(TIMEFRAMES[0].seconds);
+  const [chartVersion, setChartVersion] = useState(0);
+  const [drag, setDrag] = useState<DragSession | null>(null);
+  const dragRef = useRef<DragSession | null>(null);
+  useEffect(() => {
+    dragRef.current = drag;
+  }, [drag]);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    price: string;
+    isTouchOrigin: boolean;
+  } | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const isStale = tick?.marketStatus === 'stale';
   const isDisconnected = connectionState !== 'open';
+  const draggingDisabled = isStale || isDisconnected || commandPending;
 
   // Chart instance — created once, torn down on unmount. Theme tokens are
   // read once at creation (WariX is always-dark, not user-togglable, so no
@@ -127,11 +220,12 @@ export function TradeChart({ symbol, tick, positions, fills, connectionState }: 
       position: readToken(container, '--wariba-chart-position', '#6684FF'),
       stopLoss: readToken(container, '--wariba-chart-stop-loss', '#C94D4D'),
       takeProfit: readToken(container, '--wariba-chart-take-profit', '#258A61'),
+      preview: readToken(container, '--wariba-text-tertiary', '#9AA3B1'),
       axis: axisColor,
     };
 
     const chart = createChart(container, {
-      height: 320,
+      height: 360,
       layout: { background: { color: background }, textColor },
       grid: {
         vertLines: { color: gridColor },
@@ -162,14 +256,23 @@ export function TradeChart({ symbol, tick, positions, fills, connectionState }: 
     resize();
     window.addEventListener('resize', resize);
 
+    // Overlay positions depend on the price scale's visible range, which
+    // can change on pan/zoom without any prop of this component changing —
+    // re-render the overlay (chartVersion bump) whenever that happens, on
+    // top of the tick-driven re-renders that already cover the common case.
+    const bumpChartVersion = () => setChartVersion((v) => v + 1);
+    chart.timeScale().subscribeVisibleLogicalRangeChange(bumpChartVersion);
+
     return () => {
       window.removeEventListener('resize', resize);
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(bumpChartVersion);
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
       bidLineRef.current = null;
       askLineRef.current = null;
       positionLinesRef.current = [];
+      previewLineRef.current = null;
     };
   }, []);
 
@@ -180,6 +283,8 @@ export function TradeChart({ symbol, tick, positions, fills, connectionState }: 
     candlesRef.current = new Map();
     seriesRef.current?.setData([]);
     seriesRef.current?.setMarkers([]);
+    setDrag(null);
+    setContextMenu(null);
   }, [symbol, timeframeSeconds]);
 
   // New tick for the selected symbol: update or start the current bucket's candle.
@@ -221,10 +326,13 @@ export function TradeChart({ symbol, tick, positions, fills, connectionState }: 
       axisLabelVisible: true,
       title: 'Ask',
     });
+    setChartVersion((v) => v + 1);
   }, [tick, timeframeSeconds]);
 
-  // Position + SL/TP lines for the selected symbol — rebuilt whenever the
-  // open-position list changes (a fill, a close, an SL/TP edit).
+  // Position + SL/TP native lines for the selected symbol — rebuilt
+  // whenever the open-position list changes (a fill, a close, an SL/TP
+  // edit). Never removed just because a drag is in progress — only an
+  // authoritative position update (this prop) ever changes these.
   useEffect(() => {
     const series = seriesRef.current;
     if (!series) return;
@@ -267,7 +375,30 @@ export function TradeChart({ symbol, tick, positions, fills, connectionState }: 
         );
       }
     }
+    setChartVersion((v) => v + 1);
   }, [positions]);
+
+  // The DRAGGING_PREVIEW line — a second, visually distinct native line at
+  // the in-progress preview price, separate from the confirmed SL/TP line
+  // above so the two are never visually confused (§5's explicit requirement).
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series) return;
+    if (previewLineRef.current) {
+      series.removePriceLine(previewLineRef.current);
+      previewLineRef.current = null;
+    }
+    if (drag) {
+      previewLineRef.current = series.createPriceLine({
+        price: Number(drag.previewPrice),
+        color: colorsRef.current.preview,
+        lineWidth: 2,
+        lineStyle: 1,
+        axisLabelVisible: true,
+        title: drag.field === 'stop_loss' ? 'SL (aperçu)' : 'TP (aperçu)',
+      });
+    }
+  }, [drag]);
 
   // Fill markers (§22.6 "historique d'exécution") — session-only, see the
   // component doc comment above for why nothing retroactive is possible.
@@ -285,12 +416,240 @@ export function TradeChart({ symbol, tick, positions, fills, connectionState }: 
     seriesRef.current.setMarkers(markers);
   }, [fills]);
 
+  // Global pointermove/pointerup — attached once, gated on dragRef so this
+  // works uniformly for mouse and touch without duplicating the handlers,
+  // and keeps tracking the pointer even if it leaves the chart container
+  // mid-drag (a real click-and-drag gesture routinely does).
+  useEffect(() => {
+    const handleMove = (event: PointerEvent) => {
+      const session = dragRef.current;
+      const series = seriesRef.current;
+      const container = containerRef.current;
+      if (!session || !series || !container || !spec) return;
+      if (event.cancelable) event.preventDefault();
+      const rect = container.getBoundingClientRect();
+      const y = event.clientY - rect.top;
+      const rawPrice = series.coordinateToPrice(y);
+      if (rawPrice === null) return;
+      const rounded = roundPriceToTick({
+        price: String(rawPrice),
+        pricePrecision: spec.pricePrecision,
+      });
+      const moved = Math.abs(event.clientY - session.startClientY) > DRAG_CLICK_THRESHOLD_PX;
+      setDrag({ ...session, previewPrice: rounded, moved: moved || session.moved });
+    };
+    const handleUp = (event: PointerEvent) => {
+      const session = dragRef.current;
+      if (!session) return;
+      setDrag(null);
+      // A tap (never moved beyond the click threshold) opens exact-price
+      // entry instead of committing a drag — see LevelChip/LevelHandle's
+      // onActivate, which already handles the "click" case directly; this
+      // only fires the drag commit for an actual drag gesture.
+      if (session.moved) {
+        onCommitLevel({
+          positionId: session.positionId,
+          field: session.field,
+          value: session.previewPrice,
+        });
+      }
+      event.preventDefault();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && dragRef.current) {
+        setDrag(null);
+      }
+    };
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp);
+    window.addEventListener('pointercancel', () => setDrag(null));
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [spec, onCommitLevel]);
+
+  const startDrag =
+    (positionId: string, field: RiskLevelField, initialPrice: string) =>
+    (event: React.PointerEvent) => {
+      if (draggingDisabled) return;
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+      setDrag({
+        positionId,
+        field,
+        previewPrice: initialPrice,
+        startClientY: event.clientY,
+        moved: false,
+      });
+    };
+
+  // Prompt 7 Appendix 07-C §7/§13 — desktop right-click opens the context
+  // menu anchored at the clicked point; mobile has no right-click, so a
+  // ~500ms touch-and-hold does the same job. Both compute the clicked
+  // price the same way the drag preview does (coordinateToPrice + round to
+  // tick) so the menu's "Price X" header is exact, not approximate.
+  const priceAtClientY = (clientY: number): string | null => {
+    const series = seriesRef.current;
+    const container = containerRef.current;
+    if (!series || !container || !spec) return null;
+    const rect = container.getBoundingClientRect();
+    const rawPrice = series.coordinateToPrice(clientY - rect.top);
+    if (rawPrice === null) return null;
+    return roundPriceToTick({ price: String(rawPrice), pricePrecision: spec.pricePrecision });
+  };
+
+  const handleContextMenuEvent = (event: React.MouseEvent) => {
+    event.preventDefault();
+    const price = priceAtClientY(event.clientY);
+    if (!price) return;
+    setDrag(null);
+    setContextMenu({ x: event.clientX, y: event.clientY, price, isTouchOrigin: false });
+  };
+
+  const clearLongPressTimer = () => {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = null;
+    longPressStartRef.current = null;
+  };
+
+  const handleContainerPointerDown = (event: React.PointerEvent) => {
+    if (event.pointerType !== 'touch') return;
+    if ((event.target as HTMLElement).closest('button')) return;
+    longPressStartRef.current = { x: event.clientX, y: event.clientY };
+    longPressTimerRef.current = setTimeout(() => {
+      const start = longPressStartRef.current;
+      if (!start) return;
+      const price = priceAtClientY(start.y);
+      if (!price) return;
+      setContextMenu({ x: start.x, y: start.y, price, isTouchOrigin: true });
+    }, 500);
+  };
+
+  const handleContainerPointerMove = (event: React.PointerEvent) => {
+    const start = longPressStartRef.current;
+    if (!start || event.pointerType !== 'touch') return;
+    if (Math.abs(event.clientX - start.x) > 10 || Math.abs(event.clientY - start.y) > 10) {
+      clearLongPressTimer();
+    }
+  };
+
+  const referencePriceFor = (position: PositionDTO): string | null => {
+    if (!tick) return null;
+    return quotedPrice({
+      bid: tick.bid,
+      ask: tick.ask,
+      positionSide: position.side,
+      action: 'close',
+    });
+  };
+
+  // One overlay item per position (badge) plus one per active SL/TP line —
+  // Y coordinates computed fresh every render (chartVersion/tick/positions
+  // all bump it), then collision-resolved so two nearby prices never
+  // produce overlapping labels (§3's "collision-aware label placement").
+  const overlay = useMemo(() => {
+    const series = seriesRef.current;
+    if (!series || !spec) return null;
+    void chartVersion; // recompute on chart scale/tick/position changes — see effects above.
+
+    const badgeInputs: { id: string; y: number; height: number }[] = [];
+    const levelInputs: { id: string; y: number; height: number }[] = [];
+    const badgeY = new Map<string, number>();
+    const levelY = new Map<string, number>();
+
+    for (const position of positions) {
+      const y = series.priceToCoordinate(Number(position.averageOpenPrice));
+      if (y !== null) badgeInputs.push({ id: `badge:${position.id}`, y, height: 26 });
+      if (position.stopLoss) {
+        const slY = series.priceToCoordinate(Number(position.stopLoss));
+        if (slY !== null) levelInputs.push({ id: `sl:${position.id}`, y: slY, height: 22 });
+      }
+      if (position.takeProfit) {
+        const tpY = series.priceToCoordinate(Number(position.takeProfit));
+        if (tpY !== null) levelInputs.push({ id: `tp:${position.id}`, y: tpY, height: 22 });
+      }
+    }
+    for (const placement of resolveLabelCollisions(badgeInputs)) {
+      badgeY.set(placement.id, placement.y);
+    }
+    for (const placement of resolveLabelCollisions(levelInputs)) {
+      levelY.set(placement.id, placement.y);
+    }
+    return { badgeY, levelY };
+  }, [positions, spec, chartVersion]);
+
+  const dragPreviewCard = useMemo(() => {
+    if (!drag || !spec) return null;
+    const position = positions.find((p) => p.id === drag.positionId);
+    if (!position) return null;
+    const reference = referencePriceFor(position);
+    if (!reference) return null;
+    const preview = computeLevelPnlPreview({
+      levelPrice: drag.previewPrice,
+      referencePrice: reference,
+      positionSide: position.side,
+      quantity: position.openQuantity,
+      contractSize: spec.contractSize,
+      pricePrecision: spec.pricePrecision,
+      accountEquity,
+    });
+    const riskReward =
+      drag.field === 'take_profit'
+        ? computeRiskRewardRatio({
+            stopLossPrice: position.stopLoss,
+            takeProfitPrice: drag.previewPrice,
+            referencePrice: reference,
+          })
+        : computeRiskRewardRatio({
+            stopLossPrice: drag.previewPrice,
+            takeProfitPrice: position.takeProfit,
+            referencePrice: reference,
+          });
+    const sign = Number(preview.estimatedPnl) >= 0 ? '+' : '';
+    return {
+      kind: drag.field,
+      priceFormatted: preview.levelPrice,
+      distancePointsFormatted: preview.distancePoints,
+      pnlFormatted: `${sign}${preview.estimatedPnl} USD`,
+      percentOfAccountFormatted: preview.percentOfAccountEquity,
+      riskRewardFormatted: riskReward,
+      dailyLossRemainingAfterFormatted:
+        drag.field === 'stop_loss' && dailyLossRemaining ? `${dailyLossRemaining} USD` : null,
+    };
+  }, [drag, positions, spec, accountEquity, dailyLossRemaining, tick]);
+
   const overlayLabel = useMemo(() => {
     if (isDisconnected)
       return connectionState === 'resyncing' ? 'Resynchronisation…' : 'Reconnexion…';
     if (isStale) return 'Prix obsolète';
     return null;
   }, [isDisconnected, isStale, connectionState]);
+
+  const syncStateFor = (positionId: string, field: RiskLevelField): LevelSyncState => {
+    if (drag && drag.positionId === positionId && drag.field === field) return 'dragging_preview';
+    if (
+      pendingRiskAction &&
+      pendingRiskAction.positionId === positionId &&
+      pendingRiskAction.field === field
+    ) {
+      return 'pending_server';
+    }
+    if (draggingDisabled) return 'stale_disabled';
+    return 'confirmed';
+  };
+
+  // The context menu's position-scoped actions (Add/Move SL/TP, partial
+  // close, close) target the first open position on this symbol — WariX's
+  // hedging model allows several concurrent positions per symbol, and a
+  // single "current position" menu can't disambiguate between them by
+  // clicked price alone. Managing a *specific* one among several stays
+  // available through that position's own badge (Gérer/Fermer), which is
+  // already per-position.
+  const currentPosition = positions[0] ?? null;
+
+  const closeContextMenu = () => setContextMenu(null);
 
   return (
     <div className="flex flex-col gap-2">
@@ -316,7 +675,164 @@ export function TradeChart({ symbol, tick, positions, fills, connectionState }: 
         </span>
       </div>
       <div className="relative">
-        <div ref={containerRef} className="w-full" />
+        <div
+          ref={containerRef}
+          className="w-full"
+          onContextMenu={handleContextMenuEvent}
+          onPointerDown={handleContainerPointerDown}
+          onPointerMove={handleContainerPointerMove}
+          onPointerUp={clearLongPressTimer}
+          onPointerCancel={clearLongPressTimer}
+        />
+        {overlay &&
+          positions.map((position) => {
+            const y = overlay.badgeY.get(`badge:${position.id}`);
+            if (y === undefined) return null;
+            const reference = referencePriceFor(position);
+            const pnl = reference
+              ? computeRealizedPnl({
+                  openPrice: position.averageOpenPrice,
+                  closePrice: reference,
+                  quantity: position.openQuantity,
+                  contractSize: spec?.contractSize ?? '1',
+                  positionSide: position.side,
+                })
+              : null;
+            const sign = pnl !== null && Number(pnl) >= 0 ? '+' : '';
+            return (
+              <PositionBadge
+                key={position.id}
+                y={y}
+                label={`${position.side === 'buy' ? 'ACHAT' : 'VENTE'} ${position.openQuantity} ${position.symbol}`}
+                priceFormatted={position.averageOpenPrice}
+                pnlFormatted={pnl !== null ? `${sign}${pnl} USD` : '—'}
+                pnlTone={
+                  pnl === null
+                    ? 'neutral'
+                    : Number(pnl) > 0
+                      ? 'positive'
+                      : Number(pnl) < 0
+                        ? 'negative'
+                        : 'neutral'
+                }
+                syncState={draggingDisabled ? 'stale_disabled' : 'confirmed'}
+                syncLabel={overlayLabel}
+                onManage={() => onOpenManage(position.id)}
+                onClose={() => onClosePosition(position.id)}
+                closeDisabled={commandPending}
+                showCloseButton
+              />
+            );
+          })}
+        {overlay &&
+          positions.map((position) => {
+            const reference = referencePriceFor(position);
+            const chips: React.ReactNode[] = [];
+            (['stop_loss', 'take_profit'] as const).forEach((field) => {
+              const value = field === 'stop_loss' ? position.stopLoss : position.takeProfit;
+              const levelKey = field === 'stop_loss' ? `sl:${position.id}` : `tp:${position.id}`;
+              if (value) {
+                const y = overlay.levelY.get(levelKey);
+                if (y === undefined || !spec || !reference) return;
+                const preview = computeLevelPnlPreview({
+                  levelPrice: value,
+                  referencePrice: reference,
+                  positionSide: position.side,
+                  quantity: position.openQuantity,
+                  contractSize: spec.contractSize,
+                  pricePrecision: spec.pricePrecision,
+                  accountEquity,
+                });
+                const sign = Number(preview.estimatedPnl) >= 0 ? '+' : '';
+                chips.push(
+                  <LevelHandle
+                    key={levelKey}
+                    y={y}
+                    kind={field}
+                    priceFormatted={value}
+                    pnlFormatted={`${sign}${preview.estimatedPnl} USD`}
+                    syncState={syncStateFor(position.id, field)}
+                    disabled={draggingDisabled}
+                    onPointerDown={startDrag(position.id, field, value)}
+                    onActivate={() => onOpenManage(position.id)}
+                    onRemove={() => onCommitLevel({ positionId: position.id, field, value: null })}
+                    onKeyboardAdjust={(direction) => {
+                      if (!spec) return;
+                      const point = Number(`1e-${spec.pricePrecision}`);
+                      const next = roundPriceToTick({
+                        price: String(Number(value) + direction * point),
+                        pricePrecision: spec.pricePrecision,
+                      });
+                      onCommitLevel({ positionId: position.id, field, value: next });
+                    }}
+                  />,
+                );
+              } else if (reference) {
+                const badgeY = overlay.badgeY.get(`badge:${position.id}`);
+                const y =
+                  badgeY !== undefined ? badgeY + 24 * (field === 'stop_loss' ? 1 : 2) : undefined;
+                if (y === undefined) return;
+                chips.push(
+                  <LevelChip
+                    key={`chip:${field}:${position.id}`}
+                    y={y}
+                    kind={field}
+                    disabled={draggingDisabled}
+                    disabledReason={
+                      isStale
+                        ? 'Prix obsolète — indisponible tant que le marché n’est pas à jour.'
+                        : null
+                    }
+                    onPointerDown={startDrag(position.id, field, reference)}
+                    onActivate={() => onOpenManage(position.id)}
+                  />,
+                );
+              }
+            });
+            return chips;
+          })}
+        {dragPreviewCard && <DragPreviewPanel {...dragPreviewCard} />}
+        {contextMenu && !contextMenu.isTouchOrigin && (
+          <ChartContextMenuPopover
+            x={contextMenu.x}
+            y={contextMenu.y}
+            onDismiss={closeContextMenu}
+            clickedPriceFormatted={contextMenu.price}
+            position={currentPosition}
+            disabled={draggingDisabled}
+            disabledReason={
+              isStale
+                ? 'Prix obsolète — actions indisponibles tant que le marché n’est pas à jour.'
+                : isDisconnected
+                  ? 'Connexion au serveur en cours…'
+                  : null
+            }
+            onMarketBuy={() => {
+              closeContextMenu();
+              onMarketOrderRequest('buy');
+            }}
+            onMarketSell={() => {
+              closeContextMenu();
+              onMarketOrderRequest('sell');
+            }}
+            onManageStopLoss={() => {
+              closeContextMenu();
+              if (currentPosition) onOpenManage(currentPosition.id);
+            }}
+            onManageTakeProfit={() => {
+              closeContextMenu();
+              if (currentPosition) onOpenManage(currentPosition.id);
+            }}
+            onPartialClose={() => {
+              closeContextMenu();
+              if (currentPosition) onOpenPartialClose(currentPosition.id);
+            }}
+            onClosePosition={() => {
+              closeContextMenu();
+              if (currentPosition) onClosePosition(currentPosition.id);
+            }}
+          />
+        )}
         {overlayLabel && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[color:var(--wariba-chart-background)]/60">
             <span className="rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-background-elevated)] px-3 py-1.5 text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-status-warning-text)]">
@@ -325,6 +841,50 @@ export function TradeChart({ symbol, tick, positions, fills, connectionState }: 
           </div>
         )}
       </div>
+      <BottomSheet
+        open={Boolean(contextMenu?.isTouchOrigin)}
+        onClose={closeContextMenu}
+        title={contextMenu ? `Prix ${contextMenu.price}` : ''}
+      >
+        {contextMenu && (
+          <ChartContextMenuContent
+            clickedPriceFormatted={contextMenu.price}
+            position={currentPosition}
+            disabled={draggingDisabled}
+            disabledReason={
+              isStale
+                ? 'Prix obsolète — actions indisponibles tant que le marché n’est pas à jour.'
+                : isDisconnected
+                  ? 'Connexion au serveur en cours…'
+                  : null
+            }
+            onMarketBuy={() => {
+              closeContextMenu();
+              onMarketOrderRequest('buy');
+            }}
+            onMarketSell={() => {
+              closeContextMenu();
+              onMarketOrderRequest('sell');
+            }}
+            onManageStopLoss={() => {
+              closeContextMenu();
+              if (currentPosition) onOpenManage(currentPosition.id);
+            }}
+            onManageTakeProfit={() => {
+              closeContextMenu();
+              if (currentPosition) onOpenManage(currentPosition.id);
+            }}
+            onPartialClose={() => {
+              closeContextMenu();
+              if (currentPosition) onOpenPartialClose(currentPosition.id);
+            }}
+            onClosePosition={() => {
+              closeContextMenu();
+              if (currentPosition) onClosePosition(currentPosition.id);
+            }}
+          />
+        )}
+      </BottomSheet>
     </div>
   );
 }
