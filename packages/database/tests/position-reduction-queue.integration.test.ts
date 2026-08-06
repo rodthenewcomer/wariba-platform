@@ -305,12 +305,19 @@ describeIfDb('position-reduction-queue — real database', () => {
     });
 
     const later = new Date(NOW.getTime() + 1_000);
-    const firstRun = await executeQueuedReductions(db, {
-      symbol: 'EURUSD',
-      market: { ...FRESH_MARKET, timestamp: later.toISOString(), sequence: '2' },
-      marketBySymbol: ALL_MARKETS_FRESH,
-      now: later,
-    });
+    // executeQueuedReductions settles every 'queued' row for this symbol
+    // across every account (by design — a real tick settles the whole
+    // symbol, not one account) — other tests in this file can legitimately
+    // leave their own queued rows behind on the same EURUSD symbol, so this
+    // filters to the entry this test itself created before asserting.
+    const firstRun = (
+      await executeQueuedReductions(db, {
+        symbol: 'EURUSD',
+        market: { ...FRESH_MARKET, timestamp: later.toISOString(), sequence: '2' },
+        marketBySymbol: ALL_MARKETS_FRESH,
+        now: later,
+      })
+    ).filter((entry) => entry.accountId === accountId);
     expect(firstRun).toHaveLength(1);
     expect(firstRun[0]?.commandResult.order.status).toBe('filled');
     expect(firstRun[0]?.queueEntry.status).toBe('executed');
@@ -322,18 +329,20 @@ describeIfDb('position-reduction-queue — real database', () => {
       .executeTakeFirstOrThrow();
     expect(position.open_quantity).toBe('0.1000');
 
-    // A second tick must find nothing left queued for this symbol — never
-    // a duplicate execution of the same reduction.
-    const secondRun = await executeQueuedReductions(db, {
-      symbol: 'EURUSD',
-      market: {
-        ...FRESH_MARKET,
-        timestamp: new Date(later.getTime() + 1_000).toISOString(),
-        sequence: '3',
-      },
-      marketBySymbol: ALL_MARKETS_FRESH,
-      now: new Date(later.getTime() + 1_000),
-    });
+    // A second tick must find nothing left queued for *this* reduction —
+    // never a duplicate execution of the same one.
+    const secondRun = (
+      await executeQueuedReductions(db, {
+        symbol: 'EURUSD',
+        market: {
+          ...FRESH_MARKET,
+          timestamp: new Date(later.getTime() + 1_000).toISOString(),
+          sequence: '3',
+        },
+        marketBySymbol: ALL_MARKETS_FRESH,
+        now: new Date(later.getTime() + 1_000),
+      })
+    ).filter((entry) => entry.accountId === accountId);
     expect(secondRun).toHaveLength(0);
   });
 
@@ -365,12 +374,14 @@ describeIfDb('position-reduction-queue — real database', () => {
     expect(immediateClose.order.status).toBe('filled');
 
     const later = new Date(NOW.getTime() + 1_000);
-    const executed = await executeQueuedReductions(db, {
-      symbol: 'EURUSD',
-      market: { ...FRESH_MARKET, timestamp: later.toISOString(), sequence: '4' },
-      marketBySymbol: ALL_MARKETS_FRESH,
-      now: later,
-    });
+    const executed = (
+      await executeQueuedReductions(db, {
+        symbol: 'EURUSD',
+        market: { ...FRESH_MARKET, timestamp: later.toISOString(), sequence: '4' },
+        marketBySymbol: ALL_MARKETS_FRESH,
+        now: later,
+      })
+    ).filter((entry) => entry.accountId === accountId);
     expect(executed).toHaveLength(1);
     expect(executed[0]?.queueEntry.status).toBe('failed');
     expect(executed[0]?.commandResult.order.status).toBe('rejected');
