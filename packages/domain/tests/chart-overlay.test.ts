@@ -161,6 +161,21 @@ describe('computePartialClosePresetQuantity', () => {
     });
     expect(result).toBeNull();
   });
+
+  it("formats to the step's real precision, not the raw string length of a DB-padded value", () => {
+    // app.symbol_specs.quantity_step is numeric(14,4) — Postgres always
+    // delivers it right-padded to that scale ("0.0100", never "0.01").
+    // A prior bug counted decimals from the padded string's own length
+    // (4), producing "0.0500" instead of "0.05" for a real 2-decimal step.
+    expect(
+      computePartialClosePresetQuantity({
+        openQuantity: '0.1000',
+        percent: 50,
+        quantityStep: '0.0100',
+        minimumQuantity: '0.0100',
+      }),
+    ).toBe('0.05');
+  });
 });
 
 describe('roundCustomPartialCloseQuantity', () => {

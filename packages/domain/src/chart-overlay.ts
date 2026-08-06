@@ -23,10 +23,20 @@ export function roundPriceToTick(params: { price: string; pricePrecision: number
   return new Decimal(params.price).toFixed(params.pricePrecision);
 }
 
-/** Digits after the decimal point in a quantity-step string, e.g. "0.01" -> 2. */
+/**
+ * Digits after the decimal point in a quantity-step string, e.g. "0.01" -> 2.
+ * Uses Decimal.js's own digit representation rather than counting the raw
+ * string's length after the dot: app.symbol_specs.quantity_step is a
+ * numeric(14,4) column, so the server always delivers it right-padded to
+ * that column's declared scale ("0.0100", never "0.01") — counting string
+ * length directly would return 4 there, not the step's actual 2 meaningful
+ * decimals, producing quantities like "0.0500" instead of "0.05".
+ * Decimal.js drops insignificant trailing zeros when parsing a string, so
+ * `.decimalPlaces()` reports the value's real precision regardless of how
+ * many trailing zeros the source string happened to have.
+ */
 function decimalPlacesOf(value: string): number {
-  const dot = value.indexOf('.');
-  return dot === -1 ? 0 : value.length - dot - 1;
+  return new Decimal(value).decimalPlaces();
 }
 
 export interface LevelPnlPreview {

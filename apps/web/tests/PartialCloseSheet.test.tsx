@@ -18,13 +18,18 @@ beforeAll(() => {
   };
 });
 
+// quantityStep/minimumQuantity deliberately padded to numeric(14,4)'s real
+// scale, not the "0.01" shorthand — app.symbol_specs delivers them this way
+// for real (Postgres always right-pads a numeric(14,4) column to 4 decimal
+// places), and a prior bug (decimalPlacesOf counting raw string length)
+// only ever showed up against this padded shape, never a hand-typed '0.01'.
 const SPEC: SymbolSpec = {
   symbol: 'EURUSD',
   pricePrecision: 5,
   contractSize: '100000',
-  minimumQuantity: '0.01',
-  maximumQuantity: '10',
-  quantityStep: '0.01',
+  minimumQuantity: '0.0100',
+  maximumQuantity: '10.0000',
+  quantityStep: '0.0100',
   leverage: 100,
   commissionPerLot: '3.5000',
 };
@@ -46,7 +51,9 @@ function makePosition(overrides: Partial<PositionDTO> = {}): PositionDTO {
     accountId: 'acc-1',
     symbol: 'EURUSD',
     side: 'buy',
-    openQuantity: '1.00',
+    // Ledger precision (numeric(14,4)), matching what app.positions really
+    // returns — not the display-precision "1.00" shorthand.
+    openQuantity: '1.0000',
     averageOpenPrice: '1.08300',
     realizedPnl: '0.00',
     stopLoss: null,
@@ -98,7 +105,9 @@ describe('PartialCloseSheet', () => {
 
   it('disables a preset that would round to zero or an invalid lot size, with a reason', () => {
     // 25% of 0.01 lot at a 0.01 step rounds to 0 — must be disabled, not silently wrong.
-    render(<PartialCloseSheet {...baseProps} position={makePosition({ openQuantity: '0.01' })} />);
+    render(
+      <PartialCloseSheet {...baseProps} position={makePosition({ openQuantity: '0.0100' })} />,
+    );
     const preset25 = screen.getByRole('button', { name: '25%' });
     expect(preset25).toBeDisabled();
     expect(preset25).toHaveAttribute('title');

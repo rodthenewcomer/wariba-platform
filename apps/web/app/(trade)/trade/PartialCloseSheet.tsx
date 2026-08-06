@@ -25,10 +25,21 @@ import type { OrderRejectionDetail } from './OrderTicket';
  * quantity that actually gets submitted is the untouched preset/custom
  * value) — without it, "Clôturer 0.25 sur 1.00 lot" next to "Restant :
  * 0.7500 lot" reads as a precision bug even though both numbers are correct.
+ *
+ * quantityStep itself arrives from app.symbol_specs.quantity_step, a
+ * numeric(14,4) column — Postgres always right-pads it to that declared
+ * scale ("0.0100", never "0.01"), so counting decimals from its raw string
+ * length would over-count EURUSD's real 2-decimal step as 4, producing
+ * "0.0500" instead of "0.05". Strip insignificant trailing zeros first (no
+ * decimal.js here — apps/web has no dependency on it; money math always
+ * goes through @wariba/domain, and this is display-only anyway).
  */
 function formatQuantityForDisplay(value: string, quantityStep: string): string {
-  const dot = quantityStep.indexOf('.');
-  const decimals = dot === -1 ? 0 : quantityStep.length - dot - 1;
+  const trimmed = quantityStep.includes('.')
+    ? quantityStep.replace(/0+$/, '').replace(/\.$/, '')
+    : quantityStep;
+  const dot = trimmed.indexOf('.');
+  const decimals = dot === -1 ? 0 : trimmed.length - dot - 1;
   return Number(value).toFixed(decimals);
 }
 
