@@ -5305,3 +5305,39 @@ serveur véritablement nouvelle est la file d'attente de réduction de
 position pendant une donnée de marché obsolète (`app.position_reduction_queue`,
 `packages/database/src/position-reduction-queue.ts`), exécutée par
 `services/realtime` sur le premier tick frais du symbole concerné.
+
+---
+
+# 34. Appendice 07-D — Ordres en attente et alertes de prix WariX
+
+## Portée
+
+Livré : ordres en attente server-authoritative (Achat/Vente Limit/Stop, GTC,
+Stop Loss / Take Profit optionnels attachés dès la création), alertes de prix
+par franchissement de seuil (bid/ask/mid), centre de notifications, lignes
+glissables sur le graphique pour les deux, menu contextuel étendu (desktop
+clic droit et mobile appui long — bottom sheet tactile, actions identiques).
+Revue d'acceptation finale du 2026-08-06 : voir le rapport de vérification
+des six portes d'acceptation (preuve SL/TP attaché, preuve mobile, patches
+documentaires, état visuel `PENDING_SERVER`, reprise single-node après
+restart, verdict de disponibilité) dans l'historique du Decision Log.
+
+Ce prompt n'a pas été conservé verbatim dans ce pack ; son texte d'origine a
+été délivré en conversation. Cette entrée documente la portée réellement
+livrée et sert de point d'ancrage pour la recherche — la source de vérité
+normative reste `DECISION_LOG.md` (TRADING-ORDER-001 à 005, TRADING-ALERT-001
+à 003, UX-TRADING-009, v1.13).
+
+## Note d'implémentation
+
+Le déclenchement d'un ordre en attente et l'évaluation d'une alerte
+partagent le même point d'accroche que la file de réduction de position de
+l'Appendice 07-C : le callback `market.subscribe(...)` de
+`services/realtime/src/websocket.ts`, sur chaque tick réel. Un ordre en
+attente qui se déclenche réutilise `openPosition`
+(`packages/database/src/trading.ts`) dans la même transaction Postgres que
+le fill — SL/TP deviennent des protections de position authoritatives dans
+le même commit, jamais une étape séparée. Aucune élection de leader, aucun
+fencing, aucun standby n'existe pour `services/realtime` — la reprise après
+restart est testée et correcte, mais l'intervalle pendant lequel le
+processus est arrêté reste une interruption de service réelle.
