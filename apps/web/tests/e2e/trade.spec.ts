@@ -364,12 +364,17 @@ test.describe('WariX chart context menu', () => {
     await expect(menu.getByText(/^Prix /)).toBeVisible();
     await expect(menu.getByRole('menuitem', { name: 'Achat au marché' })).toBeVisible();
     await expect(menu.getByRole('menuitem', { name: 'Vente au marché' })).toBeVisible();
-    // Appendix 07-D — "Créer une alerte ici" is always offered, and exactly
+    // Appendix 07-D — "Créer une alerte ici" is always offered, and one or
     // two of the four Buy/Sell Limit/Stop suggestions are valid for any
     // given clicked price relative to the live bid/ask
-    // (isPendingOrderCreationPriceValid, @wariba/domain) — but which two
-    // depends on where this click landed against this sandbox's live feed
-    // at that instant, so this only asserts the count, not which labels.
+    // (isPendingOrderCreationPriceValid, @wariba/domain): normally exactly
+    // two (below bid, between bid/ask, or above ask each make a different
+    // two valid), but if the clicked price happens to round to exactly bid
+    // or exactly ask, the strict inequalities on both sides of that
+    // boundary drop to only one — a real, if narrow, edge case against this
+    // sandbox's live feed, not a bug. Never zero, never all four either
+    // way. Which ones depends on where this click landed at that instant,
+    // so this only asserts the count is in range, not which labels.
     await expect(menu.getByRole('menuitem', { name: 'Créer une alerte ici' })).toBeVisible();
     const pendingOrderLabels = [
       'Achat Limite ici',
@@ -383,7 +388,8 @@ test.describe('WariX chart context menu', () => {
         visiblePendingSuggestions += 1;
       }
     }
-    expect(visiblePendingSuggestions).toBe(2);
+    expect(visiblePendingSuggestions).toBeGreaterThanOrEqual(1);
+    expect(visiblePendingSuggestions).toBeLessThanOrEqual(2);
 
     await menu.getByRole('menuitem', { name: 'Achat au marché' }).click();
     await expect(menu).not.toBeVisible();
