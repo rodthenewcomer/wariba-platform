@@ -80,3 +80,12 @@ export {
   type ShortDurationMonitoringStatus,
   type ShortDurationMonitoringResult,
 } from './profit-eligibility';
+export {
+  roundPriceToTick,
+  computeLevelPnlPreview,
+  computeRiskRewardRatio,
+  computePartialClosePresetQuantity,
+  roundCustomPartialCloseQuantity,
+  computeNetPnlAfterFees,
+  type LevelPnlPreview,
+} from './chart-overlay';
