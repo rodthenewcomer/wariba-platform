@@ -46,7 +46,14 @@ test.describe('WariX order lifecycle', () => {
     await page.waitForTimeout(10_000);
 
     await page.getByRole('tab', { name: 'Positions' }).click();
-    await expect(page.getByText('EURUSD · Achat')).toBeVisible();
+    // Not getByText: QuickOrderConfirm/PendingOrderConfirm render a
+    // "{symbol} · {side} · {quantity} lot" summary line unconditionally
+    // (Dialog keeps children mounted, closed via the native <dialog>'s
+    // `open` attribute rather than unmounting) — for the default 0.10 lot
+    // quantity that string is itself an "EURUSD · Achat" substring match,
+    // ambiguous with this Positions row even while both confirm dialogs
+    // are closed. The positions table cell is unambiguous.
+    await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toBeVisible();
 
     // Order status/reason lives in "Ordres" — "Historique" is the
     // closed-position PnL/eligibility ledger (only positions that have been
@@ -139,7 +146,10 @@ test.describe('WariX position risk modification', () => {
     await page.reload();
     await page.waitForTimeout(4000);
     await page.getByRole('tab', { name: 'Positions' }).click();
-    await expect(page.getByText('1.00000')).toBeVisible();
+    // Not getByText: the chart's own SL handle also renders "SL · 1.00000 ·
+    // ... USD" once a position with a stop loss exists — ambiguous with the
+    // positions table's own SL cell. The table cell is unambiguous.
+    await expect(page.getByRole('cell', { name: '1.00000' })).toBeVisible();
   });
 });
 
@@ -230,7 +240,7 @@ test.describe('WariX mobile', () => {
     await page.keyboard.press('Escape');
     await expect(sheet).not.toBeVisible();
     await page.getByRole('tab', { name: 'Positions' }).click();
-    await expect(page.getByText('EURUSD · Achat')).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toBeVisible();
   });
 });
 
@@ -248,7 +258,7 @@ test.describe('WariX keyboard access', () => {
     await page.keyboard.press('b');
     await page.waitForTimeout(500);
     await expect(page.getByText('Ordre refusé')).not.toBeVisible();
-    const positionsRow = page.getByText('EURUSD · Achat');
+    const positionsRow = page.getByRole('cell', { name: 'EURUSD · Achat', exact: true });
     await expect(positionsRow).not.toBeVisible();
 
     const buyButton = page.getByRole('button', { name: 'Buy' }).first();
@@ -258,7 +268,7 @@ test.describe('WariX keyboard access', () => {
     await page.waitForTimeout(10_000);
 
     await page.getByRole('tab', { name: 'Positions' }).click();
-    await expect(page.getByText('EURUSD · Achat')).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toBeVisible();
   });
 
   test('watchlist selection is keyboard-operable and exposes aria-current, not color alone', async ({
@@ -326,15 +336,43 @@ test.describe('WariX chart context menu', () => {
     await page.goto('/trade');
     await page.waitForTimeout(4000);
 
-    const chartCanvas = page.locator('canvas').first();
+    // role=img, not the raw <canvas>: lightweight-charts stacks more
+    // than one canvas element for a single pane, and Playwright's
+    // actionability check requires the resolved locator's own element (or
+    // an ancestor of the actual hit-tested element) to receive the click —
+    // picking a specific canvas by DOM order doesn't reliably land on
+    // whichever one is actually topmost. The container div (aria-labelled
+    // role=img in TradeChart.tsx) is an ancestor of every canvas it holds,
+    // so a right-click here is a stable, correct target regardless of
+    // internal stacking order.
+    const chartCanvas = page.getByRole('img', { name: 'Graphique EURUSD' });
     await chartCanvas.click({ button: 'right' });
 
     const menu = page.getByRole('menu');
     await expect(menu).toBeVisible();
     await expect(page.getByText(/^Prix /)).toBeVisible();
-    await expect(menu.getByRole('menuitem')).toHaveCount(2);
     await expect(menu.getByRole('menuitem', { name: 'Achat au marché' })).toBeVisible();
     await expect(menu.getByRole('menuitem', { name: 'Vente au marché' })).toBeVisible();
+    // Appendix 07-D — "Créer une alerte ici" is always offered, and exactly
+    // two of the four Buy/Sell Limit/Stop suggestions are valid for any
+    // given clicked price relative to the live bid/ask
+    // (isPendingOrderCreationPriceValid, @wariba/domain) — but which two
+    // depends on where this click landed against this sandbox's live feed
+    // at that instant, so this only asserts the count, not which labels.
+    await expect(menu.getByRole('menuitem', { name: 'Créer une alerte ici' })).toBeVisible();
+    const pendingOrderLabels = [
+      'Achat Limite ici',
+      'Vente Limite ici',
+      'Achat Stop ici',
+      'Vente Stop ici',
+    ];
+    let visiblePendingSuggestions = 0;
+    for (const label of pendingOrderLabels) {
+      if (await menu.getByRole('menuitem', { name: label }).isVisible()) {
+        visiblePendingSuggestions += 1;
+      }
+    }
+    expect(visiblePendingSuggestions).toBe(2);
 
     await menu.getByRole('menuitem', { name: 'Achat au marché' }).click();
     await expect(menu).not.toBeVisible();
@@ -347,7 +385,7 @@ test.describe('WariX chart context menu', () => {
     await page.waitForTimeout(10_000);
 
     await page.getByRole('tab', { name: 'Positions' }).click();
-    await expect(page.getByText('EURUSD · Achat')).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toBeVisible();
   });
 
   test('Escape and outside click both dismiss the menu without submitting anything', async ({
@@ -358,7 +396,7 @@ test.describe('WariX chart context menu', () => {
     await page.goto('/trade');
     await page.waitForTimeout(4000);
 
-    const chartCanvas = page.locator('canvas').first();
+    const chartCanvas = page.getByRole('img', { name: 'Graphique EURUSD' });
     await chartCanvas.click({ button: 'right' });
     await expect(page.getByRole('menu')).toBeVisible();
     await page.keyboard.press('Escape');
@@ -369,7 +407,7 @@ test.describe('WariX chart context menu', () => {
     await page.mouse.click(10, 10);
     await expect(page.getByRole('menu')).not.toBeVisible();
 
-    await expect(page.getByText('EURUSD · Achat')).not.toBeVisible();
+    await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).not.toBeVisible();
   });
 
   test('once a position exists, the menu also offers SL/TP, partial close and close — and SL opens the exact-price dialog', async ({
@@ -383,7 +421,7 @@ test.describe('WariX chart context menu', () => {
     await page.getByRole('button', { name: 'Buy' }).first().click();
     await page.waitForTimeout(9000);
 
-    const chartCanvas = page.locator('canvas').first();
+    const chartCanvas = page.getByRole('img', { name: 'Graphique EURUSD' });
     await chartCanvas.click({ button: 'right' });
     const menu = page.getByRole('menu');
     await expect(menu.getByRole('menuitem', { name: 'Ajouter un Stop Loss' })).toBeVisible();
