@@ -32,6 +32,7 @@ import {
   accountOrdersChannel,
   accountPositionsChannel,
   marketSymbolChannel,
+  userNotificationsChannel,
   TRADABLE_SYMBOLS,
   type AccountRisk,
   type AccountSnapshot,
@@ -46,14 +47,33 @@ import {
   type FillDTO,
   type OrderDTO,
   type OrderType,
+  type PendingOrderDTO,
+  type PendingOrderType,
+  type PendingOrderResultMessage,
+  type PriceAlertDTO,
+  type AlertNotificationDTO,
+  type AlertResultMessage,
+  type NotificationsSnapshotMessage,
+  type NewAlertNotificationMessage,
 } from '@wariba/contracts';
 import { RealtimeClient, type RealtimeConnectionState } from '../../../lib/realtime-client';
 import { createSupabaseBrowserClient } from '../../../lib/supabase/browser';
 import { useOneClickTrading } from '../../../lib/one-click-trading';
-import { OrderTicket, type OrderRejectionDetail } from './OrderTicket';
+import {
+  OrderTicket,
+  pendingOrderTypeFor,
+  type OrderRejectionDetail,
+  type TicketOrderKind,
+} from './OrderTicket';
 import { CloseAllDialog, type CloseAllOutcome } from './CloseAllDialog';
 import { ModifyPositionDialog } from './ModifyPositionDialog';
 import { QuickOrderConfirm } from './QuickOrderConfirm';
+import { PendingOrderConfirm } from './PendingOrderConfirm';
+import {
+  ModifyPendingOrderDialog,
+  type ModifyPendingOrderParams,
+} from './ModifyPendingOrderDialog';
+import { NotificationCenter, type CreateAlertParams } from './NotificationCenter';
 import { PartialCloseSheet } from './PartialCloseSheet';
 import { TradeHeaderPanel } from './TradeHeaderPanel';
 import { WatchlistPanel } from './WatchlistPanel';
@@ -142,10 +162,38 @@ const REJECTION_DETAIL: Record<string, { reason: string; action: string }> = {
     reason: 'Cette demande a déjà été exécutée ou annulée — elle ne peut plus être annulée.',
     action: 'Consultez l’historique pour voir le résultat.',
   },
+  invalid_trigger_price: {
+    reason:
+      'Ce prix de déclenchement ne correspond pas à un ordre en attente valide par rapport au marché actuel.',
+    action: 'Ajustez le prix selon le type d’ordre (Limite ou Stop) et le sens choisi.',
+  },
+  invalid_price_precision: {
+    reason: 'Ce prix ne respecte pas la précision décimale de ce symbole.',
+    action: 'Ajustez le prix selon la précision indiquée.',
+  },
+  pending_order_not_found: {
+    reason: 'Cet ordre en attente n’existe plus.',
+    action: 'Rafraîchissez vos ordres en attente.',
+  },
+  pending_order_already_settled: {
+    reason: 'Cet ordre en attente a déjà été déclenché, exécuté ou annulé.',
+    action: 'Consultez l’historique pour voir le résultat.',
+  },
+  alert_not_found: {
+    reason: 'Cette alerte n’existe plus.',
+    action: 'Rafraîchissez vos alertes.',
+  },
 };
 const UNKNOWN_REJECTION_DETAIL = {
   reason: 'Le serveur a refusé cet ordre.',
   action: 'Réessayez, ou contactez le support si le problème persiste.',
+};
+
+const PENDING_ORDER_TYPE_LABEL: Record<PendingOrderType, string> = {
+  buy_limit: 'Achat Limite',
+  sell_limit: 'Vente Limite',
+  buy_stop: 'Achat Stop',
+  sell_stop: 'Vente Stop',
 };
 
 const ORDER_TYPE_LABEL: Record<OrderType, string> = {
@@ -237,7 +285,15 @@ async function getAccessToken(): Promise<string | null> {
   return session?.access_token ?? null;
 }
 
-export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: string }) {
+export function TradeClient({
+  accountId,
+  userId,
+  wsUrl,
+}: {
+  accountId: string;
+  userId: string;
+  wsUrl: string;
+}) {
   const clientRef = useRef<RealtimeClient | null>(null);
   const pendingCommandRef = useRef<
     | { kind: 'order'; payload: SubmitOrderMessage }
@@ -303,6 +359,23 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
   // handler below for why a plain full replace would silently erase every
   // open marker moments after it appears.
   const [fills, setFills] = useState<FillMarker[]>([]);
+  // Appendix 07-D — the ticket's own order-type field, extended in place
+  // (not a second ticket). 'market' keeps the existing Buy/Sell behavior
+  // unchanged; 'limit'/'stop' route the same Buy/Sell buttons through
+  // createPendingOrder instead of openPosition.
+  const [orderKind, setOrderKind] = useState<TicketOrderKind>('market');
+  const [triggerPrice, setTriggerPrice] = useState('');
+  // Chart context-menu-initiated pending-order placement — same
+  // one-click-trading gate as quickOrderSide's market-order equivalent.
+  const [pendingOrderRequest, setPendingOrderRequest] = useState<{
+    orderType: PendingOrderType;
+    triggerPrice: string;
+  } | null>(null);
+  const [managePendingOrderId, setManagePendingOrderId] = useState<string | null>(null);
+  const [notificationCenterOpen, setNotificationCenterOpen] = useState(false);
+  const [alerts, setAlerts] = useState<PriceAlertDTO[]>([]);
+  const [notifications, setNotifications] = useState<AlertNotificationDTO[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     const client = new RealtimeClient(wsUrl, getAccessToken);
@@ -493,6 +566,54 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
           );
         }
         client.subscribe([accountStateChannel(accountId)]);
+      } else if (envelope.type === 'pending_order_result') {
+        // No pendingCommandRef/resubscribe-replay tracking here — same
+        // reasoning as queue_reduction_result above: createPendingOrder's
+        // own idempotency key already makes a client-side double-send safe
+        // server-side, so a dropped connection just means a manual retry,
+        // never a silent double order. The updated pending-order list
+        // itself arrives on the next account.snapshot (pendingOrders field).
+        setPending(false);
+        const result = envelope.payload as PendingOrderResultMessage;
+        if (result.status === 'rejected') {
+          setOrderError(result.rejectionCode ?? 'unknown_error');
+          const detail = REJECTION_DETAIL[result.rejectionCode ?? ''] ?? UNKNOWN_REJECTION_DETAIL;
+          setStatusAnnouncement(`Refusé : ${detail.reason}`);
+        } else {
+          setOrderError(null);
+          setStatusAnnouncement('Ordre en attente mis à jour.');
+        }
+        client.subscribe([accountStateChannel(accountId)]);
+      } else if (envelope.type === 'alert_result') {
+        // Re-subscribing for a fresh notifications.snapshot (rather than
+        // upserting `result.alert` into local state) sidesteps an otherwise
+        // real bug: deletePriceAlert's own result also carries the
+        // (now-deleted) alert's last-known data, so a naive upsert would
+        // resurrect a just-deleted alert in the UI. Same "resubscribe for
+        // truth" convention order_result/queue_reduction_result already use.
+        setPending(false);
+        const result = envelope.payload as AlertResultMessage;
+        if (result.status === 'rejected') {
+          setOrderError(result.rejectionCode ?? 'unknown_error');
+          const detail = REJECTION_DETAIL[result.rejectionCode ?? ''] ?? UNKNOWN_REJECTION_DETAIL;
+          setStatusAnnouncement(`Refusé : ${detail.reason}`);
+        } else {
+          setOrderError(null);
+          setStatusAnnouncement('Alerte mise à jour.');
+        }
+        client.subscribe([userNotificationsChannel(userId)]);
+      } else if (envelope.type === 'notifications.snapshot') {
+        const snapshot = envelope.payload as NotificationsSnapshotMessage;
+        setAlerts(snapshot.alerts);
+        setNotifications(snapshot.notifications);
+        setUnreadCount(snapshot.unreadCount);
+      } else if (envelope.type === 'notification.new') {
+        const { notification } = envelope.payload as NewAlertNotificationMessage;
+        setNotifications((prev) => [notification, ...prev]);
+        setUnreadCount((count) => count + 1);
+        setStatusAnnouncement(
+          `Alerte déclenchée : ${notification.symbol} à ${notification.triggeringPrice}.`,
+        );
       } else if (envelope.type === 'error') {
         pendingCommandRef.current = null;
         setPending(false);
@@ -506,6 +627,7 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
         accountStateChannel(accountId),
         accountOrdersChannel(accountId),
         accountPositionsChannel(accountId),
+        userNotificationsChannel(userId),
         ...TRADABLE_SYMBOLS.map((s) => marketSymbolChannel(s)),
       ]);
     });
@@ -515,7 +637,7 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
       offMessage();
       client.close();
     };
-  }, [accountId, wsUrl, tickStore]);
+  }, [accountId, userId, wsUrl, tickStore]);
 
   // The only tick this component itself subscribes to — the selected
   // symbol's, needed by the chart/ticket/guardian below. Every other
@@ -545,6 +667,14 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
   const symbolFills = useMemo(
     () => fills.filter((f) => f.symbol === selectedSymbol),
     [fills, selectedSymbol],
+  );
+  const symbolPendingOrders: PendingOrderDTO[] = useMemo(
+    () => snapshot?.pendingOrders.filter((o) => o.symbol === selectedSymbol) ?? [],
+    [snapshot, selectedSymbol],
+  );
+  const symbolAlerts: PriceAlertDTO[] = useMemo(
+    () => alerts.filter((a) => a.symbol === selectedSymbol && a.enabled),
+    [alerts, selectedSymbol],
   );
 
   // Guardian (UX Architecture §22.8) — impact potentiel of the current
@@ -625,6 +755,155 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
     setQuickOrderSide(null);
   }, [quickOrderSide, submitMarketOrder]);
 
+  // Appendix 07-D — createPendingOrder, using the ticket's own current
+  // quantity/SL/TP, same convention submitMarketOrder already uses.
+  const submitPendingOrder = useCallback(
+    (orderType: PendingOrderType, price: string) => {
+      if (!clientRef.current) return;
+      setPending(true);
+      setOrderError(null);
+      clientRef.current.createPendingOrder({
+        accountId,
+        idempotencyKey: crypto.randomUUID(),
+        symbol: selectedSymbol,
+        orderType,
+        quantity,
+        triggerPrice: price,
+        ...(stopLoss.trim() ? { stopLoss: stopLoss.trim() } : {}),
+        ...(takeProfit.trim() ? { takeProfit: takeProfit.trim() } : {}),
+      });
+    },
+    [accountId, selectedSymbol, quantity, stopLoss, takeProfit],
+  );
+
+  // Chart context menu's "Achat/Vente Limite/Stop ici" — same
+  // one-click-trading gate as requestMarketOrderFromChart.
+  const requestPendingOrderFromChart = useCallback(
+    (params: { orderType: PendingOrderType; triggerPrice: string }) => {
+      if (oneClickTrading) {
+        submitPendingOrder(params.orderType, params.triggerPrice);
+      } else {
+        setPendingOrderRequest(params);
+      }
+    },
+    [oneClickTrading, submitPendingOrder],
+  );
+
+  const confirmPendingOrderRequest = useCallback(() => {
+    if (!pendingOrderRequest) return;
+    submitPendingOrder(pendingOrderRequest.orderType, pendingOrderRequest.triggerPrice);
+    setPendingOrderRequest(null);
+  }, [pendingOrderRequest, submitPendingOrder]);
+
+  // Shared by the chart's trigger-price drag commit and
+  // ModifyPendingOrderDialog's combined save — both produce the same
+  // ModifyPendingOrderMessage shape.
+  const submitModifyPendingOrder = useCallback(
+    (params: ModifyPendingOrderParams) => {
+      if (!clientRef.current) return;
+      setPending(true);
+      setOrderError(null);
+      clientRef.current.modifyPendingOrder({ accountId, ...params });
+    },
+    [accountId],
+  );
+
+  const cancelPendingOrderRequest = useCallback(
+    (pendingOrderId: string) => {
+      if (!clientRef.current) return;
+      setPending(true);
+      setOrderError(null);
+      clientRef.current.cancelPendingOrder({ accountId, pendingOrderId });
+    },
+    [accountId],
+  );
+
+  const openManagePendingOrder = useCallback((pendingOrderId: string) => {
+    setManagePendingOrderId(pendingOrderId);
+  }, []);
+
+  const closeManagePendingOrder = useCallback(() => {
+    setManagePendingOrderId(null);
+  }, []);
+
+  const submitModifyAlertThreshold = useCallback(
+    (params: { alertId: string; thresholdPrice: string }) => {
+      if (!clientRef.current) return;
+      setPending(true);
+      setOrderError(null);
+      clientRef.current.modifyPriceAlert(params);
+    },
+    [],
+  );
+
+  const createAlert = useCallback((params: CreateAlertParams) => {
+    if (!clientRef.current) return;
+    setPending(true);
+    setOrderError(null);
+    clientRef.current.createPriceAlert({ ...params, idempotencyKey: crypto.randomUUID() });
+  }, []);
+
+  // Chart context menu's "Créer une alerte ici" — no ticket fields to reuse
+  // (an alert has no quantity/SL/TP), so this picks a direction from
+  // which side of the current market the clicked price falls on: above
+  // today's price naturally reads as "tell me when it climbs up to here",
+  // below as "tell me when it drops down to here".
+  const createAlertHereFromChart = useCallback(
+    (thresholdPrice: string) => {
+      if (!selectedTick) return;
+      const mid = (Number(selectedTick.bid) + Number(selectedTick.ask)) / 2;
+      const direction = Number(thresholdPrice) >= mid ? 'cross_above' : 'cross_below';
+      createAlert({
+        symbol: selectedSymbol,
+        direction,
+        thresholdPrice,
+        source: 'mid',
+        recurrence: 'once',
+      });
+    },
+    [selectedTick, selectedSymbol, createAlert],
+  );
+
+  const enableAlertRequest = useCallback((alertId: string) => {
+    if (!clientRef.current) return;
+    setPending(true);
+    setOrderError(null);
+    clientRef.current.enablePriceAlert({ alertId });
+  }, []);
+
+  const disableAlertRequest = useCallback((alertId: string) => {
+    if (!clientRef.current) return;
+    setPending(true);
+    setOrderError(null);
+    clientRef.current.disablePriceAlert({ alertId });
+  }, []);
+
+  const deleteAlertRequest = useCallback((alertId: string) => {
+    if (!clientRef.current) return;
+    setPending(true);
+    setOrderError(null);
+    clientRef.current.deletePriceAlert({ alertId });
+  }, []);
+
+  const openManageAlert = useCallback(() => {
+    setNotificationCenterOpen(true);
+  }, []);
+
+  // No server broadcast follows mark_notifications_read (unlike every other
+  // command here) — it's a pure read-state update with no financial or
+  // execution effect, so the client applies it optimistically rather than
+  // waiting on a round trip; a fresh notifications.snapshot on the next
+  // resubscribe/reconnect is still the eventual source of truth.
+  const markAllNotificationsRead = useCallback(() => {
+    if (!clientRef.current) return;
+    const unreadIds = notifications.filter((n) => n.readAt === null).map((n) => n.id);
+    if (unreadIds.length === 0) return;
+    const now = new Date().toISOString();
+    clientRef.current.markNotificationsRead({ notificationIds: unreadIds });
+    setNotifications((prev) => prev.map((n) => (n.readAt === null ? { ...n, readAt: now } : n)));
+    setUnreadCount(0);
+  }, [notifications]);
+
   const openPartialClose = useCallback((positionId: string) => {
     setPartialClosePositionId(positionId);
   }, []);
@@ -694,7 +973,22 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
       : `Doit être entre ${spec.minimumQuantity} et ${spec.maximumQuantity}, par pas de ${spec.quantityStep}.`;
   }, [symbolSpecs, selectedSymbol, quantity]);
 
-  const submitDisabled = !connectionOk || isStale || isRiskLocked || Boolean(quantityError);
+  // Client-side sanity check for instant feedback — createPendingOrder's own
+  // isPendingOrderCreationPriceValid re-check (packages/database/src/
+  // pending-orders.ts) is the real gate; this only catches an empty/
+  // malformed value before a round trip.
+  const triggerPriceError = useMemo(() => {
+    if (orderKind === 'market') return null;
+    if (triggerPrice.trim() === '') return 'Requis pour un ordre en attente.';
+    return /^\d+(\.\d+)?$/.test(triggerPrice.trim()) ? null : 'Doit être un nombre décimal valide.';
+  }, [orderKind, triggerPrice]);
+
+  const submitDisabled =
+    !connectionOk ||
+    isStale ||
+    isRiskLocked ||
+    Boolean(quantityError) ||
+    Boolean(triggerPriceError);
 
   const disabledMessage = !connectionOk
     ? 'Connexion au serveur en cours…'
@@ -706,11 +1000,28 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
           : riskRibbonStatus === 'hard-breach'
             ? 'La limite maximale de perte est dépassée. Aucun nouvel ordre possible.'
             : 'Votre compte est en blocage temporaire jusqu’au prochain reset à 00:00 UTC.'
-        : quantityError;
+        : (quantityError ?? triggerPriceError);
 
   const rejection: OrderRejectionDetail | null = orderError
     ? { code: orderError, ...(REJECTION_DETAIL[orderError] ?? UNKNOWN_REJECTION_DETAIL) }
     : null;
+
+  // The ticket's Buy/Sell buttons route to openPosition when orderKind is
+  // 'market' (unchanged from before this appendix) and to createPendingOrder
+  // otherwise — submitted directly, same as market orders from the ticket,
+  // no extra confirmation step (a deliberate multi-field ticket submission
+  // is already the confirmation; only the chart's quicker "at this price"
+  // shortcut gets PendingOrderConfirm, mirroring QuickOrderConfirm).
+  const submitTicket = useCallback(
+    (side: 'buy' | 'sell') => {
+      if (orderKind === 'market') {
+        submitMarketOrder(side);
+      } else {
+        submitPendingOrder(pendingOrderTypeFor(orderKind, side), triggerPrice.trim());
+      }
+    },
+    [orderKind, submitMarketOrder, submitPendingOrder, triggerPrice],
+  );
 
   const closePosition = useCallback(
     (positionId: string) => {
@@ -804,11 +1115,16 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
           onStopLossChange={setStopLoss}
           takeProfit={takeProfit}
           onTakeProfitChange={setTakeProfit}
-          onSubmit={submitMarketOrder}
+          onSubmit={submitTicket}
           pending={pending}
           submitDisabled={submitDisabled}
           disabledMessage={disabledMessage}
           rejection={rejection}
+          orderKind={orderKind}
+          onOrderKindChange={setOrderKind}
+          triggerPrice={triggerPrice}
+          onTriggerPriceChange={setTriggerPrice}
+          triggerPriceError={triggerPriceError}
         />
 
         {guardianProps ? (
@@ -829,12 +1145,15 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
       quantityError,
       stopLoss,
       takeProfit,
-      submitMarketOrder,
+      submitTicket,
       pending,
       submitDisabled,
       disabledMessage,
       rejection,
       guardianProps,
+      orderKind,
+      triggerPrice,
+      triggerPriceError,
     ],
   );
 
@@ -863,19 +1182,29 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
             dot (WS connection quality, a different concern entirely). Stays
             outside TradeHeaderPanel since, unlike the rest of the header, it
             genuinely needs the selected symbol's tick. */}
-        <div className="flex items-center gap-2 text-[length:var(--wariba-font-size-body-sm)]">
-          <Text as="span" color="secondary">
-            Marché {selectedSymbol}
-          </Text>
-          <span
-            className={`font-medium ${
-              selectedTick?.marketStatus === 'stale'
-                ? 'text-[color:var(--wariba-status-warning-text)]'
-                : 'text-[color:var(--wariba-text-primary)]'
-            }`}
-          >
-            {selectedTick ? MARKET_STATUS_LABEL[selectedTick.marketStatus] : '—'}
-          </span>
+        <div className="flex items-center justify-between gap-2 text-[length:var(--wariba-font-size-body-sm)]">
+          <div className="flex items-center gap-2">
+            <Text as="span" color="secondary">
+              Marché {selectedSymbol}
+            </Text>
+            <span
+              className={`font-medium ${
+                selectedTick?.marketStatus === 'stale'
+                  ? 'text-[color:var(--wariba-status-warning-text)]'
+                  : 'text-[color:var(--wariba-text-primary)]'
+              }`}
+            >
+              {selectedTick ? MARKET_STATUS_LABEL[selectedTick.marketStatus] : '—'}
+            </span>
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => setNotificationCenterOpen(true)}>
+            Notifications
+            {unreadCount > 0 && (
+              <Badge variant="danger" className="ml-1.5">
+                {unreadCount}
+              </Badge>
+            )}
+          </Button>
         </div>
       </div>
 
@@ -904,6 +1233,16 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
             onClosePosition={closePosition}
             onMarketOrderRequest={requestMarketOrderFromChart}
             onOpenPartialClose={openPartialClose}
+            pendingOrders={symbolPendingOrders}
+            alerts={symbolAlerts}
+            onModifyPendingOrderTrigger={submitModifyPendingOrder}
+            onOpenManagePendingOrder={openManagePendingOrder}
+            onCancelPendingOrder={cancelPendingOrderRequest}
+            onModifyAlertThreshold={submitModifyAlertThreshold}
+            onOpenManageAlert={openManageAlert}
+            onDeleteAlert={deleteAlertRequest}
+            onPendingOrderRequest={requestPendingOrderFromChart}
+            onCreateAlertHere={createAlertHereFromChart}
           />
           <Button variant="secondary" className="lg:hidden" onClick={() => setTicketOpen(true)}>
             Trader {selectedSymbol}
@@ -981,10 +1320,59 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
         onCancelQueuedReduction={cancelQueuedReductionRequest}
       />
 
+      <PendingOrderConfirm
+        open={pendingOrderRequest !== null}
+        onClose={() => setPendingOrderRequest(null)}
+        symbol={selectedSymbol}
+        orderType={pendingOrderRequest?.orderType ?? 'buy_limit'}
+        triggerPrice={pendingOrderRequest?.triggerPrice ?? ''}
+        quantity={quantity}
+        tick={selectedTick}
+        spec={symbolSpecs[selectedSymbol] ?? null}
+        stopLoss={stopLoss}
+        takeProfit={takeProfit}
+        pending={pending}
+        onConfirm={confirmPendingOrderRequest}
+      />
+
+      <ModifyPendingOrderDialog
+        open={managePendingOrderId !== null}
+        onClose={closeManagePendingOrder}
+        order={snapshot?.pendingOrders.find((o) => o.id === managePendingOrderId) ?? null}
+        store={tickStore}
+        pending={pending}
+        rejection={rejection}
+        onSubmit={(params) => {
+          submitModifyPendingOrder(params);
+          closeManagePendingOrder();
+        }}
+        onCancelOrder={(pendingOrderId) => {
+          cancelPendingOrderRequest(pendingOrderId);
+          closeManagePendingOrder();
+        }}
+      />
+
+      <NotificationCenter
+        open={notificationCenterOpen}
+        onClose={() => setNotificationCenterOpen(false)}
+        symbol={selectedSymbol}
+        notifications={notifications}
+        unreadCount={unreadCount}
+        alerts={alerts}
+        pending={pending}
+        rejection={rejection}
+        onMarkAllRead={markAllNotificationsRead}
+        onEnableAlert={enableAlertRequest}
+        onDisableAlert={disableAlertRequest}
+        onDeleteAlert={deleteAlertRequest}
+        onCreateAlert={createAlert}
+      />
+
       <div className="border-t border-[color:var(--wariba-theme-border)] p-[var(--wariba-component-trade-panel-padding)]">
         <Tabs value={tab} onValueChange={setTab}>
           <TabList aria-label="Compte">
             <Tab value="positions">Positions</Tab>
+            <Tab value="pending">En attente</Tab>
             <Tab value="orders">Ordres</Tab>
             <Tab value="history">Historique</Tab>
             <Tab value="journal">Journal</Tab>
@@ -1000,6 +1388,59 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
               onOpenCloseAll={openCloseAllDialog}
               pending={pending}
             />
+          </TabPanel>
+          <TabPanel value="pending">
+            <DataTable>
+              <DataTableHead>
+                <DataTableRow>
+                  <DataTableHeaderCell>Type</DataTableHeaderCell>
+                  <DataTableHeaderCell>Symbole</DataTableHeaderCell>
+                  <DataTableHeaderCell align="right">Quantité</DataTableHeaderCell>
+                  <DataTableHeaderCell align="right">Déclenchement</DataTableHeaderCell>
+                  <DataTableHeaderCell align="right">Actions</DataTableHeaderCell>
+                </DataTableRow>
+              </DataTableHead>
+              <DataTableBody>
+                {!snapshot || snapshot.pendingOrders.length === 0 ? (
+                  <DataTableRow>
+                    <DataTableCell
+                      colSpan={5}
+                      className="text-center text-[color:var(--wariba-text-secondary)]"
+                    >
+                      Aucun ordre en attente.
+                    </DataTableCell>
+                  </DataTableRow>
+                ) : (
+                  snapshot.pendingOrders.map((o) => (
+                    <DataTableRow key={o.id}>
+                      <DataTableCell>{PENDING_ORDER_TYPE_LABEL[o.orderType]}</DataTableCell>
+                      <DataTableCell>{o.symbol}</DataTableCell>
+                      <DataTableCell numeric>{o.quantity}</DataTableCell>
+                      <DataTableCell numeric>{o.triggerPrice}</DataTableCell>
+                      <DataTableCell align="right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openManagePendingOrder(o.id)}
+                          disabled={pending}
+                        >
+                          Gérer
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => cancelPendingOrderRequest(o.id)}
+                          disabled={pending}
+                          className="text-[color:var(--wariba-status-danger-text)]"
+                        >
+                          Annuler
+                        </Button>
+                      </DataTableCell>
+                    </DataTableRow>
+                  ))
+                )}
+              </DataTableBody>
+            </DataTable>
           </TabPanel>
           <TabPanel value="orders">
             <DataTable>

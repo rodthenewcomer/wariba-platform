@@ -37,5 +37,11 @@ export default async function TradePage() {
     );
   }
 
-  return <TradeClient accountId={account.id} wsUrl={loadWebConfig().NEXT_PUBLIC_REALTIME_WS_URL} />;
+  return (
+    <TradeClient
+      accountId={account.id}
+      userId={user.id}
+      wsUrl={loadWebConfig().NEXT_PUBLIC_REALTIME_WS_URL}
+    />
+  );
 }

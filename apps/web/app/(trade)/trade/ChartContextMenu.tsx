@@ -2,19 +2,21 @@
 
 import { useEffect, useRef } from 'react';
 import { Text } from '@wariba/ui';
-import type { PositionDTO } from '@wariba/contracts';
+import type { MarketTick, PendingOrderType, PositionDTO } from '@wariba/contracts';
+import { isPendingOrderCreationPriceValid } from '@wariba/domain';
 
 /**
- * Prompt 7 Appendix 07-C §7 — the chart's right-click (desktop) / long-press
- * (mobile) context menu. Scope note: WariX has no pending-order engine at
- * all (only market_open/partial_close/full_close/modify_sl/modify_tp exist
- * — packages/contracts/src/trading.ts's orderTypeSchema) and no price-alert
- * subsystem — building either is a new execution/notification system, not a
- * gap-fill, so neither appears here. The appendix's own instruction —
- * "Do not show invalid pending-order choices" — is satisfied in the
- * strictest sense: every pending-order choice is invalid right now (none
- * are implemented), so the menu shows none rather than disabled
- * placeholders that would misrepresent what this build actually supports.
+ * Prompt 7 Appendix 07-D — the chart's right-click (desktop) / long-press
+ * (mobile) context menu. Appendix 07-C originally documented this menu as
+ * having no pending-order/price-alert actions at all, since neither
+ * subsystem existed yet (packages/database/src/pending-orders.ts and
+ * price-alerts.ts). 07-D is an explicit scope override requiring both — the
+ * "Do not show invalid pending-order choices" instruction now has real
+ * teeth: PENDING_ORDER_TYPES_AT_PRICE below only ever suggests the order
+ * types isPendingOrderCreationPriceValid (@wariba/domain, the exact same
+ * function packages/database/src/pending-orders.ts's createPendingOrder
+ * re-checks server-side) actually accepts at the clicked price — never a
+ * disabled placeholder for the other two.
  */
 export interface ChartContextMenuAction {
   key: string;
@@ -26,21 +28,35 @@ export interface ChartContextMenuAction {
 export interface ChartContextMenuContentProps {
   clickedPriceFormatted: string;
   position: PositionDTO | null;
+  tick: MarketTick | null;
   onMarketBuy: () => void;
   onMarketSell: () => void;
   onManageStopLoss: () => void;
   onManageTakeProfit: () => void;
   onPartialClose: () => void;
   onClosePosition: () => void;
+  onPendingOrderRequest: (orderType: PendingOrderType) => void;
+  onCreateAlertHere: () => void;
   disabled: boolean;
   disabledReason: string | null;
 }
 
+const PENDING_ORDER_TYPE_LABEL: Record<PendingOrderType, string> = {
+  buy_limit: 'Achat Limite ici',
+  sell_limit: 'Vente Limite ici',
+  buy_stop: 'Achat Stop ici',
+  sell_stop: 'Vente Stop ici',
+};
+
+const PENDING_ORDER_TYPES: readonly PendingOrderType[] = [
+  'buy_limit',
+  'sell_limit',
+  'buy_stop',
+  'sell_stop',
+];
+
 export function buildContextMenuActions(
-  props: Omit<
-    ChartContextMenuContentProps,
-    'clickedPriceFormatted' | 'disabled' | 'disabledReason'
-  >,
+  props: Omit<ChartContextMenuContentProps, 'disabled' | 'disabledReason'>,
 ): ChartContextMenuAction[] {
   const actions: ChartContextMenuAction[] = [
     { key: 'market_buy', label: 'Achat au marché', onSelect: props.onMarketBuy },
@@ -71,6 +87,28 @@ export function buildContextMenuActions(
       },
     );
   }
+  if (props.tick) {
+    for (const orderType of PENDING_ORDER_TYPES) {
+      const valid = isPendingOrderCreationPriceValid({
+        orderType,
+        triggerPrice: props.clickedPriceFormatted,
+        currentBid: props.tick.bid,
+        currentAsk: props.tick.ask,
+      });
+      if (valid) {
+        actions.push({
+          key: `pending_${orderType}`,
+          label: PENDING_ORDER_TYPE_LABEL[orderType],
+          onSelect: () => props.onPendingOrderRequest(orderType),
+        });
+      }
+    }
+  }
+  actions.push({
+    key: 'create_alert',
+    label: 'Créer une alerte ici',
+    onSelect: props.onCreateAlertHere,
+  });
   return actions;
 }
 
@@ -82,7 +120,7 @@ export function ChartContextMenuContent({
   disabledReason,
   ...actionProps
 }: ChartContextMenuContentProps) {
-  const actions = buildContextMenuActions({ position, ...actionProps });
+  const actions = buildContextMenuActions({ clickedPriceFormatted, position, ...actionProps });
   return (
     <div
       className="flex flex-col gap-1"

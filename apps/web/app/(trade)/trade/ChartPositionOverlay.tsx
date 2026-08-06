@@ -22,7 +22,7 @@ const SYNC_DOT_CLASS: Record<LevelSyncState, string> = {
   stale_disabled: 'bg-[color:var(--wariba-text-tertiary)]',
 };
 
-function OverlayAnchor({
+export function OverlayAnchor({
   y,
   children,
   className = '',

@@ -11,13 +11,22 @@ import {
   type Time,
   type UTCTimestamp,
 } from 'lightweight-charts';
-import type { MarketTick, PositionDTO, SymbolSpec, TradableSymbol } from '@wariba/contracts';
+import type {
+  MarketTick,
+  PositionDTO,
+  SymbolSpec,
+  TradableSymbol,
+  PendingOrderDTO,
+  PendingOrderType,
+  PriceAlertDTO,
+} from '@wariba/contracts';
 import {
   computeRealizedPnl,
   quotedPrice,
   roundPriceToTick,
   computeLevelPnlPreview,
   computeRiskRewardRatio,
+  pendingOrderDistancePoints,
 } from '@wariba/domain';
 import { BottomSheet } from '@wariba/ui';
 import type { RealtimeConnectionState } from '../../../lib/realtime-client';
@@ -29,6 +38,7 @@ import {
   DragPreviewPanel,
   type LevelSyncState,
 } from './ChartPositionOverlay';
+import { PendingOrderLine, AlertLine } from './ChartPendingOverlay';
 import { ChartContextMenuPopover, ChartContextMenuContent } from './ChartContextMenu';
 
 export interface FillMarker {
@@ -67,6 +77,17 @@ export interface TradeChartProps {
   onClosePosition: (positionId: string) => void;
   onMarketOrderRequest: (side: 'buy' | 'sell') => void;
   onOpenPartialClose: (positionId: string) => void;
+  /** Appendix 07-D — active Buy/Sell Limit/Stop orders and price alerts on this symbol. */
+  pendingOrders: PendingOrderDTO[];
+  alerts: PriceAlertDTO[];
+  onModifyPendingOrderTrigger: (params: { pendingOrderId: string; triggerPrice: string }) => void;
+  onOpenManagePendingOrder: (pendingOrderId: string) => void;
+  onCancelPendingOrder: (pendingOrderId: string) => void;
+  onModifyAlertThreshold: (params: { alertId: string; thresholdPrice: string }) => void;
+  onOpenManageAlert: (alertId: string) => void;
+  onDeleteAlert: (alertId: string) => void;
+  onPendingOrderRequest: (params: { orderType: PendingOrderType; triggerPrice: string }) => void;
+  onCreateAlertHere: (thresholdPrice: string) => void;
 }
 
 interface Candle {
@@ -114,6 +135,15 @@ interface DragSession {
 
 const DRAG_CLICK_THRESHOLD_PX = 4;
 
+/** Drag/exact-price session for a pending order's trigger price or an alert's threshold price — see orderDrag's doc comment below. */
+interface OrderDragSession {
+  kind: 'pending_order' | 'alert';
+  id: string;
+  previewPrice: string;
+  startClientY: number;
+  moved: boolean;
+}
+
 /**
  * UX Architecture §22.6 — chandeliers, sélection timeframe, crosshair, zoom,
  * pan, lignes position, lignes SL/TP, prix bid/ask, historique d'exécution,
@@ -157,6 +187,16 @@ export function TradeChart({
   onClosePosition,
   onMarketOrderRequest,
   onOpenPartialClose,
+  pendingOrders,
+  alerts,
+  onModifyPendingOrderTrigger,
+  onOpenManagePendingOrder,
+  onCancelPendingOrder,
+  onModifyAlertThreshold,
+  onOpenManageAlert,
+  onDeleteAlert,
+  onPendingOrderRequest,
+  onCreateAlertHere,
 }: TradeChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -165,6 +205,9 @@ export function TradeChart({
   const askLineRef = useRef<IPriceLine | null>(null);
   const positionLinesRef = useRef<IPriceLine[]>([]);
   const previewLineRef = useRef<IPriceLine | null>(null);
+  const pendingOrderLinesRef = useRef<IPriceLine[]>([]);
+  const alertLinesRef = useRef<IPriceLine[]>([]);
+  const orderPreviewLineRef = useRef<IPriceLine | null>(null);
   const candlesRef = useRef<Map<number, Candle>>(new Map());
   // lightweight-charts renders to canvas and never resolves CSS custom
   // properties itself — a raw 'var(...)' string crashes it (the same class
@@ -187,6 +230,19 @@ export function TradeChart({
   useEffect(() => {
     dragRef.current = drag;
   }, [drag]);
+  // Appendix 07-D — a second, parallel drag session for pending-order
+  // trigger-price and alert threshold-price lines. Kept independent from
+  // `drag` above (position SL/TP) rather than folded into one generalized
+  // state machine: the two have different commit targets
+  // (onModifyPendingOrderTrigger/onModifyAlertThreshold vs onCommitLevel)
+  // and different disable conditions, and this component's existing SL/TP
+  // drag logic is already delicate enough that duplicating the ~30 lines of
+  // pointer plumbing is safer than intertwining both concerns in one state.
+  const [orderDrag, setOrderDrag] = useState<OrderDragSession | null>(null);
+  const orderDragRef = useRef<OrderDragSession | null>(null);
+  useEffect(() => {
+    orderDragRef.current = orderDrag;
+  }, [orderDrag]);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -273,6 +329,9 @@ export function TradeChart({
       askLineRef.current = null;
       positionLinesRef.current = [];
       previewLineRef.current = null;
+      pendingOrderLinesRef.current = [];
+      alertLinesRef.current = [];
+      orderPreviewLineRef.current = null;
     };
   }, []);
 
@@ -284,6 +343,7 @@ export function TradeChart({
     seriesRef.current?.setData([]);
     seriesRef.current?.setMarkers([]);
     setDrag(null);
+    setOrderDrag(null);
     setContextMenu(null);
   }, [symbol, timeframeSeconds]);
 
@@ -378,6 +438,47 @@ export function TradeChart({
     setChartVersion((v) => v + 1);
   }, [positions]);
 
+  // Appendix 07-D — pending-order trigger-price and alert threshold-price
+  // native lines, same rebuild-on-every-change approach as the position
+  // lines above (createPriceLine has no update-in-place API). `pendingOrders`
+  // and `alerts` are already filtered to this chart's own symbol by the
+  // caller (TradeClient), same convention as `positions`.
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series) return;
+    for (const line of pendingOrderLinesRef.current) series.removePriceLine(line);
+    pendingOrderLinesRef.current = [];
+    for (const line of alertLinesRef.current) series.removePriceLine(line);
+    alertLinesRef.current = [];
+
+    for (const order of pendingOrders) {
+      const isBuy = order.side === 'buy';
+      pendingOrderLinesRef.current.push(
+        series.createPriceLine({
+          price: Number(order.triggerPrice),
+          color: isBuy ? colorsRef.current.position : colorsRef.current.takeProfit,
+          lineWidth: 1,
+          lineStyle: 2,
+          axisLabelVisible: true,
+          title: order.orderType,
+        }),
+      );
+    }
+    for (const alert of alerts) {
+      alertLinesRef.current.push(
+        series.createPriceLine({
+          price: Number(alert.thresholdPrice),
+          color: colorsRef.current.preview,
+          lineWidth: 1,
+          lineStyle: 3,
+          axisLabelVisible: true,
+          title: alert.direction === 'cross_above' ? 'Alerte ↑' : 'Alerte ↓',
+        }),
+      );
+    }
+    setChartVersion((v) => v + 1);
+  }, [pendingOrders, alerts]);
+
   // The DRAGGING_PREVIEW line — a second, visually distinct native line at
   // the in-progress preview price, separate from the confirmed SL/TP line
   // above so the two are never visually confused (§5's explicit requirement).
@@ -399,6 +500,27 @@ export function TradeChart({
       });
     }
   }, [drag]);
+
+  // Same DRAGGING_PREVIEW treatment for an in-progress pending-order/alert
+  // line drag — see orderDrag's doc comment above.
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series) return;
+    if (orderPreviewLineRef.current) {
+      series.removePriceLine(orderPreviewLineRef.current);
+      orderPreviewLineRef.current = null;
+    }
+    if (orderDrag) {
+      orderPreviewLineRef.current = series.createPriceLine({
+        price: Number(orderDrag.previewPrice),
+        color: colorsRef.current.preview,
+        lineWidth: 2,
+        lineStyle: 1,
+        axisLabelVisible: true,
+        title: orderDrag.kind === 'pending_order' ? 'Ordre (aperçu)' : 'Alerte (aperçu)',
+      });
+    }
+  }, [orderDrag]);
 
   // Fill markers (§22.6 "historique d'exécution") — session-only, see the
   // component doc comment above for why nothing retroactive is possible.
@@ -470,6 +592,72 @@ export function TradeChart({
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [spec, onCommitLevel]);
+
+  // Same global pointermove/pointerup wiring as above, for orderDrag — kept
+  // as its own effect/listeners rather than merged into the one above (see
+  // orderDrag's doc comment for why the two sessions stay independent).
+  useEffect(() => {
+    const handleMove = (event: PointerEvent) => {
+      const session = orderDragRef.current;
+      const series = seriesRef.current;
+      const container = containerRef.current;
+      if (!session || !series || !container || !spec) return;
+      if (event.cancelable) event.preventDefault();
+      const rect = container.getBoundingClientRect();
+      const y = event.clientY - rect.top;
+      const rawPrice = series.coordinateToPrice(y);
+      if (rawPrice === null) return;
+      const rounded = roundPriceToTick({
+        price: String(rawPrice),
+        pricePrecision: spec.pricePrecision,
+      });
+      const moved = Math.abs(event.clientY - session.startClientY) > DRAG_CLICK_THRESHOLD_PX;
+      setOrderDrag({ ...session, previewPrice: rounded, moved: moved || session.moved });
+    };
+    const handleUp = () => {
+      const session = orderDragRef.current;
+      if (!session) return;
+      setOrderDrag(null);
+      if (session.moved) {
+        if (session.kind === 'pending_order') {
+          onModifyPendingOrderTrigger({
+            pendingOrderId: session.id,
+            triggerPrice: session.previewPrice,
+          });
+        } else {
+          onModifyAlertThreshold({ alertId: session.id, thresholdPrice: session.previewPrice });
+        }
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && orderDragRef.current) {
+        setOrderDrag(null);
+      }
+    };
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp);
+    window.addEventListener('pointercancel', () => setOrderDrag(null));
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [spec, onModifyPendingOrderTrigger, onModifyAlertThreshold]);
+
+  const startOrderDrag =
+    (kind: OrderDragSession['kind'], id: string, initialPrice: string) =>
+    (event: React.PointerEvent) => {
+      if (draggingDisabled) return;
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+      setOrderDrag({
+        kind,
+        id,
+        previewPrice: initialPrice,
+        startClientY: event.clientY,
+        moved: false,
+      });
+    };
 
   const startDrag =
     (positionId: string, field: RiskLevelField, initialPrice: string) =>
@@ -580,6 +768,33 @@ export function TradeChart({
     return { badgeY, levelY };
   }, [positions, spec, chartVersion]);
 
+  // Appendix 07-D — same collision-aware Y placement as `overlay` above, but
+  // resolved as its own independent batch: pending-order and alert lines are
+  // unrelated to any specific position, so (matching this codebase's
+  // existing choice not to cross-resolve badges against SL/TP handles
+  // either) they don't compete for vertical space with position overlays,
+  // only with each other.
+  const pendingOverlay = useMemo(() => {
+    const series = seriesRef.current;
+    if (!series || !spec) return null;
+    void chartVersion;
+
+    const inputs: { id: string; y: number; height: number }[] = [];
+    const placementY = new Map<string, number>();
+    for (const order of pendingOrders) {
+      const y = series.priceToCoordinate(Number(order.triggerPrice));
+      if (y !== null) inputs.push({ id: `pending:${order.id}`, y, height: 22 });
+    }
+    for (const alert of alerts) {
+      const y = series.priceToCoordinate(Number(alert.thresholdPrice));
+      if (y !== null) inputs.push({ id: `alert:${alert.id}`, y, height: 22 });
+    }
+    for (const placement of resolveLabelCollisions(inputs)) {
+      placementY.set(placement.id, placement.y);
+    }
+    return placementY;
+  }, [pendingOrders, alerts, spec, chartVersion]);
+
   const dragPreviewCard = useMemo(() => {
     if (!drag || !spec) return null;
     const position = positions.find((p) => p.id === drag.positionId);
@@ -640,6 +855,12 @@ export function TradeChart({
     return 'confirmed';
   };
 
+  const orderSyncStateFor = (kind: OrderDragSession['kind'], id: string): LevelSyncState => {
+    if (orderDrag && orderDrag.kind === kind && orderDrag.id === id) return 'dragging_preview';
+    if (draggingDisabled) return 'stale_disabled';
+    return 'confirmed';
+  };
+
   // The context menu's position-scoped actions (Add/Move SL/TP, partial
   // close, close) target the first open position on this symbol — WariX's
   // hedging model allows several concurrent positions per symbol, and a
@@ -678,6 +899,8 @@ export function TradeChart({
         <div
           ref={containerRef}
           className="w-full"
+          role="img"
+          aria-label={`Graphique ${symbol}`}
           onContextMenu={handleContextMenuEvent}
           onPointerDown={handleContainerPointerDown}
           onPointerMove={handleContainerPointerMove}
@@ -791,6 +1014,68 @@ export function TradeChart({
             });
             return chips;
           })}
+        {pendingOverlay &&
+          spec &&
+          tick &&
+          pendingOrders.map((order) => {
+            const y = pendingOverlay.get(`pending:${order.id}`);
+            if (y === undefined) return null;
+            const mid = ((Number(tick.bid) + Number(tick.ask)) / 2).toFixed(spec.pricePrecision);
+            return (
+              <PendingOrderLine
+                key={order.id}
+                y={y}
+                orderType={order.orderType}
+                quantityFormatted={order.quantity}
+                priceFormatted={order.triggerPrice}
+                distancePointsFormatted={pendingOrderDistancePoints({
+                  triggerPrice: order.triggerPrice,
+                  referencePrice: mid,
+                  pricePrecision: spec.pricePrecision,
+                })}
+                syncState={orderSyncStateFor('pending_order', order.id)}
+                disabled={draggingDisabled}
+                onPointerDown={startOrderDrag('pending_order', order.id, order.triggerPrice)}
+                onActivate={() => onOpenManagePendingOrder(order.id)}
+                onRemove={() => onCancelPendingOrder(order.id)}
+                onKeyboardAdjust={(direction) => {
+                  const point = Number(`1e-${spec.pricePrecision}`);
+                  const next = roundPriceToTick({
+                    price: String(Number(order.triggerPrice) + direction * point),
+                    pricePrecision: spec.pricePrecision,
+                  });
+                  onModifyPendingOrderTrigger({ pendingOrderId: order.id, triggerPrice: next });
+                }}
+              />
+            );
+          })}
+        {pendingOverlay &&
+          spec &&
+          alerts.map((alert) => {
+            const y = pendingOverlay.get(`alert:${alert.id}`);
+            if (y === undefined) return null;
+            return (
+              <AlertLine
+                key={alert.id}
+                y={y}
+                direction={alert.direction}
+                priceFormatted={alert.thresholdPrice}
+                syncState={orderSyncStateFor('alert', alert.id)}
+                disabled={draggingDisabled}
+                onPointerDown={startOrderDrag('alert', alert.id, alert.thresholdPrice)}
+                onActivate={() => onOpenManageAlert(alert.id)}
+                onRemove={() => onDeleteAlert(alert.id)}
+                onKeyboardAdjust={(direction) => {
+                  const point = Number(`1e-${spec.pricePrecision}`);
+                  const next = roundPriceToTick({
+                    price: String(Number(alert.thresholdPrice) + direction * point),
+                    pricePrecision: spec.pricePrecision,
+                  });
+                  onModifyAlertThreshold({ alertId: alert.id, thresholdPrice: next });
+                }}
+              />
+            );
+          })}
         {dragPreviewCard && <DragPreviewPanel {...dragPreviewCard} />}
         {contextMenu && !contextMenu.isTouchOrigin && (
           <ChartContextMenuPopover
@@ -799,6 +1084,7 @@ export function TradeChart({
             onDismiss={closeContextMenu}
             clickedPriceFormatted={contextMenu.price}
             position={currentPosition}
+            tick={tick}
             disabled={draggingDisabled}
             disabledReason={
               isStale
@@ -830,6 +1116,14 @@ export function TradeChart({
             onClosePosition={() => {
               closeContextMenu();
               if (currentPosition) onClosePosition(currentPosition.id);
+            }}
+            onPendingOrderRequest={(orderType) => {
+              closeContextMenu();
+              onPendingOrderRequest({ orderType, triggerPrice: contextMenu.price });
+            }}
+            onCreateAlertHere={() => {
+              closeContextMenu();
+              onCreateAlertHere(contextMenu.price);
             }}
           />
         )}
@@ -850,6 +1144,7 @@ export function TradeChart({
           <ChartContextMenuContent
             clickedPriceFormatted={contextMenu.price}
             position={currentPosition}
+            tick={tick}
             disabled={draggingDisabled}
             disabledReason={
               isStale
@@ -881,6 +1176,14 @@ export function TradeChart({
             onClosePosition={() => {
               closeContextMenu();
               if (currentPosition) onClosePosition(currentPosition.id);
+            }}
+            onPendingOrderRequest={(orderType) => {
+              closeContextMenu();
+              onPendingOrderRequest({ orderType, triggerPrice: contextMenu.price });
+            }}
+            onCreateAlertHere={() => {
+              closeContextMenu();
+              onCreateAlertHere(contextMenu.price);
             }}
           />
         )}
