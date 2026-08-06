@@ -9,7 +9,13 @@
 export const PACKAGE_NAME = '@wariba/database';
 
 export { createDbClient, type Db, type DbExecutor } from './client';
-export type { Database, TradableSymbol, OrderSide, StaffRole } from './schema';
+export type {
+  Database,
+  TradableSymbol,
+  OrderSide,
+  StaffRole,
+  PositionReductionQueueStatus,
+} from './schema';
 export { getStaffRole, staffRoleSatisfies } from './staff';
 export {
   activateEvaluationAccount,
@@ -39,6 +45,19 @@ export {
   type CloseAllPositionsParams,
   type ModifyPositionRiskParams,
 } from './trading';
+export {
+  queuePositionReduction,
+  cancelQueuedReduction,
+  executeQueuedReductions,
+  loadQueuedReductionsForAccount,
+  type QueuedReductionSummary,
+  type QueuePositionReductionParams,
+  type QueuePositionReductionResult,
+  type CancelQueuedReductionParams,
+  type CancelQueuedReductionResult,
+  type ExecuteQueuedReductionsParams,
+  type ExecutedQueuedReduction,
+} from './position-reduction-queue';
 export { loadPublishedPolicy, loadPolicyById } from './policy';
 export { loadAccountBalanceProjection, type AccountBalanceProjection } from './program-eligibility';
 export {

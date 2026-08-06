@@ -409,6 +409,25 @@ export interface FillsTable {
   eligibility_reason: 'eligible' | 'short_duration_profit' | 'loss_counted' | 'breakeven' | null;
 }
 
+export type PositionReductionQueueStatus = 'queued' | 'executed' | 'cancelled' | 'failed';
+
+// Prompt 7 Appendix 07-C §12 — see the matching migration's doc comment.
+export interface PositionReductionQueueTable {
+  id: Generated<string>;
+  account_id: string;
+  position_id: string;
+  idempotency_key: string;
+  mode: 'partial' | 'full';
+  requested_quantity: string | null;
+  status: Generated<PositionReductionQueueStatus>;
+  queued_at: Timestamp;
+  executed_at: Timestamp | null;
+  cancelled_at: Timestamp | null;
+  execution_order_id: string | null;
+  failure_reason: string | null;
+  created_at: GeneratedTimestamp;
+}
+
 export interface Database {
   'app.user_profiles': UserProfilesTable;
   'app.user_consents': UserConsentsTable;
@@ -432,5 +451,6 @@ export interface Database {
   'app.fills': FillsTable;
   'app.outbox_events': OutboxEventsTable;
   'app.staff_members': StaffMembersTable;
+  'app.position_reduction_queue': PositionReductionQueueTable;
   'audit.audit_events': AuditEventsTable;
 }

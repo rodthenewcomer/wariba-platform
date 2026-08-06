@@ -1,6 +1,17 @@
-import type { PositionSummary, TradeOrderOutcome, FillSummary } from '@wariba/database';
+import type {
+  PositionSummary,
+  TradeOrderOutcome,
+  FillSummary,
+  QueuedReductionSummary,
+} from '@wariba/database';
 import type { TradableSymbol, OrderSide } from '@wariba/database';
-import type { OrderDTO, PositionDTO, FillDTO, OrderType } from '@wariba/contracts';
+import type {
+  OrderDTO,
+  PositionDTO,
+  FillDTO,
+  OrderType,
+  QueuedReductionDTO,
+} from '@wariba/contracts';
 
 export function toPositionDTO(accountId: string, p: PositionSummary): PositionDTO {
   return {
@@ -81,5 +92,21 @@ export function toFillDTO(
     eligibleRealizedPnl: f.eligibleRealizedPnl,
     ineligibleShortDurationProfit: f.ineligibleShortDurationProfit,
     eligibilityReason: f.eligibilityReason,
+  };
+}
+
+export function toQueuedReductionDTO(q: QueuedReductionSummary): QueuedReductionDTO {
+  return {
+    id: q.id,
+    positionId: q.positionId,
+    symbol: q.symbol,
+    mode: q.mode,
+    requestedQuantity: q.requestedQuantity,
+    status: q.status,
+    queuedAt: q.queuedAt.toISOString(),
+    executedAt: q.executedAt ? q.executedAt.toISOString() : null,
+    cancelledAt: q.cancelledAt ? q.cancelledAt.toISOString() : null,
+    executionOrderId: q.executionOrderId,
+    failureReason: q.failureReason,
   };
 }

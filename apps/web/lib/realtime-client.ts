@@ -5,11 +5,14 @@ import {
   marketTickSchema,
   accountSnapshotSchema,
   orderResultMessageSchema,
+  queueReductionResultMessageSchema,
   symbolSpecsMessageSchema,
   accountRiskPreviewMessageSchema,
   type MessageEnvelope,
   type SubmitOrderMessage,
   type CloseAllMessage,
+  type QueueReductionMessage,
+  type CancelQueuedReductionMessage,
 } from '@wariba/contracts';
 
 export type RealtimeConnectionState = 'connecting' | 'resyncing' | 'open' | 'closed';
@@ -112,6 +115,8 @@ export class RealtimeClient {
       return accountSnapshotSchema.safeParse(envelope.payload).success;
     if (envelope.type === 'order_result')
       return orderResultMessageSchema.safeParse(envelope.payload).success;
+    if (envelope.type === 'queue_reduction_result')
+      return queueReductionResultMessageSchema.safeParse(envelope.payload).success;
     if (envelope.type === 'symbol_specs')
       return symbolSpecsMessageSchema.safeParse(envelope.payload).success;
     if (envelope.type === 'account.risk_preview')
@@ -176,6 +181,14 @@ export class RealtimeClient {
 
   closeAll(closeAll: CloseAllMessage): void {
     this.send({ type: 'close_all', closeAll });
+  }
+
+  queueReduction(reduction: QueueReductionMessage): void {
+    this.send({ type: 'queue_reduction', reduction });
+  }
+
+  cancelQueuedReduction(cancelReduction: CancelQueuedReductionMessage): void {
+    this.send({ type: 'cancel_queued_reduction', cancelReduction });
   }
 
   private send(payload: unknown): void {

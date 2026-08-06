@@ -199,6 +199,7 @@ describe('symbolSpecsMessageSchema — Prompt 07', () => {
       maximumQuantity: '10',
       quantityStep: '0.01',
       leverage: 100,
+      commissionPerLot: '3.5000',
     });
     expect(result.success).toBe(true);
   });
@@ -214,6 +215,7 @@ describe('symbolSpecsMessageSchema — Prompt 07', () => {
           maximumQuantity: '5',
           quantityStep: '0.01',
           leverage: 20,
+          commissionPerLot: '4.0000',
         },
       ],
     });

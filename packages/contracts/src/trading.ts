@@ -89,6 +89,26 @@ export const closeAllMessageSchema = z.object({
 });
 export type CloseAllMessage = z.infer<typeof closeAllMessageSchema>;
 
+// Prompt 7 Appendix 07-C §12/§16 — QueuePositionReductionDuringOutage. Only
+// meaningful while the position's market data is stale/unavailable — a
+// fresh market rejects this with 'market_not_stale' and expects the normal
+// partial_close/full_close command instead (packages/database/src/
+// position-reduction-queue.ts).
+export const queueReductionMessageSchema = z.object({
+  accountId: z.string().uuid(),
+  idempotencyKey: z.string().uuid(),
+  positionId: z.string().uuid(),
+  mode: z.enum(['partial', 'full']),
+  quantity: decimalString.optional(),
+});
+export type QueueReductionMessage = z.infer<typeof queueReductionMessageSchema>;
+
+export const cancelQueuedReductionMessageSchema = z.object({
+  accountId: z.string().uuid(),
+  queueId: z.string().uuid(),
+});
+export type CancelQueuedReductionMessage = z.infer<typeof cancelQueuedReductionMessageSchema>;
+
 // --- Server -> client DTOs — all money/quantity fields are decimal strings ---
 
 export const orderDtoSchema = z.object({
@@ -152,6 +172,26 @@ export const positionDtoSchema = z.object({
   closedAt: z.string().datetime().nullable(),
 });
 export type PositionDTO = z.infer<typeof positionDtoSchema>;
+
+// Prompt 7 Appendix 07-C §12 — only ever carries 'queued' entries in
+// AccountSnapshot.queuedReductions (executed/cancelled/failed rows drop out
+// once settled — see loadQueuedReductionsForAccount); the result message
+// below carries the terminal status of an individual submit/cancel/execute.
+export const queuedReductionStatusSchema = z.enum(['queued', 'executed', 'cancelled', 'failed']);
+export const queuedReductionDtoSchema = z.object({
+  id: z.string().uuid(),
+  positionId: z.string().uuid(),
+  symbol: symbolSchema,
+  mode: z.enum(['partial', 'full']),
+  requestedQuantity: z.string().nullable(),
+  status: queuedReductionStatusSchema,
+  queuedAt: z.string().datetime(),
+  executedAt: z.string().datetime().nullable(),
+  cancelledAt: z.string().datetime().nullable(),
+  executionOrderId: z.string().uuid().nullable(),
+  failureReason: z.string().nullable(),
+});
+export type QueuedReductionDTO = z.infer<typeof queuedReductionDtoSchema>;
 
 // Prompt 05 — mirrors @wariba/policies' RiskEngineResult, decoupled into its
 // own DTO shape rather than importing the engine's internal type directly
@@ -227,6 +267,10 @@ export const accountSnapshotSchema = z.object({
   // Null only before the account's first-ever trade (no daily snapshot
   // exists yet to evaluate against) — see buildAccountSnapshot.
   risk: accountRiskSchema.nullable(),
+  // Prompt 7 Appendix 07-C §12 — always 'queued' entries only (see
+  // queuedReductionDtoSchema's doc comment); this is how a client learns
+  // "PENDING MARKET RESUME" state survived a reconnect.
+  queuedReductions: z.array(queuedReductionDtoSchema),
 });
 export type AccountSnapshot = z.infer<typeof accountSnapshotSchema>;
 
@@ -240,6 +284,20 @@ export const orderResultMessageSchema = z.object({
   fill: fillDtoSchema.nullable(),
 });
 export type OrderResultMessage = z.infer<typeof orderResultMessageSchema>;
+
+// Prompt 7 Appendix 07-C §12 — response to both queue_reduction and
+// cancel_queued_reduction. rejectionCode covers both a rejected *submission*
+// (e.g. market_not_stale, invalid_quantity) and a rejected *cancellation*
+// (queue_entry_already_settled) — the client tells them apart by which
+// command it sent, same as order_result already does for every order type.
+export const queueReductionResultMessageSchema = z.object({
+  type: z.literal('queue_reduction_result'),
+  idempotencyKey: z.string().uuid().nullable(),
+  status: z.enum(['queued', 'cancelled', 'rejected']),
+  rejectionCode: z.string().nullable(),
+  queueEntry: queuedReductionDtoSchema.nullable(),
+});
+export type QueueReductionResultMessage = z.infer<typeof queueReductionResultMessageSchema>;
 
 /**
  * Prompt 07 — Guardian/RiskRibbon liveness. `buildAccountSnapshot` already

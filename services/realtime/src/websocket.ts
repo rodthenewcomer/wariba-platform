@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
-import type { Db, TradableSymbol } from '@wariba/database';
+import { executeQueuedReductions, type Db, type TradableSymbol } from '@wariba/database';
 import type { MarketDataProvider } from '@wariba/adapters';
 import {
   subscribeMessageSchema,
@@ -9,6 +9,8 @@ import {
   pingMessageSchema,
   submitOrderMessageSchema,
   closeAllMessageSchema,
+  queueReductionMessageSchema,
+  cancelQueuedReductionMessageSchema,
   buildEnvelope,
   accountStateChannel,
   accountOrdersChannel,
@@ -16,6 +18,7 @@ import {
   marketSymbolChannel,
   TRADABLE_SYMBOLS,
   type OrderResultMessage,
+  type QueueReductionResultMessage,
   type SymbolSpec,
 } from '@wariba/contracts';
 import type { Logger } from '@wariba/observability';
@@ -24,7 +27,15 @@ import { resolveLeverage, type LoadedSymbolSpec } from './market';
 import { verifyAccessToken } from './auth';
 import { ConnectionRegistry } from './registry';
 import { buildAccountSnapshot, buildAccountRiskPreview } from './snapshot';
-import { handleSubmitOrder, handleCloseAll, verifyAccountOwnership } from './order-handler';
+import {
+  handleSubmitOrder,
+  handleCloseAll,
+  handleQueueReduction,
+  handleCancelQueuedReduction,
+  verifyAccountOwnership,
+  buildResultMessage,
+  readAllMarkets,
+} from './order-handler';
 
 const clientMessageSchema = z.discriminatedUnion('type', [
   subscribeMessageSchema,
@@ -32,6 +43,11 @@ const clientMessageSchema = z.discriminatedUnion('type', [
   pingMessageSchema,
   z.object({ type: z.literal('submit_order'), order: submitOrderMessageSchema }),
   z.object({ type: z.literal('close_all'), closeAll: closeAllMessageSchema }),
+  z.object({ type: z.literal('queue_reduction'), reduction: queueReductionMessageSchema }),
+  z.object({
+    type: z.literal('cancel_queued_reduction'),
+    cancelReduction: cancelQueuedReductionMessageSchema,
+  }),
 ]);
 
 const HEARTBEAT_INTERVAL_MS = 15_000;
@@ -175,6 +191,54 @@ export function registerWebSocketRoute(
         payload: tick,
       }),
     );
+
+    // Prompt 7 Appendix 07-C §12 — this tick is fresh the instant it's
+    // published (age ~0ms against `now` below), so it's exactly the "first
+    // valid post-recovery executable price" any reduction queued while this
+    // symbol was stale/outage has been waiting for. Fire-and-forget: never
+    // blocks the tick broadcast above, which every subscriber (chart, order
+    // ticket, watchlist) depends on regardless of whether anything is
+    // queued. services/realtime is the only part of this system with live
+    // market data (packages/database has none, by design — ENG-028), so
+    // this is the only place execution can happen.
+    void executeQueuedReductions(db, {
+      symbol: tick.symbol,
+      market: {
+        bid: tick.bid,
+        ask: tick.ask,
+        timestamp: tick.timestamp,
+        sequence: String(tick.sequence),
+      },
+      marketBySymbol: readAllMarkets(market),
+      now: new Date(),
+    })
+      .then((executed) => {
+        // The order_result broadcast alone is enough: it's the exact same
+        // signal a normal immediate partial/full close produces, and every
+        // client already resubscribes to account.state after any
+        // order_result (see the order_result handler below), which
+        // refreshes AccountSnapshot.queuedReductions for free — a settled
+        // entry simply stops appearing there (only 'queued' rows are
+        // included), no separate "it settled" message needed.
+        for (const entry of executed) {
+          broadcastOrderResult(
+            registry,
+            entry.accountId,
+            buildResultMessage(
+              entry.accountId,
+              entry.idempotencyKey,
+              entry.queueEntry.mode === 'partial' ? 'partial_close' : 'full_close',
+              entry.commandResult,
+            ),
+          );
+        }
+      })
+      .catch((error: unknown) => {
+        logger.error('ws.queued_reduction_execution_failed', {
+          symbol: tick.symbol,
+          errorMessage: error instanceof Error ? error.message : String(error),
+        });
+      });
   });
 
   // Prompt 07 — Guardian/RiskRibbon liveness: buildAccountSnapshot already
@@ -343,15 +407,35 @@ async function processMessage(
     return;
   }
 
-  // close_all
-  const outcome = await handleCloseAll(db, market, symbolSpecs, userId, msg.closeAll);
+  if (msg.type === 'close_all') {
+    const outcome = await handleCloseAll(db, market, symbolSpecs, userId, msg.closeAll);
+    if (outcome === 'not_owner') {
+      sendError(registry, connectionId, 'not_owner', 'You do not own this account.');
+      return;
+    }
+    for (const message of outcome.messages) {
+      broadcastOrderResult(registry, msg.closeAll.accountId, message);
+    }
+    return;
+  }
+
+  if (msg.type === 'queue_reduction') {
+    const outcome = await handleQueueReduction(db, market, userId, msg.reduction);
+    if (outcome === 'not_owner') {
+      sendError(registry, connectionId, 'not_owner', 'You do not own this account.');
+      return;
+    }
+    broadcastQueueReductionResult(registry, msg.reduction.accountId, outcome);
+    return;
+  }
+
+  // cancel_queued_reduction
+  const outcome = await handleCancelQueuedReduction(db, userId, msg.cancelReduction);
   if (outcome === 'not_owner') {
     sendError(registry, connectionId, 'not_owner', 'You do not own this account.');
     return;
   }
-  for (const message of outcome.messages) {
-    broadcastOrderResult(registry, msg.closeAll.accountId, message);
-  }
+  broadcastQueueReductionResult(registry, msg.cancelReduction.accountId, outcome);
 }
 
 async function channelAllowed(db: Db, userId: string, channel: string): Promise<boolean> {
@@ -404,6 +488,7 @@ async function sendInitialSnapshot(
       maximumQuantity: symbolSpecs[symbol].maximumQuantity,
       quantityStep: symbolSpecs[symbol].quantityStep,
       leverage: resolveLeverage(symbolSpecs[symbol], account.program_type),
+      commissionPerLot: symbolSpecs[symbol].commissionPerLot,
     }));
     registry.send(
       connectionId,
@@ -446,6 +531,22 @@ function broadcastOrderResult(
   });
   registry.broadcast(accountOrdersChannel(accountId), envelope);
   registry.broadcast(accountPositionsChannel(accountId), envelope);
+}
+
+function broadcastQueueReductionResult(
+  registry: ConnectionRegistry,
+  accountId: string,
+  message: QueueReductionResultMessage,
+): void {
+  registry.broadcast(
+    accountPositionsChannel(accountId),
+    buildEnvelope({
+      type: 'queue_reduction_result',
+      sequence: 0,
+      correlationId: accountId,
+      payload: message,
+    }),
+  );
 }
 
 function sendError(

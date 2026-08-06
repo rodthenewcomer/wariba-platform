@@ -3,6 +3,8 @@ import {
   closePosition,
   closeAllPositions,
   modifyPositionRisk,
+  queuePositionReduction,
+  cancelQueuedReduction,
   type Db,
   type TradeCommandResult,
   type MarketSnapshot,
@@ -13,10 +15,13 @@ import {
   type SubmitOrderMessage,
   type CloseAllMessage,
   type OrderResultMessage,
+  type QueueReductionMessage,
+  type CancelQueuedReductionMessage,
+  type QueueReductionResultMessage,
 } from '@wariba/contracts';
 import type { MarketDataProvider } from '@wariba/adapters';
 import type { LoadedSymbolSpec } from './market';
-import { toOrderDTO, toPositionDTO, toFillDTO } from './dto-mappers';
+import { toOrderDTO, toPositionDTO, toFillDTO, toQueuedReductionDTO } from './dto-mappers';
 
 export type OrderRejectionReason = 'not_owner';
 
@@ -41,7 +46,7 @@ function readMarketSnapshot(market: MarketDataProvider, symbol: TradableSymbol):
  * every open position on the account, not just the symbol being traded —
  * so it always needs live quotes for all tradable symbols, not just one.
  */
-function readAllMarkets(market: MarketDataProvider): Record<TradableSymbol, MarketSnapshot> {
+export function readAllMarkets(market: MarketDataProvider): Record<TradableSymbol, MarketSnapshot> {
   const result = {} as Record<TradableSymbol, MarketSnapshot>;
   for (const symbol of TRADABLE_SYMBOLS) {
     result[symbol] = readMarketSnapshot(market, symbol);
@@ -79,7 +84,7 @@ async function symbolForPosition(db: Db, positionId: string): Promise<TradableSy
   return row?.symbol ?? 'EURUSD';
 }
 
-function buildResultMessage(
+export function buildResultMessage(
   accountId: string,
   idempotencyKey: string,
   orderType: SubmitOrderMessage['orderType'],
@@ -231,4 +236,63 @@ export async function handleCloseAll(
     buildResultMessage(msg.accountId, msg.idempotencyKey, 'full_close', r),
   );
   return { results, messages };
+}
+
+/**
+ * Prompt 7 Appendix 07-C §12 — QueuePositionReductionDuringOutage. Uses the
+ * position's own symbol's tick (read the same way symbolForPosition does for
+ * every other position-scoped command) so "is this market stale" is judged
+ * against the right symbol, not whatever the client happened to have open.
+ */
+export async function handleQueueReduction(
+  db: Db,
+  market: MarketDataProvider,
+  userId: string,
+  msg: QueueReductionMessage,
+): Promise<QueueReductionResultMessage | OrderRejectionReason> {
+  if (!(await verifyAccountOwnership(db, msg.accountId, userId))) {
+    return 'not_owner';
+  }
+  const now = new Date();
+  const symbol = await symbolForPosition(db, msg.positionId);
+  const marketSnapshot = readMarketSnapshot(market, symbol);
+  const result = await queuePositionReduction(db, {
+    accountId: msg.accountId,
+    idempotencyKey: msg.idempotencyKey,
+    positionId: msg.positionId,
+    mode: msg.mode,
+    ...(msg.quantity !== undefined && { quantity: msg.quantity }),
+    market: marketSnapshot,
+    now,
+  });
+  return {
+    type: 'queue_reduction_result',
+    idempotencyKey: msg.idempotencyKey,
+    status: result.status,
+    rejectionCode: result.rejectionCode,
+    queueEntry: result.queueEntry ? toQueuedReductionDTO(result.queueEntry) : null,
+  };
+}
+
+export async function handleCancelQueuedReduction(
+  db: Db,
+  userId: string,
+  msg: CancelQueuedReductionMessage,
+): Promise<QueueReductionResultMessage | OrderRejectionReason> {
+  if (!(await verifyAccountOwnership(db, msg.accountId, userId))) {
+    return 'not_owner';
+  }
+  const now = new Date();
+  const result = await cancelQueuedReduction(db, {
+    accountId: msg.accountId,
+    queueId: msg.queueId,
+    now,
+  });
+  return {
+    type: 'queue_reduction_result',
+    idempotencyKey: null,
+    status: result.status,
+    rejectionCode: result.rejectionCode,
+    queueEntry: result.queueEntry ? toQueuedReductionDTO(result.queueEntry) : null,
+  };
 }
