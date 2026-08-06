@@ -12,6 +12,7 @@ export interface PositionsTabPanelProps {
   symbolSpecs: Partial<Record<TradableSymbol, SymbolSpec>>;
   onClosePosition: (positionId: string) => void;
   onModifyPosition: (positionId: string) => void;
+  onPartialClosePosition: (positionId: string) => void;
   onOpenCloseAll: () => void;
   pending: boolean;
 }
@@ -28,6 +29,7 @@ export const PositionsTabPanel = memo(function PositionsTabPanel({
   symbolSpecs,
   onClosePosition,
   onModifyPosition,
+  onPartialClosePosition,
   onOpenCloseAll,
   pending,
 }: PositionsTabPanelProps) {
@@ -92,6 +94,7 @@ export const PositionsTabPanel = memo(function PositionsTabPanel({
         positions={wariXPositions}
         onClose={onClosePosition}
         onModify={onModifyPosition}
+        onPartialClose={onPartialClosePosition}
         closeDisabled={pending}
         emptyLabel="Aucune position ouverte."
       />

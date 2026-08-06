@@ -49,9 +49,12 @@ import {
 } from '@wariba/contracts';
 import { RealtimeClient, type RealtimeConnectionState } from '../../../lib/realtime-client';
 import { createSupabaseBrowserClient } from '../../../lib/supabase/browser';
+import { useOneClickTrading } from '../../../lib/one-click-trading';
 import { OrderTicket, type OrderRejectionDetail } from './OrderTicket';
 import { CloseAllDialog, type CloseAllOutcome } from './CloseAllDialog';
 import { ModifyPositionDialog } from './ModifyPositionDialog';
+import { QuickOrderConfirm } from './QuickOrderConfirm';
+import { PartialCloseSheet } from './PartialCloseSheet';
 import { TradeHeaderPanel } from './TradeHeaderPanel';
 import { WatchlistPanel } from './WatchlistPanel';
 import { PositionsTabPanel } from './PositionsTabPanel';
@@ -125,6 +128,19 @@ const REJECTION_DETAIL: Record<string, { reason: string; action: string }> = {
   position_already_closed: {
     reason: 'Cette position est déjà fermée.',
     action: 'Rafraîchissez vos positions ouvertes.',
+  },
+  market_not_stale: {
+    reason:
+      'Le prix de ce symbole est à jour — la mise en file n’est utile que si le prix est obsolète.',
+    action: 'Utilisez la clôture partielle ou totale immédiate à la place.',
+  },
+  queue_entry_not_found: {
+    reason: 'Cette demande en attente n’existe plus.',
+    action: 'Rafraîchissez vos positions ouvertes.',
+  },
+  queue_entry_already_settled: {
+    reason: 'Cette demande a déjà été exécutée ou annulée — elle ne peut plus être annulée.',
+    action: 'Consultez l’historique pour voir le résultat.',
   },
 };
 const UNKNOWN_REJECTION_DETAIL = {
@@ -253,6 +269,31 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
   const [ticketOpen, setTicketOpen] = useState(false);
   const [closeAllDialogOpen, setCloseAllDialogOpen] = useState(false);
   const [modifyPositionId, setModifyPositionId] = useState<string | null>(null);
+  // Prompt 7 Appendix 07-C — which position/field the chart's SL/TP drag or
+  // chip just submitted, so TradeChart can show PENDING_SERVER on exactly
+  // that handle rather than a generic global spinner. Cleared as soon as
+  // `pending` goes false (success or rejection) — mirrors
+  // ModifyPositionDialog's own local submittingField pattern, just lifted
+  // here since the chart is a second, independent entry point to the same
+  // command.
+  const [pendingRiskAction, setPendingRiskAction] = useState<{
+    positionId: string;
+    field: 'stop_loss' | 'take_profit';
+  } | null>(null);
+  // Prompt 7 Appendix 07-C §8 — Market Buy/Sell chosen from the chart
+  // context menu. one-click trading off (the default) shows this
+  // confirmation before submitting; on, it submits immediately (see
+  // handleMarketOrderRequest below).
+  const [oneClickTrading] = useOneClickTrading();
+  const [quickOrderSide, setQuickOrderSide] = useState<'buy' | 'sell' | null>(null);
+  const [partialClosePositionId, setPartialClosePositionId] = useState<string | null>(null);
+  // Prompt 7 Appendix 07-C §15 — "status announcements for accepted,
+  // rejected and pending commands". A single visually-hidden aria-live
+  // region announces every settled command (order or queued reduction),
+  // covering every entry point (chart drag, chips, context menu, dialogs,
+  // row actions) through one shared place rather than duplicating
+  // announcement logic per component.
+  const [statusAnnouncement, setStatusAnnouncement] = useState('');
   const [closeAllResult, setCloseAllResult] = useState<CloseAllOutcome[] | null>(null);
   // §22.6 "historique d'exécution" — AccountSnapshot.recentFills only ever
   // contains close fills (services/realtime/src/snapshot.ts), so an 'open'
@@ -393,8 +434,13 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
           }
           if (result.status === 'rejected') {
             setOrderError(result.rejectionCode ?? 'unknown_error');
+            const detail = REJECTION_DETAIL[result.rejectionCode ?? ''] ?? UNKNOWN_REJECTION_DETAIL;
+            setStatusAnnouncement(`Refusé : ${detail.reason}`);
           } else {
             setOrderError(null);
+            if (result.order) {
+              setStatusAnnouncement(`${ORDER_TYPE_LABEL[result.order.orderType]} confirmé.`);
+            }
           }
         }
         if (result.fill) {
@@ -421,6 +467,31 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
         }
         // Server always answers a (re)subscribe with a fresh full snapshot —
         // simplest correct way to pick up the new position/order/balance.
+        client.subscribe([accountStateChannel(accountId)]);
+      } else if (envelope.type === 'queue_reduction_result') {
+        // Prompt 7 Appendix 07-C §12 — submit/cancel response for the
+        // stale-market reduction queue. No pendingCommandRef tracking here
+        // (unlike order_result): the server already dedupes a queue
+        // submission by idempotency key on its own, so a dropped connection
+        // before this arrives just means the user retries manually, same as
+        // any other unacknowledged action before that machinery existed —
+        // never a double-execution risk (closePosition's own quantity/status
+        // checks still apply at execution time regardless of how many queue
+        // rows point at the same position).
+        setPending(false);
+        const result = envelope.payload as { status: string; rejectionCode: string | null };
+        if (result.status === 'rejected') {
+          setOrderError(result.rejectionCode ?? 'unknown_error');
+          const detail = REJECTION_DETAIL[result.rejectionCode ?? ''] ?? UNKNOWN_REJECTION_DETAIL;
+          setStatusAnnouncement(`Refusé : ${detail.reason}`);
+        } else {
+          setOrderError(null);
+          setStatusAnnouncement(
+            result.status === 'cancelled'
+              ? 'Demande en attente annulée.'
+              : 'Réduction mise en file d’attente, en attente d’un prix à jour.',
+          );
+        }
         client.subscribe([accountStateChannel(accountId)]);
       } else if (envelope.type === 'error') {
         pendingCommandRef.current = null;
@@ -451,6 +522,13 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
   // symbol's ticks only ever reach WatchlistPanel's own rows.
   const selectedTick = useTick(tickStore, selectedSymbol);
   const isStale = selectedTick?.marketStatus === 'stale';
+  const partialClosePosition =
+    snapshot?.openPositions.find((p) => p.id === partialClosePositionId) ?? null;
+  // A partial close can be opened for a position on a symbol other than the
+  // one currently selected on the chart (e.g. from that position's own row
+  // action) — this must track *that* position's own symbol's tick, not
+  // necessarily selectedTick.
+  const partialCloseTick = useTick(tickStore, partialClosePosition?.symbol ?? selectedSymbol);
   const connectionOk = connectionState === 'open';
   const isResyncing = connectionState === 'resyncing';
   const risk = snapshot?.risk ?? null;
@@ -524,6 +602,79 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
       clientRef.current.submitOrder(command);
     },
     [accountId, selectedSymbol, quantity, stopLoss, takeProfit],
+  );
+
+  // Chart context menu's Market Buy/Sell (§7/§8) — same command, same
+  // current ticket quantity/SL/TP as the Order Ticket's own Buy/Sell
+  // buttons; the only difference is whether a confirmation is required
+  // first (one-click trading preference).
+  const requestMarketOrderFromChart = useCallback(
+    (side: 'buy' | 'sell') => {
+      if (oneClickTrading) {
+        submitMarketOrder(side);
+      } else {
+        setQuickOrderSide(side);
+      }
+    },
+    [oneClickTrading, submitMarketOrder],
+  );
+
+  const confirmQuickOrder = useCallback(() => {
+    if (!quickOrderSide) return;
+    submitMarketOrder(quickOrderSide);
+    setQuickOrderSide(null);
+  }, [quickOrderSide, submitMarketOrder]);
+
+  const openPartialClose = useCallback((positionId: string) => {
+    setPartialClosePositionId(positionId);
+  }, []);
+
+  const closePartialClose = useCallback(() => {
+    setPartialClosePositionId(null);
+  }, []);
+
+  const submitPartialClose = useCallback(
+    (params: { positionId: string; quantity: string }) => {
+      if (!clientRef.current) return;
+      setPending(true);
+      setOrderError(null);
+      const command: SubmitOrderMessage = {
+        orderType: 'partial_close',
+        accountId,
+        idempotencyKey: crypto.randomUUID(),
+        positionId: params.positionId,
+        quantity: params.quantity,
+      };
+      pendingCommandRef.current = { kind: 'order', payload: command };
+      clientRef.current.submitOrder(command);
+    },
+    [accountId],
+  );
+
+  const queueReductionRequest = useCallback(
+    (params: { positionId: string; mode: 'partial' | 'full'; quantity?: string }) => {
+      if (!clientRef.current) return;
+      setPending(true);
+      setOrderError(null);
+      clientRef.current.queueReduction({
+        accountId,
+        idempotencyKey: crypto.randomUUID(),
+        positionId: params.positionId,
+        mode: params.mode,
+        ...(params.quantity !== undefined ? { quantity: params.quantity } : {}),
+      });
+    },
+    [accountId],
+  );
+
+  const cancelQueuedReductionRequest = useCallback(
+    (queueId: string) => {
+      if (!clientRef.current) return;
+      setPending(true);
+      setOrderError(null);
+      clientRef.current.cancelQueuedReduction({ accountId, queueId });
+    },
+    [accountId],
   );
 
   // Client-side bounds check for instant feedback — the server (INVALID_QUANTITY,
@@ -606,11 +757,18 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
             };
       setPending(true);
       setOrderError(null);
+      setPendingRiskAction({ positionId: params.positionId, field: params.field });
       pendingCommandRef.current = { kind: 'order', payload: command };
       clientRef.current.submitOrder(command);
     },
     [accountId],
   );
+
+  // Settles (success or rejection) the same instant `pending` itself does —
+  // see pendingRiskAction's own doc comment above.
+  useEffect(() => {
+    if (!pending) setPendingRiskAction(null);
+  }, [pending]);
 
   const openCloseAllDialog = useCallback(() => {
     setCloseAllResult(null);
@@ -682,6 +840,9 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
 
   return (
     <div className="flex min-h-dvh flex-col">
+      <div aria-live="polite" className="sr-only">
+        {statusAnnouncement}
+      </div>
       <div className="flex flex-col gap-2 border-b border-[color:var(--wariba-theme-border)] p-[var(--wariba-component-trade-panel-padding)]">
         <TradeHeaderPanel
           accountId={accountId}
@@ -733,6 +894,16 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
             positions={symbolPositions}
             fills={symbolFills}
             connectionState={connectionState}
+            spec={symbolSpecs[selectedSymbol] ?? null}
+            accountEquity={snapshot?.equity ?? '0'}
+            dailyLossRemaining={risk?.dailyLoss.remaining ?? null}
+            pendingRiskAction={pendingRiskAction}
+            commandPending={pending}
+            onCommitLevel={submitPositionRiskModification}
+            onOpenManage={openModifyDialog}
+            onClosePosition={closePosition}
+            onMarketOrderRequest={requestMarketOrderFromChart}
+            onOpenPartialClose={openPartialClose}
           />
           <Button variant="secondary" className="lg:hidden" onClick={() => setTicketOpen(true)}>
             Trader {selectedSymbol}
@@ -772,6 +943,44 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
         onSubmit={submitPositionRiskModification}
       />
 
+      <QuickOrderConfirm
+        open={quickOrderSide !== null}
+        onClose={() => setQuickOrderSide(null)}
+        symbol={selectedSymbol}
+        side={quickOrderSide ?? 'buy'}
+        quantity={quantity}
+        tick={selectedTick}
+        spec={symbolSpecs[selectedSymbol] ?? null}
+        stopLoss={stopLoss}
+        takeProfit={takeProfit}
+        pending={pending}
+        onConfirm={confirmQuickOrder}
+      />
+
+      <PartialCloseSheet
+        open={partialClosePositionId !== null}
+        onClose={closePartialClose}
+        position={partialClosePosition}
+        spec={partialClosePosition ? (symbolSpecs[partialClosePosition.symbol] ?? null) : null}
+        tick={partialCloseTick}
+        pending={pending}
+        rejection={rejection}
+        queuedReductions={snapshot?.queuedReductions ?? []}
+        onSubmitPartialClose={(params) => {
+          submitPartialClose(params);
+          closePartialClose();
+        }}
+        onSubmitFullClose={(positionId) => {
+          closePosition(positionId);
+          closePartialClose();
+        }}
+        onQueueReduction={(params) => {
+          queueReductionRequest(params);
+          closePartialClose();
+        }}
+        onCancelQueuedReduction={cancelQueuedReductionRequest}
+      />
+
       <div className="border-t border-[color:var(--wariba-theme-border)] p-[var(--wariba-component-trade-panel-padding)]">
         <Tabs value={tab} onValueChange={setTab}>
           <TabList aria-label="Compte">
@@ -787,6 +996,7 @@ export function TradeClient({ accountId, wsUrl }: { accountId: string; wsUrl: st
               symbolSpecs={symbolSpecs}
               onClosePosition={closePosition}
               onModifyPosition={openModifyDialog}
+              onPartialClosePosition={openPartialClose}
               onOpenCloseAll={openCloseAllDialog}
               pending={pending}
             />

@@ -27,6 +27,8 @@ export interface WariXPositionsTableProps {
   positions: WariXPosition[];
   onClose: (positionId: string) => void;
   onModify: (positionId: string) => void;
+  /** Prompt 7 Appendix 07-C §9 — one of partial close's required entry points (position row action menu). */
+  onPartialClose: (positionId: string) => void;
   closeDisabled: boolean;
   emptyLabel: string;
 }
@@ -48,6 +50,7 @@ export function WariXPositionsTable({
   positions,
   onClose,
   onModify,
+  onPartialClose,
   closeDisabled,
   emptyLabel,
 }: WariXPositionsTableProps) {
@@ -101,6 +104,15 @@ export function WariXPositionsTable({
                     aria-label={`Modifier SL/TP — ${position.symbol} · ${position.sideLabel}`}
                   >
                     Modifier
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onPartialClose(position.id)}
+                    disabled={closeDisabled}
+                    aria-label={`Clôture partielle — ${position.symbol} · ${position.sideLabel}`}
+                  >
+                    Clôture %
                   </Button>
                   <Button
                     variant="ghost"
