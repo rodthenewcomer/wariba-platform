@@ -158,6 +158,7 @@ describeIfDb('pending orders / price alerts — row level security (real databas
     await db.deleteFrom('app.price_alerts').where('user_id', 'in', [userA, userB]).execute();
     for (const id of cleanupAccountIds) {
       await db.deleteFrom('app.pending_orders').where('account_id', '=', id).execute();
+      await db.deleteFrom('app.trading_ledger_entries').where('account_id', '=', id).execute();
       await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', id).execute();
       // risk_violations references both account_state_transitions and
       // account_daily_snapshots — must be deleted before either (same
