@@ -198,7 +198,10 @@ describeIfDb('price-alerts — real database', () => {
     });
     const firedForThisAlert = fired.filter((n) => n.alertId === alertId);
     expect(firedForThisAlert).toHaveLength(1);
-    expect(firedForThisAlert[0]?.triggeringPrice).toBe('2012.10'); // mid of 2012.00/2012.20
+    // mid of 2012.00/2012.20 = 2012.10, returned as 2012.10000 — Postgres
+    // formats every numeric(14,5) column to its full declared scale
+    // regardless of the inserted value's own precision.
+    expect(firedForThisAlert[0]?.triggeringPrice).toBe('2012.10000');
 
     const afterFire = await loadActiveAlertsForUser(db, userId);
     const alert = afterFire.find((a) => a.id === alertId);
