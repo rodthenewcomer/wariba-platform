@@ -96,7 +96,11 @@ describeIfDb('position-reduction-queue — real database', () => {
     return account.id;
   };
 
-  const openTestPosition = async (quantity = '1.00'): Promise<string> => {
+  // WARIBA_ONE 10K's aggregate Forex exposure limit is 0.60 lot (Program
+  // Rulebook v1.1 §6) — every quantity in this file must stay comfortably
+  // under that, unlike trading.integration.test.ts's own fixtures which
+  // already use small quantities throughout.
+  const openTestPosition = async (quantity = '0.50'): Promise<string> => {
     const result = await openPosition(db, {
       accountId,
       idempotencyKey: randomUUID(),
@@ -107,7 +111,11 @@ describeIfDb('position-reduction-queue — real database', () => {
       marketBySymbol: ALL_MARKETS_FRESH,
       now: NOW,
     });
-    if (!result.position) throw new Error('test setup: position did not open');
+    if (!result.position) {
+      throw new Error(
+        `test setup: position did not open (rejectionCode=${result.order.rejectionCode})`,
+      );
+    }
     return result.position.id;
   };
 
@@ -175,7 +183,7 @@ describeIfDb('position-reduction-queue — real database', () => {
   });
 
   it('queues a partial reduction while the market is stale, without touching the position yet', async () => {
-    const positionId = await openTestPosition('1.00');
+    const positionId = await openTestPosition('0.50');
     const result = await queuePositionReduction(db, {
       accountId,
       idempotencyKey: randomUUID(),
@@ -194,17 +202,17 @@ describeIfDb('position-reduction-queue — real database', () => {
       .select('open_quantity')
       .where('id', '=', positionId)
       .executeTakeFirstOrThrow();
-    expect(position.open_quantity).toBe('1.0000');
+    expect(position.open_quantity).toBe('0.5000');
   });
 
   it('rejects an invalid partial quantity even while stale', async () => {
-    const positionId = await openTestPosition('1.00');
+    const positionId = await openTestPosition('0.50');
     const result = await queuePositionReduction(db, {
       accountId,
       idempotencyKey: randomUUID(),
       positionId,
       mode: 'partial',
-      quantity: '1.00', // >= open quantity — must be a full_close, not partial
+      quantity: '0.50', // >= open quantity — must be a full_close, not partial
       market: STALE_MARKET,
       now: NOW,
     });
@@ -213,7 +221,7 @@ describeIfDb('position-reduction-queue — real database', () => {
   });
 
   it('is idempotent — replaying the same idempotency key returns the same queue entry, not a duplicate', async () => {
-    const positionId = await openTestPosition('1.00');
+    const positionId = await openTestPosition('0.50');
     const idempotencyKey = randomUUID();
     const first = await queuePositionReduction(db, {
       accountId,
@@ -238,7 +246,7 @@ describeIfDb('position-reduction-queue — real database', () => {
   });
 
   it('cancels a queued reduction that has not executed yet', async () => {
-    const positionId = await openTestPosition('1.00');
+    const positionId = await openTestPosition('0.50');
     const queued = await queuePositionReduction(db, {
       accountId,
       idempotencyKey: randomUUID(),
@@ -259,7 +267,7 @@ describeIfDb('position-reduction-queue — real database', () => {
   });
 
   it('rejects cancelling an already-settled queue entry', async () => {
-    const positionId = await openTestPosition('1.00');
+    const positionId = await openTestPosition('0.50');
     const queued = await queuePositionReduction(db, {
       accountId,
       idempotencyKey: randomUUID(),
@@ -285,7 +293,7 @@ describeIfDb('position-reduction-queue — real database', () => {
   });
 
   it('executes a queued partial reduction against the first fresh tick, exactly once', async () => {
-    const positionId = await openTestPosition('1.00');
+    const positionId = await openTestPosition('0.50');
     await queuePositionReduction(db, {
       accountId,
       idempotencyKey: randomUUID(),
@@ -312,7 +320,7 @@ describeIfDb('position-reduction-queue — real database', () => {
       .select('open_quantity')
       .where('id', '=', positionId)
       .executeTakeFirstOrThrow();
-    expect(position.open_quantity).toBe('0.6000');
+    expect(position.open_quantity).toBe('0.1000');
 
     // A second tick must find nothing left queued for this symbol — never
     // a duplicate execution of the same reduction.
@@ -330,26 +338,26 @@ describeIfDb('position-reduction-queue — real database', () => {
   });
 
   it('marks a queued reduction as failed (not stuck) if it becomes invalid before execution', async () => {
-    const positionId = await openTestPosition('1.00');
+    const positionId = await openTestPosition('0.50');
     await queuePositionReduction(db, {
       accountId,
       idempotencyKey: randomUUID(),
       positionId,
       mode: 'partial',
-      quantity: '0.70',
+      quantity: '0.35',
       market: STALE_MARKET,
       now: NOW,
     });
 
     // An immediate close reduces the position to 0.20 before the market
-    // recovers — the queued 0.70 reduction is no longer a valid partial
+    // recovers — the queued 0.35 reduction is no longer a valid partial
     // quantity against the new, smaller open quantity.
     const immediateClose = await closePosition(db, {
       accountId,
       idempotencyKey: randomUUID(),
       positionId,
       mode: 'partial',
-      quantity: '0.80',
+      quantity: '0.30',
       market: FRESH_MARKET,
       marketBySymbol: ALL_MARKETS_FRESH,
       now: NOW,
