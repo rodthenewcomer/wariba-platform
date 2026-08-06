@@ -87,7 +87,7 @@ const REJECTION = {
 // exact same way as the gate below, with no risk of the two drifting apart.
 export const FOREX_SYMBOLS = ['EURUSD', 'GBPUSD', 'USDJPY'] as const;
 
-async function isWithinAggregateExposureLimit(
+export async function isWithinAggregateExposureLimit(
   trx: Db,
   account: {
     id: string;
@@ -298,6 +298,19 @@ export interface OpenPositionParams {
    * still gets an accurate breach/soft-lock check. */
   marketBySymbol: Record<TradableSymbol, MarketSnapshot>;
   now: Date;
+  /**
+   * Prompt 7 Appendix 07-D — set only when this open is a pending order
+   * (Buy/Sell Limit/Stop) triggering, never for a trader-submitted market
+   * order. The caller (packages/database/src/pending-orders.ts) has already
+   * computed the same slippage-adjusted price this function would compute
+   * itself and clamped it to the limit price where required
+   * (clampPendingOrderFillPrice — stop orders are never clamped, matching
+   * the documented "may fill past the stop on a gap" behavior); passing it
+   * here keeps every other part of the fill (commission, ledger, position
+   * insert, risk evaluation) on this single authoritative code path instead
+   * of a second, divergent implementation.
+   */
+  fillPriceOverride?: string;
 }
 
 export async function openPosition(
@@ -376,14 +389,16 @@ export async function openPosition(
       return reject(REJECTION.EXPOSURE_LIMIT_EXCEEDED);
     }
 
-    const fillPrice = computeFillPrice({
-      bid: params.market.bid,
-      ask: params.market.ask,
-      positionSide: params.side,
-      action: 'open',
-      slippagePoints: spec.slippage_points,
-      pricePrecision: spec.price_precision,
-    });
+    const fillPrice =
+      params.fillPriceOverride ??
+      computeFillPrice({
+        bid: params.market.bid,
+        ask: params.market.ask,
+        positionSide: params.side,
+        action: 'open',
+        slippagePoints: spec.slippage_points,
+        pricePrecision: spec.price_precision,
+      });
     const commission = computeCommission({
       quantity: params.quantity,
       commissionPerLot: spec.commission_per_lot,

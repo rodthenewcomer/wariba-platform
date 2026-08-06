@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { symbolSchema } from './market';
+import { pendingOrderDtoSchema } from './pending-orders';
 
 // Client-submitted quantity/price-level strings reach Decimal.js deep inside
 // the openPosition DB transaction (packages/domain/src/trading-math.ts) with
@@ -271,6 +272,11 @@ export const accountSnapshotSchema = z.object({
   // queuedReductionDtoSchema's doc comment); this is how a client learns
   // "PENDING MARKET RESUME" state survived a reconnect.
   queuedReductions: z.array(queuedReductionDtoSchema),
+  // Prompt 7 Appendix 07-D — active Buy/Sell Limit/Stop orders only
+  // (triggered/filled/cancelled/rejected/failed rows drop out once
+  // settled, same "only what's still live" convention queuedReductions
+  // already established).
+  pendingOrders: z.array(pendingOrderDtoSchema),
 });
 export type AccountSnapshot = z.infer<typeof accountSnapshotSchema>;
 

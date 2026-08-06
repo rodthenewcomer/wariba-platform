@@ -5,10 +5,22 @@ import {
   modifyPositionRisk,
   queuePositionReduction,
   cancelQueuedReduction,
+  createPendingOrder,
+  modifyPendingOrder,
+  cancelPendingOrder,
+  cancelAllPendingOrders,
+  createPriceAlert,
+  modifyPriceAlert,
+  enablePriceAlert,
+  disablePriceAlert,
+  deletePriceAlert,
+  markNotificationsRead,
   type Db,
   type TradeCommandResult,
   type MarketSnapshot,
   type TradableSymbol,
+  type PendingOrderCommandResult,
+  type AlertCommandResult,
 } from '@wariba/database';
 import {
   TRADABLE_SYMBOLS,
@@ -18,10 +30,27 @@ import {
   type QueueReductionMessage,
   type CancelQueuedReductionMessage,
   type QueueReductionResultMessage,
+  type CreatePendingOrderMessage,
+  type ModifyPendingOrderMessage,
+  type CancelPendingOrderMessage,
+  type CancelAllPendingOrdersMessage,
+  type PendingOrderResultMessage,
+  type CreatePriceAlertMessage,
+  type ModifyPriceAlertMessage,
+  type AlertIdMessage,
+  type MarkNotificationsReadMessage,
+  type AlertResultMessage,
 } from '@wariba/contracts';
 import type { MarketDataProvider } from '@wariba/adapters';
 import type { LoadedSymbolSpec } from './market';
-import { toOrderDTO, toPositionDTO, toFillDTO, toQueuedReductionDTO } from './dto-mappers';
+import {
+  toOrderDTO,
+  toPositionDTO,
+  toFillDTO,
+  toQueuedReductionDTO,
+  toPendingOrderDTO,
+  toPriceAlertDTO,
+} from './dto-mappers';
 
 export type OrderRejectionReason = 'not_owner';
 
@@ -295,4 +324,201 @@ export async function handleCancelQueuedReduction(
     rejectionCode: result.rejectionCode,
     queueEntry: result.queueEntry ? toQueuedReductionDTO(result.queueEntry) : null,
   };
+}
+
+function toPendingOrderResultMessage(
+  idempotencyKey: string | null,
+  result: PendingOrderCommandResult,
+): PendingOrderResultMessage {
+  return {
+    type: 'pending_order_result',
+    idempotencyKey,
+    status: result.status,
+    rejectionCode: result.rejectionCode,
+    order: result.order ? toPendingOrderDTO(result.order) : null,
+  };
+}
+
+export async function handleCreatePendingOrder(
+  db: Db,
+  market: MarketDataProvider,
+  userId: string,
+  msg: CreatePendingOrderMessage,
+): Promise<PendingOrderResultMessage | OrderRejectionReason> {
+  if (!(await verifyAccountOwnership(db, msg.accountId, userId))) {
+    return 'not_owner';
+  }
+  const now = new Date();
+  const result = await createPendingOrder(db, {
+    accountId: msg.accountId,
+    idempotencyKey: msg.idempotencyKey,
+    symbol: msg.symbol,
+    orderType: msg.orderType,
+    quantity: msg.quantity,
+    triggerPrice: msg.triggerPrice,
+    ...(msg.stopLoss !== undefined && { stopLoss: msg.stopLoss }),
+    ...(msg.takeProfit !== undefined && { takeProfit: msg.takeProfit }),
+    market: readMarketSnapshot(market, msg.symbol),
+    now,
+  });
+  return toPendingOrderResultMessage(msg.idempotencyKey, result);
+}
+
+export async function handleModifyPendingOrder(
+  db: Db,
+  market: MarketDataProvider,
+  userId: string,
+  msg: ModifyPendingOrderMessage,
+): Promise<PendingOrderResultMessage | OrderRejectionReason> {
+  if (!(await verifyAccountOwnership(db, msg.accountId, userId))) {
+    return 'not_owner';
+  }
+  const now = new Date();
+  const symbol = await symbolForPendingOrder(db, msg.pendingOrderId);
+  const result = await modifyPendingOrder(db, {
+    accountId: msg.accountId,
+    pendingOrderId: msg.pendingOrderId,
+    ...(msg.triggerPrice !== undefined && { triggerPrice: msg.triggerPrice }),
+    ...(msg.quantity !== undefined && { quantity: msg.quantity }),
+    ...(msg.stopLoss !== undefined && { stopLoss: msg.stopLoss }),
+    ...(msg.takeProfit !== undefined && { takeProfit: msg.takeProfit }),
+    market: readMarketSnapshot(market, symbol),
+    now,
+  });
+  return toPendingOrderResultMessage(null, result);
+}
+
+export async function handleCancelPendingOrder(
+  db: Db,
+  userId: string,
+  msg: CancelPendingOrderMessage,
+): Promise<PendingOrderResultMessage | OrderRejectionReason> {
+  if (!(await verifyAccountOwnership(db, msg.accountId, userId))) {
+    return 'not_owner';
+  }
+  const now = new Date();
+  const result = await cancelPendingOrder(db, {
+    accountId: msg.accountId,
+    pendingOrderId: msg.pendingOrderId,
+    now,
+  });
+  return toPendingOrderResultMessage(null, result);
+}
+
+export async function handleCancelAllPendingOrders(
+  db: Db,
+  userId: string,
+  msg: CancelAllPendingOrdersMessage,
+): Promise<PendingOrderResultMessage[] | OrderRejectionReason> {
+  if (!(await verifyAccountOwnership(db, msg.accountId, userId))) {
+    return 'not_owner';
+  }
+  const now = new Date();
+  const cancelled = await cancelAllPendingOrders(db, { accountId: msg.accountId, now });
+  return cancelled.map((order) => ({
+    type: 'pending_order_result' as const,
+    idempotencyKey: null,
+    status: 'active' as const,
+    rejectionCode: null,
+    order: toPendingOrderDTO(order),
+  }));
+}
+
+/**
+ * Mirrors symbolForPosition above — used only to pick which market tick to
+ * read for a modify command; the DB transaction re-validates existence and
+ * status under lock regardless of what's read here.
+ */
+async function symbolForPendingOrder(db: Db, pendingOrderId: string): Promise<TradableSymbol> {
+  const row = await db
+    .selectFrom('app.pending_orders')
+    .select('symbol')
+    .where('id', '=', pendingOrderId)
+    .executeTakeFirst();
+  return row?.symbol ?? 'EURUSD';
+}
+
+function toAlertResultMessage(result: AlertCommandResult): AlertResultMessage {
+  return {
+    type: 'alert_result',
+    status: result.status,
+    rejectionCode: result.rejectionCode,
+    alert: result.alert ? toPriceAlertDTO(result.alert) : null,
+  };
+}
+
+export async function handleCreatePriceAlert(
+  db: Db,
+  userId: string,
+  msg: CreatePriceAlertMessage,
+): Promise<AlertResultMessage> {
+  const now = new Date();
+  const result = await createPriceAlert(db, {
+    userId,
+    idempotencyKey: msg.idempotencyKey,
+    symbol: msg.symbol,
+    direction: msg.direction,
+    thresholdPrice: msg.thresholdPrice,
+    ...(msg.source !== undefined && { source: msg.source }),
+    recurrence: msg.recurrence,
+    now,
+  });
+  return toAlertResultMessage(result);
+}
+
+export async function handleModifyPriceAlert(
+  db: Db,
+  userId: string,
+  msg: ModifyPriceAlertMessage,
+): Promise<AlertResultMessage> {
+  const now = new Date();
+  const result = await modifyPriceAlert(db, {
+    userId,
+    alertId: msg.alertId,
+    ...(msg.thresholdPrice !== undefined && { thresholdPrice: msg.thresholdPrice }),
+    ...(msg.direction !== undefined && { direction: msg.direction }),
+    ...(msg.source !== undefined && { source: msg.source }),
+    ...(msg.recurrence !== undefined && { recurrence: msg.recurrence }),
+    now,
+  });
+  return toAlertResultMessage(result);
+}
+
+export async function handleEnablePriceAlert(
+  db: Db,
+  userId: string,
+  msg: AlertIdMessage,
+): Promise<AlertResultMessage> {
+  const result = await enablePriceAlert(db, { userId, alertId: msg.alertId, now: new Date() });
+  return toAlertResultMessage(result);
+}
+
+export async function handleDisablePriceAlert(
+  db: Db,
+  userId: string,
+  msg: AlertIdMessage,
+): Promise<AlertResultMessage> {
+  const result = await disablePriceAlert(db, { userId, alertId: msg.alertId, now: new Date() });
+  return toAlertResultMessage(result);
+}
+
+export async function handleDeletePriceAlert(
+  db: Db,
+  userId: string,
+  msg: AlertIdMessage,
+): Promise<AlertResultMessage> {
+  const result = await deletePriceAlert(db, { userId, alertId: msg.alertId });
+  return toAlertResultMessage(result);
+}
+
+export async function handleMarkNotificationsRead(
+  db: Db,
+  userId: string,
+  msg: MarkNotificationsReadMessage,
+): Promise<void> {
+  await markNotificationsRead(db, {
+    userId,
+    notificationIds: msg.notificationIds,
+    now: new Date(),
+  });
 }

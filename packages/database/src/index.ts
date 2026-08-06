@@ -15,6 +15,11 @@ export type {
   OrderSide,
   StaffRole,
   PositionReductionQueueStatus,
+  PendingOrderType,
+  PendingOrderStatus,
+  AlertDirection,
+  AlertSource,
+  AlertRecurrence,
 } from './schema';
 export { getStaffRole, staffRoleSatisfies } from './staff';
 export {
@@ -34,6 +39,7 @@ export {
   closeAllPositions,
   modifyPositionRisk,
   countShortDurationProfitClosures,
+  isWithinAggregateExposureLimit,
   FOREX_SYMBOLS,
   type MarketSnapshot,
   type TradeOrderOutcome,
@@ -45,6 +51,37 @@ export {
   type CloseAllPositionsParams,
   type ModifyPositionRiskParams,
 } from './trading';
+export {
+  createPendingOrder,
+  modifyPendingOrder,
+  cancelPendingOrder,
+  cancelAllPendingOrders,
+  triggerPendingOrders,
+  loadActivePendingOrdersForAccount,
+  type PendingOrderSummary,
+  type CreatePendingOrderParams,
+  type ModifyPendingOrderParams,
+  type CancelPendingOrderParams,
+  type PendingOrderCommandResult,
+  type TriggerPendingOrdersParams,
+  type TriggeredPendingOrder,
+} from './pending-orders';
+export {
+  createPriceAlert,
+  modifyPriceAlert,
+  enablePriceAlert,
+  disablePriceAlert,
+  deletePriceAlert,
+  evaluateAlerts,
+  loadActiveAlertsForUser,
+  loadNotificationsForUser,
+  markNotificationsRead,
+  type PriceAlertSummary,
+  type AlertCommandResult,
+  type CreatePriceAlertParams,
+  type ModifyPriceAlertParams,
+  type AlertNotificationSummary,
+} from './price-alerts';
 export {
   queuePositionReduction,
   cancelQueuedReduction,
