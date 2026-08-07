@@ -269,7 +269,11 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
     ws1.send(
       JSON.stringify({
         type: 'subscribe',
-        channels: [accountStateChannel(accountId), 'market.symbol.EURUSD'],
+        channels: [
+          accountStateChannel(accountId),
+          userNotificationsChannel(userId),
+          'market.symbol.EURUSD',
+        ],
       }),
     );
     await messages1.waitForMessage((m) => m.type === 'account.snapshot');
