@@ -281,7 +281,7 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
     // later fill/notification can only have come from the process that
     // restarts below, proving resumption rather than a lucky pre-restart
     // trigger.
-    const farTriggerPrice = (Number(tick.ask) - 2000 * onePoint).toFixed(pricePrecision);
+    const farTriggerPrice = (Number(tick.bid) + 2000 * onePoint).toFixed(pricePrecision);
     const createOrderKey = randomUUID();
     ws1.send(
       JSON.stringify({
@@ -290,7 +290,7 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
           accountId,
           idempotencyKey: createOrderKey,
           symbol: 'EURUSD',
-          orderType: 'buy_limit',
+          orderType: 'sell_limit',
           quantity: '0.50',
           triggerPrice: farTriggerPrice,
         },
@@ -379,11 +379,17 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
     expect(reloadedAlert?.thresholdPrice).toBe(farThreshold);
 
     // --- Now move both close enough to actually resolve on this new process ---
-    const freshTickMsg = await messages2.waitForMessage((m) => m.type === 'market.tick');
+    messages2.dispose();
+    const resumedMessages = createMessageBuffer(ws2, 120000);
+    ws2.send(JSON.stringify({ type: 'subscribe', channels: ['market.symbol.EURUSD'] }));
+    const freshTickMsg = await resumedMessages.waitForMessage((m) => m.type === 'market.tick');
     const freshTick = freshTickMsg.payload as { bid: string; ask: string };
-    const nearTriggerPrice = (Number(freshTick.ask) - 3 * onePoint).toFixed(pricePrecision);
+    const safeDistancePoints = 9;
+    const nearTriggerPrice = (Number(freshTick.bid) + safeDistancePoints * onePoint).toFixed(
+      pricePrecision,
+    );
     const mid = (Number(freshTick.bid) + Number(freshTick.ask)) / 2;
-    const nearThreshold = (mid + 3 * onePoint).toFixed(pricePrecision);
+    const nearThreshold = (mid + safeDistancePoints * onePoint).toFixed(pricePrecision);
 
     ws2.send(
       JSON.stringify({
@@ -397,21 +403,28 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
         alert: { alertId, thresholdPrice: nearThreshold },
       }),
     );
-    await messages2.waitForMessage(
-      (m) =>
-        m.type === 'pending_order_result' &&
-        (m.payload as { order: { triggerPrice: string } | null }).order?.triggerPrice ===
-          nearTriggerPrice,
+    const pendingModification = await resumedMessages.waitForMessage(
+      (m) => m.type === 'pending_order_result',
     );
-    await messages2.waitForMessage(
-      (m) =>
-        m.type === 'alert_result' &&
-        (m.payload as { alert: { thresholdPrice: string } | null }).alert?.thresholdPrice ===
-          nearThreshold,
+    const pendingModificationPayload = pendingModification.payload as {
+      status: string;
+      order: { triggerPrice: string } | null;
+    };
+    expect(pendingModificationPayload.status).toBe('active');
+    expect(pendingModificationPayload.order?.triggerPrice).toBe(nearTriggerPrice);
+
+    const alertModification = await resumedMessages.waitForMessage(
+      (m) => m.type === 'alert_result',
     );
+    const alertModificationPayload = alertModification.payload as {
+      status: string;
+      alert: { thresholdPrice: string } | null;
+    };
+    expect(alertModificationPayload.status).toBe('ok');
+    expect(alertModificationPayload.alert?.thresholdPrice).toBe(nearThreshold);
 
     // Resume tick evaluation, on the NEW process: both settle from here on.
-    const filled = await messages2.waitForMessage(
+    const filled = await resumedMessages.waitForMessage(
       (m) =>
         m.type === 'order_result' &&
         (m.payload as { idempotencyKey: string }).idempotencyKey ===
@@ -420,7 +433,7 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
     );
     expect((filled.payload as { status: string }).status).toBe('filled');
 
-    const notified = await messages2.waitForMessage(
+    const notified = await resumedMessages.waitForMessage(
       (m) =>
         m.type === 'notification.new' &&
         (m.payload as { notification: { alertId: string } }).notification.alertId === alertId,
@@ -465,7 +478,7 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
     expect(Number(notificationCount.count)).toBe(1);
 
     ws2.close();
-    messages2.dispose();
+    resumedMessages.dispose();
 
     // --- Reconcile browser snapshot: a third connection, after everything settled ---
     const ws3 = new WsClient(`${WS_URL}?token=${token}`);
