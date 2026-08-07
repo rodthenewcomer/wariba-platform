@@ -191,10 +191,11 @@ const UNKNOWN_REJECTION_DETAIL = {
   action: 'Réessayez, ou contactez le support si le problème persiste.',
 };
 
-// The same codes packages/database/src/payouts.ts's REJECTION const
-// produces (PayoutRejectionCode) — not imported from @wariba/database
-// itself, since apps/web never depends on that package directly (only
-// @wariba/application, which has no client-facing payout-result mapper).
+// The same codes the payout engine's own REJECTION const produces
+// (PayoutRejectionCode, packages/database/src/payouts.ts) — not imported
+// from that package directly, since apps/web never depends on the database
+// package (only @wariba/application, which has no client-facing
+// payout-result mapper).
 const PAYOUT_REJECTION_DETAIL: Record<string, string> = {
   account_not_active: 'Votre compte n’est plus actif.',
   no_active_cycle: 'Aucun cycle actif — le dossier WARIBA Review est ouvert.',
