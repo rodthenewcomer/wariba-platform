@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import Decimal from 'decimal.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDbClient, type Db } from '../src/client';
 import { activateEvaluationAccount } from '../src/activation';
@@ -255,10 +256,19 @@ describeIfDb('treasury reserve — real database', () => {
     // the four defined zones — never throw, never return an undefined zone.
     expect(['normal', 'prudence', 'defensive', 'critical']).toContain(baseline.zone);
 
+    if (new Decimal(baseline.availableReserve).isPositive()) {
+      await recordTreasuryReserveEntry(db, {
+        entryType: 'withdrawal',
+        amount: baseline.availableReserve,
+        reason: 'test fixture — neutralize ambient reserve for zone check',
+        createdBy: staffUserId,
+      });
+    }
+
     await recordTreasuryReserveEntry(db, {
       entryType: 'deposit',
       amount: '1000',
-      reason: 'test fixture — force a small, known reserve for this check',
+      reason: 'test fixture — establish a small reserve for this check',
       createdBy: staffUserId,
     });
     const requestId = await insertPayoutRequestFixture({
@@ -270,9 +280,8 @@ describeIfDb('treasury reserve — real database', () => {
     });
 
     const status = await evaluateReserveStatus(db);
-    // A large, freshly-approved obligation against a comparatively tiny
-    // deposit drives the ratio well under 1.2x regardless of ambient state
-    // from other fixtures — this only ever gets *more* critical, never less.
+    // A large, freshly-approved obligation against the deliberately small
+    // reserve drives the ratio well under the 1.2x critical threshold.
     expect(status.zone).toBe('critical');
 
     await db.deleteFrom('app.payout_requests').where('id', '=', requestId).execute();
