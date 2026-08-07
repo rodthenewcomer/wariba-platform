@@ -22,18 +22,21 @@ export interface ControlPayoutQueueItemView {
   payoutMethodConfigured: boolean;
   requestedAtLabel: string;
   canApproveOrReject: boolean;
+  canSubmit: boolean;
   canSettle: boolean;
 }
 
 const STATUS_LABEL: Record<string, string> = {
   pending_review: 'En revue',
   needs_information: 'Information requise',
+  approved: 'Approuvé — à soumettre',
   processing: 'Approuvé — en attente de règlement',
 };
 
 const STATUS_VARIANT: Record<string, ControlPayoutStatusVariant> = {
   pending_review: 'information',
   needs_information: 'warning',
+  approved: 'warning',
   processing: 'success',
 };
 
@@ -68,6 +71,7 @@ export async function buildControlPayoutQueueView(db: Db): Promise<ControlPayout
     payoutMethodConfigured: row.payoutMethodConfigured,
     requestedAtLabel: row.requestedAt.toLocaleString('fr-FR'),
     canApproveOrReject: row.status === 'pending_review' || row.status === 'needs_information',
+    canSubmit: row.status === 'approved',
     canSettle: row.status === 'processing',
   }));
 }

@@ -82,6 +82,8 @@ export {
 } from './treasury-math';
 export {
   runActuarialScenario,
+  parseScenarioAssumptions,
+  SCENARIO_NAMES,
   SCENARIO_ASSUMPTIONS,
   type ScenarioName,
   type ScenarioAssumptions,

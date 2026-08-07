@@ -2,7 +2,7 @@ import Decimal from 'decimal.js';
 
 /**
  * Actuarial scenario engine — Prompt 08 Phase E. Pure cohort simulation
- * over stored assumptions, never live account data (packages/database's
+ * over supplied assumptions, never live account data (packages/database's
  * own job is comparing this model's output against measured actuals, not
  * this function). No DB/IO — a scenario run is a deterministic function of
  * its inputs, testable in isolation and safe to re-run for "what if"
@@ -14,6 +14,8 @@ import Decimal from 'decimal.js';
  */
 
 export type ScenarioName = 'conservative' | 'base' | 'aggressive' | 'stress';
+
+export const SCENARIO_NAMES = ['conservative', 'base', 'aggressive', 'stress'] as const;
 
 export interface ScenarioAssumptions {
   /** Evaluation pass rate, e.g. "0.05" for 5%. */
@@ -27,6 +29,50 @@ export interface ScenarioAssumptions {
   averagePayoutOfCapRate: string;
   refundRate: string;
   chargebackRate: string;
+}
+
+function parseRate(value: unknown, field: string): string {
+  if (typeof value !== 'string' || !/^(?:0|1)(?:\.\d+)?$/.test(value)) {
+    throw new Error('Invalid actuarial scenario rate for ' + field + '.');
+  }
+  const rate = new Decimal(value);
+  if (rate.isNegative() || rate.greaterThan(1)) {
+    throw new Error('Actuarial scenario rate is outside [0, 1] for ' + field + '.');
+  }
+  return value;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error('Actuarial scenario assumptions must be an object.');
+  }
+  return value as Record<string, unknown>;
+}
+
+export function parseScenarioAssumptions(value: unknown): ScenarioAssumptions {
+  const input = asRecord(value);
+  if (!Array.isArray(input.progressionRates) || input.progressionRates.length !== 4) {
+    throw new Error('Actuarial scenario progressionRates must contain exactly four rates.');
+  }
+
+  return {
+    evaluationPassRate: parseRate(input.evaluationPassRate, 'evaluationPassRate'),
+    performanceActivationRate: parseRate(
+      input.performanceActivationRate,
+      'performanceActivationRate',
+    ),
+    bufferCompletionRate: parseRate(input.bufferCompletionRate, 'bufferCompletionRate'),
+    payout1EligibilityRate: parseRate(input.payout1EligibilityRate, 'payout1EligibilityRate'),
+    progressionRates: [
+      parseRate(input.progressionRates[0], 'progressionRates[0]'),
+      parseRate(input.progressionRates[1], 'progressionRates[1]'),
+      parseRate(input.progressionRates[2], 'progressionRates[2]'),
+      parseRate(input.progressionRates[3], 'progressionRates[3]'),
+    ],
+    averagePayoutOfCapRate: parseRate(input.averagePayoutOfCapRate, 'averagePayoutOfCapRate'),
+    refundRate: parseRate(input.refundRate, 'refundRate'),
+    chargebackRate: parseRate(input.chargebackRate, 'chargebackRate'),
+  };
 }
 
 export const SCENARIO_ASSUMPTIONS: Record<ScenarioName, ScenarioAssumptions> = {

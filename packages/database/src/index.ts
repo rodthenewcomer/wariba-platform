@@ -20,6 +20,8 @@ export type {
   AlertDirection,
   AlertSource,
   AlertRecurrence,
+  PayoutProviderStatus,
+  ActuarialScenarioName,
 } from './schema';
 export { getStaffRole, staffRoleSatisfies } from './staff';
 export {
@@ -47,12 +49,18 @@ export {
   createPayoutRequestInTransaction,
   approvePayoutRequestInTransaction,
   rejectPayoutRequestInTransaction,
+  loadPayoutProviderWorkItem,
+  recordPayoutProviderSubmissionInTransaction,
+  recordPayoutProviderReconciliationInTransaction,
   settlePayoutProviderInTransaction,
   loadPayoutRequestsForAccount,
   loadPayoutRequestsForReview,
   evaluatePayoutEligibility,
   type CreatePayoutRequestParams,
   type ReviewPayoutRequestParams,
+  type PayoutProviderWorkItem,
+  type RecordPayoutProviderSubmissionParams,
+  type RecordPayoutProviderReconciliationParams,
   type PayoutRequestSummary,
   type PayoutRequestResult,
   type PayoutRejectionCode,
@@ -67,6 +75,15 @@ export {
   type RecordTreasuryReserveEntryParams,
   type ReserveStatus,
 } from './treasury';
+export {
+  loadActiveActuarialScenarioAssumptions,
+  replaceActuarialScenarioAssumptionsInTransaction,
+  runPersistedActuarialScenario,
+  type PersistedActuarialScenarioAssumptions,
+  type ReplaceActuarialScenarioAssumptionsParams,
+  type RunPersistedActuarialScenarioParams,
+  type PersistedActuarialScenarioRun,
+} from './actuarial-scenarios';
 export {
   recordPaymentEvent,
   type RecordPaymentEventParams,

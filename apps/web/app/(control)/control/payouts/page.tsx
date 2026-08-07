@@ -101,6 +101,7 @@ export default async function ControlPayoutsPage() {
                     payoutRequestId={item.id}
                     accountId={item.accountId}
                     canApproveOrReject={item.canApproveOrReject}
+                    canSubmit={item.canSubmit}
                     canSettle={item.canSettle}
                     kycVerified={item.kycVerified}
                     payoutMethodConfigured={item.payoutMethodConfigured}

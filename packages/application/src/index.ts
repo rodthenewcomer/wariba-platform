@@ -109,6 +109,12 @@ export {
 } from './control-treasury-view';
 
 export {
+  replaceActuarialScenarioAssumptions,
+  runStoredActuarialScenario,
+  type ReplaceActuarialScenarioAssumptionsParams,
+} from './actuarial-scenarios';
+
+export {
   buildControlReviewCasesView,
   type ControlReviewCaseItemView,
 } from './control-review-cases-view';
@@ -116,10 +122,12 @@ export {
 export {
   approvePayoutRequest,
   rejectPayoutRequest,
+  submitPayoutRequest,
   settlePayoutRequest,
   setPerformanceComplianceFlags,
   type ApprovePayoutParams,
   type RejectPayoutParams,
+  type SubmitPayoutParams,
   type SettlePayoutParams,
   type SetComplianceFlagsParams,
 } from './control-payouts-actions';

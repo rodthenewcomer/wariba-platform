@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import Decimal from 'decimal.js';
 import {
+  parseScenarioAssumptions,
   runActuarialScenario,
   SCENARIO_ASSUMPTIONS,
   type ProductInputs,
@@ -16,6 +17,22 @@ const PRODUCT_10K: ProductInputs = {
 };
 
 describe('runActuarialScenario — §22-24', () => {
+  it('validates persisted assumption payloads before a scenario can use them', () => {
+    expect(parseScenarioAssumptions(SCENARIO_ASSUMPTIONS.base)).toEqual(SCENARIO_ASSUMPTIONS.base);
+    expect(() =>
+      parseScenarioAssumptions({
+        ...SCENARIO_ASSUMPTIONS.base,
+        progressionRates: ['0.40', '0.30', '0.25'],
+      }),
+    ).toThrow('exactly four rates');
+    expect(() =>
+      parseScenarioAssumptions({
+        ...SCENARIO_ASSUMPTIONS.base,
+        refundRate: '1.01',
+      }),
+    ).toThrow('outside [0, 1]');
+  });
+
   it('produces zero of everything for zero purchases, never NaN or negative', () => {
     const result = runActuarialScenario({
       scenario: 'base',

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import {
   approvePayoutRequest,
   rejectPayoutRequest,
+  submitPayoutRequest,
   settlePayoutRequest,
   setPerformanceComplianceFlags,
 } from '@wariba/application';
@@ -54,11 +55,22 @@ export async function rejectPayoutAction(
 }
 
 export async function settlePayoutAction(payoutRequestId: string): Promise<PayoutActionResult> {
-  await requireStaffRole('finance');
+  const session = await requireStaffRole('finance');
   try {
-    await settlePayoutRequest(getDb(), { payoutRequestId });
+    await settlePayoutRequest(getDb(), { payoutRequestId, staffUserId: session.userId });
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Échec du règlement.' };
+  }
+  revalidatePath('/control/payouts');
+  return {};
+}
+
+export async function submitPayoutAction(payoutRequestId: string): Promise<PayoutActionResult> {
+  await requireStaffRole('finance');
+  try {
+    await submitPayoutRequest(getDb(), { payoutRequestId });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Échec de la soumission.' };
   }
   revalidatePath('/control/payouts');
   return {};

@@ -553,6 +553,13 @@ export interface PayoutRequestsTable {
   rejection_code: string | null;
   provider: string | null;
   provider_reference: string | null;
+  provider_idempotency_key: string | null;
+  provider_status: PayoutProviderStatus | null;
+  provider_submission_result: unknown | null;
+  provider_submitted_at: Timestamp | null;
+  provider_reconciliation_result: unknown | null;
+  provider_reconciled_at: Timestamp | null;
+  provider_reconciled_by: string | null;
   currency: Generated<string>;
   requested_at: GeneratedTimestamp;
   reviewed_at: Timestamp | null;
@@ -561,6 +568,21 @@ export interface PayoutRequestsTable {
   version: Generated<number>;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
+}
+
+export type PayoutProviderStatus = 'pending' | 'processing' | 'paid' | 'failed' | 'returned';
+
+export type ActuarialScenarioName = 'conservative' | 'base' | 'aggressive' | 'stress';
+
+export interface ActuarialScenarioAssumptionsTable {
+  id: Generated<string>;
+  scenario_name: ActuarialScenarioName;
+  version: Generated<number>;
+  assumptions_json: unknown;
+  change_reason: string;
+  is_active: Generated<boolean>;
+  created_by: string | null;
+  created_at: GeneratedTimestamp;
 }
 
 // Prompt 08 Phase E — see the matching migration's doc comment.
@@ -608,5 +630,6 @@ export interface Database {
   'app.performance_review_cases': PerformanceReviewCasesTable;
   'app.payout_requests': PayoutRequestsTable;
   'app.treasury_reserve_entries': TreasuryReserveEntriesTable;
+  'app.actuarial_scenario_assumptions': ActuarialScenarioAssumptionsTable;
   'audit.audit_events': AuditEventsTable;
 }

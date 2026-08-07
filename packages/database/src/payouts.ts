@@ -31,6 +31,10 @@ const REJECTION = {
 } as const;
 export type PayoutRejectionCode = (typeof REJECTION)[keyof typeof REJECTION];
 
+const PAYOUT_PROVIDER_STATUSES = ['pending', 'processing', 'paid', 'failed', 'returned'] as const;
+const PAYOUT_PROVIDER_STATUS_SET = new Set<string>(PAYOUT_PROVIDER_STATUSES);
+export type PayoutProviderStatus = (typeof PAYOUT_PROVIDER_STATUSES)[number];
+
 export interface PayoutRequestSummary {
   id: string;
   accountId: string;
@@ -47,6 +51,13 @@ export interface PayoutRequestSummary {
   rejectionCode: string | null;
   provider: string | null;
   providerReference: string | null;
+  providerIdempotencyKey: string | null;
+  providerStatus: PayoutProviderStatus | null;
+  providerSubmissionResult: unknown | null;
+  providerSubmittedAt: Date | null;
+  providerReconciliationResult: unknown | null;
+  providerReconciledAt: Date | null;
+  providerReconciledBy: string | null;
 }
 
 export type PayoutRequestResult =
@@ -69,6 +80,13 @@ function toSummary(row: {
   rejection_code: string | null;
   provider: string | null;
   provider_reference: string | null;
+  provider_idempotency_key: string | null;
+  provider_status: PayoutProviderStatus | null;
+  provider_submission_result: unknown | null;
+  provider_submitted_at: Date | null;
+  provider_reconciliation_result: unknown | null;
+  provider_reconciled_at: Date | null;
+  provider_reconciled_by: string | null;
 }): PayoutRequestSummary {
   return {
     id: row.id,
@@ -86,7 +104,28 @@ function toSummary(row: {
     rejectionCode: row.rejection_code,
     provider: row.provider,
     providerReference: row.provider_reference,
+    providerIdempotencyKey: row.provider_idempotency_key,
+    providerStatus: row.provider_status,
+    providerSubmissionResult: row.provider_submission_result,
+    providerSubmittedAt: row.provider_submitted_at,
+    providerReconciliationResult: row.provider_reconciliation_result,
+    providerReconciledAt: row.provider_reconciled_at,
+    providerReconciledBy: row.provider_reconciled_by,
   };
+}
+
+function assertPayoutProviderStatus(status: string): asserts status is PayoutProviderStatus {
+  if (!PAYOUT_PROVIDER_STATUS_SET.has(status)) {
+    throw new Error('Unsupported payout provider status: ' + status + '.');
+  }
+}
+
+function serializeProviderResult(result: unknown): string {
+  const serialized = JSON.stringify(result);
+  if (!serialized) {
+    throw new Error('Payout provider result must be serializable.');
+  }
+  return serialized;
 }
 
 /**
@@ -320,17 +359,13 @@ export async function approvePayoutRequestInTransaction(
     splitRate: request.trader_split_rate,
   });
   const waribaShare = computeWaribaShare({ approvedGrossBase, traderNetCash });
-  const providerReference = `wariba-payout:${request.id}`;
-
   const approved = await trx
     .updateTable('app.payout_requests')
     .set({
-      status: 'processing',
+      status: 'approved',
       approved_gross_base: approvedGrossBase,
       trader_net_cash: traderNetCash,
       wariba_share: waribaShare,
-      provider: 'mock',
-      provider_reference: providerReference,
       reviewed_at: params.now,
       reviewed_by: params.staffUserId,
       updated_at: params.now,
@@ -350,6 +385,234 @@ export async function approvePayoutRequestInTransaction(
     .execute();
 
   return toSummary(approved);
+}
+
+export interface PayoutProviderWorkItem {
+  payoutRequestId: string;
+  payoutRequestStatus: string;
+  provider: string | null;
+  providerReference: string | null;
+  providerIdempotencyKey: string | null;
+  providerStatus: PayoutProviderStatus | null;
+  traderNetCash: string | null;
+  currency: string;
+}
+
+export async function loadPayoutProviderWorkItem(
+  db: Db,
+  payoutRequestId: string,
+): Promise<PayoutProviderWorkItem> {
+  const row = await db
+    .selectFrom('app.payout_requests')
+    .select([
+      'id',
+      'status',
+      'provider',
+      'provider_reference',
+      'provider_idempotency_key',
+      'provider_status',
+      'trader_net_cash',
+      'currency',
+    ])
+    .where('id', '=', payoutRequestId)
+    .executeTakeFirstOrThrow(
+      () => new Error('Payout request ' + payoutRequestId + ' was not found.'),
+    );
+  return {
+    payoutRequestId: row.id,
+    payoutRequestStatus: row.status,
+    provider: row.provider,
+    providerReference: row.provider_reference,
+    providerIdempotencyKey: row.provider_idempotency_key,
+    providerStatus: row.provider_status,
+    traderNetCash: row.trader_net_cash,
+    currency: row.currency,
+  };
+}
+
+export interface RecordPayoutProviderSubmissionParams {
+  payoutRequestId: string;
+  provider: string;
+  providerReference: string;
+  providerIdempotencyKey: string;
+  providerStatus: PayoutProviderStatus;
+  submissionResult: unknown;
+  submittedAt: Date;
+  now: Date;
+}
+
+export async function recordPayoutProviderSubmissionInTransaction(
+  trx: Db,
+  params: RecordPayoutProviderSubmissionParams,
+): Promise<PayoutRequestSummary> {
+  assertPayoutProviderStatus(params.providerStatus);
+  const request = await trx
+    .selectFrom('app.payout_requests')
+    .selectAll()
+    .where('id', '=', params.payoutRequestId)
+    .forUpdate()
+    .executeTakeFirstOrThrow(
+      () => new Error('Payout request ' + params.payoutRequestId + ' was not found.'),
+    );
+  const expectedIdempotencyKey = 'wariba-payout:' + request.id;
+  if (params.providerIdempotencyKey !== expectedIdempotencyKey) {
+    throw new Error('Payout provider idempotency key does not match the payout request.');
+  }
+  if (request.provider_idempotency_key) {
+    if (
+      request.provider_idempotency_key !== params.providerIdempotencyKey ||
+      request.provider !== params.provider ||
+      request.provider_reference !== params.providerReference
+    ) {
+      throw new Error('Payout provider submission does not match the existing idempotent record.');
+    }
+    return toSummary(request);
+  }
+  if (request.status !== 'approved') {
+    throw new Error(
+      'Payout request ' + params.payoutRequestId + ' is not approved for provider submission.',
+    );
+  }
+
+  const submitted = await trx
+    .updateTable('app.payout_requests')
+    .set({
+      status: 'processing',
+      provider: params.provider,
+      provider_reference: params.providerReference,
+      provider_idempotency_key: params.providerIdempotencyKey,
+      provider_status: params.providerStatus,
+      provider_submission_result: serializeProviderResult(params.submissionResult),
+      provider_submitted_at: params.submittedAt,
+      updated_at: params.now,
+    })
+    .where('id', '=', request.id)
+    .where('status', '=', 'approved')
+    .returningAll()
+    .executeTakeFirstOrThrow();
+
+  await trx
+    .insertInto('app.outbox_events')
+    .values({
+      aggregate_type: 'payout_request',
+      aggregate_id: request.id,
+      event_type: 'payout_request.provider_submitted',
+      payload: JSON.stringify({
+        provider: params.provider,
+        providerReference: params.providerReference,
+        providerStatus: params.providerStatus,
+      }),
+    })
+    .execute();
+
+  return toSummary(submitted);
+}
+
+export interface RecordPayoutProviderReconciliationParams {
+  payoutRequestId: string;
+  provider: string;
+  providerReference: string;
+  providerIdempotencyKey: string;
+  providerStatus: PayoutProviderStatus;
+  reconciliationResult: unknown;
+  reconciledAt: Date;
+  reconciledBy: string | null;
+  now: Date;
+}
+
+export async function recordPayoutProviderReconciliationInTransaction(
+  trx: Db,
+  params: RecordPayoutProviderReconciliationParams,
+): Promise<PayoutRequestSummary> {
+  assertPayoutProviderStatus(params.providerStatus);
+  const request = await trx
+    .selectFrom('app.payout_requests')
+    .selectAll()
+    .where('id', '=', params.payoutRequestId)
+    .forUpdate()
+    .executeTakeFirstOrThrow(
+      () => new Error('Payout request ' + params.payoutRequestId + ' was not found.'),
+    );
+  if (request.status === 'paid' || request.status === 'failed') {
+    return toSummary(request);
+  }
+  if (request.status !== 'processing') {
+    throw new Error(
+      'Payout request ' +
+        params.payoutRequestId +
+        ' is not processing for provider reconciliation.',
+    );
+  }
+  if (
+    request.provider !== params.provider ||
+    request.provider_reference !== params.providerReference ||
+    request.provider_idempotency_key !== params.providerIdempotencyKey
+  ) {
+    throw new Error('Payout provider reconciliation does not match the submitted provider record.');
+  }
+
+  const reconciliation = {
+    provider_status: params.providerStatus,
+    provider_reconciliation_result: serializeProviderResult(params.reconciliationResult),
+    provider_reconciled_at: params.reconciledAt,
+    provider_reconciled_by: params.reconciledBy,
+    updated_at: params.now,
+  };
+  if (params.providerStatus === 'paid') {
+    await trx
+      .updateTable('app.payout_requests')
+      .set(reconciliation)
+      .where('id', '=', request.id)
+      .where('status', '=', 'processing')
+      .executeTakeFirstOrThrow();
+    return settlePayoutProviderInTransaction(trx, {
+      payoutRequestId: request.id,
+      now: params.now,
+    });
+  }
+
+  if (params.providerStatus === 'failed' || params.providerStatus === 'returned') {
+    const failed = await trx
+      .updateTable('app.payout_requests')
+      .set({ ...reconciliation, status: 'failed' })
+      .where('id', '=', request.id)
+      .where('status', '=', 'processing')
+      .returningAll()
+      .executeTakeFirstOrThrow();
+    await trx
+      .updateTable('app.performance_cycles')
+      .set({ status: 'active', updated_at: params.now })
+      .where('id', '=', request.cycle_id)
+      .execute();
+    await trx
+      .insertInto('app.outbox_events')
+      .values({
+        aggregate_type: 'payout_request',
+        aggregate_id: request.id,
+        event_type: 'payout_request.provider_failed',
+        payload: JSON.stringify({ providerStatus: params.providerStatus }),
+      })
+      .execute();
+    return toSummary(failed);
+  }
+
+  const reconciled = await trx
+    .updateTable('app.payout_requests')
+    .set(reconciliation)
+    .where('id', '=', request.id)
+    .where('status', '=', 'processing')
+    .returningAll()
+    .executeTakeFirstOrThrow();
+  await trx
+    .insertInto('app.outbox_events')
+    .values({
+      aggregate_type: 'payout_request',
+      aggregate_id: request.id,
+      event_type: 'payout_request.provider_reconciled',
+      payload: JSON.stringify({ providerStatus: params.providerStatus }),
+    })
+    .execute();
+  return toSummary(reconciled);
 }
 
 export async function rejectPayoutRequestInTransaction(
@@ -412,6 +675,14 @@ export async function settlePayoutProviderInTransaction(
     throw new Error(
       `Payout request ${params.payoutRequestId} is '${request.status}', not 'processing' — cannot settle.`,
     );
+  }
+  if (
+    !request.provider ||
+    !request.provider_reference ||
+    !request.provider_idempotency_key ||
+    request.provider_status !== 'paid'
+  ) {
+    throw new Error('Payout provider reconciliation must confirm payment before settlement.');
   }
 
   const paid = await trx
@@ -562,6 +833,7 @@ export async function loadPayoutRequestsForReview(trx: Db): Promise<ControlPayou
     .where('app.payout_requests.status', 'in', [
       'pending_review',
       'needs_information',
+      'approved',
       'processing',
     ])
     .orderBy('app.payout_requests.requested_at', 'asc')

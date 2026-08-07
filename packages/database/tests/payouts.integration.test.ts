@@ -8,6 +8,8 @@ import { finalizeDailyBoundaryForAccount } from '../src/daily-finalization';
 import {
   createPayoutRequestInTransaction,
   approvePayoutRequestInTransaction,
+  recordPayoutProviderSubmissionInTransaction,
+  recordPayoutProviderReconciliationInTransaction,
   settlePayoutProviderInTransaction,
 } from '../src/payouts';
 
@@ -222,7 +224,7 @@ describeIfDb('payout engine — real database', () => {
   }, 90000);
 
   it('the full request -> approve -> settle flow debits the ledger exactly once and advances to cycle #2', async () => {
-    const { accountId } = await createPerformanceAccount('happy-path');
+    const { accountId, userId } = await createPerformanceAccount('happy-path');
     await db
       .updateTable('app.trading_accounts')
       .set({ kyc_sandbox_verified: true, payout_method_sandbox_configured: true })
@@ -230,7 +232,8 @@ describeIfDb('payout engine — real database', () => {
       .execute();
     await buildFivePayoutEligibleDays(accountId);
 
-    // 10K cycle #1 cap is 250 USD net (Program Rulebook v1.1 §10) — request
+    // 10K cycle #1 cap is 500 USD net (Program Rulebook v1.1 §10 /
+    // Performance policy 1.1.0's payout_caps_by_nominal_balance) — request
     // more than that to prove the cap, not the excess or the request, is
     // what binds here.
     const created = await createPayoutRequestInTransaction(db, {
@@ -241,27 +244,60 @@ describeIfDb('payout engine — real database', () => {
     });
     expect(created.status).toBe('pending_review');
     const requestId = created.request?.id as string;
-    expect(created.request?.capApplied).toBe('250.00');
+    expect(created.request?.capApplied).toBe('500.00');
 
     const cycleAfterRequest = await loadActiveCycle(db, accountId);
     expect(cycleAfterRequest?.status).toBe('payout_pending');
 
     const approved = await approvePayoutRequestInTransaction(db, {
       payoutRequestId: requestId,
-      staffUserId: randomUUID(),
+      staffUserId: userId,
       now: new Date(),
     });
-    expect(approved.status).toBe('processing');
-    // Capped at 250/0.85 = 294.12 gross, 250.00 net trader cash — not
-    // the 1000 requested.
-    expect(approved.approvedGrossBase).toBe('294.12');
-    expect(approved.traderNetCash).toBe('250.00');
-    expect(approved.waribaShare).toBe('44.12');
-    expect(approved.providerReference).toBe(`wariba-payout:${requestId}`);
+    expect(approved.status).toBe('approved');
+    // Capped at 500/0.85 = 588.24 gross (canonical rounding), 500.00 net
+    // trader cash — not the 1000 requested.
+    expect(approved.approvedGrossBase).toBe('588.24');
+    expect(approved.traderNetCash).toBe('500.00');
+    expect(approved.waribaShare).toBe('88.24');
+    expect(approved.providerReference).toBeNull();
 
-    const paid = await settlePayoutProviderInTransaction(db, {
+    const providerReference = `wariba-payout:${requestId}`;
+    const submittedAt = new Date();
+    const submitted = await recordPayoutProviderSubmissionInTransaction(db, {
       payoutRequestId: requestId,
-      now: new Date(),
+      provider: 'mock',
+      providerReference,
+      providerIdempotencyKey: providerReference,
+      providerStatus: 'processing',
+      submissionResult: {
+        provider: 'mock',
+        providerReference,
+        status: 'processing',
+      },
+      submittedAt,
+      now: submittedAt,
+    });
+    expect(submitted.status).toBe('processing');
+    expect(submitted.providerReference).toBe(providerReference);
+    expect(submitted.providerIdempotencyKey).toBe(providerReference);
+    expect(submitted.providerStatus).toBe('processing');
+
+    const paidAt = new Date();
+    const paid = await recordPayoutProviderReconciliationInTransaction(db, {
+      payoutRequestId: requestId,
+      provider: 'mock',
+      providerReference,
+      providerIdempotencyKey: providerReference,
+      providerStatus: 'paid',
+      reconciliationResult: {
+        provider: 'mock',
+        providerReference,
+        status: 'paid',
+      },
+      reconciledAt: paidAt,
+      reconciledBy: userId,
+      now: paidAt,
     });
     expect(paid.status).toBe('paid');
 
@@ -272,7 +308,7 @@ describeIfDb('payout engine — real database', () => {
       .where('entry_type', '=', 'payout_debit')
       .execute();
     expect(ledgerEntries).toHaveLength(1);
-    expect(ledgerEntries[0]?.amount).toBe('-294.12000000');
+    expect(ledgerEntries[0]?.amount).toBe('-588.24000000');
     expect(ledgerEntries[0]?.reference_id).toBe(requestId);
 
     const closedCycle = await db
@@ -362,7 +398,7 @@ describeIfDb('payout engine — real database', () => {
           requested_net_trader_cash: '50.00',
           requested_gross_base: '58.82',
           trader_split_rate: '0.85',
-          cap_applied: '250.00',
+          cap_applied: '500.00',
           buffer_floor_at_request: '11000.00',
           eligible_excess_at_request: '2688.00',
         })

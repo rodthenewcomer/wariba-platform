@@ -6,6 +6,7 @@ import {
   approvePayoutAction,
   rejectPayoutAction,
   settlePayoutAction,
+  submitPayoutAction,
   setKycVerifiedAction,
   setPayoutMethodConfiguredAction,
 } from './actions';
@@ -14,6 +15,7 @@ export interface ControlPayoutRowActionsProps {
   payoutRequestId: string;
   accountId: string;
   canApproveOrReject: boolean;
+  canSubmit: boolean;
   canSettle: boolean;
   kycVerified: boolean;
   payoutMethodConfigured: boolean;
@@ -32,6 +34,7 @@ export function ControlPayoutRowActions({
   payoutRequestId,
   accountId,
   canApproveOrReject,
+  canSubmit,
   canSettle,
   kycVerified,
   payoutMethodConfigured,
@@ -55,6 +58,14 @@ export function ControlPayoutRowActions({
     setError(null);
     startTransition(async () => {
       const result = await settlePayoutAction(payoutRequestId);
+      if (result.error) setError(result.error);
+    });
+  };
+
+  const submit = () => {
+    setError(null);
+    startTransition(async () => {
+      const result = await submitPayoutAction(payoutRequestId);
       if (result.error) setError(result.error);
     });
   };
@@ -121,6 +132,11 @@ export function ControlPayoutRowActions({
         {staffCanReviewFinance && canSettle ? (
           <Button variant="primary" size="sm" onClick={settle} disabled={isPending}>
             Marquer comme versé
+          </Button>
+        ) : null}
+        {staffCanReviewFinance && canSubmit ? (
+          <Button variant="primary" size="sm" onClick={submit} disabled={isPending}>
+            Soumettre au prestataire
           </Button>
         ) : null}
       </div>

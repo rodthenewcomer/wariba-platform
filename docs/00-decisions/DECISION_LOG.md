@@ -445,6 +445,7 @@ Révision:
 | ARCH-025 | `OPEN` | Provider analytics. | Adapter obligatoire. |
 | ARCH-026 | `OPEN` | Provider observabilité. | À choisir avant bêta. |
 | ARCH-027 | `OPEN` | Provider email. | À choisir avant bêta réaliste. |
+| ARCH-028 | `DEFERRED` | WariX isolera à terme le code spécifique au renderer derrière un `ChartEngineAdapter`. | Lightweight Charts reste le renderer par défaut ; une évaluation ultérieure d'Advanced Charts ne constitue ni une migration de stack ni un scope Prompt 08. |
 
 ---
 
@@ -677,6 +678,21 @@ trading manuel ni à la règle d'éligibilité de profit à 60 secondes (TRD-033
 
 # 26. Historique des versions
 
+## v1.21 — 2026-08-07
+
+Correction d'audit Prompt 08 : le payout passe par une frontière
+`PayoutProvider` explicite avec `MockPayoutProvider` et
+`ManualPayoutProvider`, soumission idempotente
+`wariba-payout:{payout_request_id}`, statut/référence/résultat de
+soumission et résultat de réconciliation persistés. Aucun rail externe
+(Wave, Orange, PayDunya, Rise, Wise ou banque) n'est implémenté ; ces rails
+restent de futurs adapters sélectionnés séparément. Les hypothèses
+actuarielles sont désormais stockées comme enregistrements versionnés et
+activables dans `app.actuarial_scenario_assumptions`; les constantes
+`SCENARIO_ASSUMPTIONS` restent uniquement le seed initial et
+`ACTUARIAL_MODEL_READY` n'est pas activé par cette correction. ARCH-028
+enregistre le suivi `ChartEngineAdapter` sans changer Lightweight Charts.
+
 ## v1.20 — 2026-08-07
 
 Prompt 08 Phase G (opérations WARIBA Control) intégré. Nouveau rôle staff
@@ -771,10 +787,13 @@ deux doivent être positifs pour qu'une taille reste achetable ;
 DEFENSIVE masque 50K/100K, CRITICAL masque tout, indépendamment des
 drapeaux statiques. Moteur actuariel
 (`packages/domain/src/actuarial-scenario.ts`) : simulation de cohorte
-pure sur hypothèses stockées, jamais sur données de compte réelles —
-quatre scénarios (conservative/base/aggressive/stress) avec les valeurs
-par défaut exactes fournies par l'opérateur, éditables mais jamais
-écrasées par les métriques mesurées (Phase G affichera modèle vs réel).
+pure sur hypothèses passées explicitement à la fonction, jamais sur données
+de compte réelles — quatre scénarios
+(conservative/base/aggressive/stress) avec les valeurs par défaut exactes
+fournies par l'opérateur. Ces constantes ne sont pas une configuration
+autoritaire permanente : la correction v1.21 les persiste et les versionne,
+sans jamais les écraser par les métriques mesurées (Phase G affichera modèle
+vs réel).
 Périmètre réduit par rapport au texte du prompt : la projection de
 payouts à 30 jours utilise les demandes déjà connues, pas une projection
 statistique des comptes pas encore au stade de demande — noté
