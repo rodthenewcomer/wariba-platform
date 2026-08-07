@@ -495,6 +495,31 @@ export interface AlertNotificationsTable {
   occurred_at: GeneratedTimestamp;
 }
 
+// Prompt 08 Phase C — see the matching migration's doc comment.
+export type PerformanceCycleStatus = 'active' | 'payout_pending' | 'closed';
+
+export interface PerformanceCyclesTable {
+  id: Generated<string>;
+  account_id: string;
+  cycle_number: number;
+  status: Generated<PerformanceCycleStatus>;
+  opened_at: GeneratedTimestamp;
+  closed_at: Timestamp | null;
+  version: Generated<number>;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export type PerformanceReviewCaseStatus = 'open' | 'closed';
+
+export interface PerformanceReviewCasesTable {
+  id: Generated<string>;
+  account_id: string;
+  opened_at: GeneratedTimestamp;
+  status: Generated<PerformanceReviewCaseStatus>;
+  created_at: GeneratedTimestamp;
+}
+
 export interface Database {
   'app.user_profiles': UserProfilesTable;
   'app.user_consents': UserConsentsTable;
@@ -522,5 +547,7 @@ export interface Database {
   'app.pending_orders': PendingOrdersTable;
   'app.price_alerts': PriceAlertsTable;
   'app.alert_notifications': AlertNotificationsTable;
+  'app.performance_cycles': PerformanceCyclesTable;
+  'app.performance_review_cases': PerformanceReviewCasesTable;
   'audit.audit_events': AuditEventsTable;
 }

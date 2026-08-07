@@ -31,8 +31,13 @@ export {
 export {
   activatePerformanceAccountInTransaction,
   findActivePerformanceAccountForUser,
+  loadActiveCycle,
+  evaluateCycleProgress,
+  closeCycleAndAdvanceInTransaction,
   type ActivatePerformanceAccountParams,
   type ActivatedPerformanceAccount,
+  type PerformanceCycle,
+  type CycleProgress,
 } from './performance';
 export {
   recordPaymentEvent,

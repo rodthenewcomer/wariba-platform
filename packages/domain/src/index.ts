@@ -62,6 +62,13 @@ export {
   isProfitTargetReached,
 } from './risk-math';
 export {
+  computePayoutBufferFloor,
+  computeEligibleExcess,
+  isPayoutBufferReached,
+  computePerformanceDayThreshold,
+  isPerformanceDayQualified,
+} from './performance-math';
+export {
   deriveHubDisplayState,
   isInAttentionZone,
   isHubStateReadOnly,

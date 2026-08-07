@@ -1,7 +1,19 @@
 import { randomUUID } from 'node:crypto';
-import type { Db } from './client';
+import Decimal from 'decimal.js';
+import {
+  computeBestDayRatio,
+  computeEligibleExcess,
+  computePayoutBufferFloor,
+  computePerformanceDayThreshold,
+  isBestDayCompliant,
+  isPayoutBufferReached,
+  isPerformanceDayQualified,
+} from '@wariba/domain';
+import type { LoadedPolicy, PerformancePolicyParameters } from '@wariba/policies';
 import { loadLatestSandboxSymbolSpecSet } from './activation';
-import { loadPublishedPolicy } from './policy';
+import type { Db } from './client';
+import { loadAccountBalanceProjection } from './program-eligibility';
+import { loadPolicyById, loadPublishedPolicy } from './policy';
 
 export interface ActivatePerformanceAccountParams {
   evaluationAccountId: string;
@@ -114,6 +126,13 @@ export async function activatePerformanceAccountInTransaction(
     })
     .execute();
 
+  // PERF-020's "cycle #1" clause — same transaction, same all-or-nothing
+  // guarantee as everything else above.
+  await trx
+    .insertInto('app.performance_cycles')
+    .values({ account_id: account.id, cycle_number: 1, opened_at: timestamp })
+    .execute();
+
   return {
     id: account.id,
     publicId: account.public_id,
@@ -135,4 +154,217 @@ export async function findActivePerformanceAccountForUser(
     .where('status', 'in', ['active', 'soft_locked'])
     .executeTakeFirst();
   return row ? { id: row.id, publicId: row.public_id } : null;
+}
+
+/** Runtime-checked narrowing — a WARIBA_PERFORMANCE policy_versions row always parses against performancePolicyParametersSchema (loader.ts dispatches on `program`); this just gives call sites the narrower static type without a bare cast. */
+function asPerformancePolicy(policy: LoadedPolicy): PerformancePolicyParameters {
+  if (policy.program !== 'WARIBA_PERFORMANCE') {
+    throw new Error(`Expected a WARIBA_PERFORMANCE policy, got ${policy.program}.`);
+  }
+  return policy.parameters as PerformancePolicyParameters;
+}
+
+export interface PerformanceCycle {
+  id: string;
+  accountId: string;
+  cycleNumber: number;
+  status: 'active' | 'payout_pending' | 'closed';
+  openedAt: Date;
+  closedAt: Date | null;
+  version: number;
+}
+
+/** The single non-closed cycle for an account — the partial unique index on app.performance_cycles guarantees there is never more than one. */
+export async function loadActiveCycle(
+  trx: Db,
+  accountId: string,
+): Promise<PerformanceCycle | null> {
+  const row = await trx
+    .selectFrom('app.performance_cycles')
+    .selectAll()
+    .where('account_id', '=', accountId)
+    .where('status', '!=', 'closed')
+    .executeTakeFirst();
+  if (!row) return null;
+  return {
+    id: row.id,
+    accountId: row.account_id,
+    cycleNumber: row.cycle_number,
+    status: row.status,
+    openedAt: row.opened_at,
+    closedAt: row.closed_at,
+    version: row.version,
+  };
+}
+
+function tradingDayOf(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Finalized daily snapshots whose trading_day falls inside the cycle's own
+ * date range — a day belongs to exactly one cycle purely by when it
+ * finalized, never by a separate "consumed" flag (see the migration's own
+ * doc comment). Only finalized days are ever eligible for Performance
+ * Days/Best Day — same rule the Evaluation risk engine already enforces
+ * (packages/policies/src/risk-engine.ts).
+ */
+async function loadCycleDailySnapshots(
+  trx: Db,
+  accountId: string,
+  cycle: Pick<PerformanceCycle, 'openedAt' | 'closedAt'>,
+) {
+  let query = trx
+    .selectFrom('app.account_daily_snapshots')
+    .select(['trading_day', 'eligible_realized_net_profit_for_day', 'realized_net_profit_for_day'])
+    .where('account_id', '=', accountId)
+    .where('status', '=', 'finalized')
+    .where('trading_day', '>=', tradingDayOf(cycle.openedAt));
+  if (cycle.closedAt) {
+    query = query.where('trading_day', '<', tradingDayOf(cycle.closedAt));
+  }
+  return query.execute();
+}
+
+export interface CycleProgress {
+  cycleNumber: number;
+  cycleStatus: PerformanceCycle['status'];
+  bufferFloor: string;
+  eligibleExcess: string;
+  bufferReached: boolean;
+  performanceDayThreshold: string;
+  performanceDaysCompleted: number;
+  performanceDaysRequired: number;
+  consistencyRatio: string | null;
+  consistencyCompliant: boolean;
+}
+
+/**
+ * Prompt 08 Phase C — buffer/Performance-Days/consistency progress toward
+ * a payout, scoped to the account's current cycle. Deliberately does NOT
+ * check open positions, pending orders, account lock/breach, KYC, or an
+ * already-active payout request — those are Phase D's full payout
+ * eligibility endpoint (§16), which composes this with the equity/position
+ * checks risk.ts already has rather than duplicating them here.
+ */
+export async function evaluateCycleProgress(trx: Db, accountId: string): Promise<CycleProgress> {
+  const account = await trx
+    .selectFrom('app.trading_accounts')
+    .select(['nominal_balance', 'policy_version_id'])
+    .where('id', '=', accountId)
+    .where('program_type', '=', 'WARIBA_PERFORMANCE')
+    .executeTakeFirstOrThrow(
+      () => new Error(`No WARIBA_PERFORMANCE account found for id ${accountId}.`),
+    );
+  const cycle = await loadActiveCycle(trx, accountId);
+  if (!cycle) {
+    throw new Error(`Account ${accountId} has no active performance cycle.`);
+  }
+  const policy = asPerformancePolicy(await loadPolicyById(trx, account.policy_version_id));
+  const projection = await loadAccountBalanceProjection(trx, accountId);
+
+  const bufferFloor = computePayoutBufferFloor({
+    nominalBalance: account.nominal_balance,
+    permanentBufferRate: policy.permanent_buffer_rate,
+  });
+  const performanceDayThreshold = computePerformanceDayThreshold({
+    nominalBalance: account.nominal_balance,
+    performanceDayThresholdRate: policy.performance_day_threshold_rate,
+  });
+
+  const cycleDays = await loadCycleDailySnapshots(trx, accountId, cycle);
+  const eligibleProfitForDay = (day: {
+    eligible_realized_net_profit_for_day: string | null;
+    realized_net_profit_for_day: string | null;
+  }): string => day.eligible_realized_net_profit_for_day ?? day.realized_net_profit_for_day ?? '0';
+
+  const qualifyingDays = cycleDays.filter((day) =>
+    isPerformanceDayQualified({
+      eligibleRealizedNetProfitForDay: eligibleProfitForDay(day),
+      performanceDayThreshold,
+    }),
+  );
+
+  const positiveDays = cycleDays.filter((day) =>
+    new Decimal(eligibleProfitForDay(day)).greaterThan(0),
+  );
+  const sumOfPositiveDayProfits = positiveDays
+    .reduce((sum, day) => sum.plus(eligibleProfitForDay(day)), new Decimal(0))
+    .toFixed(2);
+  const bestDayProfit = positiveDays
+    .reduce((max, day) => Decimal.max(max, eligibleProfitForDay(day)), new Decimal(0))
+    .toFixed(2);
+  const consistencyRatio = computeBestDayRatio({
+    bestProfitableFinalizedDayProfit: bestDayProfit,
+    sumOfPositiveDayProfits,
+  });
+
+  return {
+    cycleNumber: cycle.cycleNumber,
+    cycleStatus: cycle.status,
+    bufferFloor,
+    eligibleExcess: computeEligibleExcess({
+      realizedBalance: projection.programEligibleBalance,
+      bufferFloor,
+    }),
+    bufferReached: isPayoutBufferReached({
+      realizedBalance: projection.programEligibleBalance,
+      bufferFloor,
+    }),
+    performanceDayThreshold,
+    performanceDaysCompleted: qualifyingDays.length,
+    performanceDaysRequired: policy.performance_days_required_per_payout,
+    consistencyRatio,
+    consistencyCompliant: isBestDayCompliant({
+      bestDayRatio: consistencyRatio,
+      maxRatio: policy.best_day_max_ratio,
+    }),
+  };
+}
+
+/**
+ * PERF-018/031 — called once a cycle's payout is marked paid (Phase D).
+ * Closes the given cycle and either opens cycle N+1 or, if this was the
+ * last cycle before review, creates the WARIBA Review case instead — never
+ * both, never neither. Caller must already hold the account row lock
+ * (same convention as every other locked-account mutation in this file).
+ */
+export async function closeCycleAndAdvanceInTransaction(
+  trx: Db,
+  params: { accountId: string; cycleId: string; now: Date },
+): Promise<{ nextCycleNumber: number | null; reviewCaseCreated: boolean }> {
+  const account = await trx
+    .selectFrom('app.trading_accounts')
+    .select(['policy_version_id'])
+    .where('id', '=', params.accountId)
+    .executeTakeFirstOrThrow();
+  const policy = asPerformancePolicy(await loadPolicyById(trx, account.policy_version_id));
+
+  const closedCycle = await trx
+    .updateTable('app.performance_cycles')
+    .set({ status: 'closed', closed_at: params.now, updated_at: params.now })
+    .where('id', '=', params.cycleId)
+    .where('account_id', '=', params.accountId)
+    .where('status', '!=', 'closed')
+    .returning(['cycle_number'])
+    .executeTakeFirstOrThrow(
+      () => new Error(`Cycle ${params.cycleId} was not open — cannot close it twice.`),
+    );
+
+  if (closedCycle.cycle_number >= policy.max_payout_cycles_before_review) {
+    await trx
+      .insertInto('app.performance_review_cases')
+      .values({ account_id: params.accountId, opened_at: params.now })
+      .onConflict((oc) => oc.column('account_id').doNothing())
+      .execute();
+    return { nextCycleNumber: null, reviewCaseCreated: true };
+  }
+
+  const nextCycleNumber = closedCycle.cycle_number + 1;
+  await trx
+    .insertInto('app.performance_cycles')
+    .values({ account_id: params.accountId, cycle_number: nextCycleNumber, opened_at: params.now })
+    .onConflict((oc) => oc.columns(['account_id', 'cycle_number']).doNothing())
+    .execute();
+  return { nextCycleNumber, reviewCaseCreated: false };
 }

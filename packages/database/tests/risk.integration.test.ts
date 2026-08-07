@@ -122,7 +122,27 @@ describeIfDb('risk engine — real database', () => {
   }, 15000);
 
   afterAll(async () => {
-    for (const id of cleanupAccountIds) {
+    // Prompt 08 Phase B — reaching 'passed' now spawns a WARIBA_PERFORMANCE
+    // account as a side effect (packages/database/src/risk.ts), which every
+    // "...passes the evaluation" test in this file triggers whether or not
+    // it knows about Prompt 08. That spawned account FKs back via
+    // source_evaluation_account_id, so it must be deleted first — found
+    // here rather than tracked per-test, so no existing test needs to know
+    // about a side effect it didn't ask for.
+    const spawnedPerformanceAccounts =
+      cleanupAccountIds.length > 0
+        ? await db
+            .selectFrom('app.trading_accounts')
+            .select('id')
+            .where('source_evaluation_account_id', 'in', cleanupAccountIds)
+            .execute()
+        : [];
+    const allAccountIds = [
+      ...spawnedPerformanceAccounts.map((row) => row.id),
+      ...cleanupAccountIds,
+    ];
+
+    for (const id of allAccountIds) {
       const positions = await db
         .selectFrom('app.positions')
         .select('id')
@@ -141,6 +161,8 @@ describeIfDb('risk engine — real database', () => {
       await db.deleteFrom('app.risk_violations').where('account_id', '=', id).execute();
       await db.deleteFrom('app.account_daily_snapshots').where('account_id', '=', id).execute();
       await db.deleteFrom('app.account_state_transitions').where('account_id', '=', id).execute();
+      await db.deleteFrom('app.performance_cycles').where('account_id', '=', id).execute();
+      await db.deleteFrom('app.performance_review_cases').where('account_id', '=', id).execute();
       const account = await db
         .selectFrom('app.trading_accounts')
         .select('source_purchase_order_id')
@@ -617,10 +639,8 @@ describeIfDb('risk engine — real database', () => {
       .selectAll()
       .where('source_evaluation_account_id', '=', accountId)
       .executeTakeFirstOrThrow();
-    // Deleted before the Evaluation account it references — this account
-    // is not pushed via createActiveAccount, so cleanupAccountIds must be
-    // told about it explicitly, and first, or the FK blocks the delete.
-    cleanupAccountIds.unshift(performanceAccount.id);
+    // No manual cleanupAccountIds tracking needed — afterAll's own
+    // spawnedPerformanceAccounts discovery finds and deletes it first.
 
     expect(performanceAccount.program_type).toBe('WARIBA_PERFORMANCE');
     expect(performanceAccount.status).toBe('active');

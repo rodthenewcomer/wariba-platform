@@ -677,6 +677,34 @@ trading manuel ni à la règle d'éligibilité de profit à 60 secondes (TRD-033
 
 # 26. Historique des versions
 
+## v1.16 — 2026-08-07
+
+Prompt 08 Phase C (buffer permanent, cycles de payout, Performance Days)
+intégré. Nouvelles tables `app.performance_cycles` (au plus un cycle non
+`closed` par compte — index unique partiel, pas seulement une garantie
+applicative) et `app.performance_review_cases` (créée après le 5e cycle,
+PERF-018/031 ; statut minimal `open`/`closed`, aucun critère de sortie
+inventé — PERF-021/022 restent `OPEN`). Une Performance Day appartient à
+un cycle par simple appartenance de date (`trading_day` dans
+`[opened_at, closed_at)`), jamais par un flag "consommé" séparé — même
+raisonnement "dériver, ne pas dupliquer" que le reste du dépôt. Formules
+pures dans `packages/domain/src/performance-math.ts`
+(`computePayoutBufferFloor`, `computeEligibleExcess`,
+`computePerformanceDayThreshold`) vérifiées contre les tables complètes du
+Program Rulebook v1.1 §7.1/§8 pour les cinq tailles. `evaluateCycleProgress`
+reste volontairement scindé de l'éligibilité payout complète (Phase D) —
+il ne vérifie que buffer/jours/consistance, pas position ouverte/ordre en
+attente/KYC, pour éviter de dupliquer les vérifications d'équité déjà
+faites par `risk.ts`. Bug réel trouvé et corrigé en cours de route : les
+tests d'intégration existants qui font passer un compte Evaluation
+(`risk.integration.test.ts`) déclenchent maintenant la création d'un
+compte Performance en effet de bord — leur nettoyage générique ne le
+savait pas et échouait sur la contrainte de clé étrangère
+`source_evaluation_account_id_fkey` en tentant de supprimer le compte
+Evaluation en premier ; corrigé par une découverte générique des comptes
+Performance engendrés dans `afterAll`, plutôt que par un suivi manuel par
+test.
+
 ## v1.15 — 2026-08-07
 
 Prompt 08 Phase B (programme + moteur de risque pour WARIBA Performance)
