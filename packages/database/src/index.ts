@@ -35,11 +35,13 @@ export {
   evaluateCycleProgress,
   closeCycleAndAdvanceInTransaction,
   setPerformanceAccountComplianceFlags,
+  loadOpenPerformanceReviewCases,
   asPerformancePolicy,
   type ActivatePerformanceAccountParams,
   type ActivatedPerformanceAccount,
   type PerformanceCycle,
   type CycleProgress,
+  type OpenPerformanceReviewCase,
 } from './performance';
 export {
   createPayoutRequestInTransaction,

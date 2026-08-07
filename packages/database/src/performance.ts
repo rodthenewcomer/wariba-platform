@@ -408,3 +408,54 @@ export async function setPerformanceAccountComplianceFlags(
     .where('program_type', '=', 'WARIBA_PERFORMANCE')
     .execute();
 }
+
+export interface OpenPerformanceReviewCase {
+  id: string;
+  accountId: string;
+  accountPublicId: string;
+  nominalBalance: string;
+  traderFirstName: string;
+  traderLastName: string;
+  openedAt: Date;
+}
+
+/**
+ * Prompt 08 Phase G — read-only by design: PERF-018/031's own migration
+ * comment marks the review case's actual outcome workflow as "deliberately
+ * OPEN" (PERF-021/022, undecided). Control can only see who is waiting,
+ * not resolve the case, until that decision lands.
+ */
+export async function loadOpenPerformanceReviewCases(
+  trx: Db,
+): Promise<OpenPerformanceReviewCase[]> {
+  const rows = await trx
+    .selectFrom('app.performance_review_cases')
+    .innerJoin(
+      'app.trading_accounts',
+      'app.trading_accounts.id',
+      'app.performance_review_cases.account_id',
+    )
+    .innerJoin('app.user_profiles', 'app.user_profiles.user_id', 'app.trading_accounts.user_id')
+    .select([
+      'app.performance_review_cases.id',
+      'app.performance_review_cases.account_id',
+      'app.trading_accounts.public_id as account_public_id',
+      'app.trading_accounts.nominal_balance',
+      'app.user_profiles.first_name as trader_first_name',
+      'app.user_profiles.last_name as trader_last_name',
+      'app.performance_review_cases.opened_at',
+    ])
+    .where('app.performance_review_cases.status', '=', 'open')
+    .orderBy('app.performance_review_cases.opened_at', 'asc')
+    .execute();
+
+  return rows.map((row) => ({
+    id: row.id,
+    accountId: row.account_id,
+    accountPublicId: row.account_public_id,
+    nominalBalance: row.nominal_balance,
+    traderFirstName: row.trader_first_name,
+    traderLastName: row.trader_last_name,
+    openedAt: row.opened_at,
+  }));
+}

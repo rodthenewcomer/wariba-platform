@@ -109,6 +109,11 @@ export {
 } from './control-treasury-view';
 
 export {
+  buildControlReviewCasesView,
+  type ControlReviewCaseItemView,
+} from './control-review-cases-view';
+
+export {
   approvePayoutRequest,
   rejectPayoutRequest,
   settlePayoutRequest,
