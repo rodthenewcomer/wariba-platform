@@ -35,6 +35,7 @@ const describeIfDb = DATABASE_URL ? describe : describe.skip;
 const PORT = 4579;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 const WS_URL = `ws://127.0.0.1:${PORT}/ws`;
+const UPWARD_EURUSD_SEED = '25231836';
 
 function waitForOpen(ws: WsClient, timeoutMs = 5000): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -182,7 +183,8 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
     const childEnv: NodeJS.ProcessEnv = {
       ...process.env,
       REALTIME_PORT: String(PORT),
-      MARKET_TICK_INTERVAL_MS: '300',
+      MARKET_TICK_INTERVAL_MS: '1000',
+      SANDBOX_MARKET_SEED: UPWARD_EURUSD_SEED,
       ACCOUNT_RISK_PREVIEW_INTERVAL_MS: '5000',
     };
     delete childEnv.VITEST;
@@ -384,7 +386,7 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
     ws2.send(JSON.stringify({ type: 'subscribe', channels: ['market.symbol.EURUSD'] }));
     const freshTickMsg = await resumedMessages.waitForMessage((m) => m.type === 'market.tick');
     const freshTick = freshTickMsg.payload as { bid: string; ask: string };
-    const safeDistancePoints = 9;
+    const safeDistancePoints = 17;
     const nearTriggerPrice = (Number(freshTick.bid) + safeDistancePoints * onePoint).toFixed(
       pricePrecision,
     );

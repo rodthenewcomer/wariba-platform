@@ -30,6 +30,7 @@ const describeIfDb = DATABASE_URL ? describe : describe.skip;
 const PORT = 4578;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 const WS_URL = `ws://127.0.0.1:${PORT}/ws`;
+const DOWNWARD_EURUSD_SEED = '295357';
 
 function waitForOpen(ws: WsClient, timeoutMs = 5000): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -170,10 +171,8 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
     const childEnv: NodeJS.ProcessEnv = {
       ...process.env,
       REALTIME_PORT: String(PORT),
-      // Fast ticks: the trigger-price strategy below only needs a handful
-      // of natural random-walk ticks to cross, so a short interval keeps
-      // this test's wall-clock time bounded without needing to fake time.
-      MARKET_TICK_INTERVAL_MS: '300',
+      MARKET_TICK_INTERVAL_MS: '1000',
+      SANDBOX_MARKET_SEED: DOWNWARD_EURUSD_SEED,
       ACCOUNT_RISK_PREVIEW_INTERVAL_MS: '5000',
     };
     delete childEnv.VITEST;
@@ -256,24 +255,22 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
       }),
     );
     await messages1.waitForMessage((m) => m.type === 'account.snapshot');
+    messages1.dispose();
+    const tradeMessages = createMessageBuffer(ws1, 45000);
+    ws1.send(JSON.stringify({ type: 'subscribe', channels: ['market.symbol.EURUSD'] }));
 
     // Real, live simulated market — the trigger price is derived from an
     // actually-observed tick, not a value this test invents, so the
     // creation-time isPendingOrderCreationPriceValid check (server-side,
     // packages/domain) is satisfied for real, not coincidentally.
-    const tickMsg = await messages1.waitForMessage((m) => m.type === 'market.tick');
+    const tickMsg = await tradeMessages.waitForMessage((m) => m.type === 'market.tick');
     const tick = tickMsg.payload as { bid: string; ask: string };
     const pricePrecision = 5;
     const onePoint = Number(`1e-${pricePrecision}`);
-    // A few points below the currently observed ask: still a valid
-    // buy_limit (triggerPrice < ask) at creation, with enough margin that
-    // a single stray tick landing between reading this and the create
-    // command reaching the server (ticks fire every 300ms; the WS round
-    // trip is loopback-fast) can't itself invalidate it, while staying
-    // close enough that MockMarketDataProvider's ±1-8 point random walk
-    // (packages/adapters/src/market-data-provider.ts) crosses it within
-    // a handful of ticks in practice.
-    const triggerPrice = (Number(tick.ask) - 3 * onePoint).toFixed(pricePrecision);
+    const triggerDistancePoints = 17;
+    const triggerPrice = (Number(tick.ask) - triggerDistancePoints * onePoint).toFixed(
+      pricePrecision,
+    );
     const stopLoss = (Number(triggerPrice) - 50 * onePoint).toFixed(pricePrecision);
     const takeProfit = (Number(triggerPrice) + 50 * onePoint).toFixed(pricePrecision);
 
@@ -293,7 +290,7 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
         },
       }),
     );
-    const created = await messages1.waitForMessage((m) => m.type === 'pending_order_result');
+    const created = await tradeMessages.waitForMessage((m) => m.type === 'pending_order_result');
     const createdPayload = created.payload as {
       status: string;
       order: { id: string; requestedStopLoss: string; requestedTakeProfit: string } | null;
@@ -309,7 +306,7 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
     // idempotencyKey is `pending-order:${pendingOrderId}`, never the
     // create command's own key, by design (packages/database/src/
     // pending-orders.ts's triggerPendingOrders doc comment).
-    const filled = await messages1.waitForMessage(
+    const filled = await tradeMessages.waitForMessage(
       (m) =>
         m.type === 'order_result' &&
         (m.payload as { idempotencyKey: string }).idempotencyKey ===
@@ -374,7 +371,7 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
     expect(positionRow.take_profit).toBe(takeProfit);
 
     ws1.close();
-    messages1.dispose();
+    tradeMessages.dispose();
 
     // Reconnect: a brand new connection, fresh subscribe, must see the
     // same entry/SL/TP from the server's own persisted state — never
