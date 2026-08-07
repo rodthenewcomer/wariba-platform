@@ -378,3 +378,33 @@ export async function closeCycleAndAdvanceInTransaction(
     .execute();
   return { nextCycleNumber, reviewCaseCreated: false };
 }
+
+/**
+ * Prompt 08 Phase G — the only writer of these two columns (see their own
+ * doc comment in schema.ts: "Staff-set via Control, never trader-set").
+ * Partial on purpose: Control can flip either flag independently without
+ * clobbering the other.
+ */
+export async function setPerformanceAccountComplianceFlags(
+  trx: Db,
+  params: {
+    accountId: string;
+    kycVerified?: boolean;
+    payoutMethodConfigured?: boolean;
+    now: Date;
+  },
+): Promise<void> {
+  const update: { kyc_sandbox_verified?: boolean; payout_method_sandbox_configured?: boolean } = {};
+  if (params.kycVerified !== undefined) update.kyc_sandbox_verified = params.kycVerified;
+  if (params.payoutMethodConfigured !== undefined) {
+    update.payout_method_sandbox_configured = params.payoutMethodConfigured;
+  }
+  if (Object.keys(update).length === 0) return;
+
+  await trx
+    .updateTable('app.trading_accounts')
+    .set({ ...update, updated_at: params.now })
+    .where('id', '=', params.accountId)
+    .where('program_type', '=', 'WARIBA_PERFORMANCE')
+    .execute();
+}

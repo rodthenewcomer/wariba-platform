@@ -97,6 +97,29 @@ export {
 } from './positions-view';
 
 export {
+  buildControlPayoutQueueView,
+  type ControlPayoutQueueItemView,
+  type ControlPayoutStatusVariant,
+} from './control-payouts-view';
+
+export {
+  buildControlReserveView,
+  type ControlReserveView,
+  type ControlReserveZone,
+} from './control-treasury-view';
+
+export {
+  approvePayoutRequest,
+  rejectPayoutRequest,
+  settlePayoutRequest,
+  setPerformanceComplianceFlags,
+  type ApprovePayoutParams,
+  type RejectPayoutParams,
+  type SettlePayoutParams,
+  type SetComplianceFlagsParams,
+} from './control-payouts-actions';
+
+export {
   listActiveProducts,
   getCheckoutContext,
   createPurchaseOrder,

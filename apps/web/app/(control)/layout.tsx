@@ -15,6 +15,7 @@ const ROLE_LABEL: Record<StaffRole, string> = {
   support: 'Support',
   risk: 'Risque',
   finance: 'Finance',
+  compliance: 'Conformité',
   admin: 'Admin',
   super_admin: 'Super-admin',
 };

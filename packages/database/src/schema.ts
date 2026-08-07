@@ -257,7 +257,7 @@ export interface TradingLedgerEntriesTable {
 // the absence of one. admin/super_admin are treated as supersets of
 // support/risk/finance in application code (packages/application's
 // authorization helper), not by holding multiple rows.
-export type StaffRole = 'support' | 'risk' | 'finance' | 'admin' | 'super_admin';
+export type StaffRole = 'support' | 'risk' | 'finance' | 'compliance' | 'admin' | 'super_admin';
 
 export interface StaffMembersTable {
   id: Generated<string>;

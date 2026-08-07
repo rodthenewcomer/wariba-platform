@@ -1,5 +1,8 @@
-import { Alert, EmptyState, ReserveCoverage, Text } from '@wariba/ui';
+import Link from 'next/link';
+import { ReserveCoverage, Text, buttonClassNames } from '@wariba/ui';
+import { buildControlReserveView } from '@wariba/application';
 import { requireStaffRole } from '../../../lib/staff-auth';
+import { getDb } from '../../../lib/db';
 
 // requireStaffRole() needs request-time cookies + DB config; see the
 // (control) layout's dynamic export for why this can't be static.
@@ -7,6 +10,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function ControlPage() {
   await requireStaffRole();
+  const reserve = await buildControlReserveView(getDb());
 
   return (
     <div className="flex flex-col gap-6">
@@ -14,25 +18,18 @@ export default async function ControlPage() {
         Overview
       </Text>
 
-      <Alert level="information" title="Données DEMO — RBAC actif, contenu réel à venir">
-        L&apos;authentification staff et les permissions par rôle sont actives (Prompt 7 Appendix
-        07-B). Les chiffres ci-dessous restent des données DEMO ; les vraies requêtes arrivent avec
-        Prompt 09 (WARIBA Control).
-      </Alert>
-
       <div className="max-w-md">
         <ReserveCoverage
-          reserveFormatted="0 USD (DEMO)"
-          projectedPayouts30dFormatted="0 USD (DEMO)"
-          coverageRatioFormatted="—"
-          zone="normal"
+          reserveFormatted={reserve.reserveFormatted}
+          projectedPayouts30dFormatted={reserve.projectedPayouts30dFormatted}
+          coverageRatioFormatted={reserve.coverageRatioFormatted}
+          zone={reserve.zone}
         />
       </div>
 
-      <EmptyState
-        title="Aucune file de payout"
-        description="La file d'approbation payout arrive avec Prompt 08 et Prompt 09."
-      />
+      <Link href="/control/payouts" className={buttonClassNames()}>
+        Ouvrir la file de payout
+      </Link>
     </div>
   );
 }

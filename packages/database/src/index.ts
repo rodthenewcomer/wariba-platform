@@ -34,6 +34,7 @@ export {
   loadActiveCycle,
   evaluateCycleProgress,
   closeCycleAndAdvanceInTransaction,
+  setPerformanceAccountComplianceFlags,
   asPerformancePolicy,
   type ActivatePerformanceAccountParams,
   type ActivatedPerformanceAccount,
@@ -46,6 +47,7 @@ export {
   rejectPayoutRequestInTransaction,
   settlePayoutProviderInTransaction,
   loadPayoutRequestsForAccount,
+  loadPayoutRequestsForReview,
   evaluatePayoutEligibility,
   type CreatePayoutRequestParams,
   type ReviewPayoutRequestParams,
@@ -53,6 +55,7 @@ export {
   type PayoutRequestResult,
   type PayoutRejectionCode,
   type PayoutRequestHistoryEntry,
+  type ControlPayoutQueueEntry,
 } from './payouts';
 export {
   recordTreasuryReserveEntry,

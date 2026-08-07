@@ -509,3 +509,80 @@ export async function loadPayoutRequestsForAccount(
     paidAt: row.paid_at,
   }));
 }
+
+export interface ControlPayoutQueueEntry {
+  id: string;
+  accountId: string;
+  accountPublicId: string;
+  nominalBalance: string;
+  traderFirstName: string;
+  traderLastName: string;
+  cycleNumber: number;
+  status: string;
+  requestedNetTraderCash: string;
+  capApplied: string;
+  traderSplitRate: string;
+  approvedGrossBase: string | null;
+  traderNetCash: string | null;
+  kycVerified: boolean;
+  payoutMethodConfigured: boolean;
+  requestedAt: Date;
+}
+
+/**
+ * Prompt 08 Phase G — every request a staff member still has something to
+ * do on: awaiting a decision (pending_review/needs_information) or already
+ * approved and waiting on the (mock) provider to confirm settlement
+ * (processing). 'paid'/'rejected'/'failed'/'cancelled' are terminal — a
+ * separate history view, not this queue.
+ */
+export async function loadPayoutRequestsForReview(trx: Db): Promise<ControlPayoutQueueEntry[]> {
+  const rows = await trx
+    .selectFrom('app.payout_requests')
+    .innerJoin('app.trading_accounts', 'app.trading_accounts.id', 'app.payout_requests.account_id')
+    .innerJoin('app.user_profiles', 'app.user_profiles.user_id', 'app.trading_accounts.user_id')
+    .select([
+      'app.payout_requests.id',
+      'app.payout_requests.account_id',
+      'app.trading_accounts.public_id as account_public_id',
+      'app.trading_accounts.nominal_balance',
+      'app.user_profiles.first_name as trader_first_name',
+      'app.user_profiles.last_name as trader_last_name',
+      'app.payout_requests.cycle_number',
+      'app.payout_requests.status',
+      'app.payout_requests.requested_net_trader_cash',
+      'app.payout_requests.cap_applied',
+      'app.payout_requests.trader_split_rate',
+      'app.payout_requests.approved_gross_base',
+      'app.payout_requests.trader_net_cash',
+      'app.trading_accounts.kyc_sandbox_verified',
+      'app.trading_accounts.payout_method_sandbox_configured',
+      'app.payout_requests.requested_at',
+    ])
+    .where('app.payout_requests.status', 'in', [
+      'pending_review',
+      'needs_information',
+      'processing',
+    ])
+    .orderBy('app.payout_requests.requested_at', 'asc')
+    .execute();
+
+  return rows.map((row) => ({
+    id: row.id,
+    accountId: row.account_id,
+    accountPublicId: row.account_public_id,
+    nominalBalance: row.nominal_balance,
+    traderFirstName: row.trader_first_name,
+    traderLastName: row.trader_last_name,
+    cycleNumber: row.cycle_number,
+    status: row.status,
+    requestedNetTraderCash: row.requested_net_trader_cash,
+    capApplied: row.cap_applied,
+    traderSplitRate: row.trader_split_rate,
+    approvedGrossBase: row.approved_gross_base,
+    traderNetCash: row.trader_net_cash,
+    kycVerified: row.kyc_sandbox_verified,
+    payoutMethodConfigured: row.payout_method_sandbox_configured,
+    requestedAt: row.requested_at,
+  }));
+}

@@ -24,6 +24,7 @@ const ROLE_HIERARCHY: Record<StaffRole, readonly StaffRole[]> = {
   support: ['support', 'admin', 'super_admin'],
   risk: ['risk', 'admin', 'super_admin'],
   finance: ['finance', 'admin', 'super_admin'],
+  compliance: ['compliance', 'admin', 'super_admin'],
   admin: ['admin', 'super_admin'],
   super_admin: ['super_admin'],
 };
