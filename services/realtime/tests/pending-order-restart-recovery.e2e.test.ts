@@ -4,7 +4,11 @@ import { createClient } from '@supabase/supabase-js';
 import WsClient from 'ws';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDbClient, activateEvaluationAccount, type Db } from '@wariba/database';
-import { accountStateChannel, userNotificationsChannel } from '@wariba/contracts';
+import {
+  accountOrdersChannel,
+  accountStateChannel,
+  userNotificationsChannel,
+} from '@wariba/contracts';
 import { createMessageBuffer } from './message-buffer.js';
 
 globalThis.WebSocket ??= class {} as unknown as typeof WebSocket;
@@ -271,6 +275,7 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
         type: 'subscribe',
         channels: [
           accountStateChannel(accountId),
+          accountOrdersChannel(accountId),
           userNotificationsChannel(userId),
           'market.symbol.EURUSD',
         ],
@@ -353,6 +358,7 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
         type: 'subscribe',
         channels: [
           accountStateChannel(accountId),
+          accountOrdersChannel(accountId),
           userNotificationsChannel(userId),
           'market.symbol.EURUSD',
         ],
