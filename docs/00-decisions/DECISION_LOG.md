@@ -7,7 +7,7 @@ language: "fr-FR"
 brand: "WARIBA"
 domain: "wariba.app"
 owner: "WARIBA Leadership, Product, Risk, Engineering & Operations"
-last_updated: "2026-08-06"
+last_updated: "2026-08-07"
 ---
 
 # WARIBA Decision Log v1.0
@@ -676,6 +676,82 @@ trading manuel ni à la règle d'éligibilité de profit à 60 secondes (TRD-033
 ---
 
 # 26. Historique des versions
+
+## v1.20 — 2026-08-07
+
+Prompt 08 Phase G (opérations WARIBA Control) intégré. Nouveau rôle staff
+`compliance` (`app.staff_members.role`, `packages/database/src/staff.ts`) :
+un tier distinct de `finance`, pas une hiérarchie entre les deux — Finance
+approuve/refuse/règle le montant du payout, Compliance vérifie les
+drapeaux sandbox KYC/moyen de paiement
+(`kyc_sandbox_verified`/`payout_method_sandbox_configured`, déjà annotés
+« Staff-set via Control, never trader-set » depuis Phase D). `/control/payouts`
+remplace son stub par la vraie file inter-comptes
+(`loadPayoutRequestsForReview`, jointe compte/trader), câblée aux
+transactions d'approbation/refus/règlement de Phase D via de nouveaux
+wrappers fins dans `@wariba/application`
+(`approvePayoutRequest`/`rejectPayoutRequest`/`settlePayoutRequest`/
+`setPerformanceComplianceFlags`) — apps/web n'ouvre jamais lui-même une
+transaction Kysely (AGENTS.md §7.1), donc ce point d'entrée devait exister
+dans la couche application, pas dans le Server Action lui-même. N'importe
+quel rôle staff peut voir la file ; chaque bouton d'action est activé selon
+le rôle réel du visualisateur, et chaque Server Action revérifie lui-même
+le rôle requis plutôt que de faire confiance à la page (une Server Action
+est un point d'entrée directement appelable, pas seulement accessible via
+la page qui l'affiche). `/control` (overview) affiche maintenant la vraie
+couverture de réserve (Phase E, `evaluateReserveStatus`) au lieu du
+placeholder DEMO. `/control/integrity` étendu avec une liste en lecture
+seule des dossiers `performance_review_cases` ouverts — délibérément sans
+action de résolution/clôture : le commentaire de la migration de Phase C
+marque déjà ce workflow comme « deliberately OPEN » (PERF-021/022, non
+tranché). Périmètre réduit par rapport à la fois au texte du prompt et à
+la référence anticipée de v1.18 (« Phase G affichera modèle vs réel ») :
+aucune UI actuarielle (comparaison scénario/réel, sections Program
+Accounts/Treasury dédiées) n'a été construite cette session —
+`runActuarialScenario` (Phase E) reste sans surface Control, noté
+honnêtement comme non fait plutôt que construit comme une façade vide.
+Bug réel trouvé et corrigé en cours de route : `scripts/check-boundaries.mjs`
+fait une simple recherche de sous-chaîne `@wariba/database` sur le contenu
+brut des fichiers (pas une analyse d'imports par AST) — un commentaire de
+`TradeClient.tsx` qui *mentionnait* ce nom de package en prose (sans
+l'importer) faisait échouer le contrôle CI « Import boundaries » ; corrigé
+en reformulant le commentaire, pas en affaiblissant le contrôle.
+
+## v1.19 — 2026-08-07
+
+Prompt 08 Phase F (UX trader — Hub + Payout Center) intégré.
+`buildAccountPerformanceMissionView`
+(`packages/application/src/performance-mission-view.ts`) reproduit
+exactement la forme de `buildAccountMissionView` (`state`/`progressPercent`/
+`conditions`/`nextAction`/`consistency`) pour traverser les mêmes
+composants `MissionProgress`/`ConsistencyMeter` que WARIBA ONE sans
+modification — remplace le placeholder statique « Mission Performance :
+aucune règle publiée » du Hub, devenu trompeur depuis Phase B/C. Le Payout
+Center (formulaire de demande, montant choisi par le trader — décision
+produit explicite, pas de montant imposé) vit sur `/trade`
+(`PayoutCenterPanel.tsx`), jamais sur le Hub : le Hub est rendu
+côté serveur par requête (`packages/application`, sans WS), `/trade` a
+seule la connexion WS live nécessaire pour réagir immédiatement à un
+`payout_result` — même séparation d'architecture que le reste de WariX
+(TradeClient.tsx vs page.tsx du Hub). Le lien du Hub vers le Payout Center
+(`/trade#payout`) bascule l'onglet au chargement (pas un simple ancrage de
+défilement, `/trade` utilise des onglets, pas des sections). Deux champs
+ajoutés au DTO `account.snapshot` (`packages/contracts/src/trading.ts`) :
+`programType` (distingue « pas un compte Performance » de « compte
+Performance sans cycle actif », les deux donnant `performanceProgress:
+null` sinon) et `performanceProgress.realizedBalance` (corrige un bug de
+rendu du pourcentage de progression sous le plancher du buffer —
+`eligibleExcess` seul se limite à 0 et perd l'information de distance
+réelle). Bug d'environnement CI réel trouvé et corrigé en deux temps :
+`test:e2e` (contrairement à `test:integration`/`test:rls`) n'avait jamais
+`--concurrency=1`, laissant `apps/web:build` tourner en parallèle de la
+suite e2e de `services/realtime` sur un runner à 2 cœurs ; corrigé, mais
+insuffisant seul — deux runs supplémentaires ont montré que la propre
+stack Docker de Supabase (tournant pendant tout le job « Database, RLS and
+E2E ») sature déjà le runner, indépendamment de turbo. Budget du test de
+reprise single-node relevé en conséquence (défaut `waitForMessage` 45s →
+120s, `waitForHealthy` 30s → 60s, timeout du test 240s → 480s) — propriété
+honnête de l'environnement CI, pas un bug de logique du test lui-même.
 
 ## v1.18 — 2026-08-07
 
