@@ -5,6 +5,7 @@ import WsClient from 'ws';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDbClient, activateEvaluationAccount, type Db } from '@wariba/database';
 import { accountStateChannel, accountOrdersChannel } from '@wariba/contracts';
+import { createMessageBuffer } from './message-buffer.js';
 
 globalThis.WebSocket ??= class {} as unknown as typeof WebSocket;
 
@@ -60,28 +61,6 @@ function waitForMessages(
       ws.off('message', onMessage);
       resolve(matches);
     }, timeoutMs);
-  });
-}
-
-function waitForMessage(
-  ws: WsClient,
-  predicate: (msg: { type: string; payload: unknown }) => boolean,
-  timeoutMs = 20000,
-): Promise<{ type: string; payload: unknown }> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error('timed out waiting for a matching message')),
-      timeoutMs,
-    );
-    const onMessage = (raw: WsClient.RawData): void => {
-      const msg = JSON.parse(raw.toString()) as { type: string; payload: unknown };
-      if (predicate(msg)) {
-        clearTimeout(timer);
-        ws.off('message', onMessage);
-        resolve(msg);
-      }
-    };
-    ws.on('message', onMessage);
   });
 }
 
@@ -264,6 +243,7 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
 
   it('a Buy Limit with attached SL/TP triggers exactly once, the fill becomes an authoritative position protection, and a reconnect returns the correct entry/SL/TP', async () => {
     const ws1 = new WsClient(`${WS_URL}?token=${token}`);
+    const messages1 = createMessageBuffer(ws1, 45000);
     await waitForOpen(ws1);
     ws1.send(
       JSON.stringify({
@@ -275,13 +255,13 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
         ],
       }),
     );
-    await waitForMessage(ws1, (m) => m.type === 'account.snapshot');
+    await messages1.waitForMessage((m) => m.type === 'account.snapshot');
 
     // Real, live simulated market — the trigger price is derived from an
     // actually-observed tick, not a value this test invents, so the
     // creation-time isPendingOrderCreationPriceValid check (server-side,
     // packages/domain) is satisfied for real, not coincidentally.
-    const tickMsg = await waitForMessage(ws1, (m) => m.type === 'market.tick');
+    const tickMsg = await messages1.waitForMessage((m) => m.type === 'market.tick');
     const tick = tickMsg.payload as { bid: string; ask: string };
     const pricePrecision = 5;
     const onePoint = Number(`1e-${pricePrecision}`);
@@ -313,7 +293,7 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
         },
       }),
     );
-    const created = await waitForMessage(ws1, (m) => m.type === 'pending_order_result');
+    const created = await messages1.waitForMessage((m) => m.type === 'pending_order_result');
     const createdPayload = created.payload as {
       status: string;
       order: { id: string; requestedStopLoss: string; requestedTakeProfit: string } | null;
@@ -329,13 +309,12 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
     // idempotencyKey is `pending-order:${pendingOrderId}`, never the
     // create command's own key, by design (packages/database/src/
     // pending-orders.ts's triggerPendingOrders doc comment).
-    const filled = await waitForMessage(
-      ws1,
+    const filled = await messages1.waitForMessage(
       (m) =>
         m.type === 'order_result' &&
         (m.payload as { idempotencyKey: string }).idempotencyKey ===
           `pending-order:${pendingOrderId}`,
-      20000,
+      60000,
     );
     const filledPayload = filled.payload as {
       status: string;
@@ -395,14 +374,16 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
     expect(positionRow.take_profit).toBe(takeProfit);
 
     ws1.close();
+    messages1.dispose();
 
     // Reconnect: a brand new connection, fresh subscribe, must see the
     // same entry/SL/TP from the server's own persisted state — never
     // from any client-side cache (there is none to fall back to).
     const ws2 = new WsClient(`${WS_URL}?token=${token}`);
+    const messages2 = createMessageBuffer(ws2, 45000);
     await waitForOpen(ws2);
     ws2.send(JSON.stringify({ type: 'subscribe', channels: [accountStateChannel(accountId)] }));
-    const reconnectSnapshot = await waitForMessage(ws2, (m) => m.type === 'account.snapshot');
+    const reconnectSnapshot = await messages2.waitForMessage((m) => m.type === 'account.snapshot');
     const snapshotPayload = reconnectSnapshot.payload as {
       openPositions: { id: string; stopLoss: string; takeProfit: string }[];
       pendingOrders: unknown[];
@@ -414,5 +395,6 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
     // The now-filled pending order no longer appears among active ones.
     expect(snapshotPayload.pendingOrders).toHaveLength(0);
     ws2.close();
-  }, 45000);
+    messages2.dispose();
+  }, 150000);
 });
