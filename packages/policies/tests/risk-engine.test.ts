@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateAccountRisk, type DailySnapshotInput } from '../src/risk-engine';
+import {
+  evaluateAccountRisk,
+  type DailySnapshotInput,
+  type RiskPolicyParameters,
+} from '../src/risk-engine';
 import type { EvaluationOnePolicyParameters } from '../src/schema';
 
 const POLICY: EvaluationOnePolicyParameters = {
@@ -298,5 +302,90 @@ describe('property: no qualified-day-equivalent claims before finalization', () 
     // If today's 900 were (incorrectly) included: sum=1400, best=900, ratio=0.6429.
     // Excluded correctly: only the one finalized day counts, ratio = 500/500 = 1.
     expect(result.bestDay.ratio).toBe('1.0000');
+  });
+});
+
+// Prompt 08 Phase B — a WARIBA_PERFORMANCE policy has no profit_target_rate
+// at all (never a placeholder/unreachable value — see RiskPolicyParameters'
+// own doc comment). These tests are the actual proof that its absence, not
+// some separate "program" flag, is what disables the pass_pending
+// transition for a Performance account, while daily-loss/max-loss/best-day
+// evaluation stays byte-for-byte identical to Evaluation's.
+const PERFORMANCE_POLICY: RiskPolicyParameters = {
+  daily_loss_rate: '0.03',
+  maximum_loss_rate: '0.10',
+  best_day_max_ratio: '0.50',
+};
+
+describe('Prompt 08 — WARIBA_PERFORMANCE policy (no profit_target_rate)', () => {
+  it('never recommends pass_pending even when every Evaluation pass condition is otherwise met', () => {
+    const result = evaluateAccountRisk({
+      clock: CLOCK,
+      account: { id: 'perf-1', status: 'active', nominalBalance: '10000' },
+      policy: PERFORMANCE_POLICY,
+      currentBalance: '11000', // would satisfy a 10% target if one existed
+      currentUnrealizedPnl: '0',
+      openPositionCount: 0,
+      pendingOrderCount: 0,
+      dailySnapshots: [
+        {
+          tradingDay: '2026-08-08',
+          status: 'finalized',
+          dailyReference: '10000',
+          maximumLossFloorBefore: '9000',
+          eodBalance: '10500',
+          maximumLossFloorAfter: '9000',
+          realizedNetProfitForDay: '500',
+        },
+        {
+          tradingDay: '2026-08-09',
+          status: 'finalized',
+          dailyReference: '10500',
+          maximumLossFloorBefore: '9000',
+          eodBalance: '11000',
+          maximumLossFloorAfter: '9000',
+          realizedNetProfitForDay: '500',
+        },
+        todaySnapshot({ dailyReference: '11000' }),
+      ],
+    });
+
+    expect(result.target.reached).toBe(true);
+    expect(result.eligibility.blockingReasons).not.toContain('RISK_TARGET_NOT_REALIZED');
+    // The one status this pure function must never recommend for a
+    // Performance account — there is no "pass" for it to reach.
+    expect(result.recommendedStatus).toBe('active');
+  });
+
+  it('still soft-locks on the same 3% daily loss rule as Evaluation', () => {
+    const result = evaluateAccountRisk({
+      clock: CLOCK,
+      account: { id: 'perf-2', status: 'active', nominalBalance: '10000' },
+      policy: PERFORMANCE_POLICY,
+      currentBalance: '9700',
+      currentUnrealizedPnl: '0',
+      openPositionCount: 0,
+      pendingOrderCount: 0,
+      dailySnapshots: [todaySnapshot({ dailyReference: '10000', maximumLossFloorBefore: '9000' })],
+    });
+
+    expect(result.dailyLoss.softLockTriggered).toBe(true);
+    expect(result.recommendedStatus).toBe('soft_locked');
+  });
+
+  it('still hard-breaches on the same 10% EOD trailing Maximum Loss rule as Evaluation', () => {
+    const result = evaluateAccountRisk({
+      clock: CLOCK,
+      account: { id: 'perf-3', status: 'soft_locked', nominalBalance: '10000' },
+      policy: PERFORMANCE_POLICY,
+      currentBalance: '9000',
+      currentUnrealizedPnl: '0',
+      openPositionCount: 0,
+      pendingOrderCount: 0,
+      dailySnapshots: [todaySnapshot({ dailyReference: '9000', maximumLossFloorBefore: '9000' })],
+    });
+
+    expect(result.maximumLoss.breached).toBe(true);
+    expect(result.recommendedStatus).toBe('breached');
   });
 });

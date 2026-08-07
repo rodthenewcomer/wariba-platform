@@ -150,7 +150,10 @@ export interface TradingAccountsTable {
   id: Generated<string>;
   public_id: string;
   user_id: string;
-  source_purchase_order_id: string;
+  /** Set for WARIBA_ONE accounts; null for WARIBA_PERFORMANCE (see source_evaluation_account_id instead). Exactly one of the two is ever set — DB-enforced. */
+  source_purchase_order_id: string | null;
+  /** Set for WARIBA_PERFORMANCE accounts, spawned from the Evaluation account that passed (PERF-020); null for WARIBA_ONE. */
+  source_evaluation_account_id: string | null;
   program_type: Generated<'WARIBA_ONE' | 'WARIBA_PERFORMANCE'>;
   nominal_balance: string;
   currency: Generated<string>;

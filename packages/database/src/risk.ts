@@ -18,6 +18,7 @@ import {
   ensureTodaySnapshot,
 } from './daily-finalization';
 import { loadPolicyById } from './policy';
+import { activatePerformanceAccountInTransaction } from './performance';
 import { loadAccountBalanceProjection } from './program-eligibility';
 import type { TradableSymbol } from './schema';
 
@@ -279,6 +280,26 @@ export async function evaluateAndApplyAccountRiskInTransaction(
       .returning('id')
       .executeTakeFirstOrThrow();
     transitionId = transitionRow.id;
+
+    // Prompt 08 Phase B, PERF-020 — inside the same transaction as the
+    // pass itself: either both land, or neither does. account.program_type
+    // guards this even though risk-engine.ts's profit_target_rate gate
+    // already makes 'pass_pending' unreachable for a WARIBA_PERFORMANCE
+    // account — belt and suspenders on a transition that spawns a second
+    // financial account.
+    if (
+      previousStatus === 'pass_pending' &&
+      targetStatus === 'passed' &&
+      account.program_type === 'WARIBA_ONE'
+    ) {
+      await activatePerformanceAccountInTransaction(trx, {
+        evaluationAccountId: account.id,
+        userId: account.user_id,
+        nominalBalance: account.nominal_balance,
+        currency: account.currency,
+        now: () => params.now,
+      });
+    }
   }
 
   for (const violation of result.violations) {

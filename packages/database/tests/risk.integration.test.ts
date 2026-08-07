@@ -515,6 +515,163 @@ describeIfDb('risk engine — real database', () => {
     // any Prompt 07 change.
   }, 55000);
 
+  it('Prompt 08 Phase B, PERF-020 — the same transaction that finalizes an Evaluation pass also activates exactly one linked Performance account', async () => {
+    const { accountId } = await createActiveAccount('performance-spawn');
+    const dayTwo = new Date(NOW.getTime() + 24 * 60 * 60 * 1000);
+    const dayThree = new Date(NOW.getTime() + 2 * 24 * 60 * 60 * 1000);
+    const dayTwoTick = dayTwo.toISOString();
+
+    const openMarketDay1 = {
+      bid: '1.09995',
+      ask: '1.10000',
+      timestamp: FRESH_TICK,
+      sequence: '5',
+    };
+    const openDay1 = await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'EURUSD',
+      side: 'buy',
+      quantity: '0.60',
+      market: openMarketDay1,
+      marketBySymbol: marketsWithEurusd(openMarketDay1),
+      now: NOW,
+    });
+    const closeMarketDay1 = {
+      bid: '1.10900',
+      ask: '1.10905',
+      timestamp: new Date(NOW.getTime() + 61_000).toISOString(),
+      sequence: '6',
+    };
+    await closePosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      positionId: openDay1.position?.id as string,
+      mode: 'full',
+      market: closeMarketDay1,
+      marketBySymbol: marketsWithEurusd(closeMarketDay1),
+      now: new Date(NOW.getTime() + 61_000),
+    });
+    await finalizeDailyBoundaryForAccount(db, { accountId, clock: () => dayTwo });
+
+    const openMarketDay2 = {
+      bid: '1.09995',
+      ask: '1.10000',
+      timestamp: dayTwoTick,
+      sequence: '7',
+    };
+    const openDay2 = await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'EURUSD',
+      side: 'buy',
+      quantity: '0.60',
+      market: openMarketDay2,
+      marketBySymbol: marketsWithEurusd(openMarketDay2),
+      now: dayTwo,
+    });
+    const closeMarketDay2 = {
+      bid: '1.10900',
+      ask: '1.10905',
+      timestamp: new Date(dayTwo.getTime() + 61_000).toISOString(),
+      sequence: '8',
+    };
+    await closePosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      positionId: openDay2.position?.id as string,
+      mode: 'full',
+      market: closeMarketDay2,
+      marketBySymbol: marketsWithEurusd(closeMarketDay2),
+      now: new Date(dayTwo.getTime() + 61_000),
+    });
+    await finalizeDailyBoundaryForAccount(db, { accountId, clock: () => dayThree });
+
+    // No Performance account exists yet — pass_pending isn't 'passed'.
+    await evaluateAndApplyAccountRisk(db, {
+      accountId,
+      now: dayThree,
+      marketBySymbol: ALL_MARKETS,
+      triggerEventType: 'daily_finalization',
+      triggerEventId: randomUUID(),
+    });
+    const beforePass = await db
+      .selectFrom('app.trading_accounts')
+      .select('id')
+      .where('source_evaluation_account_id', '=', accountId)
+      .execute();
+    expect(beforePass).toHaveLength(0);
+
+    // The transaction that actually finalizes pass_pending -> passed.
+    const passingEvaluation = await evaluateAndApplyAccountRisk(db, {
+      accountId,
+      now: dayThree,
+      marketBySymbol: ALL_MARKETS,
+      triggerEventType: 'manual_review',
+      triggerEventId: randomUUID(),
+    });
+    expect(passingEvaluation.newStatus).toBe('passed');
+
+    const performanceAccount = await db
+      .selectFrom('app.trading_accounts')
+      .selectAll()
+      .where('source_evaluation_account_id', '=', accountId)
+      .executeTakeFirstOrThrow();
+    // Deleted before the Evaluation account it references — this account
+    // is not pushed via createActiveAccount, so cleanupAccountIds must be
+    // told about it explicitly, and first, or the FK blocks the delete.
+    cleanupAccountIds.unshift(performanceAccount.id);
+
+    expect(performanceAccount.program_type).toBe('WARIBA_PERFORMANCE');
+    expect(performanceAccount.status).toBe('active');
+    expect(performanceAccount.source_purchase_order_id).toBeNull();
+    // Nominal reset (PERF-020), not the Evaluation account's ending
+    // balance — same 10000 the 10K product started with, not 11058.40.
+    expect(performanceAccount.nominal_balance).toBe('10000.00');
+
+    const performancePolicy = await db
+      .selectFrom('app.policy_versions')
+      .select(['program', 'status'])
+      .where('id', '=', performanceAccount.policy_version_id)
+      .executeTakeFirstOrThrow();
+    expect(performancePolicy.program).toBe('WARIBA_PERFORMANCE');
+    expect(performancePolicy.status).toBe('published');
+
+    const activationTransition = await db
+      .selectFrom('app.account_state_transitions')
+      .selectAll()
+      .where('account_id', '=', performanceAccount.id)
+      .executeTakeFirstOrThrow();
+    expect(activationTransition.from_status).toBe('pending_activation');
+    expect(activationTransition.to_status).toBe('active');
+    expect(activationTransition.reason).toBe('evaluation_passed');
+
+    const initialLedgerEntry = await db
+      .selectFrom('app.trading_ledger_entries')
+      .selectAll()
+      .where('account_id', '=', performanceAccount.id)
+      .executeTakeFirstOrThrow();
+    expect(initialLedgerEntry.entry_type).toBe('initial_balance');
+    expect(initialLedgerEntry.amount).toBe('10000.00');
+
+    // PERF-020 "une seule relation" — a further evaluation of the
+    // already-passed account (e.g. a stray retry) must not spawn a
+    // second Performance account.
+    await evaluateAndApplyAccountRisk(db, {
+      accountId,
+      now: dayThree,
+      marketBySymbol: ALL_MARKETS,
+      triggerEventType: 'manual_review',
+      triggerEventId: randomUUID(),
+    });
+    const performanceAccountsAfterRetry = await db
+      .selectFrom('app.trading_accounts')
+      .select('id')
+      .where('source_evaluation_account_id', '=', accountId)
+      .execute();
+    expect(performanceAccountsAfterRetry).toHaveLength(1);
+  }, 60000);
+
   it('is idempotent — retrying the same triggerEventId writes no duplicate violation or transition', async () => {
     const { accountId } = await createActiveAccount('idempotency');
 

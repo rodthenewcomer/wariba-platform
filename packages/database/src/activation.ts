@@ -43,7 +43,7 @@ function compareSandboxSpecSetIds(left: string, right: string): number {
   return 0;
 }
 
-async function loadLatestSandboxSymbolSpecSet(trx: Transaction<Database>) {
+export async function loadLatestSandboxSymbolSpecSet(trx: Db) {
   const candidates = await trx
     .selectFrom('app.symbol_spec_sets')
     .select(['id', 'set_id'])

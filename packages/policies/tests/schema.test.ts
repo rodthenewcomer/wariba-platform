@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { evaluationOnePolicyParametersSchema, policyVersionRowSchema } from '../src/schema';
+import {
+  evaluationOnePolicyParametersSchema,
+  performancePolicyParametersSchema,
+  policyVersionRowSchema,
+} from '../src/schema';
 
 /**
  * This literal object is the exact `jsonb_build_object(...)` payload seeded
@@ -89,6 +93,70 @@ describe('evaluationOnePolicyParametersSchema', () => {
         short_duration_entry_lock_count: 6,
       }),
     ).toThrow();
+  });
+});
+
+/**
+ * The exact `jsonb_build_object(...)` payload seeded by
+ * supabase/migrations/20260807000000_performance_policy_and_activation.sql
+ * for the published WARIBA_PERFORMANCE v1.0.0 policy.
+ */
+const SEEDED_PERFORMANCE_1_0_0_PARAMETERS = {
+  daily_loss_rate: '0.03',
+  daily_loss_action: 'soft_lock',
+  maximum_loss_rate: '0.10',
+  maximum_loss_model: 'eod_trailing',
+  maximum_loss_floor_formula:
+    'min(nominal_balance, max(previous_floor, highest_eod_balance - nominal_balance * 0.10))',
+  maximum_loss_floor_never_decreases: true,
+  maximum_loss_locks_at_nominal: true,
+  best_day_max_ratio: '0.50',
+  best_day_breach_capable: false,
+  overnight_allowed: true,
+  weekend_allowed: false,
+  news_allowed: true,
+  program_eligible_balance_enabled: true,
+  minimum_profit_eligible_duration_ms: 60_000,
+  permanent_buffer_rate: '0.10',
+  performance_day_threshold_rate: '0.005',
+  performance_days_required_per_payout: 5,
+  trader_split_rate_default: '0.85',
+  trader_split_rate_final_cycle: '0.90',
+  max_payout_cycles_before_review: 5,
+};
+
+describe('performancePolicyParametersSchema', () => {
+  it('validates the seeded WARIBA_PERFORMANCE v1.0.0 parameters_json without modification', () => {
+    const result = performancePolicyParametersSchema.parse(SEEDED_PERFORMANCE_1_0_0_PARAMETERS);
+    expect(result).toEqual(SEEDED_PERFORMANCE_1_0_0_PARAMETERS);
+  });
+
+  it('rejects a payload carrying an Evaluation-only profit target (Performance has no pass concept)', () => {
+    // Not an error by itself (unknown keys are just ignored by default Zod
+    // object parsing) — this documents the actual, deliberate contract:
+    // profit_target_rate is never read from a Performance policy regardless
+    // of whether it's present, which is what keeps risk-engine.ts from ever
+    // recommending pass_pending for a WARIBA_PERFORMANCE account.
+    const result = performancePolicyParametersSchema.parse({
+      ...SEEDED_PERFORMANCE_1_0_0_PARAMETERS,
+      profit_target_rate: '0.10',
+    });
+    expect(result).not.toHaveProperty('profit_target_rate');
+  });
+
+  it('rejects a non-decimal-string rate (money/rate values must be decimal strings)', () => {
+    expect(() =>
+      performancePolicyParametersSchema.parse({
+        ...SEEDED_PERFORMANCE_1_0_0_PARAMETERS,
+        permanent_buffer_rate: 0.1,
+      }),
+    ).toThrow();
+  });
+
+  it('rejects a missing max_payout_cycles_before_review (PERF-018/031 needs it to know when to enter WARIBA Review)', () => {
+    const { max_payout_cycles_before_review: _omit, ...withoutField } =
+      SEEDED_PERFORMANCE_1_0_0_PARAMETERS;
+    expect(() => performancePolicyParametersSchema.parse(withoutField)).toThrow();
   });
 });
 

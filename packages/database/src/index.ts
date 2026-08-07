@@ -29,6 +29,12 @@ export {
   type ActivatedAccount,
 } from './activation';
 export {
+  activatePerformanceAccountInTransaction,
+  findActivePerformanceAccountForUser,
+  type ActivatePerformanceAccountParams,
+  type ActivatedPerformanceAccount,
+} from './performance';
+export {
   recordPaymentEvent,
   type RecordPaymentEventParams,
   type RecordPaymentEventResult,

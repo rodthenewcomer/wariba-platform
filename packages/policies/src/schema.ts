@@ -55,6 +55,50 @@ export const evaluationOnePolicyParametersSchema = z
 
 export type EvaluationOnePolicyParameters = z.infer<typeof evaluationOnePolicyParametersSchema>;
 
+/**
+ * Prompt 08 — WARIBA_PERFORMANCE policy parameters. Deliberately a
+ * different shape from EvaluationOnePolicyParameters, not a variant with
+ * optional fields: a Performance account has no profit target or pass
+ * concept (PERF-032..035 — same daily-loss/max-loss/best-day model as
+ * Evaluation, everything else replaced by the buffer/Performance
+ * Days/payout cycle machinery in packages/database/src/performance.ts).
+ * Omitting profit_target_rate entirely (rather than setting it to some
+ * unreachable placeholder) is what keeps risk-engine.ts from ever
+ * recommending pass_pending for these accounts — see RiskPolicyParameters'
+ * own doc comment.
+ */
+export const performancePolicyParametersSchema = z.object({
+  daily_loss_rate: decimalString,
+  daily_loss_action: z.literal('soft_lock'),
+  maximum_loss_rate: decimalString,
+  maximum_loss_model: z.literal('eod_trailing'),
+  maximum_loss_floor_formula: z.string(),
+  maximum_loss_floor_never_decreases: z.literal(true),
+  maximum_loss_locks_at_nominal: z.literal(true),
+  best_day_max_ratio: decimalString,
+  best_day_breach_capable: z.literal(false),
+  overnight_allowed: z.boolean(),
+  weekend_allowed: z.boolean(),
+  news_allowed: z.boolean(),
+  /** Prompt 08 §10 — same short-duration exclusion as Prompt 07B's WARIBA_ONE control, applied to Performance Days instead of the profit target. */
+  program_eligible_balance_enabled: z.boolean().optional(),
+  minimum_profit_eligible_duration_ms: z.number().int().nonnegative().optional(),
+  short_duration_warning_count: z.number().int().positive().optional(),
+  short_duration_entry_lock_count: z.number().int().positive().optional(),
+  /** PERF-023/024 — permanent, non-withdrawable, built once. */
+  permanent_buffer_rate: decimalString,
+  /** PERF-025/026 — 0.50% of nominal per day, five new days required per payout. */
+  performance_day_threshold_rate: decimalString,
+  performance_days_required_per_payout: z.number().int().positive(),
+  /** PERF-027 — applies to payout cycles 1 through max_payout_cycles_before_review - 1. */
+  trader_split_rate_default: decimalString,
+  /** PERF-028 — applies to the final payout cycle (max_payout_cycles_before_review). */
+  trader_split_rate_final_cycle: decimalString,
+  /** PERF-018/031 — cycle after which the account enters WARIBA Review instead of a new cycle. */
+  max_payout_cycles_before_review: z.number().int().positive(),
+});
+export type PerformancePolicyParameters = z.infer<typeof performancePolicyParametersSchema>;
+
 export const policyVersionRowSchema = z.object({
   id: z.string(),
   program: z.enum(['WARIBA_ONE', 'WARIBA_PERFORMANCE']),

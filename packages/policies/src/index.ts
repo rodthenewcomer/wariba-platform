@@ -11,8 +11,10 @@ export const PACKAGE_NAME = '@wariba/policies';
 
 export {
   evaluationOnePolicyParametersSchema,
+  performancePolicyParametersSchema,
   policyVersionRowSchema,
   type EvaluationOnePolicyParameters,
+  type PerformancePolicyParameters,
   type PolicyVersionRow,
 } from './schema';
 export { computeMachineHash } from './hash';
@@ -20,6 +22,7 @@ export { parseAndVerifyPolicy, type LoadedPolicy } from './loader';
 export {
   resolveProfitEligibilityPolicy,
   type ProfitEligibilityPolicyControl,
+  type ProfitEligibilitySourceParameters,
 } from './profit-eligibility-policy';
 export {
   evaluateAccountRisk,
@@ -28,4 +31,5 @@ export {
   type RiskViolation,
   type RiskRuleCode,
   type DailySnapshotInput,
+  type RiskPolicyParameters,
 } from './risk-engine';

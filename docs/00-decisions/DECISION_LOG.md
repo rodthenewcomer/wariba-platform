@@ -677,6 +677,36 @@ trading manuel ni à la règle d'éligibilité de profit à 60 secondes (TRD-033
 
 # 26. Historique des versions
 
+## v1.15 — 2026-08-07
+
+Prompt 08 Phase B (programme + moteur de risque pour WARIBA Performance)
+intégré sur `feat/prompt-08-program-engine`. Un compte Performance n'a pas
+de notion de "réussite" (PROGRAM-005/006, PERF-020) — `risk-engine.ts` est
+reparamétré pour l'exprimer par l'absence du champ `profit_target_rate`
+plutôt que par un flag de programme séparé : `RiskPolicyParameters` ne
+retient que le sous-ensemble DLL/Max Loss/Best Day réellement utilisé par
+le moteur, structurellement satisfait par les deux schémas de policy
+(`evaluationOnePolicyParametersSchema` et le nouveau
+`performancePolicyParametersSchema`). L'absence du champ est ce qui
+empêche `pass_pending` d'être jamais recommandé pour un compte Performance
+— pas un flag qu'un futur changement pourrait faire diverger de la policy
+réellement chargée. Premier `policy_versions` WARIBA_PERFORMANCE publié
+(1.0.0), mêmes paramètres de risque que WARIBA_ONE (PERF-032/033/034).
+Activation atomique : `activatePerformanceAccountInTransaction` est
+appelée dans la même transaction Postgres que la transition
+`pass_pending -> passed` (`packages/database/src/risk.ts`) — soit les deux
+atterrissent, soit aucune. `trading_accounts.source_purchase_order_id`
+(`not null unique`) ne pouvait pas représenter la provenance d'un compte
+Performance (issu d'un compte Evaluation, pas d'un nouvel achat) ; ajout de
+`source_evaluation_account_id` (nullable, unique) avec une contrainte
+`check` garantissant qu'exactement une des deux colonnes de provenance est
+renseignée — transforme PERF-020 en invariant base de données, pas
+seulement applicatif. Aucun changement au moteur de trading WariX
+lui-même — un compte Performance l'utilise sans modification. Voir
+TRADING docs à venir (Phase C-H) pour le reste du programme (buffer,
+Performance Days, payouts, treasury, actuariel) — non construit dans cette
+étape, volontairement scindée pour rester revuable.
+
 ## v1.14 — 2026-08-06
 
 Revue d'acceptation finale de l'Appendice 07-D (six portes, remplaçant le
