@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { symbolSchema } from './market';
 import { pendingOrderDtoSchema } from './pending-orders';
+import { performanceProgressDtoSchema, payoutRequestDtoSchema } from './performance';
 
 // Client-submitted quantity/price-level strings reach Decimal.js deep inside
 // the openPosition DB transaction (packages/domain/src/trading-math.ts) with
@@ -277,6 +278,12 @@ export const accountSnapshotSchema = z.object({
   // settled, same "only what's still live" convention queuedReductions
   // already established).
   pendingOrders: z.array(pendingOrderDtoSchema),
+  // Prompt 08 Phase F — null for WARIBA_ONE accounts; populated only for
+  // WARIBA_PERFORMANCE. Kept optional-shaped (null, not omitted) so a
+  // client can distinguish "not a Performance account" from "field not
+  // sent yet", same reasoning as `risk` being nullable above.
+  performanceProgress: performanceProgressDtoSchema.nullable(),
+  payoutRequests: z.array(payoutRequestDtoSchema),
 });
 export type AccountSnapshot = z.infer<typeof accountSnapshotSchema>;
 

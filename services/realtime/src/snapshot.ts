@@ -5,6 +5,7 @@ import {
   computeConcentration,
   computeDailyLossRemaining,
   evaluateShortDurationMonitoring,
+  resolveTraderSplitRate,
 } from '@wariba/domain';
 import {
   loadPolicyById,
@@ -15,6 +16,9 @@ import {
   resolveProfitEligibilityPolicy,
   loadQueuedReductionsForAccount,
   loadActivePendingOrdersForAccount,
+  evaluateCycleProgress,
+  loadPayoutRequestsForAccount,
+  asPerformancePolicy,
   type Db,
   type TradableSymbol,
   type DailySnapshotInput,
@@ -24,6 +28,8 @@ import type {
   AccountSnapshot,
   ConcentrationBucket,
   PositionDTO,
+  PerformanceProgressDTO,
+  PayoutRequestDTO,
 } from '@wariba/contracts';
 import type { MarketDataProvider } from '@wariba/adapters';
 import type { LoadedSymbolSpec } from './market';
@@ -53,7 +59,16 @@ export async function buildAccountSnapshot(
 ): Promise<AccountSnapshot> {
   const account = await db
     .selectFrom('app.trading_accounts')
-    .select(['version', 'status', 'nominal_balance', 'policy_version_id', 'symbol_spec_set_id'])
+    .select([
+      'version',
+      'status',
+      'nominal_balance',
+      'policy_version_id',
+      'symbol_spec_set_id',
+      'program_type',
+      'kyc_sandbox_verified',
+      'payout_method_sandbox_configured',
+    ])
     .where('id', '=', accountId)
     .executeTakeFirstOrThrow();
   const policy = await loadPolicyById(db, account.policy_version_id);
@@ -170,6 +185,15 @@ export async function buildAccountSnapshot(
   const queuedReductions = await loadQueuedReductionsForAccount(db, accountId);
   const pendingOrders = await loadActivePendingOrdersForAccount(db, accountId);
 
+  const performanceProgress =
+    account.program_type === 'WARIBA_PERFORMANCE'
+      ? await buildPerformanceProgress(db, accountId, account, policy, live.openPositionRows.length)
+      : null;
+  const payoutRequests =
+    account.program_type === 'WARIBA_PERFORMANCE'
+      ? (await loadPayoutRequestsForAccount(db, accountId)).map(toPayoutRequestDTO)
+      : [];
+
   return {
     accountId,
     nominalBalance: account.nominal_balance,
@@ -187,6 +211,95 @@ export async function buildAccountSnapshot(
     risk,
     queuedReductions: queuedReductions.map(toQueuedReductionDTO),
     pendingOrders: pendingOrders.map(toPendingOrderDTO),
+    performanceProgress,
+    payoutRequests,
+  };
+}
+
+/**
+ * Prompt 08 Phase F — composes Phase C's cycle-scoped progress
+ * (evaluateCycleProgress) with the account-wide blockers Phase D's own
+ * eligibility check also uses (open positions, pending orders), so the
+ * trader sees the exact same picture the server will actually enforce at
+ * request time — never a rosier client-only estimate.
+ */
+async function buildPerformanceProgress(
+  db: Db,
+  accountId: string,
+  account: {
+    nominal_balance: string;
+    kyc_sandbox_verified: boolean;
+    payout_method_sandbox_configured: boolean;
+  },
+  policy: Awaited<ReturnType<typeof loadPolicyById>>,
+  openPositionCount: number,
+): Promise<PerformanceProgressDTO | null> {
+  const activePendingOrder = await db
+    .selectFrom('app.pending_orders')
+    .select('id')
+    .where('account_id', '=', accountId)
+    .where('status', '=', 'active')
+    .executeTakeFirst();
+
+  try {
+    const progress = await evaluateCycleProgress(db, accountId);
+    const performancePolicy = asPerformancePolicy(policy);
+    const capsForSize = performancePolicy.payout_caps_by_nominal_balance[account.nominal_balance];
+    const splitRate = resolveTraderSplitRate({
+      cycleNumber: progress.cycleNumber,
+      maxPayoutCyclesBeforeReview: performancePolicy.max_payout_cycles_before_review,
+      defaultSplitRate: performancePolicy.trader_split_rate_default,
+      finalCycleSplitRate: performancePolicy.trader_split_rate_final_cycle,
+    });
+    return {
+      cycleNumber: progress.cycleNumber,
+      cycleStatus: progress.cycleStatus,
+      bufferFloor: progress.bufferFloor,
+      eligibleExcess: progress.eligibleExcess,
+      bufferReached: progress.bufferReached,
+      performanceDayThreshold: progress.performanceDayThreshold,
+      performanceDaysCompleted: progress.performanceDaysCompleted,
+      performanceDaysRequired: progress.performanceDaysRequired,
+      consistencyRatio: progress.consistencyRatio,
+      consistencyCompliant: progress.consistencyCompliant,
+      capApplied: capsForSize ? (capsForSize[progress.cycleNumber - 1] as string) : '0.00',
+      traderSplitRate: splitRate,
+      kycVerified: account.kyc_sandbox_verified,
+      payoutMethodConfigured: account.payout_method_sandbox_configured,
+      openPositionBlocking: openPositionCount > 0,
+      pendingOrderBlocking: activePendingOrder !== undefined,
+    };
+  } catch {
+    // No active cycle (e.g. a Review case already opened after payout #5)
+    // — a null progress is the honest "nothing to show", not an error the
+    // trader needs to see.
+    return null;
+  }
+}
+
+function toPayoutRequestDTO(row: {
+  id: string;
+  cycleNumber: number;
+  status: string;
+  requestedNetTraderCash: string;
+  approvedGrossBase: string | null;
+  traderNetCash: string | null;
+  waribaShare: string | null;
+  rejectionCode: string | null;
+  requestedAt: Date;
+  paidAt: Date | null;
+}): PayoutRequestDTO {
+  return {
+    id: row.id,
+    cycleNumber: row.cycleNumber,
+    status: row.status as PayoutRequestDTO['status'],
+    requestedNetTraderCash: row.requestedNetTraderCash,
+    approvedGrossBase: row.approvedGrossBase,
+    traderNetCash: row.traderNetCash,
+    waribaShare: row.waribaShare,
+    rejectionCode: row.rejectionCode,
+    requestedAt: row.requestedAt.toISOString(),
+    paidAt: row.paidAt ? row.paidAt.toISOString() : null,
   };
 }
 

@@ -45,11 +45,13 @@ export {
   approvePayoutRequestInTransaction,
   rejectPayoutRequestInTransaction,
   settlePayoutProviderInTransaction,
+  loadPayoutRequestsForAccount,
   type CreatePayoutRequestParams,
   type ReviewPayoutRequestParams,
   type PayoutRequestSummary,
   type PayoutRequestResult,
   type PayoutRejectionCode,
+  type PayoutRequestHistoryEntry,
 } from './payouts';
 export {
   recordTreasuryReserveEntry,

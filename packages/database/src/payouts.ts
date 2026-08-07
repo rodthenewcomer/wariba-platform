@@ -459,3 +459,53 @@ export async function settlePayoutProviderInTransaction(
 
   return toSummary(paid);
 }
+
+export interface PayoutRequestHistoryEntry {
+  id: string;
+  cycleNumber: number;
+  status: string;
+  requestedNetTraderCash: string;
+  approvedGrossBase: string | null;
+  traderNetCash: string | null;
+  waribaShare: string | null;
+  rejectionCode: string | null;
+  requestedAt: Date;
+  paidAt: Date | null;
+}
+
+/** Trader-facing payout history for the account snapshot — services/realtime/src/snapshot.ts, WARIBA_PERFORMANCE accounts only. Newest first, same convention as recentOrders/recentFills. */
+export async function loadPayoutRequestsForAccount(
+  trx: Db,
+  accountId: string,
+): Promise<PayoutRequestHistoryEntry[]> {
+  const rows = await trx
+    .selectFrom('app.payout_requests')
+    .select([
+      'id',
+      'cycle_number',
+      'status',
+      'requested_net_trader_cash',
+      'approved_gross_base',
+      'trader_net_cash',
+      'wariba_share',
+      'rejection_code',
+      'requested_at',
+      'paid_at',
+    ])
+    .where('account_id', '=', accountId)
+    .orderBy('requested_at', 'desc')
+    .limit(20)
+    .execute();
+  return rows.map((row) => ({
+    id: row.id,
+    cycleNumber: row.cycle_number,
+    status: row.status,
+    requestedNetTraderCash: row.requested_net_trader_cash,
+    approvedGrossBase: row.approved_gross_base,
+    traderNetCash: row.trader_net_cash,
+    waribaShare: row.wariba_share,
+    rejectionCode: row.rejection_code,
+    requestedAt: row.requested_at,
+    paidAt: row.paid_at,
+  }));
+}
