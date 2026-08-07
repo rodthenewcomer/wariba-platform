@@ -563,6 +563,20 @@ export interface PayoutRequestsTable {
   updated_at: GeneratedTimestamp;
 }
 
+// Prompt 08 Phase E — see the matching migration's doc comment.
+export type TreasuryReserveEntryType = 'deposit' | 'withdrawal' | 'adjustment';
+
+export interface TreasuryReserveEntriesTable {
+  id: Generated<string>;
+  entry_type: TreasuryReserveEntryType;
+  amount: string;
+  currency: Generated<string>;
+  reason: string;
+  created_by: string;
+  occurred_at: GeneratedTimestamp;
+  created_at: GeneratedTimestamp;
+}
+
 export interface Database {
   'app.user_profiles': UserProfilesTable;
   'app.user_consents': UserConsentsTable;
@@ -593,5 +607,6 @@ export interface Database {
   'app.performance_cycles': PerformanceCyclesTable;
   'app.performance_review_cases': PerformanceReviewCasesTable;
   'app.payout_requests': PayoutRequestsTable;
+  'app.treasury_reserve_entries': TreasuryReserveEntriesTable;
   'audit.audit_events': AuditEventsTable;
 }

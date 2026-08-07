@@ -52,6 +52,14 @@ export {
   type PayoutRejectionCode,
 } from './payouts';
 export {
+  recordTreasuryReserveEntry,
+  loadCurrentReserve,
+  computeProjected30DayPayouts,
+  evaluateReserveStatus,
+  type RecordTreasuryReserveEntryParams,
+  type ReserveStatus,
+} from './treasury';
+export {
   recordPaymentEvent,
   type RecordPaymentEventParams,
   type RecordPaymentEventResult,

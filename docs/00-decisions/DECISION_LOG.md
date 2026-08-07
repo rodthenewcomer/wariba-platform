@@ -677,6 +677,34 @@ trading manuel ni à la règle d'éligibilité de profit à 60 secondes (TRD-033
 
 # 26. Historique des versions
 
+## v1.18 — 2026-08-07
+
+Prompt 08 Phase E (trésorerie et moteur actuariel) intégré. TREASURY-001 :
+`app.treasury_reserve_entries`, append-only comme le ledger de trading —
+aucun processeur de paiement réel n'existe dans ce build, donc la réserve
+ne peut être dérivée de rien d'autre ; c'est un chiffre saisi par le staff
+(Control, Phase G). TREASURY-002 : ratio de couverture = réserve
+disponible / payouts projetés à 30 jours (somme des `payout_requests` non
+terminaux — `requested_gross_base` pour ceux en revue, `approved_gross_base`
+une fois approuvés, jamais les payés ou rejetés), zones NORMAL/PRUDENCE/
+DEFENSIVE/CRITICAL. La zone DEFENSIVE/CRITICAL est maintenant branchée
+sur la disponibilité commerciale réelle : `commerce.ts`'s
+`isCommerciallyAvailable` compose le flag statique existant
+(`SANDBOX_PRODUCT_FEATURE_FLAGS`, inchangé) avec la zone de réserve — les
+deux doivent être positifs pour qu'une taille reste achetable ;
+DEFENSIVE masque 50K/100K, CRITICAL masque tout, indépendamment des
+drapeaux statiques. Moteur actuariel
+(`packages/domain/src/actuarial-scenario.ts`) : simulation de cohorte
+pure sur hypothèses stockées, jamais sur données de compte réelles —
+quatre scénarios (conservative/base/aggressive/stress) avec les valeurs
+par défaut exactes fournies par l'opérateur, éditables mais jamais
+écrasées par les métriques mesurées (Phase G affichera modèle vs réel).
+Périmètre réduit par rapport au texte du prompt : la projection de
+payouts à 30 jours utilise les demandes déjà connues, pas une projection
+statistique des comptes pas encore au stade de demande — noté
+honnêtement, pas construit comme un modèle plus riche que ce qui existe
+réellement.
+
 ## v1.17 — 2026-08-07
 
 Prompt 08 Phase D (moteur de payout) intégré. Formule complète en
