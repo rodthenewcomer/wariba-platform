@@ -157,7 +157,7 @@ export async function findActivePerformanceAccountForUser(
 }
 
 /** Runtime-checked narrowing — a WARIBA_PERFORMANCE policy_versions row always parses against performancePolicyParametersSchema (loader.ts dispatches on `program`); this just gives call sites the narrower static type without a bare cast. */
-function asPerformancePolicy(policy: LoadedPolicy): PerformancePolicyParameters {
+export function asPerformancePolicy(policy: LoadedPolicy): PerformancePolicyParameters {
   if (policy.program !== 'WARIBA_PERFORMANCE') {
     throw new Error(`Expected a WARIBA_PERFORMANCE policy, got ${policy.program}.`);
   }

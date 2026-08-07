@@ -1,3 +1,4 @@
+import Decimal from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 import {
   computePayoutBufferFloor,
@@ -5,6 +6,12 @@ import {
   isPayoutBufferReached,
   computePerformanceDayThreshold,
   isPerformanceDayQualified,
+  resolveTraderSplitRate,
+  computeMaxGrossBaseFromCap,
+  computeRequestedGrossBase,
+  computeApprovedGrossBase,
+  computeTraderNetCash,
+  computeWaribaShare,
 } from '../src/performance-math';
 
 // Rates below are PERF-023..026 (docs/00-decisions/DECISION_LOG.md), pinned
@@ -106,5 +113,140 @@ describe('computePerformanceDayThreshold / isPerformanceDayQualified — PERF-02
         performanceDayThreshold: '50.00',
       }),
     ).toBe(false);
+  });
+});
+
+describe('resolveTraderSplitRate — PERF-027/028', () => {
+  it('uses the default split for cycles 1 through 4', () => {
+    for (const cycleNumber of [1, 2, 3, 4]) {
+      expect(
+        resolveTraderSplitRate({
+          cycleNumber,
+          maxPayoutCyclesBeforeReview: 5,
+          defaultSplitRate: '0.85',
+          finalCycleSplitRate: '0.90',
+        }),
+      ).toBe('0.85');
+    }
+  });
+
+  it('uses the richer final-cycle split at exactly the max cycle', () => {
+    expect(
+      resolveTraderSplitRate({
+        cycleNumber: 5,
+        maxPayoutCyclesBeforeReview: 5,
+        defaultSplitRate: '0.85',
+        finalCycleSplitRate: '0.90',
+      }),
+    ).toBe('0.90');
+  });
+});
+
+describe('the payout formula — PERF-024/027/028/029/030', () => {
+  it('is excess-limited when the buffer excess is the smallest of the three', () => {
+    const splitRate = resolveTraderSplitRate({
+      cycleNumber: 1,
+      maxPayoutCyclesBeforeReview: 5,
+      defaultSplitRate: '0.85',
+      finalCycleSplitRate: '0.90',
+    });
+    const maxGrossBaseFromCap = computeMaxGrossBaseFromCap({ cap: '500', splitRate });
+    const requestedGrossBase = computeRequestedGrossBase({
+      requestedNetTraderCash: '1000',
+      splitRate,
+    });
+    const approvedGrossBase = computeApprovedGrossBase({
+      eligibleExcess: '200.00', // smaller than both the cap-derived and request-derived bases
+      requestedGrossBase,
+      maxGrossBaseFromCap,
+    });
+    expect(approvedGrossBase).toBe('200.00');
+    const traderNetCash = computeTraderNetCash({ approvedGrossBase, splitRate });
+    const waribaShare = computeWaribaShare({ approvedGrossBase, traderNetCash });
+    // Reconciliation invariant — must always hold exactly, to the cent.
+    expect(new Decimal(traderNetCash).plus(waribaShare).toFixed(2)).toBe(approvedGrossBase);
+  });
+
+  it('is cap-limited when the trader requests more than the 10K/cycle-1 cap allows, even with ample excess', () => {
+    const splitRate = resolveTraderSplitRate({
+      cycleNumber: 1,
+      maxPayoutCyclesBeforeReview: 5,
+      defaultSplitRate: '0.85',
+      finalCycleSplitRate: '0.90',
+    });
+    // 10K cycle #1 cap per the Program Rulebook v1.1 §10 table.
+    const maxGrossBaseFromCap = computeMaxGrossBaseFromCap({ cap: '500', splitRate });
+    expect(maxGrossBaseFromCap).toBe('588.24');
+    const requestedGrossBase = computeRequestedGrossBase({
+      requestedNetTraderCash: '1000',
+      splitRate,
+    });
+    const approvedGrossBase = computeApprovedGrossBase({
+      eligibleExcess: '5000.00', // far more than enough
+      requestedGrossBase,
+      maxGrossBaseFromCap,
+    });
+    expect(approvedGrossBase).toBe('588.24');
+    const traderNetCash = computeTraderNetCash({ approvedGrossBase, splitRate });
+    // Capped at (approximately) the 500 USD net cap, not the 1000 requested.
+    expect(traderNetCash).toBe('500.00');
+    expect(new Decimal(traderNetCash).lessThanOrEqualTo('500.01')).toBe(true);
+  });
+
+  it('is request-limited when the trader asks for less than either the excess or the cap allow', () => {
+    const splitRate = resolveTraderSplitRate({
+      cycleNumber: 1,
+      maxPayoutCyclesBeforeReview: 5,
+      defaultSplitRate: '0.85',
+      finalCycleSplitRate: '0.90',
+    });
+    const maxGrossBaseFromCap = computeMaxGrossBaseFromCap({ cap: '1000', splitRate });
+    const requestedGrossBase = computeRequestedGrossBase({
+      requestedNetTraderCash: '100',
+      splitRate,
+    });
+    const approvedGrossBase = computeApprovedGrossBase({
+      eligibleExcess: '5000.00',
+      requestedGrossBase,
+      maxGrossBaseFromCap,
+    });
+    expect(approvedGrossBase).toBe(requestedGrossBase);
+    const traderNetCash = computeTraderNetCash({ approvedGrossBase, splitRate });
+    expect(traderNetCash).toBe('100.00');
+  });
+
+  it('at payout #5, the richer 90% split applies instead of 85%, for the same gross base', () => {
+    const cycle1Split = resolveTraderSplitRate({
+      cycleNumber: 1,
+      maxPayoutCyclesBeforeReview: 5,
+      defaultSplitRate: '0.85',
+      finalCycleSplitRate: '0.90',
+    });
+    const cycle5Split = resolveTraderSplitRate({
+      cycleNumber: 5,
+      maxPayoutCyclesBeforeReview: 5,
+      defaultSplitRate: '0.85',
+      finalCycleSplitRate: '0.90',
+    });
+    expect(computeTraderNetCash({ approvedGrossBase: '1000.00', splitRate: cycle1Split })).toBe(
+      '850.00',
+    );
+    expect(computeTraderNetCash({ approvedGrossBase: '1000.00', splitRate: cycle5Split })).toBe(
+      '900.00',
+    );
+  });
+
+  it('property: trader cash never exceeds the approved gross base, across a spread of splits and amounts', () => {
+    const cases: Array<[string, string]> = [
+      ['0.85', '333.33'],
+      ['0.90', '999.99'],
+      ['0.85', '1.00'],
+      ['0.90', '0.01'],
+    ];
+    for (const [splitRate, approvedGrossBase] of cases) {
+      const traderNetCash = computeTraderNetCash({ approvedGrossBase, splitRate });
+      expect(new Decimal(traderNetCash).lessThanOrEqualTo(approvedGrossBase)).toBe(true);
+      expect(new Decimal(traderNetCash).greaterThanOrEqualTo(0)).toBe(true);
+    }
   });
 });

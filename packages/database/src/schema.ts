@@ -155,6 +155,9 @@ export interface TradingAccountsTable {
   /** Set for WARIBA_PERFORMANCE accounts, spawned from the Evaluation account that passed (PERF-020); null for WARIBA_ONE. */
   source_evaluation_account_id: string | null;
   program_type: Generated<'WARIBA_ONE' | 'WARIBA_PERFORMANCE'>;
+  /** Sandbox-only — no real identity or payout-rail integration exists. Staff-set via Control (Phase G), never trader-set. */
+  kyc_sandbox_verified: Generated<boolean>;
+  payout_method_sandbox_configured: Generated<boolean>;
   nominal_balance: string;
   currency: Generated<string>;
   status: Generated<TradingAccountStatusColumn>;
@@ -520,6 +523,46 @@ export interface PerformanceReviewCasesTable {
   created_at: GeneratedTimestamp;
 }
 
+// Prompt 08 Phase D — see the matching migration's doc comment.
+export type PayoutRequestStatus =
+  | 'pending_review'
+  | 'needs_information'
+  | 'approved'
+  | 'rejected'
+  | 'processing'
+  | 'paid'
+  | 'failed'
+  | 'cancelled';
+
+export interface PayoutRequestsTable {
+  id: Generated<string>;
+  account_id: string;
+  cycle_id: string;
+  cycle_number: number;
+  idempotency_key: string;
+  status: Generated<PayoutRequestStatus>;
+  requested_net_trader_cash: string;
+  requested_gross_base: string;
+  trader_split_rate: string;
+  cap_applied: string;
+  buffer_floor_at_request: string;
+  eligible_excess_at_request: string;
+  approved_gross_base: string | null;
+  trader_net_cash: string | null;
+  wariba_share: string | null;
+  rejection_code: string | null;
+  provider: string | null;
+  provider_reference: string | null;
+  currency: Generated<string>;
+  requested_at: GeneratedTimestamp;
+  reviewed_at: Timestamp | null;
+  reviewed_by: string | null;
+  paid_at: Timestamp | null;
+  version: Generated<number>;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
 export interface Database {
   'app.user_profiles': UserProfilesTable;
   'app.user_consents': UserConsentsTable;
@@ -549,5 +592,6 @@ export interface Database {
   'app.alert_notifications': AlertNotificationsTable;
   'app.performance_cycles': PerformanceCyclesTable;
   'app.performance_review_cases': PerformanceReviewCasesTable;
+  'app.payout_requests': PayoutRequestsTable;
   'audit.audit_events': AuditEventsTable;
 }

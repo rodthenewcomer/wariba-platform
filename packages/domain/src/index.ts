@@ -67,6 +67,12 @@ export {
   isPayoutBufferReached,
   computePerformanceDayThreshold,
   isPerformanceDayQualified,
+  resolveTraderSplitRate,
+  computeMaxGrossBaseFromCap,
+  computeRequestedGrossBase,
+  computeApprovedGrossBase,
+  computeTraderNetCash,
+  computeWaribaShare,
 } from './performance-math';
 export {
   deriveHubDisplayState,

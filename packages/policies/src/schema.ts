@@ -96,6 +96,17 @@ export const performancePolicyParametersSchema = z.object({
   trader_split_rate_final_cycle: decimalString,
   /** PERF-018/031 — cycle after which the account enters WARIBA Review instead of a new cycle. */
   max_payout_cycles_before_review: z.number().int().positive(),
+  /**
+   * PERF-030, `CANDIDATE` — net-to-trader cap per payout rank, keyed by
+   * nominal balance (as a decimal string matching trading_accounts.
+   * nominal_balance, e.g. "10000.00"). CAP-010: must not be increased
+   * before real beta data exists — a new policy version, not a code
+   * change, is how this ever moves.
+   */
+  payout_caps_by_nominal_balance: z.record(
+    z.string(),
+    z.tuple([decimalString, decimalString, decimalString, decimalString, decimalString]),
+  ),
 });
 export type PerformancePolicyParameters = z.infer<typeof performancePolicyParametersSchema>;
 

@@ -672,7 +672,9 @@ describeIfDb('risk engine — real database', () => {
       .where('account_id', '=', performanceAccount.id)
       .executeTakeFirstOrThrow();
     expect(initialLedgerEntry.entry_type).toBe('initial_balance');
-    expect(initialLedgerEntry.amount).toBe('10000.00');
+    // numeric(20,8) — same right-padded shape activation.integration.test.ts
+    // already asserts for the Evaluation account's own initial_balance entry.
+    expect(initialLedgerEntry.amount).toBe('10000.00000000');
 
     // PERF-020 "une seule relation" — a further evaluation of the
     // already-passed account (e.g. a stray retry) must not spawn a

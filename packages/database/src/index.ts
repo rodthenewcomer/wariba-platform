@@ -34,11 +34,23 @@ export {
   loadActiveCycle,
   evaluateCycleProgress,
   closeCycleAndAdvanceInTransaction,
+  asPerformancePolicy,
   type ActivatePerformanceAccountParams,
   type ActivatedPerformanceAccount,
   type PerformanceCycle,
   type CycleProgress,
 } from './performance';
+export {
+  createPayoutRequestInTransaction,
+  approvePayoutRequestInTransaction,
+  rejectPayoutRequestInTransaction,
+  settlePayoutProviderInTransaction,
+  type CreatePayoutRequestParams,
+  type ReviewPayoutRequestParams,
+  type PayoutRequestSummary,
+  type PayoutRequestResult,
+  type PayoutRejectionCode,
+} from './payouts';
 export {
   recordPaymentEvent,
   type RecordPaymentEventParams,

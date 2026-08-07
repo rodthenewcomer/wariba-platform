@@ -677,6 +677,38 @@ trading manuel ni à la règle d'éligibilité de profit à 60 secondes (TRD-033
 
 # 26. Historique des versions
 
+## v1.17 — 2026-08-07
+
+Prompt 08 Phase D (moteur de payout) intégré. Formule complète en
+fonctions pures (`packages/domain/src/performance-math.ts`) : split
+résolu par rang de cycle (PERF-027/028), cap converti en base brute
+équivalente, base brute approuvée = min(excédent éligible, base demandée,
+cap converti) — PERF-029, aucun plafond universel de 50 %.
+`waribaShare` est calculé par soustraction (`approvedGrossBase -
+traderNetCash`), jamais par une seconde multiplication indépendante —
+sinon l'arrondi du dernier centime peut diverger entre les deux, et le
+ledger doit réconcilier exactement. `WARIBA_PERFORMANCE` republié en
+v1.1.0 (v1.0.0 retiré) pour ajouter la grille de caps PERF-030
+(`payout_caps_by_nominal_balance`, toujours `CANDIDATE`) — même
+précédent que le retrait de WARIBA_ONE v1.0.0. Nouvelle table
+`app.payout_requests` : un seul index unique partiel sur `cycle_id` pour
+tout statut non terminal est la véritable garantie anti-duplication
+(PERF-013), pas seulement une vérification applicative. KYC et méthode de
+payout sont des drapeaux sandbox (`kyc_sandbox_verified`,
+`payout_method_sandbox_configured`), jamais une vraie vérification
+d'identité — mis à jour uniquement par le staff (Control, Phase G).
+L'éligibilité complète (`evaluatePayoutEligibility`) est revalidée à
+l'identique à la demande ET à l'approbation, pas seulement au moment de
+la demande — le vrai test contre "approve while account state changes".
+Le débit ledger (`payout_debit`, PERF-014) et la clôture de cycle
+n'arrivent qu'au règlement (`settlePayoutProviderInTransaction`), jamais
+à l'approbation — idempotent par statut de la ligne elle-même (`paid`
+n'est jamais redébité). Périmètre volontairement réduit par rapport au
+texte du prompt : un seul `MockPayoutProvider` implicite plutôt que huit
+adaptateurs nommés (Wave, Orange Money, etc.) — non construits, à noter
+honnêtement comme non résolu plutôt que créés comme façades vides.
+Reserve/trésorerie (Phase E) n'est pas encore branché sur l'approbation.
+
 ## v1.16 — 2026-08-07
 
 Prompt 08 Phase C (buffer permanent, cycles de payout, Performance Days)

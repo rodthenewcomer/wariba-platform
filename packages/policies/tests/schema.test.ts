@@ -99,7 +99,11 @@ describe('evaluationOnePolicyParametersSchema', () => {
 /**
  * The exact `jsonb_build_object(...)` payload seeded by
  * supabase/migrations/20260807000000_performance_policy_and_activation.sql
- * for the published WARIBA_PERFORMANCE v1.0.0 policy.
+ * for WARIBA_PERFORMANCE v1.0.0 — retired by
+ * supabase/migrations/20260807020000_performance_payout_engine.sql the
+ * moment payout_caps_by_nominal_balance became required, the same way
+ * WARIBA_ONE's own v1.0.0 was retired below. No live Performance account
+ * was ever pinned to it (Phase C is the first thing that created any).
  */
 const SEEDED_PERFORMANCE_1_0_0_PARAMETERS = {
   daily_loss_rate: '0.03',
@@ -125,10 +129,33 @@ const SEEDED_PERFORMANCE_1_0_0_PARAMETERS = {
   max_payout_cycles_before_review: 5,
 };
 
+/**
+ * The exact `jsonb_build_object(...)` payload seeded by
+ * supabase/migrations/20260807020000_performance_payout_engine.sql for the
+ * currently published WARIBA_PERFORMANCE v1.1.0 policy — adds PERF-030's
+ * candidate caps grid, keyed by nominal balance.
+ */
+const SEEDED_PERFORMANCE_1_1_0_PARAMETERS = {
+  ...SEEDED_PERFORMANCE_1_0_0_PARAMETERS,
+  payout_caps_by_nominal_balance: {
+    '5000.00': ['250', '350', '500', '750', '1000'],
+    '10000.00': ['500', '750', '1000', '1500', '2000'],
+    '25000.00': ['1000', '1500', '2000', '2500', '3000'],
+    '50000.00': ['2000', '2500', '3000', '4000', '5000'],
+    '100000.00': ['3000', '4000', '5000', '6000', '8000'],
+  },
+};
+
 describe('performancePolicyParametersSchema', () => {
-  it('validates the seeded WARIBA_PERFORMANCE v1.0.0 parameters_json without modification', () => {
-    const result = performancePolicyParametersSchema.parse(SEEDED_PERFORMANCE_1_0_0_PARAMETERS);
-    expect(result).toEqual(SEEDED_PERFORMANCE_1_0_0_PARAMETERS);
+  it('rejects the retired v1.0.0 shape (missing payout_caps_by_nominal_balance, must not silently pass)', () => {
+    expect(() =>
+      performancePolicyParametersSchema.parse(SEEDED_PERFORMANCE_1_0_0_PARAMETERS),
+    ).toThrow();
+  });
+
+  it('validates the seeded WARIBA_PERFORMANCE v1.1.0 parameters_json without modification', () => {
+    const result = performancePolicyParametersSchema.parse(SEEDED_PERFORMANCE_1_1_0_PARAMETERS);
+    expect(result).toEqual(SEEDED_PERFORMANCE_1_1_0_PARAMETERS);
   });
 
   it('rejects a payload carrying an Evaluation-only profit target (Performance has no pass concept)', () => {
@@ -138,7 +165,7 @@ describe('performancePolicyParametersSchema', () => {
     // of whether it's present, which is what keeps risk-engine.ts from ever
     // recommending pass_pending for a WARIBA_PERFORMANCE account.
     const result = performancePolicyParametersSchema.parse({
-      ...SEEDED_PERFORMANCE_1_0_0_PARAMETERS,
+      ...SEEDED_PERFORMANCE_1_1_0_PARAMETERS,
       profit_target_rate: '0.10',
     });
     expect(result).not.toHaveProperty('profit_target_rate');
@@ -147,7 +174,7 @@ describe('performancePolicyParametersSchema', () => {
   it('rejects a non-decimal-string rate (money/rate values must be decimal strings)', () => {
     expect(() =>
       performancePolicyParametersSchema.parse({
-        ...SEEDED_PERFORMANCE_1_0_0_PARAMETERS,
+        ...SEEDED_PERFORMANCE_1_1_0_PARAMETERS,
         permanent_buffer_rate: 0.1,
       }),
     ).toThrow();
@@ -155,8 +182,17 @@ describe('performancePolicyParametersSchema', () => {
 
   it('rejects a missing max_payout_cycles_before_review (PERF-018/031 needs it to know when to enter WARIBA Review)', () => {
     const { max_payout_cycles_before_review: _omit, ...withoutField } =
-      SEEDED_PERFORMANCE_1_0_0_PARAMETERS;
+      SEEDED_PERFORMANCE_1_1_0_PARAMETERS;
     expect(() => performancePolicyParametersSchema.parse(withoutField)).toThrow();
+  });
+
+  it('rejects a cap tuple with the wrong arity (must be exactly one cap per payout rank 1-5)', () => {
+    expect(() =>
+      performancePolicyParametersSchema.parse({
+        ...SEEDED_PERFORMANCE_1_1_0_PARAMETERS,
+        payout_caps_by_nominal_balance: { '10000.00': ['500', '750', '1000'] },
+      }),
+    ).toThrow();
   });
 });
 
