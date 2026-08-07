@@ -158,7 +158,11 @@ describeIfDb('buildAccountPerformanceMissionView — real database', () => {
 
     expect(view.variant).toBe('performance');
     expect(view.cycleNumber).toBe(1);
-    expect(view.progressPercent).toBe(0);
+    // Not 0: realizedBalance starts at the account's nominal balance (not
+    // zero), and the buffer floor is only nominalBalance * 1.10 (permanent
+    // buffer rate 0.10) — a fresh account is already ~90.9% of the way to
+    // the floor before a single trade, independent of account size.
+    expect(view.progressPercent).toBe(91);
     expect(view.conditions).toHaveLength(3);
     expect(view.conditions.every((c) => c.met === false)).toBe(true);
     expect(view.payoutEligible).toBe(false);
