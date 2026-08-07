@@ -55,6 +55,7 @@ import {
   type AlertResultMessage,
   type NotificationsSnapshotMessage,
   type NewAlertNotificationMessage,
+  type PayoutResultMessage,
 } from '@wariba/contracts';
 import { RealtimeClient, type RealtimeConnectionState } from '../../../lib/realtime-client';
 import { createSupabaseBrowserClient } from '../../../lib/supabase/browser';
@@ -74,6 +75,7 @@ import {
   type ModifyPendingOrderParams,
 } from './ModifyPendingOrderDialog';
 import { NotificationCenter, type CreateAlertParams } from './NotificationCenter';
+import { PayoutCenterPanel } from './PayoutCenterPanel';
 import { PartialCloseSheet } from './PartialCloseSheet';
 import { TradeHeaderPanel } from './TradeHeaderPanel';
 import { WatchlistPanel } from './WatchlistPanel';
@@ -188,6 +190,27 @@ const UNKNOWN_REJECTION_DETAIL = {
   reason: 'Le serveur a refusé cet ordre.',
   action: 'Réessayez, ou contactez le support si le problème persiste.',
 };
+
+// The same codes packages/database/src/payouts.ts's REJECTION const
+// produces (PayoutRejectionCode) — not imported from @wariba/database
+// itself, since apps/web never depends on that package directly (only
+// @wariba/application, which has no client-facing payout-result mapper).
+const PAYOUT_REJECTION_DETAIL: Record<string, string> = {
+  account_not_active: 'Votre compte n’est plus actif.',
+  no_active_cycle: 'Aucun cycle actif — le dossier WARIBA Review est ouvert.',
+  buffer_not_reached: 'Le solde éligible n’a pas encore dépassé le plancher du buffer permanent.',
+  performance_days_incomplete: 'Il manque des Performance Days pour ce cycle.',
+  consistency_non_compliant:
+    'La meilleure journée dépasse 50 % du profit positif total — répartissez le profit sur d’autres journées.',
+  open_position_blocks_payout: 'Une position est ouverte — fermez-la avant de demander un payout.',
+  pending_order_blocks_payout:
+    'Un ordre en attente est actif — annulez-le avant de demander un payout.',
+  kyc_not_verified: 'Vérification d’identité sandbox non complétée.',
+  payout_method_not_configured: 'Aucune méthode de payout sandbox configurée.',
+  invalid_requested_amount: 'Le montant demandé doit être positif.',
+  no_cap_for_account_size: 'Aucun plafond de payout n’est publié pour cette taille de compte.',
+};
+const UNKNOWN_PAYOUT_REJECTION_DETAIL = 'Le serveur a refusé cette demande de payout.';
 
 const PENDING_ORDER_TYPE_LABEL: Record<PendingOrderType, string> = {
   buy_limit: 'Achat Limite',
@@ -411,6 +434,15 @@ export function TradeClient({
   const [alerts, setAlerts] = useState<PriceAlertDTO[]>([]);
   const [notifications, setNotifications] = useState<AlertNotificationDTO[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [payoutAmount, setPayoutAmount] = useState('');
+  const [payoutAmountError, setPayoutAmountError] = useState<string | null>(null);
+
+  // The Hub's Performance mission view links here as /trade#payout — this
+  // page has tabs, not scroll anchors, so the hash needs to actively switch
+  // the tab rather than just be a scroll target.
+  useEffect(() => {
+    if (window.location.hash === '#payout') setTab('payout');
+  }, []);
 
   useEffect(() => {
     const client = new RealtimeClient(wsUrl, getAccessToken);
@@ -639,6 +671,25 @@ export function TradeClient({
           setStatusAnnouncement('Alerte mise à jour.');
         }
         client.subscribe([userNotificationsChannel(userId)]);
+      } else if (envelope.type === 'payout_result') {
+        // Re-subscribing for a fresh account.snapshot (rather than upserting
+        // result.request into local state) picks up the new payoutRequests
+        // entry AND the recomputed performanceProgress (cycle moves to
+        // payout_pending) in one round trip — same "resubscribe for truth"
+        // convention as pending_order_result/alert_result above.
+        setPending(false);
+        const result = envelope.payload as PayoutResultMessage;
+        if (result.status === 'rejected') {
+          const detail =
+            PAYOUT_REJECTION_DETAIL[result.rejectionCode ?? ''] ?? UNKNOWN_PAYOUT_REJECTION_DETAIL;
+          setPayoutAmountError(detail);
+          setStatusAnnouncement(`Refusé : ${detail}`);
+        } else {
+          setPayoutAmountError(null);
+          setPayoutAmount('');
+          setStatusAnnouncement('Demande de payout envoyée.');
+        }
+        client.subscribe([accountStateChannel(accountId)]);
       } else if (envelope.type === 'notifications.snapshot') {
         const snapshot = envelope.payload as NotificationsSnapshotMessage;
         setAlerts(snapshot.alerts);
@@ -942,6 +993,27 @@ export function TradeClient({
     setNotifications((prev) => prev.map((n) => (n.readAt === null ? { ...n, readAt: now } : n)));
     setUnreadCount(0);
   }, [notifications]);
+
+  // The trader picks the amount (Prompt 08 §5) — this only rejects a
+  // non-positive figure client-side, the same shortcut invalid_requested_amount
+  // guards against server-side. Everything else (buffer/days/consistency/
+  // open position/pending order/KYC/payout method) is PayoutCenterPanel's
+  // own proactive disable via performanceProgress, never re-checked here.
+  const requestPayout = useCallback(() => {
+    if (!clientRef.current) return;
+    if (!(Number(payoutAmount) > 0)) {
+      setPayoutAmountError('Le montant demandé doit être positif.');
+      return;
+    }
+    setPayoutAmountError(null);
+    setPending(true);
+    setOrderError(null);
+    clientRef.current.requestPayout({
+      accountId,
+      idempotencyKey: crypto.randomUUID(),
+      requestedNetTraderCash: payoutAmount,
+    });
+  }, [accountId, payoutAmount]);
 
   const openPartialClose = useCallback((positionId: string) => {
     setPartialClosePositionId(positionId);
@@ -1431,6 +1503,9 @@ export function TradeClient({
             <Tab value="pending">En attente</Tab>
             <Tab value="orders">Ordres</Tab>
             <Tab value="history">Historique</Tab>
+            {snapshot?.programType === 'WARIBA_PERFORMANCE' ? (
+              <Tab value="payout">Payout</Tab>
+            ) : null}
             <Tab value="journal">Journal</Tab>
           </TabList>
           <TabPanel value="positions">
@@ -1607,6 +1682,19 @@ export function TradeClient({
               </DataTableBody>
             </DataTable>
           </TabPanel>
+          {snapshot?.programType === 'WARIBA_PERFORMANCE' ? (
+            <TabPanel value="payout">
+              <PayoutCenterPanel
+                performanceProgress={snapshot.performanceProgress}
+                payoutRequests={snapshot.payoutRequests}
+                requestedAmount={payoutAmount}
+                onRequestedAmountChange={setPayoutAmount}
+                onSubmit={requestPayout}
+                pending={pending}
+                amountError={payoutAmountError}
+              />
+            </TabPanel>
+          ) : null}
           <TabPanel value="journal">
             <Text variant="body-sm" color="tertiary">
               Le journal de trading (annotations, tags, revue de session) arrive dans un prompt

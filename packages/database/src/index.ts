@@ -46,6 +46,7 @@ export {
   rejectPayoutRequestInTransaction,
   settlePayoutProviderInTransaction,
   loadPayoutRequestsForAccount,
+  evaluatePayoutEligibility,
   type CreatePayoutRequestParams,
   type ReviewPayoutRequestParams,
   type PayoutRequestSummary,

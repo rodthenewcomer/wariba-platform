@@ -229,6 +229,8 @@ async function loadCycleDailySnapshots(
 export interface CycleProgress {
   cycleNumber: number;
   cycleStatus: PerformanceCycle['status'];
+  /** The program-eligible realized balance this progress was computed from — lets a UI show "how close" even below the floor, which eligibleExcess alone (clamped to 0) cannot. */
+  realizedBalance: string;
   bufferFloor: string;
   eligibleExcess: string;
   bufferReached: boolean;
@@ -237,6 +239,10 @@ export interface CycleProgress {
   performanceDaysRequired: number;
   consistencyRatio: string | null;
   consistencyCompliant: boolean;
+  /** Raw inputs behind consistencyRatio — a consistency-meter UI needs these, not just the ratio, the same way risk-view.ts's bestDay exposes them for WARIBA ONE. */
+  bestDayProfit: string;
+  positiveDaysProfitSum: string;
+  consistencyLimitRatio: string;
 }
 
 /**
@@ -302,6 +308,7 @@ export async function evaluateCycleProgress(trx: Db, accountId: string): Promise
   return {
     cycleNumber: cycle.cycleNumber,
     cycleStatus: cycle.status,
+    realizedBalance: projection.programEligibleBalance,
     bufferFloor,
     eligibleExcess: computeEligibleExcess({
       realizedBalance: projection.programEligibleBalance,
@@ -319,6 +326,9 @@ export async function evaluateCycleProgress(trx: Db, accountId: string): Promise
       bestDayRatio: consistencyRatio,
       maxRatio: policy.best_day_max_ratio,
     }),
+    bestDayProfit,
+    positiveDaysProfitSum: sumOfPositiveDayProfits,
+    consistencyLimitRatio: policy.best_day_max_ratio,
   };
 }
 

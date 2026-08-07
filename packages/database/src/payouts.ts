@@ -98,7 +98,7 @@ function toSummary(row: {
  * while account state changes" is only a real guard if approval doesn't
  * just trust the request-time snapshot.
  */
-async function evaluatePayoutEligibility(
+export async function evaluatePayoutEligibility(
   trx: Db,
   accountId: string,
 ): Promise<{ eligible: true } | { eligible: false; rejectionCode: PayoutRejectionCode }> {

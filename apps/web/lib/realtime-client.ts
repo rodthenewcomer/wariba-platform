@@ -12,6 +12,7 @@ import {
   alertResultMessageSchema,
   notificationsSnapshotMessageSchema,
   newAlertNotificationMessageSchema,
+  payoutResultMessageSchema,
   type MessageEnvelope,
   type SubmitOrderMessage,
   type CloseAllMessage,
@@ -25,6 +26,7 @@ import {
   type ModifyPriceAlertMessage,
   type AlertIdMessage,
   type MarkNotificationsReadMessage,
+  type RequestPayoutMessage,
 } from '@wariba/contracts';
 
 export type RealtimeConnectionState = 'connecting' | 'resyncing' | 'open' | 'closed';
@@ -141,6 +143,8 @@ export class RealtimeClient {
       return notificationsSnapshotMessageSchema.safeParse(envelope.payload).success;
     if (envelope.type === 'notification.new')
       return newAlertNotificationMessageSchema.safeParse(envelope.payload).success;
+    if (envelope.type === 'payout_result')
+      return payoutResultMessageSchema.safeParse(envelope.payload).success;
     if (envelope.type === 'error') {
       const payload = envelope.payload as { code?: unknown; message?: unknown };
       return typeof payload.code === 'string' && typeof payload.message === 'string';
@@ -249,6 +253,10 @@ export class RealtimeClient {
 
   markNotificationsRead(notifications: MarkNotificationsReadMessage): void {
     this.send({ type: 'mark_notifications_read', notifications });
+  }
+
+  requestPayout(payout: RequestPayoutMessage): void {
+    this.send({ type: 'request_payout', payout });
   }
 
   private send(payload: unknown): void {

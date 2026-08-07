@@ -196,6 +196,7 @@ export async function buildAccountSnapshot(
 
   return {
     accountId,
+    programType: account.program_type,
     nominalBalance: account.nominal_balance,
     balance: live.balance,
     programEligibleBalance: live.programEligibleBalance,
@@ -254,6 +255,7 @@ async function buildPerformanceProgress(
     return {
       cycleNumber: progress.cycleNumber,
       cycleStatus: progress.cycleStatus,
+      realizedBalance: progress.realizedBalance,
       bufferFloor: progress.bufferFloor,
       eligibleExcess: progress.eligibleExcess,
       bufferReached: progress.bufferReached,

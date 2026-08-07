@@ -21,6 +21,7 @@ export type PerformanceCycleStatusDTO = z.infer<typeof performanceCycleStatusSch
 export const performanceProgressDtoSchema = z.object({
   cycleNumber: z.number().int().positive(),
   cycleStatus: performanceCycleStatusSchema,
+  realizedBalance: z.string(),
   bufferFloor: z.string(),
   eligibleExcess: z.string(),
   bufferReached: z.boolean(),

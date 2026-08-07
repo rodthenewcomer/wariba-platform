@@ -254,6 +254,11 @@ export type AccountRisk = z.infer<typeof accountRiskSchema>;
 
 export const accountSnapshotSchema = z.object({
   accountId: z.string().uuid(),
+  // Prompt 08 Phase F — lets a client tell "not a Performance account" apart
+  // from "Performance account, no active cycle right now" (performanceProgress
+  // is null in both cases — see its own doc comment below), e.g. to decide
+  // whether the Payout Center tab should exist at all.
+  programType: z.enum(['WARIBA_ONE', 'WARIBA_PERFORMANCE']),
   nominalBalance: z.string(),
   balance: z.string(),
   programEligibleBalance: z.string(),

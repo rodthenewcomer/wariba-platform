@@ -64,6 +64,16 @@ export {
 } from './mission-view';
 
 export {
+  buildAccountPerformanceMissionView,
+  type AccountPerformanceMissionView,
+  type AccountPerformanceMissionUnavailable,
+  type AccountPerformanceMissionState,
+  type AccountPerformanceMissionCondition,
+  type AccountPerformancePayoutHistoryItem,
+  type BuildAccountPerformanceMissionViewParams,
+} from './performance-mission-view';
+
+export {
   buildAccountHubView,
   type AccountHubView,
   type AccountBadgeVariant,
