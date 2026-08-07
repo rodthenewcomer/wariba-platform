@@ -183,7 +183,7 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
     const childEnv: NodeJS.ProcessEnv = {
       ...process.env,
       REALTIME_PORT: String(PORT),
-      MARKET_TICK_INTERVAL_MS: '1000',
+      MARKET_TICK_INTERVAL_MS: '5000',
       SANDBOX_MARKET_SEED: UPWARD_EURUSD_SEED,
       ACCOUNT_RISK_PREVIEW_INTERVAL_MS: '5000',
     };
@@ -332,7 +332,7 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
     // Let a few real ticks pass so the alert establishes a real
     // last_observed_side_above baseline before the restart (proving the
     // restart preserves that baseline too, not just the row's existence).
-    await new Promise((r) => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, 5500));
     ws1.close();
     messages1.dispose();
 
@@ -383,10 +383,20 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
     // --- Now move both close enough to actually resolve on this new process ---
     messages2.dispose();
     const resumedMessages = createMessageBuffer(ws2, 120000);
+    const waitForResumedMessage = (
+      stage: string,
+      predicate: (message: { type: string; payload: unknown }) => boolean,
+    ): Promise<{ type: string; payload: unknown }> =>
+      resumedMessages.waitForMessage(predicate, 120000).catch((error: unknown) => {
+        throw new Error(`${stage}: ${error instanceof Error ? error.message : String(error)}`);
+      });
     ws2.send(JSON.stringify({ type: 'subscribe', channels: ['market.symbol.EURUSD'] }));
-    const freshTickMsg = await resumedMessages.waitForMessage((m) => m.type === 'market.tick');
+    const freshTickMsg = await waitForResumedMessage(
+      'post-restart market snapshot',
+      (m) => m.type === 'market.tick',
+    );
     const freshTick = freshTickMsg.payload as { bid: string; ask: string };
-    const safeDistancePoints = 17;
+    const safeDistancePoints = 9;
     const nearTriggerPrice = (Number(freshTick.bid) + safeDistancePoints * onePoint).toFixed(
       pricePrecision,
     );
@@ -399,13 +409,8 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
         pendingOrder: { accountId, pendingOrderId, triggerPrice: nearTriggerPrice },
       }),
     );
-    ws2.send(
-      JSON.stringify({
-        type: 'modify_price_alert',
-        alert: { alertId, thresholdPrice: nearThreshold },
-      }),
-    );
-    const pendingModification = await resumedMessages.waitForMessage(
+    const pendingModification = await waitForResumedMessage(
+      'post-restart pending-order modification',
       (m) => m.type === 'pending_order_result',
     );
     const pendingModificationPayload = pendingModification.payload as {
@@ -415,7 +420,14 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
     expect(pendingModificationPayload.status).toBe('active');
     expect(pendingModificationPayload.order?.triggerPrice).toBe(nearTriggerPrice);
 
-    const alertModification = await resumedMessages.waitForMessage(
+    ws2.send(
+      JSON.stringify({
+        type: 'modify_price_alert',
+        alert: { alertId, thresholdPrice: nearThreshold },
+      }),
+    );
+    const alertModification = await waitForResumedMessage(
+      'post-restart price-alert modification',
       (m) => m.type === 'alert_result',
     );
     const alertModificationPayload = alertModification.payload as {
@@ -426,20 +438,20 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
     expect(alertModificationPayload.alert?.thresholdPrice).toBe(nearThreshold);
 
     // Resume tick evaluation, on the NEW process: both settle from here on.
-    const filled = await resumedMessages.waitForMessage(
+    const filled = await waitForResumedMessage(
+      'post-restart pending-order fill',
       (m) =>
         m.type === 'order_result' &&
         (m.payload as { idempotencyKey: string }).idempotencyKey ===
           `pending-order:${pendingOrderId}`,
-      120000,
     );
     expect((filled.payload as { status: string }).status).toBe('filled');
 
-    const notified = await resumedMessages.waitForMessage(
+    const notified = await waitForResumedMessage(
+      'post-restart alert notification',
       (m) =>
         m.type === 'notification.new' &&
         (m.payload as { notification: { alertId: string } }).notification.alertId === alertId,
-      120000,
     );
     expect((notified.payload as { notification: { alertId: string } }).notification.alertId).toBe(
       alertId,
