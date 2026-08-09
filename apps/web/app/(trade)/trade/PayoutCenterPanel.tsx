@@ -183,7 +183,7 @@ export function PayoutCenterPanel({
                 value={requestedAmount}
                 onChange={(e) => onRequestedAmountChange(e.target.value)}
                 {...(amountError ? { errorText: amountError } : {})}
-                helperText={`Plafond indicatif de ce cycle : ${formatUsd(performanceProgress.capApplied)} (brut) · Répartition trader : ${toPercent(performanceProgress.traderSplitRate)} %`}
+                helperText={`Plafond net trader de ce cycle : ${formatUsd(performanceProgress.capApplied)} · Répartition trader : ${toPercent(performanceProgress.traderSplitRate)} %`}
               />
               <Button onClick={onSubmit} disabled={pending}>
                 Demander un payout

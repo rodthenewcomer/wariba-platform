@@ -194,6 +194,22 @@ export class RealtimeClient {
     this.send({ type: 'subscribe', channels });
   }
 
+  /**
+   * Requests a fresh authoritative snapshot even when the channel's
+   * sequence has not advanced. Some account snapshot fields (pending
+   * orders, queued reductions, Performance progress and payout requests)
+   * are persisted outside the trading account version counter, so a plain
+   * re-subscribe would otherwise be discarded as a duplicate.
+   */
+  resync(channels: string[]): void {
+    for (const channel of channels) {
+      this.subscribedChannels.add(channel);
+      this.lastSequenceByChannel.delete(channel);
+    }
+    this.emitState('resyncing');
+    this.send({ type: 'subscribe', channels });
+  }
+
   unsubscribe(channels: string[]): void {
     for (const c of channels) this.subscribedChannels.delete(c);
     this.send({ type: 'unsubscribe', channels });

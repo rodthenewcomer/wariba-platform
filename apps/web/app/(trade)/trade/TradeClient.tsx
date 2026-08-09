@@ -608,7 +608,7 @@ export function TradeClient({
         }
         // Server always answers a (re)subscribe with a fresh full snapshot —
         // simplest correct way to pick up the new position/order/balance.
-        client.subscribe([accountStateChannel(accountId)]);
+        client.resync([accountStateChannel(accountId)]);
       } else if (envelope.type === 'queue_reduction_result') {
         // Prompt 7 Appendix 07-C §12 — submit/cancel response for the
         // stale-market reduction queue. No pendingCommandRef tracking here
@@ -633,7 +633,7 @@ export function TradeClient({
               : 'Réduction mise en file d’attente, en attente d’un prix à jour.',
           );
         }
-        client.subscribe([accountStateChannel(accountId)]);
+        client.resync([accountStateChannel(accountId)]);
       } else if (envelope.type === 'pending_order_result') {
         // No pendingCommandRef/resubscribe-replay tracking here — same
         // reasoning as queue_reduction_result above: createPendingOrder's
@@ -652,7 +652,7 @@ export function TradeClient({
           setOrderError(null);
           setStatusAnnouncement('Ordre en attente mis à jour.');
         }
-        client.subscribe([accountStateChannel(accountId)]);
+        client.resync([accountStateChannel(accountId)]);
       } else if (envelope.type === 'alert_result') {
         // Re-subscribing for a fresh notifications.snapshot (rather than
         // upserting `result.alert` into local state) sidesteps an otherwise
@@ -671,7 +671,7 @@ export function TradeClient({
           setOrderError(null);
           setStatusAnnouncement('Alerte mise à jour.');
         }
-        client.subscribe([userNotificationsChannel(userId)]);
+        client.resync([userNotificationsChannel(userId)]);
       } else if (envelope.type === 'payout_result') {
         // Re-subscribing for a fresh account.snapshot (rather than upserting
         // result.request into local state) picks up the new payoutRequests
@@ -690,7 +690,7 @@ export function TradeClient({
           setPayoutAmount('');
           setStatusAnnouncement('Demande de payout envoyée.');
         }
-        client.subscribe([accountStateChannel(accountId)]);
+        client.resync([accountStateChannel(accountId)]);
       } else if (envelope.type === 'notifications.snapshot') {
         const snapshot = envelope.payload as NotificationsSnapshotMessage;
         setAlerts(snapshot.alerts);

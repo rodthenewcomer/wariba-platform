@@ -99,10 +99,9 @@ function toMissionState(hubState: HubDisplayState): AccountMissionState {
 /**
  * Prompt 06 account_mission_view — WARIBA ONE (Evaluation) only. No
  * "Journées qualifiées" section: ONE-024 (LOCKED) removed qualified days
- * from Evaluation entirely; the component built for them is documented as
- * Performance-only, and no WARIBA_PERFORMANCE policy is published yet
- * (returns `available: false` instead of inventing data — Prompt Pack STOP
- * CONDITION). No "minimum trading days" condition either — ONE-023.
+ * from Evaluation entirely. Performance uses its dedicated sibling
+ * `buildAccountPerformanceMissionView`; this projection remains Evaluation
+ * only. No "minimum trading days" condition either — ONE-023.
  */
 export async function buildAccountMissionView(
   db: Db,

@@ -114,6 +114,44 @@ describe('RealtimeClient sequence handling', () => {
     client.close();
   });
 
+  it('accepts a same-sequence authoritative snapshot after an explicit resync', async () => {
+    globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
+    const sequences: number[] = [];
+    const client = new RealtimeClient('ws://wariba.test/ws', () => Promise.resolve('token'));
+    client.onMessage((message) => sequences.push(message.sequence));
+    await client.connect();
+    const socket = FakeWebSocket.latest;
+    if (!socket) throw new Error('expected a websocket');
+    socket.emit('open');
+
+    const tick = buildEnvelope({
+      type: 'market.tick',
+      sequence: 7,
+      correlationId: 'EURUSD',
+      payload: {
+        symbol: 'EURUSD',
+        bid: '1.08450',
+        ask: '1.08460',
+        timestamp: '2026-08-03T00:00:00.000Z',
+        sequence: 7,
+        marketStatus: 'open',
+      },
+    });
+    socket.emit('message', new MessageEvent('message', { data: JSON.stringify(tick) }));
+    socket.emit('message', new MessageEvent('message', { data: JSON.stringify(tick) }));
+    expect(sequences).toEqual([7]);
+
+    client.resync(['market.symbol.EURUSD']);
+    socket.emit('message', new MessageEvent('message', { data: JSON.stringify(tick) }));
+
+    expect(sequences).toEqual([7, 7]);
+    expect(socket.sent.map((payload) => JSON.parse(payload) as unknown)).toContainEqual({
+      type: 'subscribe',
+      channels: ['market.symbol.EURUSD'],
+    });
+    client.close();
+  });
+
   it('accepts a pong envelope and rejects an envelope of an unrecognized type', async () => {
     globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
     const received: string[] = [];
