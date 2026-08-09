@@ -136,6 +136,42 @@ export async function assertCurrentLeadershipInTransaction(
   }
 }
 
+/**
+ * Appendix 08-A — the execution-context boundary for financial mutations.
+ *
+ * A position mutation reaches the database from exactly two directions, and
+ * they have opposite leadership requirements:
+ *
+ * - `trader_command` — a human submitted an order over their own WebSocket
+ *   session. Any node may serve it; leadership is irrelevant and requiring
+ *   a fencing token would break trading on every standby.
+ * - `market_trigger` — leader-only tick processing decided to move money
+ *   (pending order filled, SL/TP hit, queued reduction executed, alert
+ *   fired). This MUST prove it still holds the lease, or a partitioned
+ *   former leader could execute against a stale view of the world.
+ *
+ * Modelling this as a discriminated union rather than an optional token is
+ * what makes the guarantee compile-time: `market_trigger` cannot be
+ * constructed without a `fencingToken`, so a tick-driven caller cannot omit
+ * fencing by simply forgetting a field — it has to declare itself a trader
+ * command in writing, which is a reviewable lie rather than a silent hole.
+ */
+export type MarketMutationExecution =
+  { source: 'trader_command' } | { source: 'market_trigger'; fencingToken: LeadershipToken };
+
+/** The trader-initiated context. Named so call sites read as a decision. */
+export const TRADER_COMMAND_EXECUTION: MarketMutationExecution = { source: 'trader_command' };
+
+/** Validates leadership for `market_trigger`; a no-op for `trader_command`. */
+export async function assertExecutionLeadershipInTransaction(
+  trx: Db,
+  execution: MarketMutationExecution,
+): Promise<void> {
+  if (execution.source === 'market_trigger') {
+    await assertCurrentLeadershipInTransaction(trx, execution.fencingToken);
+  }
+}
+
 export async function expireRealtimeLeadership(db: Db, token: LeadershipToken): Promise<boolean> {
   const result = await db
     .updateTable('app.realtime_leadership')

@@ -267,7 +267,7 @@ export async function evaluateAlerts(
     symbol: TradableSymbol;
     tick: { bid: string; ask: string };
     now: Date;
-    fencingToken?: LeadershipToken;
+    fencingToken: LeadershipToken;
   },
 ): Promise<AlertNotificationSummary[]> {
   const rows = await db
@@ -280,9 +280,7 @@ export async function evaluateAlerts(
   const notifications: AlertNotificationSummary[] = [];
   for (const candidate of rows) {
     const notification = await db.transaction().execute(async (trx) => {
-      if (params.fencingToken) {
-        await assertCurrentLeadershipInTransaction(trx, params.fencingToken);
-      }
+      await assertCurrentLeadershipInTransaction(trx, params.fencingToken);
       const row = await trx
         .selectFrom('app.price_alerts')
         .selectAll()

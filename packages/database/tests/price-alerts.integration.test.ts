@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDbClient, type Db } from '../src/client';
+import { evaluateAlertsAsLeader } from './market-trigger-fixture';
 import {
   createPriceAlert,
   modifyPriceAlert,
   enablePriceAlert,
   disablePriceAlert,
   deletePriceAlert,
-  evaluateAlerts,
   loadActiveAlertsForUser,
   loadNotificationsForUser,
   markNotificationsRead,
@@ -104,7 +104,7 @@ describeIfDb('price-alerts — real database', () => {
     const alertId = created.alert!.id;
 
     // Establish a baseline via one evaluation below the threshold.
-    await evaluateAlerts(db, {
+    await evaluateAlertsAsLeader(db, {
       symbol: 'GBPUSD',
       tick: { bid: '1.29000', ask: '1.29010' },
       now: NOW,
@@ -159,7 +159,7 @@ describeIfDb('price-alerts — real database', () => {
     // naive threshold-equality check might fire immediately; a genuine
     // crossing detector must not, since there was no prior side to cross
     // from (shouldTriggerAlert's own documented behavior).
-    const notifications = await evaluateAlerts(db, {
+    const notifications = await evaluateAlertsAsLeader(db, {
       symbol: 'USDJPY',
       tick: { bid: '150.600', ask: '150.620' },
       now: NOW,
@@ -184,14 +184,14 @@ describeIfDb('price-alerts — real database', () => {
     const alertId = created.alert!.id;
 
     // Baseline: below the threshold.
-    await evaluateAlerts(db, {
+    await evaluateAlertsAsLeader(db, {
       symbol: 'XAUUSD',
       tick: { bid: '2005.00', ask: '2005.20' },
       now: NOW,
     });
 
     // Crosses above — must fire now.
-    const fired = await evaluateAlerts(db, {
+    const fired = await evaluateAlertsAsLeader(db, {
       symbol: 'XAUUSD',
       tick: { bid: '2012.00', ask: '2012.20' },
       now: new Date(NOW.getTime() + 1_000),
@@ -210,7 +210,7 @@ describeIfDb('price-alerts — real database', () => {
 
     // Still "above" on the next tick — a disabled alert must never fire
     // again even though the price condition is trivially still true.
-    const stillAbove = await evaluateAlerts(db, {
+    const stillAbove = await evaluateAlertsAsLeader(db, {
       symbol: 'XAUUSD',
       tick: { bid: '2015.00', ask: '2015.20' },
       now: new Date(NOW.getTime() + 2_000),
@@ -234,13 +234,13 @@ describeIfDb('price-alerts — real database', () => {
     });
     const alertId = created.alert!.id;
 
-    await evaluateAlerts(db, {
+    await evaluateAlertsAsLeader(db, {
       symbol: 'NAS100',
       tick: { bid: '18100.0', ask: '18102.0' },
       now: NOW,
     }); // baseline: above
 
-    const firstFire = await evaluateAlerts(db, {
+    const firstFire = await evaluateAlertsAsLeader(db, {
       symbol: 'NAS100',
       tick: { bid: '17900.0', ask: '17902.0' },
       now: new Date(NOW.getTime() + 1_000),
@@ -251,12 +251,12 @@ describeIfDb('price-alerts — real database', () => {
     expect(stillEnabled.find((a) => a.id === alertId)?.enabled).toBe(true);
 
     // Crosses back above, then below again — must fire a second time.
-    await evaluateAlerts(db, {
+    await evaluateAlertsAsLeader(db, {
       symbol: 'NAS100',
       tick: { bid: '18050.0', ask: '18052.0' },
       now: new Date(NOW.getTime() + 2_000),
     });
-    const secondFire = await evaluateAlerts(db, {
+    const secondFire = await evaluateAlertsAsLeader(db, {
       symbol: 'NAS100',
       tick: { bid: '17950.0', ask: '17952.0' },
       now: new Date(NOW.getTime() + 3_000),
@@ -280,7 +280,7 @@ describeIfDb('price-alerts — real database', () => {
     });
     const alertId = created.alert!.id;
 
-    await evaluateAlerts(db, {
+    await evaluateAlertsAsLeader(db, {
       symbol: 'EURUSD',
       tick: { bid: '1.19000', ask: '1.19010' },
       now: NOW,
@@ -331,12 +331,12 @@ describeIfDb('price-alerts — real database', () => {
       recurrence: 'once',
       now: NOW,
     });
-    await evaluateAlerts(db, {
+    await evaluateAlertsAsLeader(db, {
       symbol: 'GBPUSD',
       tick: { bid: '1.39000', ask: '1.39010' },
       now: NOW,
     });
-    await evaluateAlerts(db, {
+    await evaluateAlertsAsLeader(db, {
       symbol: 'GBPUSD',
       tick: { bid: '1.41000', ask: '1.41010' },
       now: new Date(NOW.getTime() + 1_000),

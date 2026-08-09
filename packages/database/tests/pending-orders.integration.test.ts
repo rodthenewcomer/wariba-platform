@@ -3,12 +3,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createDbClient, type Db } from '../src/client';
 import { activateEvaluationAccount } from '../src/activation';
 import { openPosition } from '../src/trading';
+import { triggerPendingOrdersAsLeader } from './market-trigger-fixture';
 import {
   createPendingOrder,
   modifyPendingOrder,
   cancelPendingOrder,
   cancelAllPendingOrders,
-  triggerPendingOrders,
   loadActivePendingOrdersForAccount,
 } from '../src/pending-orders';
 
@@ -324,7 +324,7 @@ describeIfDb('pending-orders — real database', () => {
 
     // Not yet triggered: FRESH_MARKET's ask (1.08460) is still above 1.08400.
     const notYet = (
-      await triggerPendingOrders(db, {
+      await triggerPendingOrdersAsLeader(db, {
         symbol: 'EURUSD',
         market: FRESH_MARKET,
         marketBySymbol: ALL_MARKETS_FRESH,
@@ -335,7 +335,7 @@ describeIfDb('pending-orders — real database', () => {
 
     const later = new Date(NOW.getTime() + 1_000);
     const triggered = (
-      await triggerPendingOrders(db, {
+      await triggerPendingOrdersAsLeader(db, {
         symbol: 'EURUSD',
         market: LOWER_MARKET,
         marketBySymbol: marketsWith(LOWER_MARKET),
@@ -361,7 +361,7 @@ describeIfDb('pending-orders — real database', () => {
     // A second tick at the same or a still-triggering price must never
     // trigger this same order again — it already settled to 'filled'.
     const secondTick = (
-      await triggerPendingOrders(db, {
+      await triggerPendingOrdersAsLeader(db, {
         symbol: 'EURUSD',
         market: LOWER_MARKET,
         marketBySymbol: marketsWith(LOWER_MARKET),
@@ -384,7 +384,7 @@ describeIfDb('pending-orders — real database', () => {
     });
 
     const triggered = (
-      await triggerPendingOrders(db, {
+      await triggerPendingOrdersAsLeader(db, {
         symbol: 'EURUSD',
         market: LOWER_MARKET, // bid 1.08300 <= 1.08400
         marketBySymbol: marketsWith(LOWER_MARKET),
@@ -409,7 +409,7 @@ describeIfDb('pending-orders — real database', () => {
     });
 
     const triggered = (
-      await triggerPendingOrders(db, {
+      await triggerPendingOrdersAsLeader(db, {
         symbol: 'EURUSD',
         market: HIGHER_MARKET, // bid 1.08600 >= 1.08500
         marketBySymbol: marketsWith(HIGHER_MARKET),
@@ -451,7 +451,7 @@ describeIfDb('pending-orders — real database', () => {
     expect(directOpen.order.status).toBe('filled');
 
     const triggered = (
-      await triggerPendingOrders(db, {
+      await triggerPendingOrdersAsLeader(db, {
         symbol: 'EURUSD',
         market: LOWER_MARKET,
         marketBySymbol: marketsWith(LOWER_MARKET),
@@ -482,7 +482,7 @@ describeIfDb('pending-orders — real database', () => {
     });
     const pendingOrderId = created.order!.id;
     await Promise.all([
-      triggerPendingOrders(db, {
+      triggerPendingOrdersAsLeader(db, {
         symbol: 'EURUSD',
         market: LOWER_MARKET,
         marketBySymbol: marketsWith(LOWER_MARKET),
@@ -523,7 +523,7 @@ describeIfDb('pending-orders — real database', () => {
     });
     const pendingOrderId = created.order!.id;
     await Promise.all([
-      triggerPendingOrders(db, {
+      triggerPendingOrdersAsLeader(db, {
         symbol: 'EURUSD',
         market: LOWER_MARKET,
         marketBySymbol: marketsWith(LOWER_MARKET),
@@ -576,7 +576,7 @@ describeIfDb('pending-orders — real database', () => {
         .where('id', '=', accountId)
         .execute();
       const triggered = (
-        await triggerPendingOrders(db, {
+        await triggerPendingOrdersAsLeader(db, {
           symbol: 'EURUSD',
           market: LOWER_MARKET,
           marketBySymbol: marketsWith(LOWER_MARKET),
@@ -602,7 +602,7 @@ describeIfDb('pending-orders — real database', () => {
     const staleNow = new Date(NOW.getTime() + 60_000);
     const staleTrigger = { ...LOWER_MARKET, timestamp: NOW.toISOString(), sequence: '3' };
     const triggered = (
-      await triggerPendingOrders(db, {
+      await triggerPendingOrdersAsLeader(db, {
         symbol: 'EURUSD',
         market: staleTrigger,
         marketBySymbol: marketsWith(staleTrigger),

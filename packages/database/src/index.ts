@@ -193,9 +193,12 @@ export {
   StaleLeadershipError,
   acquireOrRenewRealtimeLeadership,
   assertCurrentLeadershipInTransaction,
+  assertExecutionLeadershipInTransaction,
   expireRealtimeLeadership,
   loadRealtimeLeadership,
+  TRADER_COMMAND_EXECUTION,
   type LeadershipToken,
+  type MarketMutationExecution,
   type RealtimeLeadershipState,
 } from './realtime-leadership';
 export {

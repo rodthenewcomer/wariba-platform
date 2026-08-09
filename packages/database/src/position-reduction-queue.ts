@@ -268,7 +268,7 @@ export interface ExecuteQueuedReductionsParams {
   market: MarketSnapshot;
   marketBySymbol: Record<TradableSymbol, MarketSnapshot>;
   now: Date;
-  fencingToken?: LeadershipToken;
+  fencingToken: LeadershipToken;
 }
 
 export interface ExecutedQueuedReduction {
@@ -312,9 +312,7 @@ export async function executeQueuedReductions(
   for (const row of rows) {
     const result = await db.transaction().execute(async (trx) => {
       await lockAccount(trx, row.account_id);
-      if (params.fencingToken) {
-        await assertCurrentLeadershipInTransaction(trx, params.fencingToken);
-      }
+      await assertCurrentLeadershipInTransaction(trx, params.fencingToken);
       const claimed = await trx
         .selectFrom('app.position_reduction_queue')
         .selectAll()
@@ -335,7 +333,7 @@ export async function executeQueuedReductions(
         market: params.market,
         marketBySymbol: params.marketBySymbol,
         now: params.now,
-        ...(params.fencingToken ? { fencingToken: params.fencingToken } : {}),
+        execution: { source: 'market_trigger', fencingToken: params.fencingToken },
       });
       const settledStatus: PositionReductionQueueStatus =
         commandResult.order.status === 'filled' ? 'executed' : 'failed';

@@ -6,6 +6,7 @@ import { activatePerformanceAccountInTransaction, loadActiveCycle } from '../src
 import { openPosition, closePosition } from '../src/trading';
 import { createPendingOrder, triggerPendingOrders } from '../src/pending-orders';
 import { finalizeDailyBoundaryForAccount } from '../src/daily-finalization';
+import { triggerPendingOrdersAsLeader } from './market-trigger-fixture';
 import {
   createPayoutRequestInTransaction,
   approvePayoutRequestInTransaction,
@@ -623,7 +624,7 @@ describeIfDb('payout engine — real database', () => {
       sequence: '903',
     };
     const triggeredWhileFrozen = (
-      await triggerPendingOrders(db, {
+      await triggerPendingOrdersAsLeader(db, {
         symbol: 'EURUSD',
         market: triggerMarket,
         marketBySymbol: marketsWithEurusd(triggerMarket),

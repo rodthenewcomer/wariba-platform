@@ -2,11 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { activateEvaluationAccount } from '../src/activation';
 import { createDbClient, type Db } from '../src/client';
-import {
-  resolvePositionProtectionTrigger,
-  triggerPositionProtections,
-} from '../src/position-protections';
+import { resolvePositionProtectionTrigger } from '../src/position-protections';
 import { closePosition, openPosition } from '../src/trading';
+import { triggerPositionProtectionsAsLeader } from './market-trigger-fixture';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const describeIfDb = DATABASE_URL ? describe : describe.skip;
@@ -183,7 +181,7 @@ describeIfDb('server-side attached SL/TP execution', () => {
     };
     await Promise.all(
       Array.from({ length: 5 }, () =>
-        triggerPositionProtections(db, {
+        triggerPositionProtectionsAsLeader(db, {
           symbol: 'EURUSD',
           market: triggerMarket,
           marketBySymbol: marketsWith(triggerMarket),
@@ -220,7 +218,7 @@ describeIfDb('server-side attached SL/TP execution', () => {
       sequence: '3',
     };
     await Promise.all([
-      triggerPositionProtections(db, {
+      triggerPositionProtectionsAsLeader(db, {
         symbol: 'EURUSD',
         market: triggerMarket,
         marketBySymbol: marketsWith(triggerMarket),

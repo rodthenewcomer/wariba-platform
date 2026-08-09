@@ -449,7 +449,7 @@ export interface TriggerPendingOrdersParams {
   market: MarketSnapshot;
   marketBySymbol: Record<TradableSymbol, MarketSnapshot>;
   now: Date;
-  fencingToken?: LeadershipToken;
+  fencingToken: LeadershipToken;
 }
 
 export interface TriggeredPendingOrder {
@@ -489,9 +489,7 @@ export async function triggerPendingOrders(
 
     const result = await db.transaction().execute(async (trx) => {
       const account = await lockAccount(trx, row.account_id);
-      if (params.fencingToken) {
-        await assertCurrentLeadershipInTransaction(trx, params.fencingToken);
-      }
+      await assertCurrentLeadershipInTransaction(trx, params.fencingToken);
       const claimed = await trx
         .selectFrom('app.pending_orders')
         .selectAll()
@@ -560,7 +558,7 @@ export async function triggerPendingOrders(
         marketBySymbol: params.marketBySymbol,
         now: params.now,
         fillPriceOverride: clampedFillPrice,
-        ...(params.fencingToken ? { fencingToken: params.fencingToken } : {}),
+        execution: { source: 'market_trigger', fencingToken: params.fencingToken },
       });
 
       const settledStatus: PendingOrderStatus =

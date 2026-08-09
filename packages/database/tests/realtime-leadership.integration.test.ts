@@ -7,7 +7,7 @@ import {
   expireRealtimeLeadership,
   StaleLeadershipError,
 } from '../src/realtime-leadership';
-import { openPosition } from '../src/trading';
+import { openPosition, openPositionInTransaction } from '../src/trading';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const describeIfDb = DATABASE_URL ? describe : describe.skip;
@@ -161,18 +161,23 @@ describeIfDb('PostgreSQL realtime leadership fencing', () => {
       NAS100: { bid: '18000.0', ask: '18002.0', timestamp: now.toISOString(), sequence: '100' },
     };
 
+    // The market-trigger path is the fenced one: it goes through the
+    // in-transaction core carrying an explicit `market_trigger` execution
+    // context. node-a's token is one epoch behind after node-b's takeover.
     await expect(
-      openPosition(db, {
-        accountId,
-        idempotencyKey: randomUUID(),
-        symbol: 'EURUSD',
-        side: 'buy',
-        quantity: '0.10',
-        market,
-        marketBySymbol: markets,
-        now,
-        fencingToken: nodeA.token,
-      }),
+      db.transaction().execute((trx) =>
+        openPositionInTransaction(trx, {
+          accountId,
+          idempotencyKey: randomUUID(),
+          symbol: 'EURUSD',
+          side: 'buy',
+          quantity: '0.10',
+          market,
+          marketBySymbol: markets,
+          now,
+          execution: { source: 'market_trigger', fencingToken: nodeA.token },
+        }),
+      ),
     ).rejects.toBeInstanceOf(StaleLeadershipError);
     expect(
       await db
@@ -182,7 +187,24 @@ describeIfDb('PostgreSQL realtime leadership fencing', () => {
         .execute(),
     ).toHaveLength(0);
 
-    const accepted = await openPosition(db, {
+    const accepted = await db.transaction().execute((trx) =>
+      openPositionInTransaction(trx, {
+        accountId,
+        idempotencyKey: randomUUID(),
+        symbol: 'EURUSD',
+        side: 'buy',
+        quantity: '0.10',
+        market,
+        marketBySymbol: markets,
+        now,
+        execution: { source: 'market_trigger', fencingToken: nodeB.token },
+      }),
+    );
+    expect(accepted.order.status).toBe('filled');
+
+    // A trader command is not leader-owned and must keep working on any
+    // node, including while node-a's stale token exists.
+    const traderCommand = await openPosition(db, {
       accountId,
       idempotencyKey: randomUUID(),
       symbol: 'EURUSD',
@@ -191,8 +213,7 @@ describeIfDb('PostgreSQL realtime leadership fencing', () => {
       market,
       marketBySymbol: markets,
       now,
-      fencingToken: nodeB.token,
     });
-    expect(accepted.order.status).toBe('filled');
+    expect(traderCommand.order.status).toBe('filled');
   }, 30000);
 });

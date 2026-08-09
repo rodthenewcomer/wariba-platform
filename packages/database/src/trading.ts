@@ -22,7 +22,11 @@ import type { Db } from './client';
 import { evaluateAndApplyAccountRiskInTransaction } from './risk';
 import { loadPolicyById } from './policy';
 import { findExposureIncreaseRejection } from './exposure-gate';
-import { assertCurrentLeadershipInTransaction, type LeadershipToken } from './realtime-leadership';
+import {
+  assertExecutionLeadershipInTransaction,
+  TRADER_COMMAND_EXECUTION,
+  type MarketMutationExecution,
+} from './realtime-leadership';
 import type { TradableSymbol } from './schema';
 
 export type { MarketSnapshot };
@@ -313,28 +317,40 @@ export interface OpenPositionParams {
    * of a second, divergent implementation.
    */
   fillPriceOverride?: string;
-  fencingToken?: LeadershipToken;
+}
+
+/**
+ * The in-transaction core additionally demands an explicit execution
+ * context — see MarketMutationExecution. `openPosition` below is the
+ * trader-command entry point by definition, so it supplies the context
+ * itself; anything driven by market ticks must go through this variant and
+ * therefore has to produce fencing evidence to compile.
+ */
+export interface OpenPositionInTransactionParams extends OpenPositionParams {
+  execution: MarketMutationExecution;
 }
 
 export async function openPosition(
   db: Db,
   params: OpenPositionParams,
 ): Promise<TradeCommandResult> {
-  return db.transaction().execute((trx) => openPositionInTransaction(trx, params));
+  return db
+    .transaction()
+    .execute((trx) =>
+      openPositionInTransaction(trx, { ...params, execution: TRADER_COMMAND_EXECUTION }),
+    );
 }
 
 export async function openPositionInTransaction(
   trx: Db,
-  params: OpenPositionParams,
+  params: OpenPositionInTransactionParams,
 ): Promise<TradeCommandResult> {
   // Lock BEFORE checking idempotency: two concurrent calls with the same
   // key must not both read "no existing order" before either commits.
   // Serializing on the account row lock first closes that race — only one
   // of them can be past this point at a time for a given account.
   const account = await lockAccount(trx, params.accountId);
-  if (params.fencingToken) {
-    await assertCurrentLeadershipInTransaction(trx, params.fencingToken);
-  }
+  await assertExecutionLeadershipInTransaction(trx, params.execution);
 
   const existing = await findExistingOrder(trx, params.accountId, params.idempotencyKey);
   if (existing) {
@@ -583,7 +599,11 @@ export interface ClosePositionParams {
   /** See OpenPositionParams.marketBySymbol — same purpose. */
   marketBySymbol: Record<TradableSymbol, MarketSnapshot>;
   now: Date;
-  fencingToken?: LeadershipToken;
+}
+
+/** See OpenPositionInTransactionParams — same execution-context contract. */
+export interface ClosePositionInTransactionParams extends ClosePositionParams {
+  execution: MarketMutationExecution;
 }
 
 interface ClosePositionExecution {
@@ -1038,18 +1058,20 @@ export async function closePosition(
   db: Db,
   params: ClosePositionParams,
 ): Promise<TradeCommandResult> {
-  return db.transaction().execute((trx) => closePositionInTransaction(trx, params));
+  return db
+    .transaction()
+    .execute((trx) =>
+      closePositionInTransaction(trx, { ...params, execution: TRADER_COMMAND_EXECUTION }),
+    );
 }
 
 export async function closePositionInTransaction(
   trx: Db,
-  params: ClosePositionParams,
+  params: ClosePositionInTransactionParams,
 ): Promise<TradeCommandResult> {
   // Lock BEFORE checking idempotency — see openPosition for why.
   const account = await lockAccount(trx, params.accountId);
-  if (params.fencingToken) {
-    await assertCurrentLeadershipInTransaction(trx, params.fencingToken);
-  }
+  await assertExecutionLeadershipInTransaction(trx, params.execution);
   return (await closePositionLocked(trx, params, account)).result;
 }
 

@@ -3,10 +3,10 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createDbClient, type Db } from '../src/client';
 import { activateEvaluationAccount } from '../src/activation';
 import { openPosition, closePosition } from '../src/trading';
+import { executeQueuedReductionsAsLeader } from './market-trigger-fixture';
 import {
   queuePositionReduction,
   cancelQueuedReduction,
-  executeQueuedReductions,
   loadQueuedReductionsForAccount,
 } from '../src/position-reduction-queue';
 
@@ -311,7 +311,7 @@ describeIfDb('position-reduction-queue — real database', () => {
     // leave their own queued rows behind on the same EURUSD symbol, so this
     // filters to the entry this test itself created before asserting.
     const firstRun = (
-      await executeQueuedReductions(db, {
+      await executeQueuedReductionsAsLeader(db, {
         symbol: 'EURUSD',
         market: { ...FRESH_MARKET, timestamp: later.toISOString(), sequence: '2' },
         marketBySymbol: ALL_MARKETS_FRESH,
@@ -332,7 +332,7 @@ describeIfDb('position-reduction-queue — real database', () => {
     // A second tick must find nothing left queued for *this* reduction —
     // never a duplicate execution of the same one.
     const secondRun = (
-      await executeQueuedReductions(db, {
+      await executeQueuedReductionsAsLeader(db, {
         symbol: 'EURUSD',
         market: {
           ...FRESH_MARKET,
@@ -375,7 +375,7 @@ describeIfDb('position-reduction-queue — real database', () => {
 
     const later = new Date(NOW.getTime() + 1_000);
     const executed = (
-      await executeQueuedReductions(db, {
+      await executeQueuedReductionsAsLeader(db, {
         symbol: 'EURUSD',
         market: { ...FRESH_MARKET, timestamp: later.toISOString(), sequence: '4' },
         marketBySymbol: ALL_MARKETS_FRESH,

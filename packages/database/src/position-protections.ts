@@ -52,7 +52,7 @@ export async function triggerPositionProtections(
     market: MarketSnapshot;
     marketBySymbol: Record<TradableSymbol, MarketSnapshot>;
     now: Date;
-    fencingToken?: LeadershipToken;
+    fencingToken: LeadershipToken;
   },
 ): Promise<TriggeredPositionProtection[]> {
   const candidates = await db
@@ -72,9 +72,7 @@ export async function triggerPositionProtections(
   for (const candidate of candidates) {
     const result = await db.transaction().execute(async (trx) => {
       await lockAccount(trx, candidate.account_id);
-      if (params.fencingToken) {
-        await assertCurrentLeadershipInTransaction(trx, params.fencingToken);
-      }
+      await assertCurrentLeadershipInTransaction(trx, params.fencingToken);
       const position = await trx
         .selectFrom('app.positions')
         .select(['id', 'account_id', 'side', 'stop_loss', 'take_profit', 'status'])
@@ -101,7 +99,7 @@ export async function triggerPositionProtections(
         market: params.market,
         marketBySymbol: params.marketBySymbol,
         now: params.now,
-        ...(params.fencingToken ? { fencingToken: params.fencingToken } : {}),
+        execution: { source: 'market_trigger', fencingToken: params.fencingToken },
       });
       return {
         accountId: position.account_id,

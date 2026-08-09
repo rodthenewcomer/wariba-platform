@@ -26,13 +26,35 @@ async function login(page: import('@playwright/test').Page, email: string, passw
   await page.waitForURL('**/hub', { timeout: 30_000 });
 }
 
+/**
+ * TradeClient renders the order ticket twice: in an `<aside class="hidden
+ * lg:flex">` for desktop, and inside a closed `<BottomSheet>` reached via a
+ * `lg:hidden` "Trader {symbol}" button for mobile. Below the lg breakpoint
+ * both copies are therefore `hidden`, so waiting on the ticket's own helper
+ * text is a desktop-only readiness signal.
+ *
+ * Each viewport waits for the control a real user of that viewport actually
+ * operates — the assertions are equally strict on both, just anchored to the
+ * correct entry point.
+ */
+const DESKTOP_TICKET_BREAKPOINT = 1024;
+
 async function openTrade(page: import('@playwright/test').Page) {
   await page.goto('/trade');
   await expect(page.getByText('Connecté')).toBeVisible({ timeout: 30_000 });
-  await expect(
-    page.getByText('Pas 0.0100 · Min 0.0100 · Max 10.0000').first(),
-  ).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('button', { name: /^(Buy|Trader EURUSD)$/ }).first()).toBeEnabled();
+
+  const width = page.viewportSize()?.width ?? DESKTOP_TICKET_BREAKPOINT;
+  if (width >= DESKTOP_TICKET_BREAKPOINT) {
+    await expect(page.getByText('Pas 0.0100 · Min 0.0100 · Max 10.0000').first()).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.getByRole('button', { name: 'Buy' }).first()).toBeEnabled();
+    return;
+  }
+
+  const ticketTrigger = page.getByRole('button', { name: /^Trader EURUSD$/ });
+  await expect(ticketTrigger).toBeVisible({ timeout: 30_000 });
+  await expect(ticketTrigger).toBeEnabled();
 }
 
 async function openTouchChartMenu(page: import('@playwright/test').Page) {
