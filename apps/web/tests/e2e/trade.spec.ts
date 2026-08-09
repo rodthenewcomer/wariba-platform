@@ -26,6 +26,38 @@ async function login(page: import('@playwright/test').Page, email: string, passw
   await page.waitForURL('**/hub', { timeout: 15_000 });
 }
 
+async function openTouchChartMenu(page: import('@playwright/test').Page) {
+  const chart = page.getByRole('group', { name: 'Graphique EURUSD' });
+  await chart.scrollIntoViewIfNeeded();
+  await expect(chart).toBeVisible();
+  await expect(chart.locator('canvas').first()).toBeVisible();
+
+  const box = await chart.boundingBox();
+  if (!box) throw new Error('chart container not found');
+  const pointerEvent = {
+    x: box.x + box.width / 2,
+    y: box.y + box.height / 2,
+    id: 1,
+    radiusX: 1,
+    radiusY: 1,
+    force: 1,
+  };
+
+  const session = await page.context().newCDPSession(page);
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [pointerEvent],
+  });
+  const sheet = page.getByRole('dialog', { name: /^Prix / });
+  try {
+    await expect(sheet).toBeVisible();
+    return sheet;
+  } finally {
+    await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await session.detach();
+  }
+}
+
 test.describe('WariX order lifecycle', () => {
   test('submits a market order, shows it pending then filled, and lists it in Positions/Historique', async ({
     page,
@@ -465,7 +497,7 @@ test.describe('WariX chart context menu', () => {
  * that shared component on a touch device.
  */
 test.describe('WariX mobile chart context menu', () => {
-  test.use({ viewport: { width: 390, height: 844 } });
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
 
   test('long press opens a touch-safe bottom sheet with Market actions, dynamic pending-order suggestions, and Create alert', async ({
     page,
@@ -473,55 +505,12 @@ test.describe('WariX mobile chart context menu', () => {
   }) => {
     await login(page, tradeAccount.email, tradeAccount.password);
     await page.goto('/trade');
-    await page.waitForTimeout(4000);
-
-    const chart = page.getByRole('group', { name: 'Graphique EURUSD' });
-    const box = await chart.boundingBox();
-    if (!box) throw new Error('chart container not found');
-    const x = box.x + box.width / 2;
-    const y = box.y + box.height / 2;
-
-    // A real long-press: a native PointerEvent with pointerType: 'touch',
-    // held past handleContainerPointerDown's 500ms threshold — dispatched
-    // directly against the DOM rather than through Playwright's
-    // mouse-based tap()/click() helpers (which need hasTouch enabled on
-    // the browser context to produce a genuine touch pointerType at all),
-    // so this exercises exactly the code path
-    // (event.pointerType !== 'touch' early-return) a real phone would.
-    await page.evaluate(
-      ({ x, y }) => {
-        const el = document.elementFromPoint(x, y);
-        el?.dispatchEvent(
-          new PointerEvent('pointerdown', {
-            pointerType: 'touch',
-            clientX: x,
-            clientY: y,
-            bubbles: true,
-          }),
-        );
-      },
-      { x, y },
-    );
-    await page.waitForTimeout(600);
-    await page.evaluate(
-      ({ x, y }) => {
-        const el = document.elementFromPoint(x, y);
-        el?.dispatchEvent(
-          new PointerEvent('pointerup', {
-            pointerType: 'touch',
-            clientX: x,
-            clientY: y,
-            bubbles: true,
-          }),
-        );
-      },
-      { x, y },
-    );
+    await expect(page.getByText('Connecté')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Trader EURUSD' })).toBeEnabled();
 
     // Not the desktop popover — a BottomSheet, independent of any
     // right-click/contextmenu event.
-    const sheet = page.getByRole('dialog', { name: /^Prix / });
-    await expect(sheet).toBeVisible();
+    const sheet = await openTouchChartMenu(page);
     await expect(sheet.getByRole('menuitem', { name: 'Achat au marché' })).toBeVisible();
     await expect(sheet.getByRole('menuitem', { name: 'Vente au marché' })).toBeVisible();
     await expect(sheet.getByRole('menuitem', { name: 'Créer une alerte ici' })).toBeVisible();
@@ -556,54 +545,18 @@ test.describe('WariX mobile chart context menu', () => {
   }) => {
     await login(page, tradeAccount.email, tradeAccount.password);
     await page.goto('/trade');
-    await page.waitForTimeout(4000);
+    await expect(page.getByText('Connecté')).toBeVisible({ timeout: 30_000 });
 
     await page.getByRole('button', { name: /Trader/ }).click();
     const ticketSheet = page.getByRole('dialog');
     await expect(ticketSheet).toBeVisible();
     await ticketSheet.getByRole('button', { name: 'Buy' }).click();
-    await page.waitForTimeout(9000);
     await page.keyboard.press('Escape');
     await expect(ticketSheet).not.toBeVisible();
+    await page.getByRole('tab', { name: 'Positions' }).click();
+    await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toBeVisible();
 
-    const chart = page.getByRole('group', { name: 'Graphique EURUSD' });
-    const box = await chart.boundingBox();
-    if (!box) throw new Error('chart container not found');
-    const x = box.x + box.width / 2;
-    const y = box.y + box.height / 2;
-
-    await page.evaluate(
-      ({ x, y }) => {
-        const el = document.elementFromPoint(x, y);
-        el?.dispatchEvent(
-          new PointerEvent('pointerdown', {
-            pointerType: 'touch',
-            clientX: x,
-            clientY: y,
-            bubbles: true,
-          }),
-        );
-      },
-      { x, y },
-    );
-    await page.waitForTimeout(600);
-    await page.evaluate(
-      ({ x, y }) => {
-        const el = document.elementFromPoint(x, y);
-        el?.dispatchEvent(
-          new PointerEvent('pointerup', {
-            pointerType: 'touch',
-            clientX: x,
-            clientY: y,
-            bubbles: true,
-          }),
-        );
-      },
-      { x, y },
-    );
-
-    const sheet = page.getByRole('dialog', { name: /^Prix / });
-    await expect(sheet).toBeVisible();
+    const sheet = await openTouchChartMenu(page);
     await expect(sheet.getByRole('menuitem', { name: 'Ajouter un Stop Loss' })).toBeVisible();
     await expect(sheet.getByRole('menuitem', { name: 'Ajouter un Take Profit' })).toBeVisible();
     await expect(
