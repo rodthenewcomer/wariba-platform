@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { activateEvaluationAccount, createDbClient, type Db } from '@wariba/database';
+import { createAuthFixtureUser, deleteAuthFixtureUser } from './supabase-auth-fixture';
 
 /**
  * E2E fixture helpers for the Hub spec suite — real DB seeding for
@@ -25,26 +26,19 @@ export function createFixtureDb(): Db {
 }
 
 async function createTestUser(email: string): Promise<string> {
-  const res = await fetch(`${requireEnv('SUPABASE_URL')}/auth/v1/admin/users`, {
-    method: 'POST',
-    headers: {
-      apikey: requireEnv('SUPABASE_SERVICE_ROLE_KEY'),
-      Authorization: `Bearer ${requireEnv('SUPABASE_SERVICE_ROLE_KEY')}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ email, password: E2E_TEST_PASSWORD, email_confirm: true }),
+  return createAuthFixtureUser({
+    supabaseUrl: requireEnv('SUPABASE_URL'),
+    serviceRoleKey: requireEnv('SUPABASE_SERVICE_ROLE_KEY'),
+    email,
+    password: E2E_TEST_PASSWORD,
   });
-  const body = (await res.json()) as { id: string };
-  return body.id;
 }
 
 async function deleteTestUser(id: string): Promise<void> {
-  await fetch(`${requireEnv('SUPABASE_URL')}/auth/v1/admin/users/${id}`, {
-    method: 'DELETE',
-    headers: {
-      apikey: requireEnv('SUPABASE_SERVICE_ROLE_KEY'),
-      Authorization: `Bearer ${requireEnv('SUPABASE_SERVICE_ROLE_KEY')}`,
-    },
+  await deleteAuthFixtureUser({
+    supabaseUrl: requireEnv('SUPABASE_URL'),
+    serviceRoleKey: requireEnv('SUPABASE_SERVICE_ROLE_KEY'),
+    userId: id,
   });
 }
 

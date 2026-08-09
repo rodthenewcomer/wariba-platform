@@ -11,7 +11,11 @@
     "lint": "eslint --config ../../eslint.config.mjs .",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run --exclude 'tests/*.e2e.test.ts'",
-    "test:e2e": "vitest run --no-file-parallelism tests/auth-isolation.e2e.test.ts tests/pending-order-lifecycle.e2e.test.ts tests/pending-order-restart-recovery.e2e.test.ts",
+    "test:e2e": "pnpm test:e2e:full",
+    "test:e2e:smoke": "vitest run --no-file-parallelism tests/auth-isolation.e2e.test.ts tests/pending-order-lifecycle.e2e.test.ts",
+    "test:e2e:pending": "vitest run --no-file-parallelism tests/pending-order-lifecycle.e2e.test.ts",
+    "test:e2e:full": "vitest run --no-file-parallelism tests/auth-isolation.e2e.test.ts tests/pending-order-lifecycle.e2e.test.ts",
+    "test:recovery": "vitest run --no-file-parallelism tests/pending-order-restart-recovery.e2e.test.ts",
     "test:load": "tsx scripts/load-test.ts"
   },
   "dependencies": {

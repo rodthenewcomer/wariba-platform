@@ -3,6 +3,7 @@ import type { RawData } from 'ws';
 export interface RealtimeMessage {
   type: string;
   payload: unknown;
+  correlationId?: string;
 }
 
 type MessagePredicate = (message: RealtimeMessage) => boolean;
@@ -36,7 +37,9 @@ function parseMessage(raw: RawData): RealtimeMessage | null {
       return null;
     }
 
-    return { type: value.type, payload: value.payload };
+    const message: RealtimeMessage = { type: value.type, payload: value.payload };
+    if (typeof value.correlationId === 'string') message.correlationId = value.correlationId;
+    return message;
   } catch {
     return null;
   }

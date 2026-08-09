@@ -19,6 +19,20 @@ if (missingNames.length > 0) {
   process.exit(1);
 }
 
+const localOnlyNames = ['DATABASE_URL', 'SUPABASE_URL'];
+for (const name of localOnlyNames) {
+  if (!requiredNames.includes(name)) continue;
+  const value = process.env[name];
+  if (!value) continue;
+  const hostname = new URL(value).hostname;
+  if (hostname !== '127.0.0.1' && hostname !== 'localhost') {
+    process.stderr.write(
+      `Refusing to run an isolated test gate against non-local ${name} host: ${hostname}.\n`,
+    );
+    process.exit(1);
+  }
+}
+
 const [command, ...args] = process.argv.slice(separatorIndex + 1);
 if (!command) throw new Error('run-test-gate requires a command after `--`.');
 

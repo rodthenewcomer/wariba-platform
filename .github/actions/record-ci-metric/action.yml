@@ -1,0 +1,40 @@
+name: Record WARIBA CI metric
+description: Upload one compact job result for the workflow summary.
+
+inputs:
+  metric-id:
+    required: true
+    description: Filesystem-safe metric identifier.
+  label:
+    required: true
+    description: Human-readable job label.
+  started-at:
+    required: true
+    description: Job start epoch in seconds.
+  status:
+    required: true
+    description: GitHub job status.
+
+runs:
+  using: composite
+  steps:
+    - name: Write metric
+      shell: bash
+      env:
+        METRIC_ID: ${{ inputs.metric-id }}
+        METRIC_LABEL: ${{ inputs.label }}
+        STARTED_AT: ${{ inputs.started-at }}
+        JOB_STATUS: ${{ inputs.status }}
+      run: |
+        ended_at=$(date +%s)
+        mkdir -p "$RUNNER_TEMP/wariba-ci-metrics"
+        printf '%s|%s|%s|%s|%s\n' \
+          "$METRIC_LABEL" "$JOB_STATUS" "$((ended_at - STARTED_AT))" "$STARTED_AT" "$ended_at" \
+          > "$RUNNER_TEMP/wariba-ci-metrics/$METRIC_ID.txt"
+
+    - name: Upload metric
+      uses: actions/upload-artifact@v4
+      with:
+        name: ci-metric-${{ inputs.metric-id }}
+        path: ${{ runner.temp }}/wariba-ci-metrics/${{ inputs.metric-id }}.txt
+        retention-days: 7

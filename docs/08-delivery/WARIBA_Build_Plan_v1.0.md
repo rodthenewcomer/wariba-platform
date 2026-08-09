@@ -208,6 +208,11 @@ L’agent IA mandaté travaille sur une branche courte.
 
 Aucun travail important avant la CI.
 
+La boucle d'implémentation utilise `pnpm test:fast` puis un test feature exact. La PR bloque sur
+les jobs parallèles static/unit/build/DB/RLS smoke/E2E smoke. Le full fonctionnel et la
+certification s'exécutent une fois au jalon approprié, selon
+`docs/07-assurance/WARIBA_CI_E2E_Test_Architecture_v1.0.md`, et non après chaque correction.
+
 ## 4.6 Mobile chaque semaine
 
 Le mobile n’est pas repoussé à la fin.

@@ -1,7 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { spawn, type ChildProcess } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
-import WsClient from 'ws';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDbClient, activateEvaluationAccount, type Db } from '@wariba/database';
 import {
@@ -9,7 +7,12 @@ import {
   accountStateChannel,
   userNotificationsChannel,
 } from '@wariba/contracts';
-import { createMessageBuffer } from './message-buffer.js';
+import { RealtimeTestClient } from './realtime-test-client.js';
+import {
+  spawnRealtimeTestProcess,
+  waitForCondition,
+  type RealtimeTestProcess,
+} from './realtime-test-process.js';
 
 globalThis.WebSocket ??= class {} as unknown as typeof WebSocket;
 
@@ -41,55 +44,9 @@ const BASE_URL = `http://127.0.0.1:${PORT}`;
 const WS_URL = `ws://127.0.0.1:${PORT}/ws`;
 const UPWARD_EURUSD_SEED = '25231836';
 
-function waitForOpen(ws: WsClient, timeoutMs = 5000): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('timed out waiting for open')), timeoutMs);
-    ws.once('open', () => {
-      clearTimeout(timer);
-      resolve();
-    });
-    ws.once('error', (err) => {
-      clearTimeout(timer);
-      reject(err);
-    });
-  });
-}
-
-function waitForExit(child: ChildProcess, timeoutMs = 20000): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error('timed out waiting for process exit')),
-      timeoutMs,
-    );
-    child.once('exit', () => {
-      clearTimeout(timer);
-      resolve();
-    });
-  });
-}
-
-function waitForMessages(
-  ws: WsClient,
-  predicate: (msg: { type: string; payload: unknown }) => boolean,
-  timeoutMs: number,
-): Promise<{ type: string; payload: unknown }[]> {
-  return new Promise((resolve) => {
-    const matches: { type: string; payload: unknown }[] = [];
-    const onMessage = (raw: WsClient.RawData): void => {
-      const msg = JSON.parse(raw.toString()) as { type: string; payload: unknown };
-      if (predicate(msg)) matches.push(msg);
-    };
-    ws.on('message', onMessage);
-    setTimeout(() => {
-      ws.off('message', onMessage);
-      resolve(matches);
-    }, timeoutMs);
-  });
-}
-
 describeIfDb('single-node restart recovery (real end-to-end)', () => {
   let db: Db;
-  let child: ChildProcess;
+  let realtime: RealtimeTestProcess;
   let userId: string;
   let accountId: string;
   let token: string;
@@ -168,51 +125,21 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
     return account.id;
   };
 
-  const waitForHealthy = async (timeoutMs = 60000): Promise<void> => {
-    const deadline = Date.now() + timeoutMs;
-    let lastError: unknown;
-    while (Date.now() < deadline) {
-      try {
-        const res = await fetch(`${BASE_URL}/health`);
-        if (res.ok) return;
-      } catch (err) {
-        lastError = err;
-      }
-      await new Promise((r) => setTimeout(r, 250));
-    }
-    throw new Error(`realtime service never became healthy: ${String(lastError)}`);
-  };
-
-  const spawnRealtime = async (): Promise<ChildProcess> => {
-    const childEnv: NodeJS.ProcessEnv = {
-      ...process.env,
-      REALTIME_PORT: String(PORT),
-      MARKET_TICK_INTERVAL_MS: '5000',
-      SANDBOX_MARKET_SEED: UPWARD_EURUSD_SEED,
-      ACCOUNT_RISK_PREVIEW_INTERVAL_MS: '5000',
-    };
-    delete childEnv.VITEST;
-    const proc = spawn('npx', ['tsx', 'src/index.ts'], {
+  const spawnRealtime = (): Promise<RealtimeTestProcess> =>
+    spawnRealtimeTestProcess({
       cwd: process.cwd(),
-      env: childEnv,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      healthUrl: `${BASE_URL}/health`,
+      healthTimeoutMs: 60000,
+      env: {
+        ...process.env,
+        REALTIME_PORT: String(PORT),
+        MARKET_DATA_PROVIDER: 'mock',
+        MARKET_DATA_REPLAY_MODE: 'false',
+        MARKET_TICK_INTERVAL_MS: '5000',
+        SANDBOX_MARKET_SEED: UPWARD_EURUSD_SEED,
+        ACCOUNT_RISK_PREVIEW_INTERVAL_MS: '5000',
+      },
     });
-    let startupLog = '';
-    proc.stdout?.on('data', (d: Buffer) => (startupLog += d.toString()));
-    proc.stderr?.on('data', (d: Buffer) => (startupLog += d.toString()));
-    let exitInfo = '';
-    proc.on('exit', (code, signal) => {
-      exitInfo = `exit code=${code} signal=${signal}`;
-    });
-    try {
-      await waitForHealthy();
-    } catch (err) {
-      throw new Error(
-        `${(err as Error).message}\n--- child ${exitInfo || 'still running'} ---\n${startupLog}`,
-      );
-    }
-    return proc;
-  };
 
   beforeAll(async () => {
     db = createDbClient(DATABASE_URL as string);
@@ -220,11 +147,11 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
     userId = await createTestUser(email, password);
     accountId = await createActiveAccount(userId);
     token = await signIn(email, password);
-    child = await spawnRealtime();
+    realtime = await spawnRealtime();
   }, 90000);
 
   afterAll(async () => {
-    child?.kill('SIGTERM');
+    await realtime?.stop();
     await db.deleteFrom('app.alert_notifications').where('user_id', '=', userId).execute();
     await db.deleteFrom('app.price_alerts').where('user_id', '=', userId).execute();
     for (const id of cleanupAccountIds) {
@@ -267,22 +194,25 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
   }, 30000);
 
   it('a killed and restarted process reloads persisted pending orders/alerts, resumes evaluation, settles each exactly once, and a post-restart reconnect sees the correct state', async () => {
-    const ws1 = new WsClient(`${WS_URL}?token=${token}`);
-    const messages1 = createMessageBuffer(ws1, 120000);
-    await waitForOpen(ws1);
-    ws1.send(
-      JSON.stringify({
-        type: 'subscribe',
-        channels: [
-          accountStateChannel(accountId),
-          accountOrdersChannel(accountId),
-          userNotificationsChannel(userId),
-          'market.symbol.EURUSD',
-        ],
-      }),
+    const client = await RealtimeTestClient.connect({
+      token,
+      url: WS_URL,
+      defaultTimeoutMs: 120000,
+      serverDiagnostics: () => realtime.logs(),
+    });
+    await client.subscribeAndWait(
+      [
+        accountStateChannel(accountId),
+        accountOrdersChannel(accountId),
+        userNotificationsChannel(userId),
+        'market.symbol.EURUSD',
+      ],
+      'account.snapshot',
     );
-    await messages1.waitForMessage((m) => m.type === 'account.snapshot');
-    const tickMsg = await messages1.waitForMessage((m) => m.type === 'market.tick');
+    const tickMsg = await client.waitForMessage(
+      'pre-restart EURUSD market tick',
+      (message) => message.type === 'market.tick',
+    );
     const tick = tickMsg.payload as { bid: string; ask: string };
     const pricePrecision = 5;
     const onePoint = Number(`1e-${pricePrecision}`);
@@ -294,8 +224,9 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
     // trigger.
     const farTriggerPrice = (Number(tick.bid) + 2000 * onePoint).toFixed(pricePrecision);
     const createOrderKey = randomUUID();
-    ws1.send(
-      JSON.stringify({
+    const orderCreated = await client.sendCommandAndAwaitResult({
+      expectedEvent: 'pending_order_result',
+      command: {
         type: 'create_pending_order',
         pendingOrder: {
           accountId,
@@ -305,9 +236,8 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
           quantity: '0.50',
           triggerPrice: farTriggerPrice,
         },
-      }),
-    );
-    const orderCreated = await messages1.waitForMessage((m) => m.type === 'pending_order_result');
+      },
+    });
     const orderCreatedPayload = orderCreated.payload as {
       status: string;
       order: { id: string } | null;
@@ -317,8 +247,9 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
 
     const farThreshold = (Number(tick.ask) + 2000 * onePoint).toFixed(pricePrecision);
     const createAlertKey = randomUUID();
-    ws1.send(
-      JSON.stringify({
+    const alertCreated = await client.sendCommandAndAwaitResult({
+      expectedEvent: 'alert_result',
+      command: {
         type: 'create_price_alert',
         alert: {
           idempotencyKey: createAlertKey,
@@ -328,9 +259,8 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
           source: 'mid',
           recurrence: 'once',
         },
-      }),
-    );
-    const alertCreated = await messages1.waitForMessage((m) => m.type === 'alert_result');
+      },
+    });
     const alertCreatedPayload = alertCreated.payload as {
       status: string;
       alert: { id: string } | null;
@@ -338,34 +268,38 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
     expect(alertCreatedPayload.status).toBe('ok');
     const alertId = alertCreatedPayload.alert!.id;
 
-    // Let a few real ticks pass so the alert establishes a real
-    // last_observed_side_above baseline before the restart (proving the
-    // restart preserves that baseline too, not just the row's existence).
-    await new Promise((r) => setTimeout(r, 5500));
-    ws1.close();
-    messages1.dispose();
+    await waitForCondition(
+      `price alert ${alertId} baseline persistence`,
+      async () => {
+        const row = await db
+          .selectFrom('app.price_alerts')
+          .select('last_observed_side_above')
+          .where('id', '=', alertId)
+          .executeTakeFirstOrThrow();
+        return row.last_observed_side_above !== null;
+      },
+      15000,
+    );
+    client.close();
 
     // --- Kill the process and start a fresh one against the same DB ---
-    child.kill('SIGTERM');
-    await waitForExit(child);
-    child = await spawnRealtime();
+    await realtime.stop();
+    realtime = await spawnRealtime();
 
-    const ws2 = new WsClient(`${WS_URL}?token=${token}`);
-    const messages2 = createMessageBuffer(ws2, 120000);
-    await waitForOpen(ws2);
-    ws2.send(
-      JSON.stringify({
-        type: 'subscribe',
-        channels: [
-          accountStateChannel(accountId),
-          accountOrdersChannel(accountId),
-          userNotificationsChannel(userId),
-          'market.symbol.EURUSD',
-        ],
-      }),
-    );
-    const postRestartSnapshot = await messages2.waitForMessage(
-      (m) => m.type === 'account.snapshot',
+    const resumedClient = await RealtimeTestClient.connect({
+      token,
+      url: WS_URL,
+      defaultTimeoutMs: 120000,
+      serverDiagnostics: () => realtime.logs(),
+    });
+    const postRestartSnapshot = await resumedClient.subscribeAndWait(
+      [
+        accountStateChannel(accountId),
+        accountOrdersChannel(accountId),
+        userNotificationsChannel(userId),
+        'market.symbol.EURUSD',
+      ],
+      'account.snapshot',
     );
     const postRestartPayload = postRestartSnapshot.payload as {
       pendingOrders: { id: string; triggerPrice: string }[];
@@ -379,8 +313,9 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
     expect(reloadedOrder).toBeDefined();
     expect(reloadedOrder?.triggerPrice).toBe(farTriggerPrice);
 
-    const notificationsSnapshot = await messages2.waitForMessage(
-      (m) => m.type === 'notifications.snapshot',
+    const notificationsSnapshot = await resumedClient.waitForMessage(
+      'post-restart notifications snapshot',
+      (message) => message.type === 'notifications.snapshot',
     );
     const notificationsPayload = notificationsSnapshot.payload as {
       alerts: { id: string; thresholdPrice: string; enabled: boolean }[];
@@ -391,19 +326,9 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
     expect(reloadedAlert?.thresholdPrice).toBe(farThreshold);
 
     // --- Now move both close enough to actually resolve on this new process ---
-    messages2.dispose();
-    const resumedMessages = createMessageBuffer(ws2, 120000);
-    const waitForResumedMessage = (
-      stage: string,
-      predicate: (message: { type: string; payload: unknown }) => boolean,
-    ): Promise<{ type: string; payload: unknown }> =>
-      resumedMessages.waitForMessage(predicate, 120000).catch((error: unknown) => {
-        throw new Error(`${stage}: ${error instanceof Error ? error.message : String(error)}`);
-      });
-    ws2.send(JSON.stringify({ type: 'subscribe', channels: ['market.symbol.EURUSD'] }));
-    const freshTickMsg = await waitForResumedMessage(
+    const freshTickMsg = await resumedClient.waitForMessage(
       'post-restart market snapshot',
-      (m) => m.type === 'market.tick',
+      (message) => message.type === 'market.tick',
     );
     const freshTick = freshTickMsg.payload as { bid: string; ask: string };
     const safeDistancePoints = 9;
@@ -413,16 +338,13 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
     const mid = (Number(freshTick.bid) + Number(freshTick.ask)) / 2;
     const nearThreshold = (mid + safeDistancePoints * onePoint).toFixed(pricePrecision);
 
-    ws2.send(
-      JSON.stringify({
+    const pendingModification = await resumedClient.sendCommandAndAwaitResult({
+      expectedEvent: 'pending_order_result',
+      command: {
         type: 'modify_pending_order',
         pendingOrder: { accountId, pendingOrderId, triggerPrice: nearTriggerPrice },
-      }),
-    );
-    const pendingModification = await waitForResumedMessage(
-      'post-restart pending-order modification',
-      (m) => m.type === 'pending_order_result',
-    );
+      },
+    });
     const pendingModificationPayload = pendingModification.payload as {
       status: string;
       order: { triggerPrice: string } | null;
@@ -430,16 +352,13 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
     expect(pendingModificationPayload.status).toBe('active');
     expect(pendingModificationPayload.order?.triggerPrice).toBe(nearTriggerPrice);
 
-    ws2.send(
-      JSON.stringify({
+    const alertModification = await resumedClient.sendCommandAndAwaitResult({
+      expectedEvent: 'alert_result',
+      command: {
         type: 'modify_price_alert',
         alert: { alertId, thresholdPrice: nearThreshold },
-      }),
-    );
-    const alertModification = await waitForResumedMessage(
-      'post-restart price-alert modification',
-      (m) => m.type === 'alert_result',
-    );
+      },
+    });
     const alertModificationPayload = alertModification.payload as {
       status: string;
       alert: { thresholdPrice: string } | null;
@@ -447,21 +366,20 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
     expect(alertModificationPayload.status).toBe('ok');
     expect(alertModificationPayload.alert?.thresholdPrice).toBe(nearThreshold);
 
-    // Resume tick evaluation, on the NEW process: both settle from here on.
-    const filled = await waitForResumedMessage(
+    const filled = await resumedClient.waitForMessage(
       'post-restart pending-order fill',
-      (m) =>
-        m.type === 'order_result' &&
-        (m.payload as { idempotencyKey: string }).idempotencyKey ===
+      (message) =>
+        message.type === 'order_result' &&
+        (message.payload as { idempotencyKey: string }).idempotencyKey ===
           `pending-order:${pendingOrderId}`,
     );
     expect((filled.payload as { status: string }).status).toBe('filled');
 
-    const notified = await waitForResumedMessage(
+    const notified = await resumedClient.waitForMessage(
       'post-restart alert notification',
-      (m) =>
-        m.type === 'notification.new' &&
-        (m.payload as { notification: { alertId: string } }).notification.alertId === alertId,
+      (message) =>
+        message.type === 'notification.new' &&
+        (message.payload as { notification: { alertId: string } }).notification.alertId === alertId,
     );
     expect((notified.payload as { notification: { alertId: string } }).notification.alertId).toBe(
       alertId,
@@ -469,20 +387,18 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
 
     // Prevent duplicate fills/notifications: no second event for either
     // arrives on a further burst of ticks, and the DB agrees.
-    const extraFills = await waitForMessages(
-      ws2,
-      (m) =>
-        m.type === 'order_result' &&
-        (m.payload as { idempotencyKey: string }).idempotencyKey ===
+    const extraFills = await resumedClient.observeMessages(
+      (message) =>
+        message.type === 'order_result' &&
+        (message.payload as { idempotencyKey: string }).idempotencyKey ===
           `pending-order:${pendingOrderId}`,
       3000,
     );
     expect(extraFills).toHaveLength(0);
-    const extraNotifications = await waitForMessages(
-      ws2,
-      (m) =>
-        m.type === 'notification.new' &&
-        (m.payload as { notification: { alertId: string } }).notification.alertId === alertId,
+    const extraNotifications = await resumedClient.observeMessages(
+      (message) =>
+        message.type === 'notification.new' &&
+        (message.payload as { notification: { alertId: string } }).notification.alertId === alertId,
       1000,
     );
     expect(extraNotifications).toHaveLength(0);
@@ -501,20 +417,12 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
       .executeTakeFirstOrThrow();
     expect(Number(notificationCount.count)).toBe(1);
 
-    ws2.close();
-    resumedMessages.dispose();
-
     // --- Reconcile browser snapshot: a third connection, after everything settled ---
-    const ws3 = new WsClient(`${WS_URL}?token=${token}`);
-    const messages3 = createMessageBuffer(ws3, 120000);
-    await waitForOpen(ws3);
-    ws3.send(
-      JSON.stringify({
-        type: 'subscribe',
-        channels: [accountStateChannel(accountId), userNotificationsChannel(userId)],
-      }),
+    const reconciledClient = await resumedClient.reconnect();
+    const finalSnapshot = await reconciledClient.subscribeAndWait(
+      [accountStateChannel(accountId), userNotificationsChannel(userId)],
+      'account.snapshot',
     );
-    const finalSnapshot = await messages3.waitForMessage((m) => m.type === 'account.snapshot');
     const finalPayload = finalSnapshot.payload as {
       openPositions: { id: string }[];
       pendingOrders: unknown[];
@@ -522,8 +430,9 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
     expect(finalPayload.openPositions.length).toBeGreaterThan(0);
     expect(finalPayload.pendingOrders).toHaveLength(0);
 
-    const finalNotifications = await messages3.waitForMessage(
-      (m) => m.type === 'notifications.snapshot',
+    const finalNotifications = await reconciledClient.waitForMessage(
+      'reconciled notifications snapshot',
+      (message) => message.type === 'notifications.snapshot',
     );
     const finalNotificationsPayload = finalNotifications.payload as {
       notifications: { alertId: string }[];
@@ -531,7 +440,6 @@ describeIfDb('single-node restart recovery (real end-to-end)', () => {
     };
     expect(finalNotificationsPayload.notifications.some((n) => n.alertId === alertId)).toBe(true);
     expect(finalNotificationsPayload.unreadCount).toBeGreaterThan(0);
-    ws3.close();
-    messages3.dispose();
+    reconciledClient.close();
   }, 480000);
 });

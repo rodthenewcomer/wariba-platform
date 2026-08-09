@@ -195,6 +195,8 @@ describeIfDb('realtime service — auth, isolation, reconnect (real end-to-end)'
     const childEnv: NodeJS.ProcessEnv = {
       ...process.env,
       REALTIME_PORT: String(PORT),
+      MARKET_DATA_PROVIDER: 'mock',
+      MARKET_DATA_REPLAY_MODE: 'false',
       MARKET_TICK_INTERVAL_MS: '2000',
       ACCOUNT_RISK_PREVIEW_INTERVAL_MS: '1500',
     };

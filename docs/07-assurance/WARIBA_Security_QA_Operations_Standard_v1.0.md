@@ -1210,6 +1210,12 @@ Obligatoires :
 
 # 37. E2E critiques
 
+Les parcours critiques sont répartis entre un smoke PR volontairement petit et les groupes
+fonctionnels complets. Auth/RBAC, risque, payout, ledger et RLS n'utilisent aucune retry pour
+obtenir une certification verte. Toute première exécution échouée reste un signal à classifier,
+même si un retry nightly unique passe. Voir
+`docs/07-assurance/WARIBA_CI_E2E_Test_Architecture_v1.0.md`.
+
 ## E2E-001 — Signup
 
 Inscription → vérification → login.
@@ -2651,6 +2657,11 @@ Développement rapide.
 ## CI
 
 Tests déterministes.
+
+Chaque job DB utilise une stack Supabase locale isolée, recréée depuis les migrations puis
+arrêtée. Aucune base distante, staging ou production n'est une cible de CI. Les traces et captures
+Playwright sont conservées à l'échec uniquement ; les logs realtime sont bornés et incluent URL,
+état de connexion, événement attendu et événements récents.
 
 ## Preview
 

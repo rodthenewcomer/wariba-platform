@@ -1,4 +1,4 @@
-name: CI
+name: PR Fast Gate
 
 on:
   pull_request:
@@ -6,140 +6,163 @@ on:
     branches: [main]
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: pr-fast-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-# Least-privilege default: neither job needs anything beyond reading repo
-# contents (no PR comments, no releases, no pushes). Without this, the
-# GITHUB_TOKEN inherits the repo/org default permissions, which may be
-# broader than this workflow needs — a supply-chain compromise of any
-# action used below would then have more ambient access than it should.
 permissions:
   contents: read
 
 jobs:
-  ci:
-    name: Static, unit and build
+  static:
+    name: Static
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - id: timing
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/setup-node
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm boundaries:check
+      - run: pnpm secrets:scan
+      - if: always()
+        uses: ./.github/actions/record-ci-metric
         with:
-          node-version-file: '.nvmrc'
+          metric-id: static
+          label: STATIC
+          started-at: ${{ steps.timing.outputs.epoch }}
+          status: ${{ job.status }}
 
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Install dependencies (frozen lockfile)
-        run: pnpm install --frozen-lockfile
-
-      - name: Format check
-        run: pnpm format:check
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Import boundaries
-        run: pnpm boundaries:check
-
-      - name: Secret scan
-        run: pnpm secrets:scan
-
-      - name: Unit tests
-        run: pnpm test:unit
-
-      - name: Build
-        run: pnpm build
-
-  database-and-e2e:
-    name: Database, RLS and E2E
+  unit:
+    name: Unit
     runs-on: ubuntu-latest
-    needs: ci
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - id: timing
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/setup-node
+      - run: pnpm test:unit
+      - if: always()
+        uses: ./.github/actions/record-ci-metric
         with:
-          node-version-file: '.nvmrc'
+          metric-id: unit
+          label: UNIT
+          started-at: ${{ steps.timing.outputs.epoch }}
+          status: ${{ job.status }}
 
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Install dependencies (frozen lockfile)
-        run: pnpm install --frozen-lockfile
-
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: timing
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/setup-node
+      - run: pnpm build
+      - if: always()
+        uses: ./.github/actions/record-ci-metric
         with:
-          version: 2.107.0
+          metric-id: build
+          label: BUILD
+          started-at: ${{ steps.timing.outputs.epoch }}
+          status: ${{ job.status }}
 
-      - name: Start and migrate isolated Supabase
-        run: |
-          supabase start
-          supabase db reset
-          supabase status -o env > /tmp/wariba-supabase.env
-          set -a
-          source /tmp/wariba-supabase.env
-          {
-            echo "APP_ENV=local"
-            echo "APP_BASE_URL=http://127.0.0.1:3000"
-            echo "DATABASE_URL=$DB_URL"
-            echo "SUPABASE_URL=$API_URL"
-            echo "SUPABASE_ANON_KEY=$ANON_KEY"
-            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
-            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
-            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
-            echo "NEXT_PUBLIC_REALTIME_WS_URL=ws://127.0.0.1:4001/ws"
-            echo "MARKET_DATA_PROVIDER=mock"
-            echo "PAYMENT_PROVIDER=sandbox"
-            echo "SANDBOX_WEBHOOK_SECRET=ci-local-only"
-          } >> "$GITHUB_ENV"
-
-      - name: Database assertions
-        run: pnpm db:test
-
-      - name: Integration tests
-        run: pnpm test:integration
-
-      - name: RLS tests
-        run: pnpm test:rls
-
-      - name: Install Playwright Chromium
-        run: pnpm --filter @wariba/web exec playwright install --with-deps chromium
-
-      - name: End-to-end tests
-        run: pnpm test:e2e
-
-      - name: Start realtime service (kept alive for the load test below)
-        run: |
-          nohup pnpm --filter @wariba/realtime start > /tmp/wariba-realtime.log 2>&1 &
-          echo $! > /tmp/wariba-realtime.pid
-          for i in $(seq 1 30); do
-            if curl -sf http://127.0.0.1:4001/health > /dev/null; then
-              echo "realtime is up"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "realtime did not become healthy in time"
-          cat /tmp/wariba-realtime.log
-          exit 1
-
-      - name: Load test — 150 concurrent connections (Prompt 7 Appendix 07-B, gate 5)
-        run: pnpm --filter @wariba/realtime test:load
-
-      - name: Stop realtime service
-        if: always()
-        run: kill "$(cat /tmp/wariba-realtime.pid)" 2>/dev/null || true
-
-      - name: Stop Supabase
-        if: always()
+  database-integration:
+    name: DB Integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: timing
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/setup-node
+      - uses: ./.github/actions/setup-supabase
+      - run: pnpm db:test
+      - run: pnpm test:integration:smoke
+      - if: always()
         run: supabase stop --no-backup
+      - if: always()
+        uses: ./.github/actions/record-ci-metric
+        with:
+          metric-id: db-integration
+          label: DB INTEGRATION
+          started-at: ${{ steps.timing.outputs.epoch }}
+          status: ${{ job.status }}
+
+  rls-smoke:
+    name: RLS Smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: timing
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/setup-node
+      - uses: ./.github/actions/setup-supabase
+      - run: pnpm test:rls:smoke
+      - if: always()
+        run: supabase stop --no-backup
+      - if: always()
+        uses: ./.github/actions/record-ci-metric
+        with:
+          metric-id: rls-smoke
+          label: RLS SMOKE
+          started-at: ${{ steps.timing.outputs.epoch }}
+          status: ${{ job.status }}
+
+  e2e-smoke:
+    name: E2E Smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: timing
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/setup-node
+      - uses: ./.github/actions/setup-supabase
+      - run: pnpm --filter @wariba/web exec playwright install --with-deps chromium
+      - run: pnpm test:e2e:smoke
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-smoke-failure-${{ github.run_attempt }}
+          path: |
+            apps/web/test-results
+            apps/web/playwright-report
+          if-no-files-found: ignore
+          retention-days: 14
+      - if: always()
+        run: supabase stop --no-backup
+      - if: always()
+        uses: ./.github/actions/record-ci-metric
+        with:
+          metric-id: e2e-smoke
+          label: E2E SMOKE
+          started-at: ${{ steps.timing.outputs.epoch }}
+          status: ${{ job.status }}
+
+  summary:
+    name: Fast Gate Summary
+    if: always()
+    needs: [static, unit, build, database-integration, rls-smoke, e2e-smoke]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ci-metric-*
+          path: ci-metrics
+          merge-multiple: true
+      - name: Write summary
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const rows = fs.readdirSync('ci-metrics').sort().map((file) => {
+            const [label, status, duration, started, ended] = fs.readFileSync(`ci-metrics/${file}`, 'utf8').trim().split('|');
+            return { label, status: status.toUpperCase(), duration: Number(duration), started: Number(started), ended: Number(ended) };
+          });
+          const format = (seconds) => `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+          const total = Math.max(...rows.map((row) => row.ended)) - Math.min(...rows.map((row) => row.started));
+          const lines = ['## PR Fast Gate', '', '| Suite | Status | Duration |', '|---|---:|---:|'];
+          for (const row of rows) lines.push(`| ${row.label} | ${row.status} | ${format(row.duration)} |`);
+          lines.push('', `**Total wall clock:** ${format(total)}`);
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\n')}\n`);
+          if (rows.some((row) => row.status !== 'SUCCESS')) process.exitCode = 1;
+          NODE
