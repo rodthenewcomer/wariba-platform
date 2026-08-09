@@ -1,8 +1,13 @@
 import { isPartialCloseQuantityValid, isStale } from '@wariba/domain';
-import { loadSymbolSpec } from './accounts';
+import { lockAccount, loadSymbolSpec } from './accounts';
 import type { Db } from './client';
 import type { PositionReductionQueueStatus, TradableSymbol } from './schema';
-import { closePosition, type MarketSnapshot, type TradeCommandResult } from './trading';
+import {
+  closePositionInTransaction,
+  type MarketSnapshot,
+  type TradeCommandResult,
+} from './trading';
+import { assertCurrentLeadershipInTransaction, type LeadershipToken } from './realtime-leadership';
 
 /**
  * Prompt 7 Appendix 07-C §12/§16 — QueuePositionReductionDuringOutage and
@@ -263,6 +268,7 @@ export interface ExecuteQueuedReductionsParams {
   market: MarketSnapshot;
   marketBySymbol: Record<TradableSymbol, MarketSnapshot>;
   now: Date;
+  fencingToken?: LeadershipToken;
 }
 
 export interface ExecutedQueuedReduction {
@@ -304,41 +310,56 @@ export async function executeQueuedReductions(
 
   const results: ExecutedQueuedReduction[] = [];
   for (const row of rows) {
-    const commandResult = await closePosition(db, {
-      accountId: row.account_id,
-      idempotencyKey: row.idempotency_key,
-      positionId: row.position_id,
-      mode: row.mode,
-      ...(row.mode === 'partial' && row.requested_quantity
-        ? { quantity: row.requested_quantity }
-        : {}),
-      market: params.market,
-      marketBySymbol: params.marketBySymbol,
-      now: params.now,
-    });
-    const settledStatus: PositionReductionQueueStatus =
-      commandResult.order.status === 'filled' ? 'executed' : 'failed';
-    const updated = await db
-      .updateTable('app.position_reduction_queue')
-      .set({
-        status: settledStatus,
-        executed_at: params.now,
-        execution_order_id: commandResult.order.orderId,
-        failure_reason:
-          commandResult.order.status === 'rejected' ? commandResult.order.rejectionCode : null,
-      })
-      .where('id', '=', row.id)
-      .where('status', '=', 'queued')
-      .returningAll()
-      .executeTakeFirst();
-    if (updated) {
-      results.push({
+    const result = await db.transaction().execute(async (trx) => {
+      await lockAccount(trx, row.account_id);
+      if (params.fencingToken) {
+        await assertCurrentLeadershipInTransaction(trx, params.fencingToken);
+      }
+      const claimed = await trx
+        .selectFrom('app.position_reduction_queue')
+        .selectAll()
+        .where('id', '=', row.id)
+        .where('status', '=', 'queued')
+        .forUpdate()
+        .executeTakeFirst();
+      if (!claimed) return null;
+
+      const commandResult = await closePositionInTransaction(trx, {
         accountId: row.account_id,
-        idempotencyKey: row.idempotency_key,
+        idempotencyKey: claimed.idempotency_key,
+        positionId: claimed.position_id,
+        mode: claimed.mode,
+        ...(claimed.mode === 'partial' && claimed.requested_quantity
+          ? { quantity: claimed.requested_quantity }
+          : {}),
+        market: params.market,
+        marketBySymbol: params.marketBySymbol,
+        now: params.now,
+        ...(params.fencingToken ? { fencingToken: params.fencingToken } : {}),
+      });
+      const settledStatus: PositionReductionQueueStatus =
+        commandResult.order.status === 'filled' ? 'executed' : 'failed';
+      const updated = await trx
+        .updateTable('app.position_reduction_queue')
+        .set({
+          status: settledStatus,
+          executed_at: params.now,
+          execution_order_id: commandResult.order.orderId,
+          failure_reason:
+            commandResult.order.status === 'rejected' ? commandResult.order.rejectionCode : null,
+        })
+        .where('id', '=', claimed.id)
+        .where('status', '=', 'queued')
+        .returningAll()
+        .executeTakeFirstOrThrow();
+      return {
+        accountId: row.account_id,
+        idempotencyKey: claimed.idempotency_key,
         queueEntry: toSummary(updated, params.symbol),
         commandResult,
-      });
-    }
+      };
+    });
+    if (result) results.push(result);
   }
   return results;
 }

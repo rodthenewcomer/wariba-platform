@@ -12,9 +12,9 @@ import {
 } from '../src/treasury';
 
 /**
- * Prompt 08 Phase E — real integration tests against the live hosted
+ * Prompt 08 Phase E — real integration tests against the isolated local
  * database for the treasury reserve ledger and its coverage-zone
- * resolution. Requires DATABASE_URL (via .env.local, gitignored).
+ * resolution. Requires DATABASE_URL.
  */
 const DATABASE_URL = process.env.DATABASE_URL;
 const describeIfDb = DATABASE_URL ? describe : describe.skip;
@@ -25,7 +25,6 @@ describeIfDb('treasury reserve — real database', () => {
   const cleanupAccountIds: string[] = [];
   const cleanupUserIds: string[] = [];
   const cleanupPayoutRequestIds: string[] = [];
-  const cleanupReserveEntryIds: string[] = [];
 
   const createTestUser = async (email: string): Promise<string> => {
     const res = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
@@ -145,9 +144,10 @@ describeIfDb('treasury reserve — real database', () => {
   }, 20000);
 
   afterAll(async () => {
-    for (const id of cleanupReserveEntryIds) {
-      await db.deleteFrom('app.treasury_reserve_entries').where('id', '=', id).execute();
-    }
+    await db
+      .deleteFrom('app.treasury_reserve_entries')
+      .where('created_by', '=', staffUserId)
+      .execute();
     for (const id of cleanupPayoutRequestIds) {
       await db.deleteFrom('app.payout_requests').where('id', '=', id).execute();
     }
@@ -204,13 +204,6 @@ describeIfDb('treasury reserve — real database', () => {
       createdBy: staffUserId,
     });
     const afterEntries = await loadCurrentReserve(db);
-    const inserted = await db
-      .selectFrom('app.treasury_reserve_entries')
-      .select('id')
-      .where('created_by', '=', staffUserId)
-      .execute();
-    cleanupReserveEntryIds.push(...inserted.map((row) => row.id));
-
     const delta = Number(afterEntries) - Number(startingReserve);
     expect(delta).toBeCloseTo(70000, 2);
   }, 30000);

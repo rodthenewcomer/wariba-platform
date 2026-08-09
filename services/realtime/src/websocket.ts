@@ -4,6 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import {
   executeQueuedReductions,
   triggerPendingOrders,
+  triggerPositionProtections,
   evaluateAlerts,
   loadActiveAlertsForUser,
   loadNotificationsForUser,
@@ -69,6 +70,9 @@ import {
   readAllMarkets,
 } from './order-handler';
 import { handleRequestPayout } from './payout-handler';
+import type { RealtimeLeadershipCoordinator } from './leadership';
+import { MarketTickGate } from './tick-gate';
+import type { RealtimeOperationalMetrics } from './metrics';
 
 const clientMessageSchema = z.discriminatedUnion('type', [
   subscribeMessageSchema,
@@ -123,9 +127,11 @@ export function registerWebSocketRoute(
     config: RealtimeConfig;
     logger: Logger;
     registry: ConnectionRegistry;
+    leadership: RealtimeLeadershipCoordinator;
+    metrics: RealtimeOperationalMetrics;
   },
 ): void {
-  const { db, market, symbolSpecs, config, logger, registry } = deps;
+  const { db, market, symbolSpecs, config, logger, registry, leadership, metrics } = deps;
 
   app.get('/ws', { websocket: true }, (socket, request) => {
     // @fastify/websocket's own README: event handlers must attach
@@ -160,7 +166,16 @@ export function registerWebSocketRoute(
       const cid = connectionId;
       const uid = userId;
       processingChain = processingChain
-        .then(() => processMessage({ db, market, symbolSpecs, registry, logger }, cid, uid, raw))
+        .then(async () => {
+          const startedAt = performance.now();
+          await processMessage(
+            { db, market, symbolSpecs, registry, logger, metrics },
+            cid,
+            uid,
+            raw,
+          );
+          metrics.observeCommandLatency(performance.now() - startedAt);
+        })
         .catch((error: unknown) => {
           logger.error('ws.message_handler_failed', {
             connectionId: cid,
@@ -183,6 +198,7 @@ export function registerWebSocketRoute(
       if (connectionId) {
         registry.unregister(connectionId);
         logger.info('ws.disconnected', { connectionId, userId });
+        metrics.connectionClosed();
       }
     });
 
@@ -197,6 +213,7 @@ export function registerWebSocketRoute(
       connectionId = randomUUID();
       userId = auth.userId;
       registry.register(connectionId, socket, userId);
+      metrics.connectionOpened(userId);
       logger.info('ws.connected', { connectionId, userId });
 
       const pending = queue.splice(0, queue.length);
@@ -240,7 +257,18 @@ export function registerWebSocketRoute(
   }, HEARTBEAT_INTERVAL_MS);
 
   // Broadcast every market tick to its channel's subscribers.
+  const tickGate = new MarketTickGate();
   market.subscribe(Object.keys(symbolSpecs) as TradableSymbol[], (tick) => {
+    const tickDecision = tickGate.evaluate(tick);
+    metrics.tick(tickDecision);
+    if (tickDecision === 'duplicate' || tickDecision === 'out_of_order') {
+      logger.warn('realtime.market_tick_rejected', {
+        symbol: tick.symbol,
+        sequence: tick.sequence,
+        reason: tickDecision,
+      });
+      return;
+    }
     registry.broadcast(
       marketSymbolChannel(tick.symbol),
       buildEnvelope({
@@ -250,6 +278,10 @@ export function registerWebSocketRoute(
         payload: tick,
       }),
     );
+    if (tickDecision !== 'accepted') return;
+    const fencingToken = leadership.currentToken();
+    if (!fencingToken) return;
+    const processingNow = new Date();
 
     // Prompt 7 Appendix 07-C §12 — this tick is fresh the instant it's
     // published (age ~0ms against `now` below), so it's exactly the "first
@@ -269,9 +301,12 @@ export function registerWebSocketRoute(
         sequence: String(tick.sequence),
       },
       marketBySymbol: readAllMarkets(market),
-      now: new Date(),
+      now: processingNow,
+      fencingToken,
     })
       .then((executed) => {
+        metrics.addQueuedReductions(executed.length);
+        metrics.addFills(executed.length);
         // The order_result broadcast alone is enough: it's the exact same
         // signal a normal immediate partial/full close produces, and every
         // client already resubscribes to account.state after any
@@ -299,6 +334,41 @@ export function registerWebSocketRoute(
         });
       });
 
+    void triggerPositionProtections(db, {
+      symbol: tick.symbol,
+      market: {
+        bid: tick.bid,
+        ask: tick.ask,
+        timestamp: tick.timestamp,
+        sequence: String(tick.sequence),
+      },
+      marketBySymbol: readAllMarkets(market),
+      now: processingNow,
+      fencingToken,
+    })
+      .then((triggered) => {
+        metrics.addProtectionTriggers(triggered.length);
+        metrics.addFills(triggered.length);
+        for (const entry of triggered) {
+          broadcastOrderResult(
+            registry,
+            entry.accountId,
+            buildResultMessage(
+              entry.accountId,
+              `position-protection:${entry.positionId}:${entry.trigger}:${tick.sequence}`,
+              'full_close',
+              entry.commandResult,
+            ),
+          );
+        }
+      })
+      .catch((error: unknown) => {
+        logger.error('ws.position_protection_trigger_failed', {
+          symbol: tick.symbol,
+          errorMessage: error instanceof Error ? error.message : String(error),
+        });
+      });
+
     // Prompt 7 Appendix 07-D — same hook point, same fire-and-forget
     // reasoning as executeQueuedReductions above: this fresh tick is the
     // only place a Buy/Sell Limit/Stop order's trigger condition can be
@@ -312,9 +382,12 @@ export function registerWebSocketRoute(
         sequence: String(tick.sequence),
       },
       marketBySymbol: readAllMarkets(market),
-      now: new Date(),
+      now: processingNow,
+      fencingToken,
     })
       .then((triggered) => {
+        metrics.addPendingTriggers(triggered.length);
+        metrics.addFills(triggered.filter((entry) => entry.commandResult !== null).length);
         for (const entry of triggered) {
           broadcastPendingOrderResult(registry, entry.accountId, {
             type: 'pending_order_result',
@@ -343,6 +416,7 @@ export function registerWebSocketRoute(
         }
       })
       .catch((error: unknown) => {
+        metrics.pendingTriggerFailed();
         logger.error('ws.pending_order_trigger_failed', {
           symbol: tick.symbol,
           errorMessage: error instanceof Error ? error.message : String(error),
@@ -356,9 +430,11 @@ export function registerWebSocketRoute(
     void evaluateAlerts(db, {
       symbol: tick.symbol,
       tick: { bid: tick.bid, ask: tick.ask },
-      now: new Date(),
+      now: processingNow,
+      fencingToken,
     })
       .then((notifications) => {
+        metrics.addAlertNotifications(notifications.length);
         for (const notification of notifications) {
           registry.broadcast(
             userNotificationsChannel(notification.userId),
@@ -444,6 +520,7 @@ interface MessageDeps {
   symbolSpecs: Record<TradableSymbol, LoadedSymbolSpec>;
   registry: ConnectionRegistry;
   logger: Logger;
+  metrics: RealtimeOperationalMetrics;
 }
 
 async function processMessage(
@@ -452,9 +529,12 @@ async function processMessage(
   userId: string,
   raw: Buffer,
 ): Promise<void> {
-  const { db, market, symbolSpecs, registry } = deps;
+  const { db, market, symbolSpecs, registry, metrics } = deps;
+
+  metrics.commandReceived();
 
   if (!registry.checkRateLimit(connectionId, RATE_LIMIT_MAX_MESSAGES, RATE_LIMIT_WINDOW_MS)) {
+    metrics.commandRejected();
     sendError(registry, connectionId, 'rate_limited', 'Too many messages — slow down.');
     return;
   }
@@ -463,12 +543,14 @@ async function processMessage(
   try {
     parsedJson = JSON.parse(raw.toString());
   } catch {
+    metrics.commandRejected();
     sendError(registry, connectionId, 'invalid_json', 'Message must be valid JSON.');
     return;
   }
 
   const parsed = clientMessageSchema.safeParse(parsedJson);
   if (!parsed.success) {
+    metrics.commandRejected();
     sendError(registry, connectionId, 'invalid_message', 'Message failed schema validation.');
     return;
   }

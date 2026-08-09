@@ -13,9 +13,10 @@ import Decimal from 'decimal.js';
  * "Do not overwrite actual metrics with model assumptions").
  */
 
-export type ScenarioName = 'conservative' | 'base' | 'aggressive' | 'stress';
+export type SeedScenarioName = 'conservative' | 'base' | 'aggressive' | 'stress';
+export type ScenarioName = SeedScenarioName | 'custom';
 
-export const SCENARIO_NAMES = ['conservative', 'base', 'aggressive', 'stress'] as const;
+export const SCENARIO_NAMES = ['conservative', 'base', 'aggressive', 'stress', 'custom'] as const;
 
 export interface ScenarioAssumptions {
   /** Evaluation pass rate, e.g. "0.05" for 5%. */
@@ -75,7 +76,7 @@ export function parseScenarioAssumptions(value: unknown): ScenarioAssumptions {
   };
 }
 
-export const SCENARIO_ASSUMPTIONS: Record<ScenarioName, ScenarioAssumptions> = {
+export const SCENARIO_ASSUMPTIONS: Record<SeedScenarioName, ScenarioAssumptions> = {
   conservative: {
     evaluationPassRate: '0.05',
     performanceActivationRate: '0.98',
@@ -170,7 +171,11 @@ export interface ScenarioResult {
 }
 
 function resolveAssumptions(scenario: CohortInputs['scenario']): ScenarioAssumptions {
-  return typeof scenario === 'string' ? SCENARIO_ASSUMPTIONS[scenario] : scenario;
+  if (typeof scenario !== 'string') return scenario;
+  if (scenario === 'custom') {
+    throw new Error('CUSTOM actuarial assumptions must be loaded from persisted configuration.');
+  }
+  return SCENARIO_ASSUMPTIONS[scenario];
 }
 
 /** Recipients surviving from rank N to rank N+1 — each stage is a fraction of the previous stage's survivors, never of the original cohort. */

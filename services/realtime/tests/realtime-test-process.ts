@@ -11,6 +11,7 @@ interface RealtimeTestProcessOptions {
 export interface RealtimeTestProcess {
   child: ChildProcess;
   logs(): string;
+  kill(signal: NodeJS.Signals): void;
   stop(): Promise<void>;
 }
 
@@ -93,6 +94,7 @@ export async function spawnRealtimeTestProcess(
     cwd: options.cwd,
     env: childEnv,
     stdio: ['ignore', 'pipe', 'pipe'],
+    detached: process.platform !== 'win32',
   });
   let processLogs = '';
   const appendLog = (chunk: Buffer): void => {
@@ -101,20 +103,32 @@ export async function spawnRealtimeTestProcess(
   child.stdout?.on('data', appendLog);
   child.stderr?.on('data', appendLog);
   const logs = (): string => processLogs;
+  const kill = (signal: NodeJS.Signals): void => {
+    if (child.pid && process.platform !== 'win32') {
+      try {
+        process.kill(-child.pid, signal);
+        return;
+      } catch {
+        // Fall back to the direct child below if the process group already exited.
+      }
+    }
+    child.kill(signal);
+  };
 
   try {
     await waitForHealthy(child, options.healthUrl, logs, options.healthTimeoutMs ?? 30000);
   } catch (error) {
-    child.kill('SIGTERM');
+    kill('SIGTERM');
     throw error;
   }
 
   return {
     child,
     logs,
+    kill,
     async stop() {
       if (child.exitCode !== null || child.signalCode !== null) return;
-      child.kill('SIGTERM');
+      kill('SIGTERM');
       try {
         await waitForExit(child);
         await waitForCondition(
@@ -130,7 +144,7 @@ export async function spawnRealtimeTestProcess(
           10000,
         );
       } catch (error) {
-        child.kill('SIGKILL');
+        kill('SIGKILL');
         throw new Error(
           `${error instanceof Error ? error.message : String(error)}\n--- realtime logs ---\n${logs()}`,
         );

@@ -10,6 +10,8 @@ const ITEMS = [
   { href: '/control/users', label: 'Users', icon: <UsersIcon size="sm" /> },
   { href: '/control/payouts', label: 'Payouts', icon: <PayoutsIcon size="sm" /> },
   { href: '/control/integrity', label: 'Integrity', icon: <ShieldIcon size="sm" /> },
+  { href: '/control/actuarial', label: 'Actuarial', icon: <OverviewIcon size="sm" /> },
+  { href: '/control/treasury', label: 'Treasury', icon: <OverviewIcon size="sm" /> },
 ] as const;
 
 /** UX Architecture §35 — dense, clear, no super-admin catch-all. Never reachable from trader nav. */

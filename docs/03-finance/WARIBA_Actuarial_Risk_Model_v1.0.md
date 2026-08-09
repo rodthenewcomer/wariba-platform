@@ -823,3 +823,20 @@ Le modèle devient dangereux si :
 - WARIBA paie les anciens traders avec les ventes futures.
 
 Cette version 1.0 constitue le cadre actuariel initial. Elle doit être transformée en modèle calculable avant que les prix, les caps, le 50K et le 100K puissent passer au statut définitif.
+
+---
+
+# 24. Appendice 08-A — configuration persistée et preuve de modèle
+
+Les constantes `SCENARIO_ASSUMPTIONS` sont seulement des seeds. L'autorité
+éditable est `app.actuarial_scenario_assumptions` : nom, version, hypothèses,
+créateur, date, statut effectif, notes et motif. Chaque run conserve un snapshot
+immuable des hypothèses et inputs ainsi que le résultat. Les scénarios
+Conservative, Base, Aggressive, Stress et Custom sont modifiables/exécutables
+dans Control, avec historique et comparaison ; MODEL n'écrase jamais ACTUAL.
+
+Les cohortes 100/500/1 000/10 000 et les invariants de comptes non négatifs,
+rangs non croissants, produit désactivé à zéro, coûts bornés et totaux
+réconciliés sont testés. Les conversions `Number` restent confinées aux
+headcounts entiers probabilistes ; toutes les valeurs monétaires utilisent
+Decimal.js et PostgreSQL `numeric`.

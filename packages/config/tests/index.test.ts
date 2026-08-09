@@ -81,6 +81,16 @@ describe('assertNotSandboxInProduction', () => {
     ).toThrow(ConfigValidationError);
   });
 
+  it('throws (fail-fast) for a manual payout provider detected in production', () => {
+    expect(() =>
+      assertNotSandboxInProduction({
+        environment: 'production',
+        providerName: 'PAYOUT_PROVIDER',
+        providerValue: 'manual',
+      }),
+    ).toThrow(ConfigValidationError);
+  });
+
   it('does not throw for the real fcs provider in production', () => {
     expect(() =>
       assertNotSandboxInProduction({

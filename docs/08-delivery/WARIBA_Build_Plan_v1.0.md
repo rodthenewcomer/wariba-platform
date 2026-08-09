@@ -2603,3 +2603,15 @@ La première victoire est une bêta privée dans laquelle :
 - chaque incident possède une réponse.
 
 Cette version 1.0 devient la source de vérité de livraison de WARIBA. Aucun prompt ou agent ne peut réordonner le chemin critique, introduire un provider réel prématurément ou élargir le périmètre sans Decision Log et validation explicite.
+
+---
+
+# 61. Appendice 08-A — gate Prompt 08
+
+Le gate Prompt 08 exige : provider payout `mock/manual` agnostique, soumission
+distincte du règlement, payout freeze, hypothèses actuarielles persistées,
+reconstruction/hold/reversal, trigger atomique, SL/TP, ticks ordonnés,
+actif/standby fenced, matrice RBAC, audit/rate limit, runbooks et pipeline complet.
+Les providers réels, credentials market data commerciaux, load balancer déployé,
+secrets production et approbations légales restent des gates externes ; ils ne
+sont ni simulés ni déclarés livrés.

@@ -439,7 +439,7 @@
       "cross_below"
     ],
     "_pending_orders_note": "Appendix 07-D (2026-08-06): server-authoritative GTC limit/stop entry orders with optional attached SL/TP, and threshold-crossing price alerts, both evaluated on the live tick loop in services/realtime — no client-side or exchange-side order book. Desktop right-click and mobile long-press expose the identical context-menu action set (shared component, see DECISION_LOG.md UX-TRADING-009).",
-    "_single_node_note": "Single-writer realtime process only — no leader election, fencing, or standby takeover exists (TRADING-ORDER-004). A restart correctly reloads and resumes persisted pending orders/alerts (tested); the interval while the process is down is real downtime, not disclosed as failover.",
+    "_ha_note": "Appendix 08-A uses PostgreSQL-backed active/warm-standby leadership with a monotonically increasing fencing epoch. Only the current fenced leader may commit tick-driven financial mutations; restart and two-node takeover are tested.",
     "server_authoritative_for": [
       "current_position_quantity",
       "average_entry_price",

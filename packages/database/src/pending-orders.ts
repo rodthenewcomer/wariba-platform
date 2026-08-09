@@ -1,3 +1,4 @@
+import Decimal from 'decimal.js';
 import {
   isQuantityWithinBounds,
   isStale,
@@ -13,14 +14,16 @@ import { resolveProfitEligibilityPolicy } from '@wariba/policies';
 import { lockAccount, loadSymbolSpec } from './accounts';
 import type { Db } from './client';
 import { loadPolicyById } from './policy';
+import { findExposureIncreaseRejection } from './exposure-gate';
 import type { PendingOrderStatus, TradableSymbol } from './schema';
 import {
-  openPosition,
+  openPositionInTransaction,
   isWithinAggregateExposureLimit,
   countShortDurationProfitClosures,
   type MarketSnapshot,
   type TradeCommandResult,
 } from './trading';
+import { assertCurrentLeadershipInTransaction, type LeadershipToken } from './realtime-leadership';
 
 /**
  * Prompt 7 Appendix 07-D — server-authoritative Buy/Sell Limit/Stop
@@ -32,10 +35,9 @@ import {
  * trader-submitted market order uses. This module only owns the
  * queue/validate/trigger bookkeeping around that.
  *
- * No leadership/fencing/active-standby model exists in this codebase
- * (services/realtime is a single process — see the migration's own doc
- * comment) — safety here is the same single-writer-plus-idempotency-key
- * model every other command in this system already relies on.
+ * Appendix 08-A's fenced realtime leader is the sole tick-driven writer;
+ * row locks, state preconditions, idempotency keys, and the fencing check
+ * preserve one legal financial outcome under races and takeover.
  */
 
 const REJECTION = {
@@ -168,6 +170,11 @@ export async function createPendingOrder(
 
     if (account.status !== 'active') {
       return reject(REJECTION.ACCOUNT_NOT_ACTIVE);
+    }
+
+    const exposureRejection = await findExposureIncreaseRejection(trx, account.id);
+    if (exposureRejection) {
+      return reject(exposureRejection);
     }
 
     const policy = await loadPolicyById(trx, account.policy_version_id);
@@ -313,6 +320,14 @@ export async function modifyPendingOrder(
     const nextTriggerPrice = params.triggerPrice ?? existing.trigger_price;
     const nextQuantity = params.quantity ?? existing.quantity;
 
+    if (
+      params.quantity !== undefined &&
+      new Decimal(params.quantity).greaterThan(existing.quantity)
+    ) {
+      const exposureRejection = await findExposureIncreaseRejection(trx, account.id);
+      if (exposureRejection) return reject(exposureRejection);
+    }
+
     if (params.triggerPrice !== undefined) {
       const roundedTrigger = roundPriceToTick({
         price: params.triggerPrice,
@@ -434,6 +449,7 @@ export interface TriggerPendingOrdersParams {
   market: MarketSnapshot;
   marketBySymbol: Record<TradableSymbol, MarketSnapshot>;
   now: Date;
+  fencingToken?: LeadershipToken;
 }
 
 export interface TriggeredPendingOrder {
@@ -471,99 +487,104 @@ export async function triggerPendingOrders(
     });
     if (!triggered) continue;
 
-    // Mark TRIGGERED first, with a race guard (status = 'active') — a
-    // second tick arriving concurrently for the same symbol must never be
-    // able to also see this row as 'active' and trigger it twice. Distinct
-    // from FILLED: this row is the durable, persisted proof the trigger
-    // condition was met even if the fill step below then rejects.
-    const claimed = await db
-      .updateTable('app.pending_orders')
-      .set({ status: 'triggered', triggered_at: params.now, updated_at: params.now })
-      .where('id', '=', row.id)
-      .where('status', '=', 'active')
-      .returningAll()
-      .executeTakeFirst();
-    if (!claimed) continue; // another tick evaluation already claimed it.
+    const result = await db.transaction().execute(async (trx) => {
+      const account = await lockAccount(trx, row.account_id);
+      if (params.fencingToken) {
+        await assertCurrentLeadershipInTransaction(trx, params.fencingToken);
+      }
+      const claimed = await trx
+        .selectFrom('app.pending_orders')
+        .selectAll()
+        .where('id', '=', row.id)
+        .where('status', '=', 'active')
+        .forUpdate()
+        .executeTakeFirst();
+      if (!claimed) return null;
+      if (
+        !isPendingOrderTriggered({
+          orderType: claimed.order_type,
+          triggerPrice: claimed.trigger_price,
+          currentBid: params.market.bid,
+          currentAsk: params.market.ask,
+        })
+      ) {
+        return null;
+      }
 
-    const account = await db
-      .selectFrom('app.trading_accounts')
-      .select('symbol_spec_set_id')
-      .where('id', '=', claimed.account_id)
-      .executeTakeFirst();
-    const spec = account
-      ? await loadSymbolSpec(db, account.symbol_spec_set_id, claimed.symbol)
-      : null;
-    if (!spec) {
-      const failed = await db
+      const spec = await loadSymbolSpec(trx, account.symbol_spec_set_id, claimed.symbol);
+      if (!spec) {
+        const failed = await trx
+          .updateTable('app.pending_orders')
+          .set({
+            status: 'failed',
+            triggered_at: params.now,
+            rejection_code: REJECTION.UNKNOWN_SYMBOL_SPEC,
+            trigger_market_sequence: params.market.sequence,
+            updated_at: params.now,
+          })
+          .where('id', '=', claimed.id)
+          .where('status', '=', 'active')
+          .returningAll()
+          .executeTakeFirstOrThrow();
+        return {
+          accountId: claimed.account_id,
+          order: toSummary(failed),
+          commandResult: null,
+        };
+      }
+
+      const rawFillPrice = computeFillPrice({
+        bid: params.market.bid,
+        ask: params.market.ask,
+        positionSide: claimed.side,
+        action: 'open',
+        slippagePoints: spec.slippage_points,
+        pricePrecision: spec.price_precision,
+      });
+      const clampedFillPrice = clampPendingOrderFillPrice({
+        orderType: claimed.order_type,
+        fillPrice: rawFillPrice,
+        triggerPrice: claimed.trigger_price,
+        pricePrecision: spec.price_precision,
+      });
+
+      const commandResult = await openPositionInTransaction(trx, {
+        accountId: claimed.account_id,
+        idempotencyKey: `pending-order:${claimed.id}`,
+        symbol: claimed.symbol,
+        side: claimed.side,
+        quantity: claimed.quantity,
+        ...(claimed.requested_stop_loss ? { stopLoss: claimed.requested_stop_loss } : {}),
+        ...(claimed.requested_take_profit ? { takeProfit: claimed.requested_take_profit } : {}),
+        market: params.market,
+        marketBySymbol: params.marketBySymbol,
+        now: params.now,
+        fillPriceOverride: clampedFillPrice,
+        ...(params.fencingToken ? { fencingToken: params.fencingToken } : {}),
+      });
+
+      const settledStatus: PendingOrderStatus =
+        commandResult.order.status === 'filled' ? 'filled' : 'failed';
+      const settled = await trx
         .updateTable('app.pending_orders')
         .set({
-          status: 'failed',
-          rejection_code: REJECTION.UNKNOWN_SYMBOL_SPEC,
+          status: settledStatus,
+          triggered_at: params.now,
+          filled_at: settledStatus === 'filled' ? params.now : null,
+          execution_order_id: commandResult.order.orderId,
+          rejection_code:
+            commandResult.order.status === 'rejected' ? commandResult.order.rejectionCode : null,
+          trigger_market_sequence: params.market.sequence,
           updated_at: params.now,
         })
         .where('id', '=', claimed.id)
+        .where('status', '=', 'active')
         .returningAll()
         .executeTakeFirstOrThrow();
-      results.push({
-        accountId: claimed.account_id,
-        order: toSummary(failed),
-        commandResult: null,
-      });
-      continue;
-    }
 
-    const rawFillPrice = computeFillPrice({
-      bid: params.market.bid,
-      ask: params.market.ask,
-      positionSide: claimed.side,
-      action: 'open',
-      slippagePoints: spec.slippage_points,
-      pricePrecision: spec.price_precision,
+      return { accountId: claimed.account_id, order: toSummary(settled), commandResult };
     });
-    const clampedFillPrice = clampPendingOrderFillPrice({
-      orderType: claimed.order_type,
-      fillPrice: rawFillPrice,
-      triggerPrice: claimed.trigger_price,
-      pricePrecision: spec.price_precision,
-    });
-
-    const commandResult = await openPosition(db, {
-      accountId: claimed.account_id,
-      // Reuses the pending order's own idempotency key, prefixed —
-      // guarantees this exact trigger can never produce two fills even if
-      // triggerPendingOrders somehow ran twice for the same row (the
-      // status='active' race guard above already prevents that; this is a
-      // second, independent layer via openPosition's own idempotency check).
-      idempotencyKey: `pending-order:${claimed.id}`,
-      symbol: claimed.symbol,
-      side: claimed.side,
-      quantity: claimed.quantity,
-      ...(claimed.requested_stop_loss ? { stopLoss: claimed.requested_stop_loss } : {}),
-      ...(claimed.requested_take_profit ? { takeProfit: claimed.requested_take_profit } : {}),
-      market: params.market,
-      marketBySymbol: params.marketBySymbol,
-      now: params.now,
-      fillPriceOverride: clampedFillPrice,
-    });
-
-    const settledStatus: PendingOrderStatus =
-      commandResult.order.status === 'filled' ? 'filled' : 'failed';
-    const settled = await db
-      .updateTable('app.pending_orders')
-      .set({
-        status: settledStatus,
-        filled_at: settledStatus === 'filled' ? params.now : null,
-        execution_order_id: commandResult.order.orderId,
-        rejection_code:
-          commandResult.order.status === 'rejected' ? commandResult.order.rejectionCode : null,
-        trigger_market_sequence: params.market.sequence,
-        updated_at: params.now,
-      })
-      .where('id', '=', claimed.id)
-      .returningAll()
-      .executeTakeFirstOrThrow();
-
-    results.push({ accountId: claimed.account_id, order: toSummary(settled), commandResult });
+    if (result) results.push(result);
   }
   return results;
 }

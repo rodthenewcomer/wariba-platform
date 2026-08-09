@@ -86,6 +86,7 @@ export {
   SCENARIO_NAMES,
   SCENARIO_ASSUMPTIONS,
   type ScenarioName,
+  type SeedScenarioName,
   type ScenarioAssumptions,
   type ProductCode as ActuarialProductCode,
   type ProductInputs as ActuarialProductInputs,

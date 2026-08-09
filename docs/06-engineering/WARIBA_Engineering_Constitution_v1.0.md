@@ -3173,3 +3173,14 @@ La vitesse n’est pas l’absence de discipline.
 La bonne discipline permet à tout agent IA mandaté de produire vite sans détruire la cohérence.
 
 Cette Constitution v1.0 devient obligatoire pour le futur dépôt. Tout agent, développeur, script ou prompt doit la respecter. Toute dérogation significative nécessite un Decision Log, une justification, des tests et une validation explicite.
+
+---
+
+# 106. Appendice 08-A — invariants de certification
+
+- Une mutation financière pilotée par tick exige l'epoch de fencing leader courant dans sa transaction.
+- Un payout soumis n'est jamais payé avant réconciliation provider confirmée ou confirmation manuelle autorisée et auditée.
+- L'historique financier est corrigé par écritures compensatoires, jamais par mutation rétroactive.
+- Un échec de reconstruction pose un integrity hold et bloque exposition/payout.
+- Les actions Control sensibles sont autorisées côté serveur, limitées par compteur PostgreSQL et auditées avec acteur, rôle, cible, avant/après, motif et corrélation.
+- La certification exécute statique, unit, propriété générée, build, DB, intégration, RLS, E2E, restart, failover et charge ; un skip critique rend le verdict correspondant faux.

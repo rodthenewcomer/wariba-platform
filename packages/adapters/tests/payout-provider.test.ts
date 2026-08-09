@@ -46,6 +46,18 @@ describe('MockPayoutProvider', () => {
       ).status,
     ).toBe('paid');
   });
+
+  it('reconciles its deterministic provider reference after an adapter restart', async () => {
+    const firstProcess = new MockPayoutProvider();
+    const submission = await firstProcess.submit(SUBMISSION);
+    const restartedProcess = new MockPayoutProvider();
+    const reconciliation = await restartedProcess.reconcile({
+      providerReference: submission.providerReference,
+      idempotencyKey: submission.idempotencyKey,
+      reconciledAt: new Date('2026-08-07T12:00:00.000Z'),
+    });
+    expect(reconciliation.status).toBe('paid');
+  });
 });
 
 describe('ManualPayoutProvider', () => {

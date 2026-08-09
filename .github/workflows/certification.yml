@@ -24,6 +24,29 @@ permissions:
   contents: read
 
 jobs:
+  static-certification:
+    if: >-
+      (github.event_name != 'pull_request' || github.event.label.name == 'full-certification') &&
+      (github.event_name != 'workflow_dispatch' || inputs.mode == 'certification')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: timing
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/setup-node
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm boundaries:check
+      - run: pnpm secrets:scan
+      - if: always()
+        uses: ./.github/actions/record-ci-metric
+        with:
+          metric-id: static-certification
+          label: STATIC CERTIFICATION
+          started-at: ${{ steps.timing.outputs.epoch }}
+          status: ${{ job.status }}
+
   unit-and-build:
     if: >-
       (github.event_name != 'pull_request' || github.event.label.name == 'full-certification') &&
@@ -35,6 +58,7 @@ jobs:
         run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
       - uses: ./.github/actions/setup-node
       - run: pnpm test:unit
+      - run: pnpm test:property
       - run: pnpm build
       - if: always()
         uses: ./.github/actions/record-ci-metric
@@ -95,7 +119,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [auth, trade, payout, control]
+        group: [auth, trade, payout, control, mobile]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -166,6 +190,28 @@ jobs:
           started-at: ${{ steps.timing.outputs.epoch }}
           status: ${{ job.status }}
 
+  multi-node-failover:
+    if: >-
+      (github.event_name != 'pull_request' || github.event.label.name == 'full-certification') &&
+      (github.event_name != 'workflow_dispatch' || inputs.mode == 'certification')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: timing
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/setup-node
+      - uses: ./.github/actions/setup-supabase
+      - run: pnpm test:failover
+      - if: always()
+        run: supabase stop --no-backup
+      - if: always()
+        uses: ./.github/actions/record-ci-metric
+        with:
+          metric-id: multi-node-failover
+          label: MULTI-NODE FAILOVER
+          started-at: ${{ steps.timing.outputs.epoch }}
+          status: ${{ job.status }}
+
   load:
     if: >-
       (github.event_name != 'pull_request' || github.event.label.name == 'full-certification') &&
@@ -192,7 +238,17 @@ jobs:
     name: Certification Summary
     if: always() && (github.event_name != 'pull_request' || github.event.label.name == 'full-certification')
     needs:
-      [unit-and-build, database-full, rls-full, web-e2e-full, realtime-functional, recovery, load]
+      [
+        static-certification,
+        unit-and-build,
+        database-full,
+        rls-full,
+        web-e2e-full,
+        realtime-functional,
+        recovery,
+        multi-node-failover,
+        load,
+      ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -216,9 +272,3 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\n')}\n`);
           if (rows.some((row) => row.status !== 'SUCCESS')) process.exitCode = 1;
           NODE
-          cat >> "$GITHUB_STEP_SUMMARY" <<'SUMMARY'
-
-          ### Architecture limitation
-
-          Multi-node failover and chaos remain outside certification until WARIBA has a real HA leader/fencing design; no passing result is fabricated.
-          SUMMARY

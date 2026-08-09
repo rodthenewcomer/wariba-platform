@@ -12,6 +12,7 @@ import {
 import { buildControlReviewCasesView } from '@wariba/application';
 import { requireStaffRole } from '../../../../lib/staff-auth';
 import { getDb } from '../../../../lib/db';
+import { IntegrityHoldManager } from './IntegrityHoldManager';
 
 // requireStaffRole() needs request-time cookies + DB config; see the
 // (control) layout's dynamic export for why this can't be static.
@@ -31,6 +32,18 @@ export default async function ControlIntegrityPage() {
         title="Aucun signal"
         description="Les signaux d'intégrité (Guardian, revue humaine) arrivent avec Prompt 09."
       />
+
+      <Card padding="comfortable" className="flex flex-col gap-4">
+        <div>
+          <Text as="h2" variant="heading-sm">
+            Protection d’intégrité
+          </Text>
+          <Text variant="body-sm" color="secondary">
+            La levée exige une réconciliation financière exacte et reste auditée.
+          </Text>
+        </div>
+        <IntegrityHoldManager />
+      </Card>
 
       <Card padding="comfortable" className="flex flex-col gap-4">
         <div>

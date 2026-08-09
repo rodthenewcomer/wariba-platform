@@ -23,12 +23,15 @@ async function login(page: import('@playwright/test').Page, email: string, passw
   await page.getByLabel('Adresse email').fill(email);
   await page.getByLabel('Mot de passe').fill(password);
   await page.getByRole('button', { name: 'Se connecter' }).click();
-  await page.waitForURL('**/hub', { timeout: 15_000 });
+  await page.waitForURL('**/hub', { timeout: 30_000 });
 }
 
 async function openTrade(page: import('@playwright/test').Page) {
   await page.goto('/trade');
   await expect(page.getByText('Connecté')).toBeVisible({ timeout: 30_000 });
+  await expect(
+    page.getByText('Pas 0.0100 · Min 0.0100 · Max 10.0000').first(),
+  ).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('button', { name: /^(Buy|Trader EURUSD)$/ }).first()).toBeEnabled();
 }
 

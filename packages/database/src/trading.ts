@@ -21,6 +21,8 @@ import { lockAccount, loadSymbolSpec, type LockedAccount, type MarketSnapshot } 
 import type { Db } from './client';
 import { evaluateAndApplyAccountRiskInTransaction } from './risk';
 import { loadPolicyById } from './policy';
+import { findExposureIncreaseRejection } from './exposure-gate';
+import { assertCurrentLeadershipInTransaction, type LeadershipToken } from './realtime-leadership';
 import type { TradableSymbol } from './schema';
 
 export type { MarketSnapshot };
@@ -311,254 +313,264 @@ export interface OpenPositionParams {
    * of a second, divergent implementation.
    */
   fillPriceOverride?: string;
+  fencingToken?: LeadershipToken;
 }
 
 export async function openPosition(
   db: Db,
   params: OpenPositionParams,
 ): Promise<TradeCommandResult> {
-  return db.transaction().execute(async (trx) => {
-    // Lock BEFORE checking idempotency: two concurrent calls with the same
-    // key must not both read "no existing order" before either commits.
-    // Serializing on the account row lock first closes that race — only one
-    // of them can be past this point at a time for a given account.
-    const account = await lockAccount(trx, params.accountId);
+  return db.transaction().execute((trx) => openPositionInTransaction(trx, params));
+}
 
-    const existing = await findExistingOrder(trx, params.accountId, params.idempotencyKey);
-    if (existing) {
-      return replayExistingOrder(trx, existing);
-    }
+export async function openPositionInTransaction(
+  trx: Db,
+  params: OpenPositionParams,
+): Promise<TradeCommandResult> {
+  // Lock BEFORE checking idempotency: two concurrent calls with the same
+  // key must not both read "no existing order" before either commits.
+  // Serializing on the account row lock first closes that race — only one
+  // of them can be past this point at a time for a given account.
+  const account = await lockAccount(trx, params.accountId);
+  if (params.fencingToken) {
+    await assertCurrentLeadershipInTransaction(trx, params.fencingToken);
+  }
 
-    const reject = (code: string) =>
-      insertRejectedOrder(trx, {
-        account,
-        idempotencyKey: params.idempotencyKey,
-        orderType: 'market_open',
-        symbol: params.symbol,
-        side: params.side,
-        positionId: null,
-        requestedQuantity: params.quantity,
-        rejectionCode: code,
-        now: params.now,
-      });
+  const existing = await findExistingOrder(trx, params.accountId, params.idempotencyKey);
+  if (existing) {
+    return replayExistingOrder(trx, existing);
+  }
 
-    if (account.status !== 'active') {
-      return reject(REJECTION.ACCOUNT_NOT_ACTIVE);
-    }
-
-    const policy = await loadPolicyById(trx, account.policy_version_id);
-    const eligibilityPolicy = resolveProfitEligibilityPolicy(policy.parameters);
-    if (eligibilityPolicy.enabled) {
-      const shortDurationCount = await countShortDurationProfitClosures(
-        trx,
-        account.id,
-        params.now,
-      );
-      if (shortDurationCount >= eligibilityPolicy.entryLockCount) {
-        return reject(REJECTION.SHORT_DURATION_ENTRY_LOCKED);
-      }
-    }
-
-    const spec = await loadSymbolSpec(trx, account.symbol_spec_set_id, params.symbol);
-    if (!spec) {
-      return reject(REJECTION.UNKNOWN_SYMBOL_SPEC);
-    }
-
-    if (
-      isStale({
-        tickTimestamp: params.market.timestamp,
-        now: params.now,
-        staleThresholdMs: spec.stale_threshold_ms,
-      })
-    ) {
-      return reject(REJECTION.STALE_MARKET_DATA);
-    }
-
-    if (
-      !isQuantityWithinBounds({
-        quantity: params.quantity,
-        minimumQuantity: spec.minimum_quantity,
-        maximumQuantity: spec.maximum_quantity,
-        quantityStep: spec.quantity_step,
-      })
-    ) {
-      return reject(REJECTION.INVALID_QUANTITY);
-    }
-
-    if (!(await isWithinAggregateExposureLimit(trx, account, params.symbol, params.quantity))) {
-      return reject(REJECTION.EXPOSURE_LIMIT_EXCEEDED);
-    }
-
-    const fillPrice =
-      params.fillPriceOverride ??
-      computeFillPrice({
-        bid: params.market.bid,
-        ask: params.market.ask,
-        positionSide: params.side,
-        action: 'open',
-        slippagePoints: spec.slippage_points,
-        pricePrecision: spec.price_precision,
-      });
-    const commission = computeCommission({
-      quantity: params.quantity,
-      commissionPerLot: spec.commission_per_lot,
-    });
-    const nextSequence = account.version + 1;
-
-    await trx
-      .updateTable('app.trading_accounts')
-      .set({ version: nextSequence, updated_at: params.now })
-      .where('id', '=', account.id)
-      .where('version', '=', account.version)
-      .returning(['id'])
-      .executeTakeFirstOrThrow(
-        () =>
-          new Error(
-            `openPosition: account ${account.id} version changed concurrently ` +
-              `(expected ${account.version}) — lockAccount's FOR UPDATE should make this ` +
-              'unreachable; treat as a serialization bug if it ever fires.',
-          ),
-      );
-
-    const order = await trx
-      .insertInto('app.trade_orders')
-      .values({
-        account_id: params.accountId,
-        idempotency_key: params.idempotencyKey,
-        order_type: 'market_open',
-        symbol: params.symbol,
-        side: params.side,
-        position_id: null,
-        requested_quantity: params.quantity,
-        filled_quantity: params.quantity,
-        requested_stop_loss: params.stopLoss ?? null,
-        requested_take_profit: params.takeProfit ?? null,
-        status: 'accepted',
-        account_sequence: String(nextSequence),
-        received_at: params.now,
-        accepted_at: params.now,
-      })
-      .returning(['id'])
-      .executeTakeFirstOrThrow();
-
-    const position = await trx
-      .insertInto('app.positions')
-      .values({
-        account_id: params.accountId,
-        symbol: params.symbol,
-        side: params.side,
-        opening_quantity: params.quantity,
-        open_quantity: params.quantity,
-        average_open_price: openingAveragePrice(fillPrice),
-        stop_loss: params.stopLoss ?? null,
-        take_profit: params.takeProfit ?? null,
-        status: 'open',
-        account_sequence: String(nextSequence),
-        opened_at: params.now,
-      })
-      .returning(['id'])
-      .executeTakeFirstOrThrow();
-
-    const fill = await trx
-      .insertInto('app.fills')
-      .values({
-        order_id: order.id,
-        account_id: params.accountId,
-        position_id: position.id,
-        symbol: params.symbol,
-        side: params.side,
-        fill_type: 'open',
-        quantity: params.quantity,
-        price: fillPrice,
-        spread_points: spec.spread_points,
-        slippage_points: spec.slippage_points,
-        commission,
-        market_sequence: params.market.sequence,
-        account_sequence: String(nextSequence),
-        occurred_at: params.now,
-      })
-      .returning(['id', 'price', 'quantity', 'commission', 'realized_pnl', 'occurred_at'])
-      .executeTakeFirstOrThrow();
-
-    assertTradeOrderTransition('accepted', 'filled');
-    await trx
-      .updateTable('app.trade_orders')
-      .set({ status: 'filled', completed_at: params.now, position_id: position.id })
-      .where('id', '=', order.id)
-      .execute();
-
-    // Decimal-valued, not string-equality: computeCommission's own output
-    // precision is an implementation detail (4dp today) this check must
-    // not be coupled to — '0.00' !== '0.0000' as strings even though both
-    // are zero.
-    if (!new Decimal(commission).isZero()) {
-      await trx
-        .insertInto('app.trading_ledger_entries')
-        .values({
-          account_id: params.accountId,
-          entry_type: 'commission',
-          amount: `-${commission}`,
-          reference_type: 'fill',
-          reference_id: fill.id,
-          occurred_at: params.now,
-        })
-        .execute();
-    }
-
-    await trx
-      .insertInto('app.outbox_events')
-      .values({
-        aggregate_type: 'position',
-        aggregate_id: position.id,
-        event_type: 'position.opened',
-        payload: JSON.stringify({
-          accountId: params.accountId,
-          orderId: order.id,
-          positionId: position.id,
-        }),
-        occurred_at: params.now,
-      })
-      .execute();
-
-    const riskOutcome = await evaluateAndApplyAccountRiskInTransaction(trx, {
-      accountId: params.accountId,
+  const reject = (code: string) =>
+    insertRejectedOrder(trx, {
+      account,
+      idempotencyKey: params.idempotencyKey,
+      orderType: 'market_open',
+      symbol: params.symbol,
+      side: params.side,
+      positionId: null,
+      requestedQuantity: params.quantity,
+      rejectionCode: code,
       now: params.now,
-      marketBySymbol: params.marketBySymbol,
-      triggerEventType: 'trade_order',
-      triggerEventId: order.id,
     });
-    if (riskOutcome.transitioned && riskOutcome.newStatus === 'breached') {
-      await closeAllOpenPositionsOnBreach(trx, params.accountId, params.marketBySymbol, params.now);
-    }
 
-    return {
-      order: {
-        orderId: order.id,
-        status: 'filled',
-        rejectionCode: null,
-        accountSequence: String(nextSequence),
-        alreadyExisted: false,
-      },
-      position: await loadPositionSummary(trx, position.id),
-      fill: {
-        id: fill.id,
-        openingFillId: null,
-        price: fill.price,
-        quantity: fill.quantity,
-        commission: fill.commission,
-        realizedPnl: fill.realized_pnl,
-        occurredAt: fill.occurred_at,
-        // Open fills never carry a duration or eligibility outcome — only closes do.
-        durationMs: null,
-        isShortDurationProfit: false,
-        eligibleRealizedPnl: null,
-        ineligibleShortDurationProfit: '0.00',
-        allocatedOpenCommission: '0.00',
-        netRealizedPnl: null,
-        eligibilityReason: null,
-      },
-    };
+  if (account.status !== 'active') {
+    return reject(REJECTION.ACCOUNT_NOT_ACTIVE);
+  }
+
+  const exposureRejection = await findExposureIncreaseRejection(trx, account.id);
+  if (exposureRejection) {
+    return reject(exposureRejection);
+  }
+
+  const policy = await loadPolicyById(trx, account.policy_version_id);
+  const eligibilityPolicy = resolveProfitEligibilityPolicy(policy.parameters);
+  if (eligibilityPolicy.enabled) {
+    const shortDurationCount = await countShortDurationProfitClosures(trx, account.id, params.now);
+    if (shortDurationCount >= eligibilityPolicy.entryLockCount) {
+      return reject(REJECTION.SHORT_DURATION_ENTRY_LOCKED);
+    }
+  }
+
+  const spec = await loadSymbolSpec(trx, account.symbol_spec_set_id, params.symbol);
+  if (!spec) {
+    return reject(REJECTION.UNKNOWN_SYMBOL_SPEC);
+  }
+
+  if (
+    isStale({
+      tickTimestamp: params.market.timestamp,
+      now: params.now,
+      staleThresholdMs: spec.stale_threshold_ms,
+    })
+  ) {
+    return reject(REJECTION.STALE_MARKET_DATA);
+  }
+
+  if (
+    !isQuantityWithinBounds({
+      quantity: params.quantity,
+      minimumQuantity: spec.minimum_quantity,
+      maximumQuantity: spec.maximum_quantity,
+      quantityStep: spec.quantity_step,
+    })
+  ) {
+    return reject(REJECTION.INVALID_QUANTITY);
+  }
+
+  if (!(await isWithinAggregateExposureLimit(trx, account, params.symbol, params.quantity))) {
+    return reject(REJECTION.EXPOSURE_LIMIT_EXCEEDED);
+  }
+
+  const fillPrice =
+    params.fillPriceOverride ??
+    computeFillPrice({
+      bid: params.market.bid,
+      ask: params.market.ask,
+      positionSide: params.side,
+      action: 'open',
+      slippagePoints: spec.slippage_points,
+      pricePrecision: spec.price_precision,
+    });
+  const commission = computeCommission({
+    quantity: params.quantity,
+    commissionPerLot: spec.commission_per_lot,
   });
+  const nextSequence = account.version + 1;
+
+  await trx
+    .updateTable('app.trading_accounts')
+    .set({ version: nextSequence, updated_at: params.now })
+    .where('id', '=', account.id)
+    .where('version', '=', account.version)
+    .returning(['id'])
+    .executeTakeFirstOrThrow(
+      () =>
+        new Error(
+          `openPosition: account ${account.id} version changed concurrently ` +
+            `(expected ${account.version}) — lockAccount's FOR UPDATE should make this ` +
+            'unreachable; treat as a serialization bug if it ever fires.',
+        ),
+    );
+
+  const order = await trx
+    .insertInto('app.trade_orders')
+    .values({
+      account_id: params.accountId,
+      idempotency_key: params.idempotencyKey,
+      order_type: 'market_open',
+      symbol: params.symbol,
+      side: params.side,
+      position_id: null,
+      requested_quantity: params.quantity,
+      filled_quantity: params.quantity,
+      requested_stop_loss: params.stopLoss ?? null,
+      requested_take_profit: params.takeProfit ?? null,
+      status: 'accepted',
+      account_sequence: String(nextSequence),
+      received_at: params.now,
+      accepted_at: params.now,
+    })
+    .returning(['id'])
+    .executeTakeFirstOrThrow();
+
+  const position = await trx
+    .insertInto('app.positions')
+    .values({
+      account_id: params.accountId,
+      symbol: params.symbol,
+      side: params.side,
+      opening_quantity: params.quantity,
+      open_quantity: params.quantity,
+      average_open_price: openingAveragePrice(fillPrice),
+      stop_loss: params.stopLoss ?? null,
+      take_profit: params.takeProfit ?? null,
+      status: 'open',
+      account_sequence: String(nextSequence),
+      opened_at: params.now,
+    })
+    .returning(['id'])
+    .executeTakeFirstOrThrow();
+
+  const fill = await trx
+    .insertInto('app.fills')
+    .values({
+      order_id: order.id,
+      account_id: params.accountId,
+      position_id: position.id,
+      symbol: params.symbol,
+      side: params.side,
+      fill_type: 'open',
+      quantity: params.quantity,
+      price: fillPrice,
+      spread_points: spec.spread_points,
+      slippage_points: spec.slippage_points,
+      commission,
+      market_sequence: params.market.sequence,
+      account_sequence: String(nextSequence),
+      occurred_at: params.now,
+    })
+    .returning(['id', 'price', 'quantity', 'commission', 'realized_pnl', 'occurred_at'])
+    .executeTakeFirstOrThrow();
+
+  assertTradeOrderTransition('accepted', 'filled');
+  await trx
+    .updateTable('app.trade_orders')
+    .set({ status: 'filled', completed_at: params.now, position_id: position.id })
+    .where('id', '=', order.id)
+    .execute();
+
+  // Decimal-valued, not string-equality: computeCommission's own output
+  // precision is an implementation detail (4dp today) this check must
+  // not be coupled to — '0.00' !== '0.0000' as strings even though both
+  // are zero.
+  if (!new Decimal(commission).isZero()) {
+    await trx
+      .insertInto('app.trading_ledger_entries')
+      .values({
+        account_id: params.accountId,
+        entry_type: 'commission',
+        amount: `-${commission}`,
+        reference_type: 'fill',
+        reference_id: fill.id,
+        occurred_at: params.now,
+      })
+      .execute();
+  }
+
+  await trx
+    .insertInto('app.outbox_events')
+    .values({
+      aggregate_type: 'position',
+      aggregate_id: position.id,
+      event_type: 'position.opened',
+      payload: JSON.stringify({
+        accountId: params.accountId,
+        orderId: order.id,
+        positionId: position.id,
+      }),
+      occurred_at: params.now,
+    })
+    .execute();
+
+  const riskOutcome = await evaluateAndApplyAccountRiskInTransaction(trx, {
+    accountId: params.accountId,
+    now: params.now,
+    marketBySymbol: params.marketBySymbol,
+    triggerEventType: 'trade_order',
+    triggerEventId: order.id,
+  });
+  if (riskOutcome.transitioned && riskOutcome.newStatus === 'breached') {
+    await closeAllOpenPositionsOnBreach(trx, params.accountId, params.marketBySymbol, params.now);
+  }
+
+  return {
+    order: {
+      orderId: order.id,
+      status: 'filled',
+      rejectionCode: null,
+      accountSequence: String(nextSequence),
+      alreadyExisted: false,
+    },
+    position: await loadPositionSummary(trx, position.id),
+    fill: {
+      id: fill.id,
+      openingFillId: null,
+      price: fill.price,
+      quantity: fill.quantity,
+      commission: fill.commission,
+      realizedPnl: fill.realized_pnl,
+      occurredAt: fill.occurred_at,
+      // Open fills never carry a duration or eligibility outcome — only closes do.
+      durationMs: null,
+      isShortDurationProfit: false,
+      eligibleRealizedPnl: null,
+      ineligibleShortDurationProfit: '0.00',
+      allocatedOpenCommission: '0.00',
+      netRealizedPnl: null,
+      eligibilityReason: null,
+    },
+  };
 }
 
 export interface ClosePositionParams {
@@ -571,6 +583,7 @@ export interface ClosePositionParams {
   /** See OpenPositionParams.marketBySymbol — same purpose. */
   marketBySymbol: Record<TradableSymbol, MarketSnapshot>;
   now: Date;
+  fencingToken?: LeadershipToken;
 }
 
 interface ClosePositionExecution {
@@ -1025,11 +1038,19 @@ export async function closePosition(
   db: Db,
   params: ClosePositionParams,
 ): Promise<TradeCommandResult> {
-  return db.transaction().execute(async (trx) => {
-    // Lock BEFORE checking idempotency — see openPosition for why.
-    const account = await lockAccount(trx, params.accountId);
-    return (await closePositionLocked(trx, params, account)).result;
-  });
+  return db.transaction().execute((trx) => closePositionInTransaction(trx, params));
+}
+
+export async function closePositionInTransaction(
+  trx: Db,
+  params: ClosePositionParams,
+): Promise<TradeCommandResult> {
+  // Lock BEFORE checking idempotency — see openPosition for why.
+  const account = await lockAccount(trx, params.accountId);
+  if (params.fencingToken) {
+    await assertCurrentLeadershipInTransaction(trx, params.fencingToken);
+  }
+  return (await closePositionLocked(trx, params, account)).result;
 }
 
 export interface CloseAllPositionsParams {

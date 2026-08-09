@@ -5342,7 +5342,20 @@ l'Appendice 07-C : le callback `market.subscribe(...)` de
 attente qui se déclenche réutilise `openPosition`
 (`packages/database/src/trading.ts`) dans la même transaction Postgres que
 le fill — SL/TP deviennent des protections de position authoritatives dans
-le même commit, jamais une étape séparée. Aucune élection de leader, aucun
-fencing, aucun standby n'existe pour `services/realtime` — la reprise après
-restart est testée et correcte, mais l'intervalle pendant lequel le
-processus est arrêté reste une interruption de service réelle.
+le même commit, jamais une étape séparée. L'Appendice 08-A ajoute ensuite
+une coordination actif/standby PostgreSQL, un epoch de fencing et une preuve
+de takeover à deux processus ; la preuve single-node de 07-D reste le test
+complémentaire de restart.
+
+---
+
+# 35. Appendice 08-A — hardening Prompt 08
+
+Le Prompt 08 est certifié uniquement après preuve des invariants financiers,
+concurrence, restart, failover à deux processus et charge. Le scope ajoute une
+frontière `PayoutProvider` mock/manual, la distinction soumission/règlement,
+le payout freeze, les hypothèses actuarielles persistées, reconstruction et
+reversal, leadership PostgreSQL fenced, RBAC/rate limit/audit, métriques et
+runbooks. Aucun provider réel, Redis, Kafka, Kubernetes, microservice, stack
+chart ou Prompt 09 n'est ajouté. Lightweight Charts reste le renderer V1 ;
+`ChartEngineAdapter` est seulement un suivi architectural futur.

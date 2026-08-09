@@ -1,0 +1,198 @@
+import { randomUUID } from 'node:crypto';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { activateEvaluationAccount } from '../src/activation';
+import { createDbClient, type Db } from '../src/client';
+import {
+  acquireOrRenewRealtimeLeadership,
+  expireRealtimeLeadership,
+  StaleLeadershipError,
+} from '../src/realtime-leadership';
+import { openPosition } from '../src/trading';
+
+const DATABASE_URL = process.env.DATABASE_URL;
+const describeIfDb = DATABASE_URL ? describe : describe.skip;
+
+describeIfDb('PostgreSQL realtime leadership fencing', () => {
+  let db: Db;
+  let userId: string;
+  let accountId: string;
+  let purchaseOrderId: string;
+
+  beforeAll(async () => {
+    db = createDbClient(DATABASE_URL as string);
+    await db
+      .updateTable('app.realtime_leadership')
+      .set({
+        leader_instance_id: null,
+        fencing_epoch: '0',
+        lease_expires_at: new Date(0),
+        acquired_at: null,
+        renewed_at: null,
+        previous_leader_instance_id: null,
+        takeover_count: 0,
+      })
+      .where('service_name', '=', 'market-trigger-writer')
+      .execute();
+
+    const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
+      method: 'POST',
+      headers: {
+        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: `leadership-${Date.now()}@wariba-test.invalid`,
+        password: randomUUID(),
+        email_confirm: true,
+      }),
+    });
+    userId = ((await response.json()) as { id: string }).id;
+    const productVersion = await db
+      .selectFrom('app.product_versions')
+      .innerJoin('app.products', 'app.products.id', 'app.product_versions.product_id')
+      .select([
+        'app.product_versions.id',
+        'app.products.nominal_balance',
+        'app.products.nominal_currency',
+      ])
+      .where('app.products.code', '=', '10K')
+      .executeTakeFirstOrThrow();
+    purchaseOrderId = (
+      await db
+        .insertInto('app.purchase_orders')
+        .values({
+          user_id: userId,
+          product_version_id: productVersion.id,
+          idempotency_key: randomUUID(),
+          status: 'paid',
+          total_amount: '39900.00',
+          total_currency: 'XOF',
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+    ).id;
+    accountId = (
+      await activateEvaluationAccount(db, {
+        purchaseOrderId,
+        userId,
+        nominalBalance: productVersion.nominal_balance,
+        currency: productVersion.nominal_currency,
+      })
+    ).id;
+  }, 30000);
+
+  afterAll(async () => {
+    const positions = await db
+      .selectFrom('app.positions')
+      .select('id')
+      .where('account_id', '=', accountId)
+      .execute();
+    for (const position of positions) {
+      await db.deleteFrom('app.fills').where('position_id', '=', position.id).execute();
+    }
+    await db.deleteFrom('app.trade_orders').where('account_id', '=', accountId).execute();
+    await db.deleteFrom('app.positions').where('account_id', '=', accountId).execute();
+    await db.deleteFrom('app.trading_ledger_entries').where('account_id', '=', accountId).execute();
+    await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', accountId).execute();
+    await db.deleteFrom('app.risk_violations').where('account_id', '=', accountId).execute();
+    await db
+      .deleteFrom('app.account_daily_snapshots')
+      .where('account_id', '=', accountId)
+      .execute();
+    await db
+      .deleteFrom('app.account_state_transitions')
+      .where('account_id', '=', accountId)
+      .execute();
+    await db.deleteFrom('app.trading_accounts').where('id', '=', accountId).execute();
+    await db.deleteFrom('app.purchase_orders').where('id', '=', purchaseOrderId).execute();
+    await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
+      method: 'DELETE',
+      headers: {
+        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+    });
+    await db.destroy();
+  }, 30000);
+
+  it('elects one writer, increments epoch on takeover, and fences the former leader', async () => {
+    const nodeA = await acquireOrRenewRealtimeLeadership(db, {
+      instanceId: 'node-a',
+      leaseDurationMs: 4000,
+    });
+    expect(nodeA.role).toBe('leader');
+    if (nodeA.role !== 'leader') throw new Error('node-a was not elected');
+
+    const nodeBStandby = await acquireOrRenewRealtimeLeadership(db, {
+      instanceId: 'node-b',
+      leaseDurationMs: 4000,
+    });
+    expect(nodeBStandby.role).toBe('standby');
+
+    const nodeARenewed = await acquireOrRenewRealtimeLeadership(db, {
+      instanceId: 'node-a',
+      leaseDurationMs: 4000,
+    });
+    expect(nodeARenewed.role).toBe('leader');
+    expect(nodeARenewed.state.fencingEpoch).toBe(nodeA.state.fencingEpoch);
+
+    await expireRealtimeLeadership(db, nodeA.token);
+    const nodeB = await acquireOrRenewRealtimeLeadership(db, {
+      instanceId: 'node-b',
+      leaseDurationMs: 4000,
+    });
+    expect(nodeB.role).toBe('leader');
+    if (nodeB.role !== 'leader') throw new Error('node-b did not take over');
+    expect(BigInt(nodeB.token.fencingEpoch)).toBe(BigInt(nodeA.token.fencingEpoch) + 1n);
+
+    const now = new Date();
+    const market = {
+      bid: '1.08450',
+      ask: '1.08460',
+      timestamp: now.toISOString(),
+      sequence: '100',
+    };
+    const markets = {
+      EURUSD: market,
+      GBPUSD: { bid: '1.26000', ask: '1.26020', timestamp: now.toISOString(), sequence: '100' },
+      USDJPY: { bid: '150.100', ask: '150.120', timestamp: now.toISOString(), sequence: '100' },
+      XAUUSD: { bid: '2000.00', ask: '2000.30', timestamp: now.toISOString(), sequence: '100' },
+      NAS100: { bid: '18000.0', ask: '18002.0', timestamp: now.toISOString(), sequence: '100' },
+    };
+
+    await expect(
+      openPosition(db, {
+        accountId,
+        idempotencyKey: randomUUID(),
+        symbol: 'EURUSD',
+        side: 'buy',
+        quantity: '0.10',
+        market,
+        marketBySymbol: markets,
+        now,
+        fencingToken: nodeA.token,
+      }),
+    ).rejects.toBeInstanceOf(StaleLeadershipError);
+    expect(
+      await db
+        .selectFrom('app.positions')
+        .select('id')
+        .where('account_id', '=', accountId)
+        .execute(),
+    ).toHaveLength(0);
+
+    const accepted = await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'EURUSD',
+      side: 'buy',
+      quantity: '0.10',
+      market,
+      marketBySymbol: markets,
+      now,
+      fencingToken: nodeB.token,
+    });
+    expect(accepted.order.status).toBe('filled');
+  }, 30000);
+});

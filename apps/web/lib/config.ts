@@ -9,6 +9,7 @@ const webEnvSchema = baseEnvironmentSchema.extend({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   DATABASE_URL: z.string().min(1),
   PAYMENT_PROVIDER: z.string().min(1),
+  PAYOUT_PROVIDER: z.enum(['mock', 'manual']).default('manual'),
   SANDBOX_WEBHOOK_SECRET: z.string().min(1),
   // Read by client components as literal `process.env.NEXT_PUBLIC_...`
   // references (Next.js only inlines NEXT_PUBLIC_ vars into the browser
@@ -38,6 +39,11 @@ export function loadWebConfig(source: Record<string, string | undefined> = proce
       environment: cached.APP_ENV,
       providerName: 'PAYMENT_PROVIDER',
       providerValue: cached.PAYMENT_PROVIDER,
+    });
+    assertNotSandboxInProduction({
+      environment: cached.APP_ENV,
+      providerName: 'PAYOUT_PROVIDER',
+      providerValue: cached.PAYOUT_PROVIDER,
     });
   }
   return cached;

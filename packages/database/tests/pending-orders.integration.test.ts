@@ -468,4 +468,149 @@ describeIfDb('pending-orders — real database', () => {
     expect(triggered[0]?.order.rejectionCode).toBe('exposure_limit_exceeded');
     expect(triggered[0]?.commandResult?.order.status).toBe('rejected');
   });
+
+  it('trigger versus cancel has one terminal outcome and at most one financial fill', async () => {
+    const created = await createPendingOrder(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'EURUSD',
+      orderType: 'buy_limit',
+      quantity: '0.20',
+      triggerPrice: '1.08400',
+      market: FRESH_MARKET,
+      now: NOW,
+    });
+    const pendingOrderId = created.order!.id;
+    await Promise.all([
+      triggerPendingOrders(db, {
+        symbol: 'EURUSD',
+        market: LOWER_MARKET,
+        marketBySymbol: marketsWith(LOWER_MARKET),
+        now: new Date(NOW.getTime() + 1000),
+      }),
+      cancelPendingOrder(db, {
+        accountId,
+        pendingOrderId,
+        now: new Date(NOW.getTime() + 1000),
+      }),
+    ]);
+
+    const terminal = await db
+      .selectFrom('app.pending_orders')
+      .select(['status', 'execution_order_id'])
+      .where('id', '=', pendingOrderId)
+      .executeTakeFirstOrThrow();
+    expect(['filled', 'cancelled']).toContain(terminal.status);
+    const openingFills = await db
+      .selectFrom('app.fills')
+      .select('id')
+      .where('account_id', '=', accountId)
+      .where('fill_type', '=', 'open')
+      .execute();
+    expect(openingFills.length).toBe(terminal.status === 'filled' ? 1 : 0);
+  });
+
+  it('trigger versus price modification uses the row lock and versioned terminal state', async () => {
+    const created = await createPendingOrder(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'EURUSD',
+      orderType: 'buy_limit',
+      quantity: '0.20',
+      triggerPrice: '1.08400',
+      market: FRESH_MARKET,
+      now: NOW,
+    });
+    const pendingOrderId = created.order!.id;
+    await Promise.all([
+      triggerPendingOrders(db, {
+        symbol: 'EURUSD',
+        market: LOWER_MARKET,
+        marketBySymbol: marketsWith(LOWER_MARKET),
+        now: new Date(NOW.getTime() + 1000),
+      }),
+      modifyPendingOrder(db, {
+        accountId,
+        pendingOrderId,
+        triggerPrice: '1.08200',
+        market: FRESH_MARKET,
+        now: new Date(NOW.getTime() + 1000),
+      }),
+    ]);
+
+    const final = await db
+      .selectFrom('app.pending_orders')
+      .select(['status', 'trigger_price', 'version'])
+      .where('id', '=', pendingOrderId)
+      .executeTakeFirstOrThrow();
+    expect(['active', 'filled']).toContain(final.status);
+    if (final.status === 'active') {
+      expect(final.trigger_price).toBe('1.08200');
+      expect(final.version).toBe(created.order!.version + 1);
+    }
+    const fills = await db
+      .selectFrom('app.fills')
+      .select('id')
+      .where('account_id', '=', accountId)
+      .where('fill_type', '=', 'open')
+      .execute();
+    expect(fills.length).toBe(final.status === 'filled' ? 1 : 0);
+  });
+
+  it.each(['soft_locked', 'breached'] as const)(
+    'revalidates account status at trigger time and fails under %s',
+    async (status) => {
+      const created = await createPendingOrder(db, {
+        accountId,
+        idempotencyKey: randomUUID(),
+        symbol: 'EURUSD',
+        orderType: 'buy_limit',
+        quantity: '0.20',
+        triggerPrice: '1.08400',
+        market: FRESH_MARKET,
+        now: NOW,
+      });
+      await db
+        .updateTable('app.trading_accounts')
+        .set({ status })
+        .where('id', '=', accountId)
+        .execute();
+      const triggered = (
+        await triggerPendingOrders(db, {
+          symbol: 'EURUSD',
+          market: LOWER_MARKET,
+          marketBySymbol: marketsWith(LOWER_MARKET),
+          now: new Date(NOW.getTime() + 1000),
+        })
+      ).find((entry) => entry.order.id === created.order!.id);
+      expect(triggered?.order.status).toBe('failed');
+      expect(triggered?.order.rejectionCode).toBe('account_not_active');
+    },
+  );
+
+  it('never fills a pending trigger from stale market data', async () => {
+    const created = await createPendingOrder(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'EURUSD',
+      orderType: 'buy_limit',
+      quantity: '0.20',
+      triggerPrice: '1.08400',
+      market: FRESH_MARKET,
+      now: NOW,
+    });
+    const staleNow = new Date(NOW.getTime() + 60_000);
+    const staleTrigger = { ...LOWER_MARKET, timestamp: NOW.toISOString(), sequence: '3' };
+    const triggered = (
+      await triggerPendingOrders(db, {
+        symbol: 'EURUSD',
+        market: staleTrigger,
+        marketBySymbol: marketsWith(staleTrigger),
+        now: staleNow,
+      })
+    ).find((entry) => entry.order.id === created.order!.id);
+    expect(triggered?.order.status).toBe('failed');
+    expect(triggered?.order.rejectionCode).toBe('stale_market_data');
+    expect(triggered?.commandResult?.position).toBeNull();
+  });
 });

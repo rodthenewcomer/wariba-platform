@@ -48,6 +48,7 @@ export const payoutRequestStatusSchema = z.enum([
   'paid',
   'failed',
   'cancelled',
+  'reversed',
 ]);
 export type PayoutRequestStatus = z.infer<typeof payoutRequestStatusSchema>;
 

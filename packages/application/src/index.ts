@@ -13,7 +13,17 @@ export const PACKAGE_NAME = '@wariba/application';
 // is "no raw queries in the frontend", not "the frontend can't hold a
 // handle to pass into these functions".
 export { createDbClient, type Db } from '@wariba/database';
-export { getStaffRole, staffRoleSatisfies, type StaffRole } from '@wariba/database';
+export {
+  getStaffRole,
+  staffRoleSatisfies,
+  staffCan,
+  type StaffRole,
+  type ControlPermission,
+} from '@wariba/database';
+export {
+  authorizeSensitiveStaffAction,
+  type AuthorizeSensitiveStaffActionParams,
+} from './control-security';
 
 export {
   createUserProfile,
@@ -107,10 +117,20 @@ export {
   type ControlReserveView,
   type ControlReserveZone,
 } from './control-treasury-view';
+export {
+  recordControlTreasuryReserveEntry,
+  type RecordControlTreasuryReserveEntryParams,
+} from './control-treasury-actions';
+export {
+  placeAccountIntegrityHold,
+  clearAccountIntegrityHold,
+  type ControlIntegrityHoldParams,
+} from './control-integrity-actions';
 
 export {
   replaceActuarialScenarioAssumptions,
   runStoredActuarialScenario,
+  loadActuarialControlState,
   type ReplaceActuarialScenarioAssumptionsParams,
 } from './actuarial-scenarios';
 
@@ -124,11 +144,13 @@ export {
   rejectPayoutRequest,
   submitPayoutRequest,
   settlePayoutRequest,
+  reversePayoutRequest,
   setPerformanceComplianceFlags,
   type ApprovePayoutParams,
   type RejectPayoutParams,
   type SubmitPayoutParams,
   type SettlePayoutParams,
+  type ReversePayoutRequestParams,
   type SetComplianceFlagsParams,
 } from './control-payouts-actions';
 

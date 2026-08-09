@@ -55,7 +55,7 @@ export interface SandboxAssertionInput {
  * MARKET_DATA_PROVIDER=mock/replay are exactly as unsafe in production as
  * the legacy "sandbox" value (SEC-006).
  */
-const NON_PRODUCTION_PROVIDER_TOKENS = new Set(['sandbox', 'mock', 'replay']);
+const NON_PRODUCTION_PROVIDER_TOKENS = new Set(['sandbox', 'mock', 'replay', 'manual']);
 
 /**
  * Splits on any non-alphanumeric run rather than relying on regex `\b`:

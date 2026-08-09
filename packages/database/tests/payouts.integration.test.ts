@@ -4,14 +4,23 @@ import { createDbClient, type Db } from '../src/client';
 import { activateEvaluationAccount } from '../src/activation';
 import { activatePerformanceAccountInTransaction, loadActiveCycle } from '../src/performance';
 import { openPosition, closePosition } from '../src/trading';
+import { createPendingOrder, triggerPendingOrders } from '../src/pending-orders';
 import { finalizeDailyBoundaryForAccount } from '../src/daily-finalization';
 import {
   createPayoutRequestInTransaction,
   approvePayoutRequestInTransaction,
   recordPayoutProviderSubmissionInTransaction,
   recordPayoutProviderReconciliationInTransaction,
+  rejectPayoutRequestInTransaction,
+  reversePayoutInTransaction,
   settlePayoutProviderInTransaction,
 } from '../src/payouts';
+import {
+  clearAccountIntegrityHoldInTransaction,
+  placeAccountIntegrityHoldInTransaction,
+  reconcileAccountFinancialStateInTransaction,
+  reconstructAccountFinancialState,
+} from '../src/financial-reconciliation';
 
 /**
  * Prompt 08 Phase D — real integration tests against the live hosted
@@ -189,7 +198,20 @@ describeIfDb('payout engine — real database', () => {
       for (const p of positions) {
         await db.deleteFrom('app.fills').where('position_id', '=', p.id).execute();
       }
+      await db.deleteFrom('app.account_reconciliation_runs').where('account_id', '=', id).execute();
+      await db
+        .updateTable('app.trading_accounts')
+        .set({
+          integrity_hold: false,
+          integrity_hold_reason: null,
+          integrity_hold_set_at: null,
+          integrity_hold_incident_id: null,
+        })
+        .where('id', '=', id)
+        .execute();
+      await db.deleteFrom('app.operations_incidents').where('account_id', '=', id).execute();
       await db.deleteFrom('app.payout_requests').where('account_id', '=', id).execute();
+      await db.deleteFrom('app.pending_orders').where('account_id', '=', id).execute();
       await db.deleteFrom('app.trade_orders').where('account_id', '=', id).execute();
       await db.deleteFrom('app.positions').where('account_id', '=', id).execute();
       await db.deleteFrom('app.trading_ledger_entries').where('account_id', '=', id).execute();
@@ -232,6 +254,9 @@ describeIfDb('payout engine — real database', () => {
       .execute();
     await buildFivePayoutEligibleDays(accountId);
 
+    const beforeRequest = await reconstructAccountFinancialState(db, accountId);
+    expect(beforeRequest.matches).toBe(true);
+
     // 10K cycle #1 cap is 500 USD net (Program Rulebook v1.1 §10 /
     // Performance policy 1.1.0's payout_caps_by_nominal_balance) — request
     // more than that to prove the cap, not the excess or the request, is
@@ -245,6 +270,17 @@ describeIfDb('payout engine — real database', () => {
     expect(created.status).toBe('pending_review');
     const requestId = created.request?.id as string;
     expect(created.request?.capApplied).toBe('500.00');
+    expect(created.request?.eligibilitySnapshot).toMatchObject({
+      policySemanticVersion: '1.1.0',
+      cycleNumber: 1,
+      cap: '500.00',
+      requestedNetTraderCash: '1000.00',
+      splitRate: '0.85',
+      kycVerified: true,
+      payoutDestinationConfigured: true,
+      accountStatus: 'active',
+    });
+    expect(created.request?.calculationTimestamp).toBeInstanceOf(Date);
 
     const cycleAfterRequest = await loadActiveCycle(db, accountId);
     expect(cycleAfterRequest?.status).toBe('payout_pending');
@@ -335,6 +371,154 @@ describeIfDb('payout engine — real database', () => {
       .where('entry_type', '=', 'payout_debit')
       .execute();
     expect(ledgerEntriesAfterRetry).toHaveLength(1);
+
+    const afterSettlement = await reconcileAccountFinancialStateInTransaction(db, {
+      accountId,
+      executedBy: userId,
+      now: new Date(),
+    });
+    expect(afterSettlement.matches).toBe(true);
+    expect(afterSettlement.breakdown.payoutDebits).toBe('-588.24000000');
+
+    const reversed = await reversePayoutInTransaction(db, {
+      payoutRequestId: requestId,
+      reversedBy: userId,
+      actorRole: 'finance',
+      reason: 'Provider returned the sandbox transfer during certification.',
+      evidence: { providerReference, caseReference: 'CERT-08A-REVERSAL' },
+      correlationId: randomUUID(),
+      now: new Date(),
+    });
+    expect(reversed.status).toBe('reversed');
+    expect(reversed.reversalLedgerEntryId).not.toBeNull();
+    expect(reversed.reversalReason).toContain('Provider returned');
+
+    const reversedAgain = await reversePayoutInTransaction(db, {
+      payoutRequestId: requestId,
+      reversedBy: userId,
+      actorRole: 'finance',
+      reason: 'Idempotent operator retry.',
+      evidence: { providerReference },
+      correlationId: randomUUID(),
+      now: new Date(),
+    });
+    expect(reversedAgain.reversalLedgerEntryId).toBe(reversed.reversalLedgerEntryId);
+
+    const reversalEntries = await db
+      .selectFrom('app.trading_ledger_entries')
+      .select(['amount', 'reversal_of'])
+      .where('account_id', '=', accountId)
+      .where('entry_type', '=', 'reversal')
+      .where('reference_id', '=', requestId)
+      .execute();
+    expect(reversalEntries).toEqual([
+      { amount: '588.24000000', reversal_of: ledgerEntries[0]?.id as string },
+    ]);
+
+    const afterReversal = await reconstructAccountFinancialState(db, accountId);
+    expect(afterReversal.matches).toBe(true);
+    expect(afterReversal.breakdown.payoutDebits).toBe('0.00000000');
+    expect((await loadActiveCycle(db, accountId))?.cycleNumber).toBe(2);
+  }, 120000);
+
+  it('creates an integrity incident and blocks exposure plus payout after a mismatch', async () => {
+    const { accountId } = await createPerformanceAccount('reconciliation-hold');
+    await db
+      .insertInto('app.trading_ledger_entries')
+      .values({
+        account_id: accountId,
+        entry_type: 'realized_pnl',
+        amount: '1.00000000',
+        reference_type: 'certification_fault_injection',
+        reference_id: randomUUID(),
+        occurred_at: new Date(),
+      })
+      .execute();
+
+    const result = await reconcileAccountFinancialStateInTransaction(db, {
+      accountId,
+      executedBy: null,
+      now: new Date(),
+    });
+    expect(result.matches).toBe(false);
+    expect(result.incidentId).not.toBeNull();
+    expect(result.storedAccountBalance).toBe('10001.00000000');
+    expect(result.reconstructedAccountBalance).toBe('10000.00000000');
+
+    const market = {
+      bid: '1.08450',
+      ask: '1.08460',
+      timestamp: new Date().toISOString(),
+      sequence: '902',
+    };
+    const open = await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'EURUSD',
+      side: 'buy',
+      quantity: '0.10',
+      market,
+      marketBySymbol: marketsWithEurusd(market),
+      now: new Date(),
+    });
+    expect(open.order.status).toBe('rejected');
+    expect(open.order.rejectionCode).toBe('integrity_hold');
+
+    const payout = await createPayoutRequestInTransaction(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      requestedNetTraderCash: '50',
+      now: new Date(),
+    });
+    expect(payout.status).toBe('rejected');
+    expect(payout.rejectionCode).toBe('integrity_hold');
+
+    const incident = await db
+      .selectFrom('app.operations_incidents')
+      .select(['incident_code', 'severity', 'status'])
+      .where('id', '=', result.incidentId as string)
+      .executeTakeFirstOrThrow();
+    expect(incident).toEqual({
+      incident_code: 'ACCOUNT_RECONCILIATION_FAILURE',
+      severity: 'critical',
+      status: 'open',
+    });
+  }, 120000);
+
+  it('places and clears a manual integrity hold only after exact reconciliation', async () => {
+    const { accountId, userId } = await createPerformanceAccount('manual-integrity-hold');
+    const incidentId = await placeAccountIntegrityHoldInTransaction(db, {
+      accountId,
+      placedBy: userId,
+      reason: 'Certification manual review.',
+      now: new Date(),
+    });
+    const held = await db
+      .selectFrom('app.trading_accounts')
+      .select(['integrity_hold', 'integrity_hold_incident_id'])
+      .where('id', '=', accountId)
+      .executeTakeFirstOrThrow();
+    expect(held).toEqual({ integrity_hold: true, integrity_hold_incident_id: incidentId });
+
+    await clearAccountIntegrityHoldInTransaction(db, {
+      accountId,
+      clearedBy: userId,
+      reason: 'Matched reconstruction reviewed.',
+      now: new Date(),
+    });
+    const cleared = await db
+      .selectFrom('app.trading_accounts')
+      .select(['integrity_hold', 'integrity_hold_incident_id'])
+      .where('id', '=', accountId)
+      .executeTakeFirstOrThrow();
+    expect(cleared).toEqual({ integrity_hold: false, integrity_hold_incident_id: null });
+    expect(
+      await db
+        .selectFrom('app.operations_incidents')
+        .select('status')
+        .where('id', '=', incidentId)
+        .executeTakeFirstOrThrow(),
+    ).toEqual({ status: 'resolved' });
   }, 120000);
 
   it('is rejected without ever creating a row when KYC is not sandbox-verified', async () => {
@@ -364,6 +548,109 @@ describeIfDb('payout engine — real database', () => {
     // Never froze — no request was ever created.
     const cycle = await loadActiveCycle(db, accountId);
     expect(cycle?.status).toBe('active');
+  }, 120000);
+
+  it('blocks every new exposure path during payout review and reopens after rejection', async () => {
+    const { accountId, userId } = await createPerformanceAccount('payout-freeze');
+    await db
+      .updateTable('app.trading_accounts')
+      .set({ kyc_sandbox_verified: true, payout_method_sandbox_configured: true })
+      .where('id', '=', accountId)
+      .execute();
+    await buildFivePayoutEligibleDays(accountId);
+
+    const requested = await createPayoutRequestInTransaction(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      requestedNetTraderCash: '100',
+      now: new Date(),
+    });
+    const payoutRequestId = requested.request?.id as string;
+    const gateNow = new Date();
+    const market = {
+      bid: '1.08450',
+      ask: '1.08460',
+      timestamp: gateNow.toISOString(),
+      sequence: '901',
+    };
+
+    const marketOpen = await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'EURUSD',
+      side: 'buy',
+      quantity: '0.10',
+      market,
+      marketBySymbol: marketsWithEurusd(market),
+      now: gateNow,
+    });
+    expect(marketOpen.order.status).toBe('rejected');
+    expect(marketOpen.order.rejectionCode).toBe('payout_freeze');
+
+    const pending = await createPendingOrder(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'EURUSD',
+      orderType: 'buy_limit',
+      quantity: '0.10',
+      triggerPrice: '1.08000',
+      market,
+      now: gateNow,
+    });
+    expect(pending.status).toBe('rejected');
+    expect(pending.rejectionCode).toBe('payout_freeze');
+
+    const legacyPending = await db
+      .insertInto('app.pending_orders')
+      .values({
+        account_id: accountId,
+        symbol: 'EURUSD',
+        side: 'buy',
+        order_type: 'buy_limit',
+        quantity: '0.10',
+        trigger_price: '1.08400',
+        idempotency_key: randomUUID(),
+        status: 'active',
+        created_at: gateNow,
+        updated_at: gateNow,
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    const triggerMarket = {
+      bid: '1.08300',
+      ask: '1.08310',
+      timestamp: gateNow.toISOString(),
+      sequence: '903',
+    };
+    const triggeredWhileFrozen = (
+      await triggerPendingOrders(db, {
+        symbol: 'EURUSD',
+        market: triggerMarket,
+        marketBySymbol: marketsWithEurusd(triggerMarket),
+        now: gateNow,
+      })
+    ).find((entry) => entry.order.id === legacyPending.id);
+    expect(triggeredWhileFrozen?.order.status).toBe('failed');
+    expect(triggeredWhileFrozen?.order.rejectionCode).toBe('payout_freeze');
+
+    await rejectPayoutRequestInTransaction(db, {
+      payoutRequestId,
+      staffUserId: userId,
+      rejectionCode: 'operator_rejected_test',
+      now: gateNow,
+    });
+
+    const afterRejection = await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'EURUSD',
+      side: 'buy',
+      quantity: '0.10',
+      market,
+      marketBySymbol: marketsWithEurusd(market),
+      now: gateNow,
+    });
+    expect(afterRejection.order.status).toBe('filled');
   }, 120000);
 
   it('the database itself refuses a second non-terminal payout request for the same cycle', async () => {

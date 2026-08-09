@@ -3066,3 +3066,13 @@ Assist explique et escalade.
 Control permet à l’équipe d’opérer sans pouvoir arbitraire.
 
 Cette UX Architecture v1.0 devient la baseline fonctionnelle du futur Design System. Aucun agent de design ou de code ne peut modifier implicitement les parcours, les états ou la terminologie définis ici.
+
+## Appendice 08-A — états payout et reconnexion
+
+Le Payout Center affiche les raisons bloquantes réelles. Une demande active
+explique que l'augmentation d'exposition est gelée côté serveur, sans masquer
+les opérations sûres de fermeture/réduction/annulation. `Soumis` ou
+`Traitement` ne doit jamais être présenté comme `Payé`. Après perte du nœud
+Realtime, WariX se reconnecte et réconcilie snapshots, ordres, positions,
+alertes et notifications sans exiger un reload manuel lorsque le navigateur
+supporte la reconnexion automatique.

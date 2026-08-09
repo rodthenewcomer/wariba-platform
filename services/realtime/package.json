@@ -16,6 +16,7 @@
     "test:e2e:pending": "vitest run --no-file-parallelism tests/pending-order-lifecycle.e2e.test.ts",
     "test:e2e:full": "vitest run --no-file-parallelism tests/auth-isolation.e2e.test.ts tests/pending-order-lifecycle.e2e.test.ts",
     "test:recovery": "vitest run --no-file-parallelism tests/pending-order-restart-recovery.e2e.test.ts",
+    "test:failover": "vitest run --no-file-parallelism tests/multi-node-failover.e2e.test.ts",
     "test:load": "tsx scripts/load-test.ts"
   },
   "dependencies": {

@@ -15,6 +15,7 @@ import {
   evaluateCycleProgress,
   loadActiveCycle,
 } from './performance';
+import { reconcileAccountFinancialStateInTransaction } from './financial-reconciliation';
 
 const REJECTION = {
   ACCOUNT_NOT_ACTIVE: 'account_not_active',
@@ -28,6 +29,7 @@ const REJECTION = {
   PAYOUT_METHOD_NOT_CONFIGURED: 'payout_method_not_configured',
   INVALID_REQUESTED_AMOUNT: 'invalid_requested_amount',
   NO_CAP_FOR_ACCOUNT_SIZE: 'no_cap_for_account_size',
+  INTEGRITY_HOLD: 'integrity_hold',
 } as const;
 export type PayoutRejectionCode = (typeof REJECTION)[keyof typeof REJECTION];
 
@@ -58,6 +60,13 @@ export interface PayoutRequestSummary {
   providerReconciliationResult: unknown | null;
   providerReconciledAt: Date | null;
   providerReconciledBy: string | null;
+  eligibilitySnapshot: unknown;
+  calculationTimestamp: Date | null;
+  reversedAt: Date | null;
+  reversedBy: string | null;
+  reversalReason: string | null;
+  reversalEvidence: unknown | null;
+  reversalLedgerEntryId: string | null;
 }
 
 export type PayoutRequestResult =
@@ -87,6 +96,13 @@ function toSummary(row: {
   provider_reconciliation_result: unknown | null;
   provider_reconciled_at: Date | null;
   provider_reconciled_by: string | null;
+  eligibility_snapshot: unknown;
+  calculation_timestamp: Date | null;
+  reversed_at: Date | null;
+  reversed_by: string | null;
+  reversal_reason: string | null;
+  reversal_evidence: unknown | null;
+  reversal_ledger_entry_id: string | null;
 }): PayoutRequestSummary {
   return {
     id: row.id,
@@ -111,6 +127,13 @@ function toSummary(row: {
     providerReconciliationResult: row.provider_reconciliation_result,
     providerReconciledAt: row.provider_reconciled_at,
     providerReconciledBy: row.provider_reconciled_by,
+    eligibilitySnapshot: row.eligibility_snapshot,
+    calculationTimestamp: row.calculation_timestamp,
+    reversedAt: row.reversed_at,
+    reversedBy: row.reversed_by,
+    reversalReason: row.reversal_reason,
+    reversalEvidence: row.reversal_evidence,
+    reversalLedgerEntryId: row.reversal_ledger_entry_id,
   };
 }
 
@@ -143,12 +166,20 @@ export async function evaluatePayoutEligibility(
 ): Promise<{ eligible: true } | { eligible: false; rejectionCode: PayoutRejectionCode }> {
   const account = await trx
     .selectFrom('app.trading_accounts')
-    .select(['status', 'kyc_sandbox_verified', 'payout_method_sandbox_configured'])
+    .select([
+      'status',
+      'kyc_sandbox_verified',
+      'payout_method_sandbox_configured',
+      'integrity_hold',
+    ])
     .where('id', '=', accountId)
     .where('program_type', '=', 'WARIBA_PERFORMANCE')
     .executeTakeFirstOrThrow();
   if (account.status !== 'active') {
     return { eligible: false, rejectionCode: REJECTION.ACCOUNT_NOT_ACTIVE };
+  }
+  if (account.integrity_hold) {
+    return { eligible: false, rejectionCode: REJECTION.INTEGRITY_HOLD };
   }
 
   const progress = await evaluateCycleProgress(trx, accountId);
@@ -225,6 +256,15 @@ export async function createPayoutRequestInTransaction(
     return { status: 'pending_review', rejectionCode: null, request: toSummary(existing) };
   }
 
+  const reconciliation = await reconcileAccountFinancialStateInTransaction(trx, {
+    accountId: params.accountId,
+    executedBy: null,
+    now: params.now,
+  });
+  if (!reconciliation.matches) {
+    return { status: 'rejected', rejectionCode: REJECTION.INTEGRITY_HOLD, request: null };
+  }
+
   const eligibility = await evaluatePayoutEligibility(trx, params.accountId);
   if (!eligibility.eligible) {
     return { status: 'rejected', rejectionCode: eligibility.rejectionCode, request: null };
@@ -232,10 +272,17 @@ export async function createPayoutRequestInTransaction(
 
   const account = await trx
     .selectFrom('app.trading_accounts')
-    .select(['nominal_balance', 'policy_version_id'])
+    .select([
+      'nominal_balance',
+      'policy_version_id',
+      'status',
+      'kyc_sandbox_verified',
+      'payout_method_sandbox_configured',
+    ])
     .where('id', '=', params.accountId)
     .executeTakeFirstOrThrow();
-  const policy = asPerformancePolicy(await loadPolicyById(trx, account.policy_version_id));
+  const loadedPolicy = await loadPolicyById(trx, account.policy_version_id);
+  const policy = asPerformancePolicy(loadedPolicy);
   const cycle = await loadActiveCycle(trx, params.accountId);
   if (!cycle) {
     return { status: 'rejected', rejectionCode: REJECTION.NO_ACTIVE_CYCLE, request: null };
@@ -257,6 +304,8 @@ export async function createPayoutRequestInTransaction(
     requestedNetTraderCash: params.requestedNetTraderCash,
     splitRate,
   });
+  const requestedNetTraderCash = new Decimal(params.requestedNetTraderCash).toFixed(2);
+  const normalizedCap = new Decimal(cap).toFixed(2);
 
   const inserted = await trx
     .insertInto('app.payout_requests')
@@ -265,12 +314,33 @@ export async function createPayoutRequestInTransaction(
       cycle_id: cycle.id,
       cycle_number: cycle.cycleNumber,
       idempotency_key: params.idempotencyKey,
-      requested_net_trader_cash: params.requestedNetTraderCash,
+      requested_net_trader_cash: requestedNetTraderCash,
       requested_gross_base: requestedGrossBase,
       trader_split_rate: splitRate,
       cap_applied: cap,
       buffer_floor_at_request: progress.bufferFloor,
       eligible_excess_at_request: progress.eligibleExcess,
+      eligibility_snapshot: JSON.stringify({
+        policyVersionId: account.policy_version_id,
+        policySemanticVersion: loadedPolicy.semanticVersion,
+        cycleNumber: cycle.cycleNumber,
+        eligibleBalance: progress.realizedBalance,
+        bufferFloor: progress.bufferFloor,
+        eligibleExcess: progress.eligibleExcess,
+        performanceDaysCompleted: progress.performanceDaysCompleted,
+        performanceDaysRequired: progress.performanceDaysRequired,
+        consistencyRatio: progress.consistencyRatio,
+        consistencyCompliant: progress.consistencyCompliant,
+        splitRate,
+        cap: normalizedCap,
+        requestedNetTraderCash,
+        requestedGrossBase,
+        kycVerified: account.kyc_sandbox_verified,
+        payoutDestinationConfigured: account.payout_method_sandbox_configured,
+        accountStatus: account.status,
+        calculatedAt: params.now.toISOString(),
+      }),
+      calculation_timestamp: params.now,
       requested_at: params.now,
     })
     .returningAll()
@@ -318,11 +388,19 @@ export async function approvePayoutRequestInTransaction(
     .selectAll()
     .where('id', '=', params.payoutRequestId)
     .where('status', '=', 'pending_review')
+    .forUpdate()
     .executeTakeFirstOrThrow(
       () => new Error(`Payout request ${params.payoutRequestId} is not pending review.`),
     );
 
-  const eligibility = await evaluatePayoutEligibility(trx, request.account_id);
+  const reconciliation = await reconcileAccountFinancialStateInTransaction(trx, {
+    accountId: request.account_id,
+    executedBy: params.staffUserId,
+    now: params.now,
+  });
+  const eligibility = reconciliation.matches
+    ? await evaluatePayoutEligibility(trx, request.account_id)
+    : ({ eligible: false, rejectionCode: REJECTION.INTEGRITY_HOLD } as const);
   if (!eligibility.eligible) {
     const rejected = await trx
       .updateTable('app.payout_requests')
@@ -685,6 +763,15 @@ export async function settlePayoutProviderInTransaction(
     throw new Error('Payout provider reconciliation must confirm payment before settlement.');
   }
 
+  const reconciliation = await reconcileAccountFinancialStateInTransaction(trx, {
+    accountId: request.account_id,
+    executedBy: request.provider_reconciled_by,
+    now: params.now,
+  });
+  if (!reconciliation.matches) {
+    throw new Error('Payout settlement blocked by ACCOUNT_RECONCILIATION_FAILURE.');
+  }
+
   const paid = await trx
     .updateTable('app.payout_requests')
     .set({ status: 'paid', paid_at: params.now, updated_at: params.now })
@@ -729,6 +816,121 @@ export async function settlePayoutProviderInTransaction(
     .execute();
 
   return toSummary(paid);
+}
+
+export interface ReversePayoutParams {
+  payoutRequestId: string;
+  reversedBy: string;
+  actorRole: string;
+  reason: string;
+  evidence: unknown;
+  correlationId: string;
+  now: Date;
+}
+
+export async function reversePayoutInTransaction(
+  trx: Db,
+  params: ReversePayoutParams,
+): Promise<PayoutRequestSummary> {
+  if (params.reason.trim().length === 0) throw new Error('Payout reversal reason is required.');
+  const evidence = serializeProviderResult(params.evidence);
+  const request = await trx
+    .selectFrom('app.payout_requests')
+    .selectAll()
+    .where('id', '=', params.payoutRequestId)
+    .forUpdate()
+    .executeTakeFirstOrThrow();
+  if (request.status === 'reversed') return toSummary(request);
+  if (request.status !== 'paid' || !request.approved_gross_base) {
+    throw new Error('Only a paid payout can be reversed.');
+  }
+
+  const before = await reconcileAccountFinancialStateInTransaction(trx, {
+    accountId: request.account_id,
+    executedBy: params.reversedBy,
+    now: params.now,
+  });
+  if (!before.matches) throw new Error('Payout reversal blocked by reconciliation failure.');
+
+  const debit = await trx
+    .selectFrom('app.trading_ledger_entries')
+    .select(['id', 'amount'])
+    .where('entry_type', '=', 'payout_debit')
+    .where('reference_type', '=', 'payout_request')
+    .where('reference_id', '=', request.id)
+    .forUpdate()
+    .executeTakeFirstOrThrow(() => new Error('Original payout debit was not found.'));
+  const reversal = await trx
+    .insertInto('app.trading_ledger_entries')
+    .values({
+      account_id: request.account_id,
+      entry_type: 'reversal',
+      amount: new Decimal(debit.amount).negated().toFixed(8),
+      reference_type: 'payout_request',
+      reference_id: request.id,
+      reversal_of: debit.id,
+      occurred_at: params.now,
+    })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+
+  const reversed = await trx
+    .updateTable('app.payout_requests')
+    .set({
+      status: 'reversed',
+      reversed_at: params.now,
+      reversed_by: params.reversedBy,
+      reversal_reason: params.reason.trim(),
+      reversal_evidence: evidence,
+      reversal_ledger_entry_id: reversal.id,
+      updated_at: params.now,
+    })
+    .where('id', '=', request.id)
+    .where('status', '=', 'paid')
+    .returningAll()
+    .executeTakeFirstOrThrow();
+
+  const after = await reconcileAccountFinancialStateInTransaction(trx, {
+    accountId: request.account_id,
+    executedBy: params.reversedBy,
+    now: params.now,
+  });
+  if (!after.matches) throw new Error('Payout reversal produced a reconciliation mismatch.');
+
+  await trx
+    .insertInto('app.outbox_events')
+    .values({
+      aggregate_type: 'payout_request',
+      aggregate_id: request.id,
+      event_type: 'payout_request.reversed',
+      payload: JSON.stringify({
+        accountId: request.account_id,
+        providerReference: request.provider_reference,
+        reversalLedgerEntryId: reversal.id,
+      }),
+      occurred_at: params.now,
+    })
+    .execute();
+  await trx
+    .insertInto('audit.audit_events')
+    .values({
+      actor_type: 'staff',
+      actor_id: params.reversedBy,
+      role: params.actorRole,
+      permission: 'payout.reverse',
+      action: 'payout.reversed',
+      target_type: 'payout_request',
+      target_id: request.id,
+      before_json: JSON.stringify({ status: request.status }),
+      after_json: JSON.stringify({ status: 'reversed', reversalLedgerEntryId: reversal.id }),
+      reason: params.reason.trim(),
+      source: 'control',
+      correlation_id: params.correlationId,
+      occurred_at: params.now,
+    })
+    .execute();
+
+  return toSummary(reversed);
 }
 
 export interface PayoutRequestHistoryEntry {
@@ -798,6 +1000,7 @@ export interface ControlPayoutQueueEntry {
   kycVerified: boolean;
   payoutMethodConfigured: boolean;
   requestedAt: Date;
+  reversalReason: string | null;
 }
 
 /**
@@ -829,12 +1032,15 @@ export async function loadPayoutRequestsForReview(trx: Db): Promise<ControlPayou
       'app.trading_accounts.kyc_sandbox_verified',
       'app.trading_accounts.payout_method_sandbox_configured',
       'app.payout_requests.requested_at',
+      'app.payout_requests.reversal_reason',
     ])
     .where('app.payout_requests.status', 'in', [
       'pending_review',
       'needs_information',
       'approved',
       'processing',
+      'paid',
+      'reversed',
     ])
     .orderBy('app.payout_requests.requested_at', 'asc')
     .execute();
@@ -856,5 +1062,6 @@ export async function loadPayoutRequestsForReview(trx: Db): Promise<ControlPayou
     kycVerified: row.kyc_sandbox_verified,
     payoutMethodConfigured: row.payout_method_sandbox_configured,
     requestedAt: row.requested_at,
+    reversalReason: row.reversal_reason,
   }));
 }

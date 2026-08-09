@@ -20,6 +20,8 @@ export {
   type PayoutProvider,
   type PayoutProviderName,
   type PayoutProviderStatus,
+  type PayoutProviderReference,
+  type PayoutProviderFailure,
   type PayoutProviderSubmission,
   type PayoutProviderSubmissionResult,
   type PayoutProviderStatusResult,
