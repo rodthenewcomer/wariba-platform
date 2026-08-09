@@ -396,6 +396,87 @@ describeIfDb('pending-orders — real database', () => {
     expect(triggered[0]?.commandResult?.position?.side).toBe('sell');
   });
 
+  /**
+   * Appendix 08-A — buy_stop was the one order type with domain-level
+   * semantics but no integration trigger proof. A stop order is the case
+   * where the fill price may legitimately be *worse* than the trigger (a gap
+   * through the stop is not clamped, unlike a limit), so this asserts the
+   * gap behaviour explicitly rather than only the trigger condition.
+   */
+  it('triggers a buy_stop once the ask reaches the stop, filling past it on a gap, exactly once', async () => {
+    const created = await createPendingOrder(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'EURUSD',
+      orderType: 'buy_stop',
+      quantity: '0.50',
+      triggerPrice: '1.08500', // valid: buy_stop requires price > ask (1.08460)
+      market: FRESH_MARKET,
+      now: NOW,
+    });
+    expect(created.order?.status).toBe('active');
+
+    // A tick that has not reached the stop leaves the order untouched.
+    const beforeTrigger = (
+      await triggerPendingOrdersAsLeader(db, {
+        symbol: 'EURUSD',
+        market: FRESH_MARKET,
+        marketBySymbol: marketsWith(FRESH_MARKET),
+        now: new Date(NOW.getTime() + 500),
+      })
+    ).filter((entry) => entry.accountId === accountId);
+    expect(beforeTrigger).toHaveLength(0);
+    expect(
+      (
+        await db
+          .selectFrom('app.pending_orders')
+          .select('status')
+          .where('id', '=', created.order?.id as string)
+          .executeTakeFirstOrThrow()
+      ).status,
+    ).toBe('active');
+
+    // The market gaps straight through 1.08500 to an ask of 1.08610. A stop
+    // is not clamped, so the fill is allowed to be worse than the stop.
+    const triggered = (
+      await triggerPendingOrdersAsLeader(db, {
+        symbol: 'EURUSD',
+        market: HIGHER_MARKET, // ask 1.08610 >= 1.08500
+        marketBySymbol: marketsWith(HIGHER_MARKET),
+        now: new Date(NOW.getTime() + 1_000),
+      })
+    ).filter((entry) => entry.accountId === accountId);
+    expect(triggered).toHaveLength(1);
+    expect(triggered[0]?.order.status).toBe('filled');
+    expect(triggered[0]?.commandResult?.position?.side).toBe('buy');
+    const entryPrice = triggered[0]?.commandResult?.position?.averageOpenPrice as string;
+    expect(Number(entryPrice)).toBeGreaterThanOrEqual(1.085);
+
+    // Trigger-time risk revalidation ran on the canonical open path: the
+    // fill produced a real order + position + fill, not a bare status flip.
+    expect(triggered[0]?.commandResult?.order.status).toBe('filled');
+    expect(triggered[0]?.commandResult?.fill).not.toBeNull();
+
+    // A second evaluation of the same order must not fill it again.
+    const replayed = (
+      await triggerPendingOrdersAsLeader(db, {
+        symbol: 'EURUSD',
+        market: HIGHER_MARKET,
+        marketBySymbol: marketsWith(HIGHER_MARKET),
+        now: new Date(NOW.getTime() + 2_000),
+      })
+    ).filter((entry) => entry.accountId === accountId);
+    expect(replayed).toHaveLength(0);
+    const fills = await db
+      .selectFrom('app.trade_orders')
+      .select('id')
+      .where('account_id', '=', accountId)
+      .where('idempotency_key', '=', `pending-order:${created.order?.id as string}`)
+      .where('status', '=', 'filled')
+      .execute();
+    expect(fills).toHaveLength(1);
+  });
+
   it('triggers a sell_limit order once the bid rises to or above the trigger price', async () => {
     await createPendingOrder(db, {
       accountId,

@@ -2,9 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDbClient, type Db } from '../src/client';
 import { activateEvaluationAccount } from '../src/activation';
-import { activatePerformanceAccountInTransaction, loadActiveCycle } from '../src/performance';
+import {
+  activatePerformanceAccountInTransaction,
+  evaluateCycleProgress,
+  loadActiveCycle,
+} from '../src/performance';
 import { openPosition, closePosition } from '../src/trading';
-import { createPendingOrder, triggerPendingOrders } from '../src/pending-orders';
+import { createPendingOrder } from '../src/pending-orders';
 import { finalizeDailyBoundaryForAccount } from '../src/daily-finalization';
 import { triggerPendingOrdersAsLeader } from './market-trigger-fixture';
 import {
@@ -652,6 +656,275 @@ describeIfDb('payout engine — real database', () => {
       now: gateNow,
     });
     expect(afterRejection.order.status).toBe('filled');
+  }, 120000);
+
+  /**
+   * Appendix 08-A adversarial coverage. Each of these three was flagged by
+   * the acceptance audit as "mechanism exists, proof missing" — the guards
+   * below were already in the code, these tests pin them.
+   */
+  const settleToPaid = async (
+    accountId: string,
+    userId: string,
+    requestedNetTraderCash = '1000',
+  ): Promise<{ requestId: string; providerReference: string }> => {
+    const created = await createPayoutRequestInTransaction(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      requestedNetTraderCash,
+      now: new Date(),
+    });
+    const requestId = created.request?.id as string;
+    await approvePayoutRequestInTransaction(db, {
+      payoutRequestId: requestId,
+      staffUserId: userId,
+      now: new Date(),
+    });
+    const providerReference = `wariba-payout:${requestId}`;
+    await recordPayoutProviderSubmissionInTransaction(db, {
+      payoutRequestId: requestId,
+      provider: 'mock',
+      providerReference,
+      providerIdempotencyKey: providerReference,
+      providerStatus: 'processing',
+      submissionResult: { provider: 'mock', providerReference, status: 'processing' },
+      submittedAt: new Date(),
+      now: new Date(),
+    });
+    return { requestId, providerReference };
+  };
+
+  const payoutDebitsFor = async (accountId: string) =>
+    db
+      .selectFrom('app.trading_ledger_entries')
+      .selectAll()
+      .where('account_id', '=', accountId)
+      .where('entry_type', '=', 'payout_debit')
+      .execute();
+
+  it('two operators approving the same payout concurrently produce exactly one approval and one debit', async () => {
+    const { accountId, userId } = await createPerformanceAccount('double-approve');
+    const secondOperatorId = await createTestUser(`second-operator-${randomUUID()}@wariba.test`);
+    await db
+      .updateTable('app.trading_accounts')
+      .set({ kyc_sandbox_verified: true, payout_method_sandbox_configured: true })
+      .where('id', '=', accountId)
+      .execute();
+    await buildFivePayoutEligibleDays(accountId);
+
+    const created = await createPayoutRequestInTransaction(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      requestedNetTraderCash: '1000',
+      now: new Date(),
+    });
+    const requestId = created.request?.id as string;
+
+    // Two finance operators hit Approve on the same queue row at the same
+    // instant. The row lock plus the status='pending_review' predicate must
+    // let exactly one through; the loser must fail loudly, not silently
+    // create a second liability.
+    // Each operator's approval runs inside its own transaction, exactly as
+    // control-payouts-actions.approvePayoutRequest wraps it — the row lock
+    // is only meaningful for the length of a transaction, so approving via
+    // a bare connection would prove nothing.
+    const approveAsOperator = (staffUserId: string) =>
+      db.transaction().execute((trx) =>
+        approvePayoutRequestInTransaction(trx, {
+          payoutRequestId: requestId,
+          staffUserId,
+          now: new Date(),
+        }),
+      );
+    const outcomes = await Promise.allSettled([
+      approveAsOperator(userId),
+      approveAsOperator(secondOperatorId),
+    ]);
+    const fulfilled = outcomes.filter((outcome) => outcome.status === 'fulfilled');
+    const rejected = outcomes.filter((outcome) => outcome.status === 'rejected');
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+
+    const stored = await db
+      .selectFrom('app.payout_requests')
+      .select(['status', 'approved_gross_base', 'trader_net_cash', 'wariba_share', 'reviewed_by'])
+      .where('id', '=', requestId)
+      .executeTakeFirstOrThrow();
+    expect(stored.status).toBe('approved');
+    expect(stored.approved_gross_base).toBe('588.24');
+    expect(stored.trader_net_cash).toBe('500.00');
+    expect(stored.wariba_share).toBe('88.24');
+    // Exactly one approval means exactly one reviewer of record.
+    expect([userId, secondOperatorId]).toContain(stored.reviewed_by);
+
+    // Only one payout request row exists for the cycle, so only one
+    // liability can ever be settled.
+    const requestsForCycle = await db
+      .selectFrom('app.payout_requests')
+      .select('id')
+      .where('account_id', '=', accountId)
+      .execute();
+    expect(requestsForCycle).toHaveLength(1);
+
+    const providerReference = `wariba-payout:${requestId}`;
+    await recordPayoutProviderSubmissionInTransaction(db, {
+      payoutRequestId: requestId,
+      provider: 'mock',
+      providerReference,
+      providerIdempotencyKey: providerReference,
+      providerStatus: 'processing',
+      submissionResult: { provider: 'mock', providerReference, status: 'processing' },
+      submittedAt: new Date(),
+      now: new Date(),
+    });
+    await recordPayoutProviderReconciliationInTransaction(db, {
+      payoutRequestId: requestId,
+      provider: 'mock',
+      providerReference,
+      providerIdempotencyKey: providerReference,
+      providerStatus: 'paid',
+      reconciliationResult: { provider: 'mock', providerReference, status: 'paid' },
+      reconciledAt: new Date(),
+      reconciledBy: userId,
+      now: new Date(),
+    });
+    expect(await payoutDebitsFor(accountId)).toHaveLength(1);
+    expect((await reconstructAccountFinancialState(db, accountId)).matches).toBe(true);
+  }, 120000);
+
+  it('replaying the same provider settlement callback settles once and debits once', async () => {
+    const { accountId, userId } = await createPerformanceAccount('provider-replay');
+    await db
+      .updateTable('app.trading_accounts')
+      .set({ kyc_sandbox_verified: true, payout_method_sandbox_configured: true })
+      .where('id', '=', accountId)
+      .execute();
+    await buildFivePayoutEligibleDays(accountId);
+    const { requestId, providerReference } = await settleToPaid(accountId, userId);
+
+    const callback = {
+      payoutRequestId: requestId,
+      provider: 'mock' as const,
+      providerReference,
+      providerIdempotencyKey: providerReference,
+      providerStatus: 'paid' as const,
+      reconciliationResult: { provider: 'mock', providerReference, status: 'paid' },
+      reconciledBy: userId,
+    };
+
+    const first = await recordPayoutProviderReconciliationInTransaction(db, {
+      ...callback,
+      reconciledAt: new Date(),
+      now: new Date(),
+    });
+    expect(first.status).toBe('paid');
+    const cycleAfterFirst = await loadActiveCycle(db, accountId);
+    expect(cycleAfterFirst?.cycleNumber).toBe(2);
+
+    // The provider redelivers the identical "paid" webhook (at-least-once
+    // delivery) — twice more, including out of order with a stale
+    // timestamp. None of them may move money a second time.
+    const replays = await Promise.all([
+      recordPayoutProviderReconciliationInTransaction(db, {
+        ...callback,
+        reconciledAt: new Date(),
+        now: new Date(),
+      }),
+      recordPayoutProviderReconciliationInTransaction(db, {
+        ...callback,
+        reconciledAt: new Date(Date.now() - 60_000),
+        now: new Date(),
+      }),
+    ]);
+    for (const replay of replays) expect(replay.status).toBe('paid');
+
+    expect(await payoutDebitsFor(accountId)).toHaveLength(1);
+    const cycles = await db
+      .selectFrom('app.performance_cycles')
+      .select(['cycle_number', 'status'])
+      .where('account_id', '=', accountId)
+      .orderBy('cycle_number')
+      .execute();
+    expect(cycles).toEqual([
+      { cycle_number: 1, status: 'closed' },
+      { cycle_number: 2, status: 'active' },
+    ]);
+    const afterReplay = await reconstructAccountFinancialState(db, accountId);
+    expect(afterReplay.matches).toBe(true);
+    expect(afterReplay.breakdown.payoutDebits).toBe('-588.24000000');
+  }, 120000);
+
+  it('Performance Days consumed by a paid payout cannot be reused by the next cycle', async () => {
+    const { accountId, userId } = await createPerformanceAccount('day-reuse');
+    await db
+      .updateTable('app.trading_accounts')
+      .set({ kyc_sandbox_verified: true, payout_method_sandbox_configured: true })
+      .where('id', '=', accountId)
+      .execute();
+    // Real trading days are in the past by the time a payout settles. The
+    // shared fixture builds days forward from NOW, which would leave them
+    // inside cycle #2's window for reasons that never occur in production,
+    // so this test back-dates the cycle and its days instead: five
+    // qualifying days that all closed before today, then a settlement today.
+    const cycleOneOpenedAt = new Date(NOW.getTime() - 10 * 24 * 60 * 60 * 1000);
+    await db
+      .updateTable('app.performance_cycles')
+      .set({ opened_at: cycleOneOpenedAt })
+      .where('account_id', '=', accountId)
+      .where('cycle_number', '=', 1)
+      .execute();
+    // Six trading sessions: each finalization closes the *previous* day, so
+    // the sixth session is what finalizes the fifth qualifying day.
+    let day = new Date(NOW.getTime() - 9 * 24 * 60 * 60 * 1000);
+    for (let i = 0; i < 6; i += 1) {
+      await realizeProfitableDay(accountId, day);
+      day = new Date(day.getTime() + 24 * 60 * 60 * 1000);
+    }
+    const dayAfterCycleOne = new Date(NOW.getTime() + 24 * 60 * 60 * 1000);
+
+    const progressBefore = await evaluateCycleProgress(db, accountId);
+    expect(progressBefore.cycleNumber).toBe(1);
+    expect(progressBefore.performanceDaysCompleted).toBeGreaterThanOrEqual(5);
+
+    const { requestId, providerReference } = await settleToPaid(accountId, userId);
+    await recordPayoutProviderReconciliationInTransaction(db, {
+      payoutRequestId: requestId,
+      provider: 'mock',
+      providerReference,
+      providerIdempotencyKey: providerReference,
+      providerStatus: 'paid',
+      reconciliationResult: { provider: 'mock', providerReference, status: 'paid' },
+      reconciledAt: new Date(),
+      reconciledBy: userId,
+      now: new Date(),
+    });
+
+    // Cycle #2 is open and the five finalized qualifying days still exist on
+    // the account — but they belong to the closed cycle. Progress is scoped
+    // to the cycle window, so cycle #2 starts from zero.
+    const progressAfter = await evaluateCycleProgress(db, accountId);
+    expect(progressAfter.cycleNumber).toBe(2);
+    expect(progressAfter.performanceDaysCompleted).toBe(0);
+
+    const historicalQualifyingDays = await db
+      .selectFrom('app.account_daily_snapshots')
+      .select('trading_day')
+      .where('account_id', '=', accountId)
+      .where('status', '=', 'finalized')
+      .execute();
+    expect(historicalQualifyingDays.length).toBeGreaterThanOrEqual(5);
+
+    // And the consumed days cannot fund a second payout: the request is
+    // refused for insufficient Performance Days, not silently accepted.
+    const reused = await createPayoutRequestInTransaction(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      requestedNetTraderCash: '100',
+      now: dayAfterCycleOne,
+    });
+    expect(reused.status).toBe('rejected');
+    expect(reused.request).toBeNull();
+    expect(await payoutDebitsFor(accountId)).toHaveLength(1);
   }, 120000);
 
   it('the database itself refuses a second non-terminal payout request for the same cycle', async () => {

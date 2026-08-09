@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDbClient, type Db } from '../src/client';
 import { activateEvaluationAccount } from '../src/activation';
 import { createPendingOrder } from '../src/pending-orders';
-import { createPriceAlert, evaluateAlerts } from '../src/price-alerts';
+import { createPriceAlert } from '../src/price-alerts';
 import { evaluateAlertsAsLeader } from './market-trigger-fixture';
 
 /**
