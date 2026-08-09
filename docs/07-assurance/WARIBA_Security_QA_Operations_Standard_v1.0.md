@@ -3142,8 +3142,19 @@ sont rate-limitées par acteur/action dans PostgreSQL et produisent un audit
 persisté. Les tables financières, leadership, incidents, réconciliation,
 actuariat et rate limit restent refusées à `anon`/`authenticated`.
 
-Alertes opérationnelles minimales : leader perdu, takeover >10 s, aucun standby
-prêt, feed STALE/OUTAGE, DB indisponible, backlog outbox, mismatch/ledger,
-duplicate mutation, finalisation en échec, payout/provider backlog ou failure,
-réserve <1,5x/<1,2x, pass rate/payout rate anormal. Procédures détaillées :
-`WARIBA_Operations_Runbooks_Appendix_08A.md`.
+Alertes opérationnelles évaluées automatiquement (Appendice 08-A) : leader
+perdu, takeover au-dessus de la cible, aucun standby prêt, feed STALE, feed
+en panne, mismatch de réconciliation, déséquilibre ledger, traitement payout
+bloqué, réserve <1,5x, réserve <1,2x, échec de finalisation quotidienne.
+
+Le mécanisme est **interne** : `OperationalAlertMonitor` (services/realtime)
+évalue les seuils sur minuterie, uniquement sur le nœud leader, et persiste
+chaque condition vraie comme incident dans `app.operations_incidents` — la
+même file que les integrity holds, donc une seule file pour Control. La
+déduplication est garantie par index unique partiel (un incident ouvert par
+code au niveau plateforme) et un incident se résout automatiquement dès que
+sa condition disparaît (`resolved_by` null = résolution par la plateforme).
+
+Aucune livraison externe n'est implémentée ni revendiquée : pas de
+PagerDuty, pas de Slack, pas de SMS, pas d'e-mail. Un incident ouvert *est*
+l'alerte. Procédures détaillées : `WARIBA_Operations_Runbooks_Appendix_08A.md`.

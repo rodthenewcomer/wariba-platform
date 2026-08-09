@@ -38,6 +38,8 @@ const realtimeEnvSchema = baseEnvironmentSchema.extend({
   // fresh live-priced equity/risk push (see websocket.ts's risk preview
   // loop). Configurable mainly so e2e tests don't have to wait 4s per case.
   ACCOUNT_RISK_PREVIEW_INTERVAL_MS: z.coerce.number().int().positive().default(4000),
+  OPERATIONAL_ALERT_INTERVAL_MS: z.coerce.number().int().positive().default(30000),
+  LEADER_TAKEOVER_TARGET_MS: z.coerce.number().int().positive().default(10000),
 });
 
 export type RealtimeConfig = z.infer<typeof realtimeEnvSchema>;

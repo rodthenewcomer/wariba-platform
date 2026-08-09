@@ -95,6 +95,15 @@ export {
   type ProductScenarioResult as ActuarialProductScenarioResult,
 } from './actuarial-scenario';
 export {
+  compareModelToActual,
+  resolveVarianceCoverage,
+  MINIMUM_COMPARABLE_SAMPLE,
+  type ActuarialActuals,
+  type ActuarialVarianceMetric,
+  type ActuarialVarianceReport,
+  type VarianceCoverage,
+} from './actuarial-variance';
+export {
   deriveHubDisplayState,
   isInAttentionZone,
   isHubStateReadOnly,

@@ -45,6 +45,8 @@ function baseConfig(overrides: Partial<RealtimeConfig> = {}): RealtimeConfig {
     SANDBOX_MARKET_SEED: 1,
     MARKET_TICK_INTERVAL_MS: 1000,
     ACCOUNT_RISK_PREVIEW_INTERVAL_MS: 4000,
+    OPERATIONAL_ALERT_INTERVAL_MS: 30000,
+    LEADER_TAKEOVER_TARGET_MS: 10000,
     ...overrides,
   };
 }

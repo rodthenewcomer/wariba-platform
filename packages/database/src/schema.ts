@@ -623,6 +623,20 @@ export interface ActuarialScenarioRunsTable {
   executed_at: GeneratedTimestamp;
 }
 
+export interface ActuarialVarianceRunsTable {
+  id: Generated<string>;
+  scenario_run_id: string;
+  scenario_name: string;
+  scenario_version: number;
+  as_of: Date;
+  model_cohort_size: number;
+  actual_sample_size: number;
+  coverage: 'insufficient_data' | 'partial' | 'comparable';
+  metrics: unknown;
+  executed_by: string | null;
+  executed_at: GeneratedTimestamp;
+}
+
 export interface OperationsIncidentsTable {
   id: Generated<string>;
   incident_code: string;
@@ -707,6 +721,7 @@ export interface Database {
   'app.treasury_reserve_entries': TreasuryReserveEntriesTable;
   'app.actuarial_scenario_assumptions': ActuarialScenarioAssumptionsTable;
   'app.actuarial_scenario_runs': ActuarialScenarioRunsTable;
+  'app.actuarial_variance_runs': ActuarialVarianceRunsTable;
   'app.operations_incidents': OperationsIncidentsTable;
   'app.account_reconciliation_runs': AccountReconciliationRunsTable;
   'app.staff_action_rate_limits': StaffActionRateLimitsTable;

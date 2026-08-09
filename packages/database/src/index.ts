@@ -189,6 +189,23 @@ export {
   type AccountReconciliationResult,
 } from './financial-reconciliation';
 export {
+  measureActuarialActuals,
+  recordActuarialVarianceRun,
+  loadRecentActuarialVarianceRuns,
+  type PersistedActuarialVarianceRun,
+} from './actuarial-actuals';
+export {
+  OPERATIONAL_ALERT,
+  evaluateOperationalAlerts,
+  reconcileOperationalAlerts,
+  loadDatabaseAlertSignals,
+  type AlertReconciliationResult,
+  type AlertSeverity,
+  type EvaluatedAlert,
+  type OperationalAlertCode,
+  type OperationalAlertSignals,
+} from './operational-alerts';
+export {
   MARKET_TRIGGER_WRITER_SERVICE,
   StaleLeadershipError,
   acquireOrRenewRealtimeLeadership,

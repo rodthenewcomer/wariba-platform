@@ -9,6 +9,7 @@ import { ConnectionRegistry } from './registry';
 import { registerWebSocketRoute } from './websocket';
 import { RealtimeLeadershipCoordinator } from './leadership';
 import { RealtimeOperationalMetrics } from './metrics';
+import { OperationalAlertMonitor } from './alert-monitor';
 
 const config = loadRealtimeConfig();
 const logger = createLogger({ service: 'realtime', minLevel: config.LOG_LEVEL });
@@ -37,6 +38,18 @@ async function start(): Promise<void> {
     logger.warn('realtime.market_data_disabled', { provider: market.providerName });
   }
 
+  const alertMonitor = new OperationalAlertMonitor({
+    db,
+    market,
+    symbols: Object.keys(symbolSpecs) as (keyof typeof symbolSpecs)[],
+    leadership,
+    intervalMs: config.OPERATIONAL_ALERT_INTERVAL_MS,
+    takeoverTargetMs: config.LEADER_TAKEOVER_TARGET_MS,
+    marketDataEnabled: config.MARKET_DATA_ENABLED,
+    logger,
+  });
+  alertMonitor.start();
+
   app.get('/health', async () =>
     checkHealth(db, market, 'EURUSD', leadership.readiness(), metrics.snapshot()),
   );
@@ -60,6 +73,7 @@ async function start(): Promise<void> {
   });
 
   app.addHook('onClose', async () => {
+    alertMonitor.stop();
     market.stop();
     await leadership.stop();
     await db.destroy();
