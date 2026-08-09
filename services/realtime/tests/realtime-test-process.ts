@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import { resolve } from 'node:path';
 
 interface RealtimeTestProcessOptions {
   cwd: string;
@@ -88,7 +89,7 @@ export async function spawnRealtimeTestProcess(
 ): Promise<RealtimeTestProcess> {
   const childEnv = { ...options.env };
   delete childEnv.VITEST;
-  const child = spawn('pnpm', ['exec', 'tsx', 'src/index.ts'], {
+  const child = spawn(resolve(options.cwd, 'node_modules/.bin/tsx'), ['src/index.ts'], {
     cwd: options.cwd,
     env: childEnv,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -116,6 +117,18 @@ export async function spawnRealtimeTestProcess(
       child.kill('SIGTERM');
       try {
         await waitForExit(child);
+        await waitForCondition(
+          `realtime shutdown ${options.healthUrl}`,
+          async () => {
+            try {
+              await fetch(options.healthUrl);
+              return false;
+            } catch {
+              return true;
+            }
+          },
+          10000,
+        );
       } catch (error) {
         child.kill('SIGKILL');
         throw new Error(
