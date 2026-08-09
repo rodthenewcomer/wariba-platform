@@ -979,6 +979,10 @@ une clé dérivée du master et de la position, et master, fills, positions,
 ledger et outbox valident ou annulent ensemble dans une transaction unique.
 Un retry retourne les mêmes ordres enfants sans second effet.
 
+## 28.1 Ordres en attente et alertes de prix (Appendice 07-D)
+
+`app.pending_orders` (GTC, Achat/Vente Limit/Stop, Stop Loss / Take Profit optionnels attachés) et `app.price_alerts` + `app.alert_notifications` (franchissement de seuil bid/ask/mid) sont évalués à chaque tick réel par `services/realtime`, au même point d'accroche que la file de réduction de position (Appendice 07-C). Le déclenchement d'un ordre en attente réutilise `openPosition` (§30) dans la même transaction Postgres que le fill — un ordre en attente et sa position ne peuvent jamais diverger sur un crash partiel. Pas de clé d'idempotence sur `modify`/`cancel` (la sécurité vient de la vérification de statut/version sur la ligne, pas d'un effet de bord à dédupliquer) ; `create` en a une, comme toute commande financière. Voir DECISION_LOG.md TRADING-ORDER-001 à 005, TRADING-ALERT-001 à 003.
+
 ---
 
 # 29. Fills
@@ -1900,6 +1904,8 @@ Un seul processus Realtime actif est acceptable avec :
 - base durable ;
 - reprise ;
 - monitoring.
+
+Depuis l’Appendice 07-D (2026-08-06), la reprise après restart est testée de bout en bout pour les ordres en attente et les alertes de prix, pas seulement pour les positions : un restart recharge les ordres/alertes actifs depuis Postgres, reprend l’évaluation sur tick, et ne produit ni fill ni notification dupliqués (`services/realtime/tests/pending-order-restart-recovery.e2e.test.ts`). Aucune élection de leader, aucun fencing, aucun standby n’existe — l’intervalle pendant lequel le processus est arrêté reste une interruption de service réelle, non un failover. Voir DECISION_LOG.md TRADING-ORDER-004.
 
 ## 64.2 Scale futur
 

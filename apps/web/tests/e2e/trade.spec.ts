@@ -26,6 +26,38 @@ async function login(page: import('@playwright/test').Page, email: string, passw
   await page.waitForURL('**/hub', { timeout: 15_000 });
 }
 
+async function openTouchChartMenu(page: import('@playwright/test').Page) {
+  const chart = page.getByRole('group', { name: 'Graphique EURUSD' });
+  await chart.scrollIntoViewIfNeeded();
+  await expect(chart).toBeVisible();
+  await expect(chart.locator('canvas').first()).toBeVisible();
+
+  const box = await chart.boundingBox();
+  if (!box) throw new Error('chart container not found');
+  const pointerEvent = {
+    x: box.x + box.width / 2,
+    y: box.y + box.height / 2,
+    id: 1,
+    radiusX: 1,
+    radiusY: 1,
+    force: 1,
+  };
+
+  const session = await page.context().newCDPSession(page);
+  await session.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [pointerEvent],
+  });
+  const sheet = page.getByRole('dialog', { name: /^Prix / });
+  try {
+    await expect(sheet).toBeVisible();
+    return sheet;
+  } finally {
+    await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await session.detach();
+  }
+}
+
 test.describe('WariX order lifecycle', () => {
   test('submits a market order, shows it pending then filled, and lists it in Positions/Historique', async ({
     page,
@@ -450,6 +482,87 @@ test.describe('WariX chart context menu', () => {
 
     await menu.getByRole('menuitem', { name: 'Ajouter un Stop Loss' }).click();
     await expect(page.getByRole('dialog', { name: /Modifier SL\/TP — EURUSD/ })).toBeVisible();
+  });
+});
+
+/**
+ * Appendix 07-D acceptance gate 2 — the mobile equivalent of the chart
+ * context menu, proven independently of desktop right-click. TradeChart.tsx
+ * shares one component (ChartContextMenuContent, driven by the same
+ * buildContextMenuActions) between the desktop popover and this mobile
+ * BottomSheet — the dynamic pending-order suggestions and "Créer une alerte
+ * ici" already covered by the desktop context-menu tests above and by
+ * ChartContextMenu.test.tsx apply structurally to both, but only a real
+ * touch interaction proves the long-press path itself actually reaches
+ * that shared component on a touch device.
+ */
+test.describe('WariX mobile chart context menu', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+
+  test('long press opens a touch-safe bottom sheet with Market actions, dynamic pending-order suggestions, and Create alert', async ({
+    page,
+    tradeAccount,
+  }) => {
+    await login(page, tradeAccount.email, tradeAccount.password);
+    await page.goto('/trade');
+    await expect(page.getByText('Connecté')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Trader EURUSD' })).toBeEnabled();
+
+    // Not the desktop popover — a BottomSheet, independent of any
+    // right-click/contextmenu event.
+    const sheet = await openTouchChartMenu(page);
+    await expect(sheet.getByRole('menuitem', { name: 'Achat au marché' })).toBeVisible();
+    await expect(sheet.getByRole('menuitem', { name: 'Vente au marché' })).toBeVisible();
+    await expect(sheet.getByRole('menuitem', { name: 'Créer une alerte ici' })).toBeVisible();
+
+    const pendingOrderLabels = [
+      'Achat Limite ici',
+      'Vente Limite ici',
+      'Achat Stop ici',
+      'Vente Stop ici',
+    ];
+    let visiblePendingSuggestions = 0;
+    for (const label of pendingOrderLabels) {
+      if (await sheet.getByRole('menuitem', { name: label }).isVisible()) {
+        visiblePendingSuggestions += 1;
+      }
+    }
+    expect(visiblePendingSuggestions).toBeGreaterThanOrEqual(1);
+    expect(visiblePendingSuggestions).toBeLessThanOrEqual(2);
+
+    // Touch-safe: every action is a real tappable target, not a
+    // desktop-only hover affordance — this codebase's own 44px minimum
+    // touch target convention (--wariba-size-touch-target-minimum).
+    const marketBuyBox = await sheet
+      .getByRole('menuitem', { name: 'Achat au marché' })
+      .boundingBox();
+    expect(marketBuyBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+  });
+
+  test('once a position exists, the bottom sheet also offers position-management actions', async ({
+    page,
+    tradeAccount,
+  }) => {
+    await login(page, tradeAccount.email, tradeAccount.password);
+    await page.goto('/trade');
+    await expect(page.getByText('Connecté')).toBeVisible({ timeout: 30_000 });
+
+    await page.getByRole('button', { name: /Trader/ }).click();
+    const ticketSheet = page.getByRole('dialog');
+    await expect(ticketSheet).toBeVisible();
+    await ticketSheet.getByRole('button', { name: 'Buy' }).click();
+    await page.keyboard.press('Escape');
+    await expect(ticketSheet).not.toBeVisible();
+    await page.getByRole('tab', { name: 'Positions' }).click();
+    await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toBeVisible();
+
+    const sheet = await openTouchChartMenu(page);
+    await expect(sheet.getByRole('menuitem', { name: 'Ajouter un Stop Loss' })).toBeVisible();
+    await expect(sheet.getByRole('menuitem', { name: 'Ajouter un Take Profit' })).toBeVisible();
+    await expect(
+      sheet.getByRole('menuitem', { name: 'Clôturer une partie de la position' }),
+    ).toBeVisible();
+    await expect(sheet.getByRole('menuitem', { name: 'Fermer la position' })).toBeVisible();
   });
 });
 

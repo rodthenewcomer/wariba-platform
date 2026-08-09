@@ -336,6 +336,41 @@ export function TradeClient({
     positionId: string;
     field: 'stop_loss' | 'take_profit';
   } | null>(null);
+  // Appendix 07-D acceptance gate 4 — same PENDING_SERVER pattern as
+  // pendingRiskAction above, for a pending order's trigger price or an
+  // alert's threshold price drag. rejectedOrderAction is a second, distinct
+  // signal: the chart line's displayed price is always bound to the
+  // server-confirmed value (never the drag preview), so a rejection never
+  // needs a numeric revert — only this transient flag, shown briefly then
+  // auto-cleared, so the trader sees *why* the line snapped back instead of
+  // silently doing nothing.
+  const [pendingOrderAction, setPendingOrderAction] = useState<{
+    kind: 'pending_order' | 'alert';
+    id: string;
+  } | null>(null);
+  const [rejectedOrderAction, setRejectedOrderAction] = useState<{
+    kind: 'pending_order' | 'alert';
+    id: string;
+  } | null>(null);
+  const rejectedOrderActionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The WS message handler below lives inside a useEffect that only runs
+  // once per connection (see clientRef.current = client below), so it reads
+  // pendingOrderAction through this ref rather than the state directly —
+  // same reasoning as pendingCommandRef elsewhere in this file.
+  const pendingOrderActionRef = useRef(pendingOrderAction);
+  useEffect(() => {
+    pendingOrderActionRef.current = pendingOrderAction;
+  }, [pendingOrderAction]);
+  // Appendix 07-D acceptance gate 4 — "server rejected and reverted": shown
+  // for a fixed window, then cleared, rather than left to linger until some
+  // other interaction happens to reset it.
+  const flashRejectedOrderAction = useCallback((kind: 'pending_order' | 'alert') => {
+    const current = pendingOrderActionRef.current;
+    if (!current || current.kind !== kind) return;
+    if (rejectedOrderActionTimeoutRef.current) clearTimeout(rejectedOrderActionTimeoutRef.current);
+    setRejectedOrderAction(current);
+    rejectedOrderActionTimeoutRef.current = setTimeout(() => setRejectedOrderAction(null), 2500);
+  }, []);
   // Prompt 7 Appendix 07-C §8 — Market Buy/Sell chosen from the chart
   // context menu. one-click trading off (the default) shows this
   // confirmation before submitting; on, it submits immediately (see
@@ -579,6 +614,7 @@ export function TradeClient({
           setOrderError(result.rejectionCode ?? 'unknown_error');
           const detail = REJECTION_DETAIL[result.rejectionCode ?? ''] ?? UNKNOWN_REJECTION_DETAIL;
           setStatusAnnouncement(`Refusé : ${detail.reason}`);
+          flashRejectedOrderAction('pending_order');
         } else {
           setOrderError(null);
           setStatusAnnouncement('Ordre en attente mis à jour.');
@@ -597,6 +633,7 @@ export function TradeClient({
           setOrderError(result.rejectionCode ?? 'unknown_error');
           const detail = REJECTION_DETAIL[result.rejectionCode ?? ''] ?? UNKNOWN_REJECTION_DETAIL;
           setStatusAnnouncement(`Refusé : ${detail.reason}`);
+          flashRejectedOrderAction('alert');
         } else {
           setOrderError(null);
           setStatusAnnouncement('Alerte mise à jour.');
@@ -803,6 +840,7 @@ export function TradeClient({
       if (!clientRef.current) return;
       setPending(true);
       setOrderError(null);
+      setPendingOrderAction({ kind: 'pending_order', id: params.pendingOrderId });
       clientRef.current.modifyPendingOrder({ accountId, ...params });
     },
     [accountId],
@@ -831,6 +869,7 @@ export function TradeClient({
       if (!clientRef.current) return;
       setPending(true);
       setOrderError(null);
+      setPendingOrderAction({ kind: 'alert', id: params.alertId });
       clientRef.current.modifyPriceAlert(params);
     },
     [],
@@ -1081,6 +1120,21 @@ export function TradeClient({
     if (!pending) setPendingRiskAction(null);
   }, [pending]);
 
+  // Same settling rule for pendingOrderAction — see its own doc comment
+  // above. rejectedOrderAction is set separately, by the pending_order_result
+  // / alert_result handlers below, before this clears pendingOrderAction.
+  useEffect(() => {
+    if (!pending) setPendingOrderAction(null);
+  }, [pending]);
+
+  useEffect(
+    () => () => {
+      if (rejectedOrderActionTimeoutRef.current)
+        clearTimeout(rejectedOrderActionTimeoutRef.current);
+    },
+    [],
+  );
+
   const openCloseAllDialog = useCallback(() => {
     setCloseAllResult(null);
     setCloseAllDialogOpen(true);
@@ -1235,6 +1289,8 @@ export function TradeClient({
             onOpenPartialClose={openPartialClose}
             pendingOrders={symbolPendingOrders}
             alerts={symbolAlerts}
+            pendingOrderAction={pendingOrderAction}
+            rejectedOrderAction={rejectedOrderAction}
             onModifyPendingOrderTrigger={submitModifyPendingOrder}
             onOpenManagePendingOrder={openManagePendingOrder}
             onCancelPendingOrder={cancelPendingOrderRequest}

@@ -13,13 +13,20 @@ import type { ReactNode } from 'react';
  * price tag — this layer is what makes any of it clickable or draggable.
  */
 
-export type LevelSyncState = 'confirmed' | 'dragging_preview' | 'pending_server' | 'stale_disabled';
+export type LevelSyncState =
+  'confirmed' | 'dragging_preview' | 'pending_server' | 'stale_disabled' | 'rejected';
 
-const SYNC_DOT_CLASS: Record<LevelSyncState, string> = {
+export const SYNC_DOT_CLASS: Record<LevelSyncState, string> = {
   confirmed: 'bg-[color:var(--wariba-status-success-text)]',
   dragging_preview: 'bg-[color:var(--wariba-status-information-text)]',
   pending_server: 'bg-[color:var(--wariba-status-warning-text)] animate-pulse',
   stale_disabled: 'bg-[color:var(--wariba-text-tertiary)]',
+  // Appendix 07-D acceptance gate 4 — a modify was rejected server-side; the
+  // line's price never advanced optimistically (see TradeChart.tsx's
+  // PendingOrderLine/AlertLine, always bound to the server-confirmed value,
+  // never the drag preview), so there is nothing to roll back numerically —
+  // only this transient dot to explain why the drag "snapped back".
+  rejected: 'bg-[color:var(--wariba-status-danger-text)]',
 };
 
 export function OverlayAnchor({

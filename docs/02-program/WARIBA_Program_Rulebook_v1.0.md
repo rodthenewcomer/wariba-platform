@@ -2274,7 +2274,7 @@ Les points suivants doivent être fermés dans le Decision Log :
 9. caps de position ;
 10. limite d’évaluations actives ;
 11. reset et repurchase ;
-12. pending orders ;
+12. ~~pending orders~~ — fermé, voir `DECISION_LOG.md` TRADING-ORDER-001..005 et TRADING-ALERT-001..003 (v1.13, 2026-08-06) ;
 13. automatisation et EA ;
 14. PSP ;
 15. moyens de payout ;

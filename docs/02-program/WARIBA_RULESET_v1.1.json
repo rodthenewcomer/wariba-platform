@@ -407,11 +407,12 @@
     }
   },
   "wariX_visual_trading": {
-    "_decision_ref": "DECISION_LOG.md UX-TRADING-001..008",
+    "_decision_ref": "DECISION_LOG.md UX-TRADING-001..009, TRADING-ORDER-001..005, TRADING-ALERT-001..003 (v1.13)",
     "chart_position_lines_enabled": true,
     "chart_sl_tp_controls_enabled": true,
     "chart_sl_tp_drag_enabled": true,
     "chart_context_menu_enabled": true,
+    "mobile_chart_long_press_bottom_sheet_enabled": true,
     "partial_close_enabled": true,
     "partial_close_presets": [
       25,
@@ -424,9 +425,21 @@
     "bots_allowed": false,
     "trade_copiers_allowed": false,
     "one_click_trading_default": false,
-    "pending_orders_supported": false,
-    "price_alerts_supported": false,
-    "_pending_orders_note": "No limit/stop order engine exists in this build (only market_open/partial_close/full_close/modify_sl/modify_tp) — the chart context menu offers market actions and SL/TP/close only, never a pending-order or price-alert choice.",
+    "pending_orders_supported": true,
+    "pending_order_types_supported": [
+      "buy_limit",
+      "sell_limit",
+      "buy_stop",
+      "sell_stop"
+    ],
+    "pending_order_attached_sl_tp_supported": true,
+    "price_alerts_supported": true,
+    "price_alert_directions_supported": [
+      "cross_above",
+      "cross_below"
+    ],
+    "_pending_orders_note": "Appendix 07-D (2026-08-06): server-authoritative GTC limit/stop entry orders with optional attached SL/TP, and threshold-crossing price alerts, both evaluated on the live tick loop in services/realtime — no client-side or exchange-side order book. Desktop right-click and mobile long-press expose the identical context-menu action set (shared component, see DECISION_LOG.md UX-TRADING-009).",
+    "_single_node_note": "Single-writer realtime process only — no leader election, fencing, or standby takeover exists (TRADING-ORDER-004). A restart correctly reloads and resumes persisted pending orders/alerts (tested); the interval while the process is down is real downtime, not disclosed as failover.",
     "server_authoritative_for": [
       "current_position_quantity",
       "average_entry_price",

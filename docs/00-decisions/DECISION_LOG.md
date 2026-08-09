@@ -677,6 +677,49 @@ trading manuel ni à la règle d'éligibilité de profit à 60 secondes (TRD-033
 
 # 26. Historique des versions
 
+## v1.14 — 2026-08-06
+
+Revue d'acceptation finale de l'Appendice 07-D (six portes, remplaçant le
+verdict READY générique livré en v1.13 par une classification à trois
+niveaux). Preuve SL/TP attaché : test end-to-end réel
+(`services/realtime/tests/pending-order-lifecycle.e2e.test.ts`) — un Buy
+Limit avec SL/TP attachés se déclenche exactement une fois, remplit dans la
+même transaction Postgres que `openPosition()`, et un reconnect restitue
+l'entrée/SL/TP corrects. Preuve mobile : appui long réel simulé par
+dispatch direct de `PointerEvent(pointerType:'touch')`
+(`apps/web/tests/e2e/trade.spec.ts`, describe « WariX mobile chart context
+menu ») confirmant bottom sheet, Achat/Vente au marché, suggestions
+Limit/Stop contextuelles, création d'alerte, actions de gestion de
+position, cibles tactiles ≥44px. Preuve de reprise single-node : test
+end-to-end qui tue puis relance le processus réel
+(`services/realtime/tests/pending-order-restart-recovery.e2e.test.ts`) —
+un ordre en attente et une alerte créés loin du marché survivent au
+restart, sont rechargés depuis Postgres, et se déclenchent exactement une
+fois sur le nouveau processus une fois rapprochés du marché ; un
+reconnect voit l'état final correct. État visuel PENDING_SERVER étendu aux
+lignes d'ordres en attente et d'alertes (`orderSyncStateFor`,
+`TradeChart.tsx`) : un cinquième état `rejected` est ajouté à
+`LevelSyncState` (`ChartPositionOverlay.tsx`) pour le cas « refusé et
+annulé », jusqu'ici non conçu même pour le SL/TP de position — le prix
+affiché n'avance jamais de façon optimiste (toujours lié à la valeur
+confirmée serveur), donc ce nouvel état est purement indicatif, affiché
+~2,5s puis effacé (`TradeClient.tsx`). Régression verrouillée par
+`apps/web/tests/ChartPendingOverlay.test.tsx` (13 tests, vérifiés
+échouants avant le patch via `git stash`). Patches documentaires ciblés
+(pas de réécriture) sur `WARIBA_RULESET_v1.1.json` (les deux flags
+`pending_orders_supported`/`price_alerts_supported` étaient encore à
+`false`), le Program Rulebook v1.0 (décision ouverte #12 fermée), le
+Product Master v1.1 (§8 encore « aucun ordre en attente proposé »), le
+System Architecture v1.0 (§28.1 nouveau, §64.1 étendu avec la preuve de
+reprise), le Security QA Operations Standard v1.0 (runbook #16 — ordre
+bloqué en statut `triggered` après un crash entre claim et fill, aucune
+tâche de réconciliation automatique n'existe), le Prompt Pack v1.0 (§34
+nouveau) et le centre d'aide (`HelpCenterClient.tsx`, trois nouvelles
+entrées FAQ WariX). `MULTI_NODE_PRODUCTION_READY` reste `false` de façon
+explicite — aucune élection de leader, fencing ou standby n'a été
+construit ; c'était déjà documenté honnêtement en v1.13 et n'a pas
+changé ici.
+
 ## v1.13 — 2026-08-06
 
 Prompt 7 Appendice 07-D (ordres en attente et alertes de prix WariX)

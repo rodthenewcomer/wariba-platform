@@ -1819,7 +1819,8 @@ Avant bêta :
 12. DB restore ;
 13. Soft lock anomaly ;
 14. Hard breach dispute ;
-15. Reserve critical.
+15. Reserve critical ;
+16. Ordre en attente bloqué en statut `triggered` (crash entre le claim et le fill — voir DECISION_LOG.md TRADING-ORDER-004 ; aucune tâche de réconciliation automatique n'existe pour rejouer ces lignes).
 
 ---
 

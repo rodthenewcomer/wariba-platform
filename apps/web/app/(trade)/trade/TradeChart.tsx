@@ -57,6 +57,12 @@ export interface PendingRiskAction {
   field: RiskLevelField;
 }
 
+/** Appendix 07-D acceptance gate 4 — which pending order/alert modify is in flight or was just rejected, mirroring PendingRiskAction above. */
+export interface PendingOrderAction {
+  kind: 'pending_order' | 'alert';
+  id: string;
+}
+
 export interface TradeChartProps {
   symbol: TradableSymbol;
   tick: MarketTick | null;
@@ -80,6 +86,8 @@ export interface TradeChartProps {
   /** Appendix 07-D — active Buy/Sell Limit/Stop orders and price alerts on this symbol. */
   pendingOrders: PendingOrderDTO[];
   alerts: PriceAlertDTO[];
+  pendingOrderAction: PendingOrderAction | null;
+  rejectedOrderAction: PendingOrderAction | null;
   onModifyPendingOrderTrigger: (params: { pendingOrderId: string; triggerPrice: string }) => void;
   onOpenManagePendingOrder: (pendingOrderId: string) => void;
   onCancelPendingOrder: (pendingOrderId: string) => void;
@@ -189,6 +197,8 @@ export function TradeChart({
   onOpenPartialClose,
   pendingOrders,
   alerts,
+  pendingOrderAction,
+  rejectedOrderAction,
   onModifyPendingOrderTrigger,
   onOpenManagePendingOrder,
   onCancelPendingOrder,
@@ -857,6 +867,12 @@ export function TradeChart({
 
   const orderSyncStateFor = (kind: OrderDragSession['kind'], id: string): LevelSyncState => {
     if (orderDrag && orderDrag.kind === kind && orderDrag.id === id) return 'dragging_preview';
+    if (rejectedOrderAction && rejectedOrderAction.kind === kind && rejectedOrderAction.id === id) {
+      return 'rejected';
+    }
+    if (pendingOrderAction && pendingOrderAction.kind === kind && pendingOrderAction.id === id) {
+      return 'pending_server';
+    }
     if (draggingDisabled) return 'stale_disabled';
     return 'confirmed';
   };

@@ -1,5 +1,5 @@
 import type { PendingOrderType, AlertDirection } from '@wariba/contracts';
-import { OverlayAnchor, type LevelSyncState } from './ChartPositionOverlay';
+import { OverlayAnchor, SYNC_DOT_CLASS, type LevelSyncState } from './ChartPositionOverlay';
 
 /**
  * Prompt 7 Appendix 07-D §5/§13 — the pending-order and price-alert
@@ -68,10 +68,14 @@ export function PendingOrderLine({
   return (
     <OverlayAnchor y={y}>
       <div
-        className={`flex items-center gap-1 rounded-[var(--wariba-radius-sm)] border border-dashed bg-[color:var(--wariba-background-elevated)]/95 px-1.5 py-0.5 shadow-[var(--wariba-shadow-sm)] transition-[top] duration-150 ${ORDER_TYPE_TONE_CLASS[orderType]} ${
+        className={`flex items-center gap-1.5 rounded-[var(--wariba-radius-sm)] border border-dashed bg-[color:var(--wariba-background-elevated)]/95 px-1.5 py-0.5 shadow-[var(--wariba-shadow-sm)] transition-[top] duration-150 ${ORDER_TYPE_TONE_CLASS[orderType]} ${
           syncState === 'dragging_preview' ? 'ring-1 ring-[color:var(--wariba-action-primary)]' : ''
-        }`}
+        } ${syncState === 'rejected' ? 'ring-1 ring-[color:var(--wariba-status-danger-border)]' : ''}`}
       >
+        <span
+          aria-hidden="true"
+          className={`h-1.5 w-1.5 shrink-0 rounded-full ${SYNC_DOT_CLASS[syncState]}`}
+        />
         <button
           type="button"
           onPointerDown={onPointerDown}
@@ -139,10 +143,14 @@ export function AlertLine({
   return (
     <OverlayAnchor y={y}>
       <div
-        className={`flex items-center gap-1 rounded-[var(--wariba-radius-sm)] border border-dotted border-[color:var(--wariba-action-primary)] bg-[color:var(--wariba-background-elevated)]/95 px-1.5 py-0.5 shadow-[var(--wariba-shadow-sm)] transition-[top] duration-150 ${
+        className={`flex items-center gap-1.5 rounded-[var(--wariba-radius-sm)] border border-dotted border-[color:var(--wariba-action-primary)] bg-[color:var(--wariba-background-elevated)]/95 px-1.5 py-0.5 shadow-[var(--wariba-shadow-sm)] transition-[top] duration-150 ${
           syncState === 'dragging_preview' ? 'ring-1 ring-[color:var(--wariba-action-primary)]' : ''
-        }`}
+        } ${syncState === 'rejected' ? 'ring-1 ring-[color:var(--wariba-status-danger-border)]' : ''}`}
       >
+        <span
+          aria-hidden="true"
+          className={`h-1.5 w-1.5 shrink-0 rounded-full ${SYNC_DOT_CLASS[syncState]}`}
+        />
         <button
           type="button"
           onPointerDown={onPointerDown}

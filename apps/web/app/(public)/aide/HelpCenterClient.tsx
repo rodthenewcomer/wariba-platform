@@ -71,6 +71,24 @@ const FAQS = [
   },
   {
     category: 'WariX',
+    question: 'Puis-je placer un ordre en attente (Limit ou Stop) ?',
+    answer:
+      'Oui. Depuis le ticket d’ordre ou le menu contextuel du graphique, vous pouvez créer un ordre Achat/Vente Limit ou Stop avec un Stop Loss et un Take Profit optionnels attachés dès la création. L’ordre reste actif (GTC) jusqu’à déclenchement ou annulation et se déclenche sur un prix réel du serveur, jamais sur un prix affiché côté navigateur.',
+  },
+  {
+    category: 'WariX',
+    question: 'Comment fonctionnent les alertes de prix ?',
+    answer:
+      'Une alerte se déclenche lorsque le prix franchit un seuil que vous définissez (au-dessus ou en dessous), évaluée en continu côté serveur sur le prix réel. Elle apparaît dans le centre de notifications dès son déclenchement et peut être configurée pour se répéter ou ne se déclencher qu’une seule fois.',
+  },
+  {
+    category: 'WariX',
+    question: 'WariX fonctionne-t-il sur mobile ?',
+    answer:
+      'Oui. Un appui long sur le graphique ouvre le même menu d’actions que le clic droit sur ordinateur, dans une feuille tactile adaptée au doigt : achat/vente au marché, ordre en attente, création d’alerte et actions de gestion de position disponibles selon le contexte.',
+  },
+  {
+    category: 'WariX',
     question: 'Comment clôturer une partie seulement d’une position ?',
     answer:
       'Depuis le graphique (menu au clic droit ou bouton « Clôture % » sur la position), l’onglet Positions, ou le menu de gestion de la ligne de position : choisissez 25 %, 50 %, 75 % ou une quantité personnalisée, puis confirmez. Le reste de la position demeure ouvert. Si le prix du marché est momentanément obsolète, la demande est mise en file et exécutée automatiquement dès qu’un prix à jour redevient disponible — jamais contre un ancien prix.',
