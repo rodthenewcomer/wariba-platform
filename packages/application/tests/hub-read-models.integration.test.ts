@@ -13,12 +13,11 @@ import {
   buildOpenPositionsView,
   buildRecentActivityView,
   listAccountsForUser,
-  UnsupportedProgramError,
 } from '../src/index';
 
 /**
- * Real integration tests against the live hosted database — not mocked.
- * Requires DATABASE_URL (via .env.local, gitignored). Skips gracefully if
+ * Real integration tests against the isolated local database — not mocked.
+ * Requires DATABASE_URL (via test environment). Skips gracefully if
  * absent, mirroring packages/database's risk.integration.test.ts, whose
  * direct-activation fixture pattern this file reuses.
  */
@@ -287,69 +286,37 @@ describeIfDb('Hub read models — real database', () => {
     }, 15000);
   });
 
-  describe('a WARIBA_PERFORMANCE account (no published policy yet)', () => {
+  describe('a WARIBA_PERFORMANCE account with its published policy', () => {
     let accountId: string;
-    let placeholderPolicyId: string;
 
     beforeAll(async () => {
       const policy = await db
-        .insertInto('app.policy_versions')
-        .values({
-          program: 'WARIBA_PERFORMANCE',
-          semantic_version: `0.0.0-test-${randomUUID().slice(0, 8)}`,
-          status: 'draft',
-          parameters_json: {},
-        })
-        .returning('id')
+        .selectFrom('app.policy_versions')
+        .select('id')
+        .where('program', '=', 'WARIBA_PERFORMANCE')
+        .where('status', '=', 'published')
+        .orderBy('created_at', 'desc')
+        .limit(1)
         .executeTakeFirstOrThrow();
-      placeholderPolicyId = policy.id;
 
       ({ accountId } = await createActiveAccount('performance'));
       await db
         .updateTable('app.trading_accounts')
-        .set({ program_type: 'WARIBA_PERFORMANCE', policy_version_id: placeholderPolicyId })
+        .set({ program_type: 'WARIBA_PERFORMANCE', policy_version_id: policy.id })
         .where('id', '=', accountId)
         .execute();
     }, 15000);
 
-    afterAll(async () => {
-      // Delete the account itself here (ahead of the shared outer cleanup)
-      // so the placeholder policy's FK has nothing referencing it left —
-      // then drop it from cleanupAccountIds so the outer afterAll doesn't
-      // try to process an already-deleted row.
-      await db
-        .deleteFrom('app.trading_ledger_entries')
-        .where('account_id', '=', accountId)
-        .execute();
-      await db
-        .deleteFrom('app.account_state_transitions')
-        .where('account_id', '=', accountId)
-        .execute();
-      const account = await db
-        .selectFrom('app.trading_accounts')
-        .select('source_purchase_order_id')
-        .where('id', '=', accountId)
-        .executeTakeFirstOrThrow();
-      await db.deleteFrom('app.trading_accounts').where('id', '=', accountId).execute();
-      await db
-        .deleteFrom('app.purchase_orders')
-        .where('id', '=', account.source_purchase_order_id)
-        .execute();
-      await db.deleteFrom('app.policy_versions').where('id', '=', placeholderPolicyId).execute();
-
-      const index = cleanupAccountIds.indexOf(accountId);
-      if (index >= 0) cleanupAccountIds.splice(index, 1);
-    }, 15000);
-
-    it('mission view returns an honest "unavailable" result instead of inventing data', async () => {
-      const view = await buildAccountMissionView(db, { accountId, now: new Date() });
-      expect(view.available).toBe(false);
+    it('builds the shared Hub state from Performance risk parameters', async () => {
+      const view = await buildAccountHubView(db, { accountId, now: new Date() });
+      expect(view.state).toBe('active');
+      expect(view.balanceFormatted).toBe('5 000 USD');
     });
 
-    it('risk view throws a typed, catchable error rather than crashing opaquely', async () => {
-      await expect(buildAccountRiskView(db, { accountId, now: new Date() })).rejects.toBeInstanceOf(
-        UnsupportedProgramError,
-      );
+    it('builds the shared risk ribbon from the published Performance policy', async () => {
+      const view = await buildAccountRiskView(db, { accountId, now: new Date() });
+      expect(view.status).toBe('normal');
+      expect(view.dailyLossRemainingFormatted).toBe('150 USD');
     });
   });
 });

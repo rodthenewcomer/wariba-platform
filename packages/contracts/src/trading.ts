@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { symbolSchema } from './market';
 import { pendingOrderDtoSchema } from './pending-orders';
+import { performanceProgressDtoSchema, payoutRequestDtoSchema } from './performance';
 
 // Client-submitted quantity/price-level strings reach Decimal.js deep inside
 // the openPosition DB transaction (packages/domain/src/trading-math.ts) with
@@ -253,6 +254,11 @@ export type AccountRisk = z.infer<typeof accountRiskSchema>;
 
 export const accountSnapshotSchema = z.object({
   accountId: z.string().uuid(),
+  // Prompt 08 Phase F — lets a client tell "not a Performance account" apart
+  // from "Performance account, no active cycle right now" (performanceProgress
+  // is null in both cases — see its own doc comment below), e.g. to decide
+  // whether the Payout Center tab should exist at all.
+  programType: z.enum(['WARIBA_ONE', 'WARIBA_PERFORMANCE']),
   nominalBalance: z.string(),
   balance: z.string(),
   programEligibleBalance: z.string(),
@@ -277,6 +283,12 @@ export const accountSnapshotSchema = z.object({
   // settled, same "only what's still live" convention queuedReductions
   // already established).
   pendingOrders: z.array(pendingOrderDtoSchema),
+  // Prompt 08 Phase F — null for WARIBA_ONE accounts; populated only for
+  // WARIBA_PERFORMANCE. Kept optional-shaped (null, not omitted) so a
+  // client can distinguish "not a Performance account" from "field not
+  // sent yet", same reasoning as `risk` being nullable above.
+  performanceProgress: performanceProgressDtoSchema.nullable(),
+  payoutRequests: z.array(payoutRequestDtoSchema),
 });
 export type AccountSnapshot = z.infer<typeof accountSnapshotSchema>;
 

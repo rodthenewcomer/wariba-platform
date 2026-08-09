@@ -64,6 +64,16 @@ export {
 } from './mission-view';
 
 export {
+  buildAccountPerformanceMissionView,
+  type AccountPerformanceMissionView,
+  type AccountPerformanceMissionUnavailable,
+  type AccountPerformanceMissionState,
+  type AccountPerformanceMissionCondition,
+  type AccountPerformancePayoutHistoryItem,
+  type BuildAccountPerformanceMissionViewParams,
+} from './performance-mission-view';
+
+export {
   buildAccountHubView,
   type AccountHubView,
   type AccountBadgeVariant,
@@ -85,6 +95,42 @@ export {
   type OpenPositionItem,
   type BuildOpenPositionsViewParams,
 } from './positions-view';
+
+export {
+  buildControlPayoutQueueView,
+  type ControlPayoutQueueItemView,
+  type ControlPayoutStatusVariant,
+} from './control-payouts-view';
+
+export {
+  buildControlReserveView,
+  type ControlReserveView,
+  type ControlReserveZone,
+} from './control-treasury-view';
+
+export {
+  replaceActuarialScenarioAssumptions,
+  runStoredActuarialScenario,
+  type ReplaceActuarialScenarioAssumptionsParams,
+} from './actuarial-scenarios';
+
+export {
+  buildControlReviewCasesView,
+  type ControlReviewCaseItemView,
+} from './control-review-cases-view';
+
+export {
+  approvePayoutRequest,
+  rejectPayoutRequest,
+  submitPayoutRequest,
+  settlePayoutRequest,
+  setPerformanceComplianceFlags,
+  type ApprovePayoutParams,
+  type RejectPayoutParams,
+  type SubmitPayoutParams,
+  type SettlePayoutParams,
+  type SetComplianceFlagsParams,
+} from './control-payouts-actions';
 
 export {
   listActiveProducts,

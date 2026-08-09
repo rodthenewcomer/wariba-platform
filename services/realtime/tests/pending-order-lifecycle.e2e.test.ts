@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import { spawn, type ChildProcess } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
-import WsClient from 'ws';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDbClient, activateEvaluationAccount, type Db } from '@wariba/database';
-import { accountStateChannel, accountOrdersChannel } from '@wariba/contracts';
-import { createMessageBuffer } from './message-buffer.js';
+import {
+  accountStateChannel,
+  accountOrdersChannel,
+  createPendingOrderMessageSchema,
+} from '@wariba/contracts';
+import { RealtimeTestClient } from './realtime-test-client.js';
+import { spawnRealtimeTestProcess, type RealtimeTestProcess } from './realtime-test-process.js';
 
 globalThis.WebSocket ??= class {} as unknown as typeof WebSocket;
 
@@ -32,42 +35,9 @@ const BASE_URL = `http://127.0.0.1:${PORT}`;
 const WS_URL = `ws://127.0.0.1:${PORT}/ws`;
 const DOWNWARD_EURUSD_SEED = '295357';
 
-function waitForOpen(ws: WsClient, timeoutMs = 5000): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('timed out waiting for open')), timeoutMs);
-    ws.once('open', () => {
-      clearTimeout(timer);
-      resolve();
-    });
-    ws.once('error', (err) => {
-      clearTimeout(timer);
-      reject(err);
-    });
-  });
-}
-
-function waitForMessages(
-  ws: WsClient,
-  predicate: (msg: { type: string; payload: unknown }) => boolean,
-  timeoutMs: number,
-): Promise<{ type: string; payload: unknown }[]> {
-  return new Promise((resolve) => {
-    const matches: { type: string; payload: unknown }[] = [];
-    const onMessage = (raw: WsClient.RawData): void => {
-      const msg = JSON.parse(raw.toString()) as { type: string; payload: unknown };
-      if (predicate(msg)) matches.push(msg);
-    };
-    ws.on('message', onMessage);
-    setTimeout(() => {
-      ws.off('message', onMessage);
-      resolve(matches);
-    }, timeoutMs);
-  });
-}
-
 describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () => {
   let db: Db;
-  let child: ChildProcess;
+  let realtime: RealtimeTestProcess;
   let userId: string;
   let accountId: string;
   let token: string;
@@ -146,21 +116,6 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
     return account.id;
   };
 
-  const waitForHealthy = async (timeoutMs = 20000): Promise<void> => {
-    const deadline = Date.now() + timeoutMs;
-    let lastError: unknown;
-    while (Date.now() < deadline) {
-      try {
-        const res = await fetch(`${BASE_URL}/health`);
-        if (res.ok) return;
-      } catch (err) {
-        lastError = err;
-      }
-      await new Promise((r) => setTimeout(r, 250));
-    }
-    throw new Error(`realtime service never became healthy: ${String(lastError)}`);
-  };
-
   beforeAll(async () => {
     db = createDbClient(DATABASE_URL as string);
     email = `rt-pending-e2e-${Date.now()}@wariba-test.invalid`;
@@ -168,39 +123,24 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
     accountId = await createActiveAccount(userId);
     token = await signIn(email, password);
 
-    const childEnv: NodeJS.ProcessEnv = {
-      ...process.env,
-      REALTIME_PORT: String(PORT),
-      MARKET_TICK_INTERVAL_MS: '1000',
-      SANDBOX_MARKET_SEED: DOWNWARD_EURUSD_SEED,
-      ACCOUNT_RISK_PREVIEW_INTERVAL_MS: '5000',
-    };
-    delete childEnv.VITEST;
-
-    child = spawn('npx', ['tsx', 'src/index.ts'], {
+    realtime = await spawnRealtimeTestProcess({
       cwd: process.cwd(),
-      env: childEnv,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      healthUrl: `${BASE_URL}/health`,
+      healthTimeoutMs: 20000,
+      env: {
+        ...process.env,
+        REALTIME_PORT: String(PORT),
+        MARKET_DATA_PROVIDER: 'mock',
+        MARKET_DATA_REPLAY_MODE: 'false',
+        MARKET_TICK_INTERVAL_MS: '1000',
+        SANDBOX_MARKET_SEED: DOWNWARD_EURUSD_SEED,
+        ACCOUNT_RISK_PREVIEW_INTERVAL_MS: '5000',
+      },
     });
-    let startupLog = '';
-    child.stdout?.on('data', (d: Buffer) => (startupLog += d.toString()));
-    child.stderr?.on('data', (d: Buffer) => (startupLog += d.toString()));
-    let exitInfo = '';
-    child.on('exit', (code, signal) => {
-      exitInfo = `exit code=${code} signal=${signal}`;
-    });
-
-    try {
-      await waitForHealthy();
-    } catch (err) {
-      throw new Error(
-        `${(err as Error).message}\n--- child ${exitInfo || 'still running'} ---\n${startupLog}`,
-      );
-    }
   }, 40000);
 
   afterAll(async () => {
-    child?.kill('SIGTERM');
+    await realtime?.stop();
     for (const id of cleanupAccountIds) {
       const positions = await db
         .selectFrom('app.positions')
@@ -241,29 +181,25 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
   }, 30000);
 
   it('a Buy Limit with attached SL/TP triggers exactly once, the fill becomes an authoritative position protection, and a reconnect returns the correct entry/SL/TP', async () => {
-    const ws1 = new WsClient(`${WS_URL}?token=${token}`);
-    const messages1 = createMessageBuffer(ws1, 45000);
-    await waitForOpen(ws1);
-    ws1.send(
-      JSON.stringify({
-        type: 'subscribe',
-        channels: [
-          accountStateChannel(accountId),
-          accountOrdersChannel(accountId),
-          'market.symbol.EURUSD',
-        ],
-      }),
+    const client = await RealtimeTestClient.connect({
+      token,
+      url: WS_URL,
+      defaultTimeoutMs: 45000,
+      serverDiagnostics: () => realtime.logs(),
+    });
+    await client.subscribeAndWait(
+      [accountStateChannel(accountId), accountOrdersChannel(accountId), 'market.symbol.EURUSD'],
+      'account.snapshot',
     );
-    await messages1.waitForMessage((m) => m.type === 'account.snapshot');
-    messages1.dispose();
-    const tradeMessages = createMessageBuffer(ws1, 45000);
-    ws1.send(JSON.stringify({ type: 'subscribe', channels: ['market.symbol.EURUSD'] }));
 
     // Real, live simulated market — the trigger price is derived from an
     // actually-observed tick, not a value this test invents, so the
     // creation-time isPendingOrderCreationPriceValid check (server-side,
     // packages/domain) is satisfied for real, not coincidentally.
-    const tickMsg = await tradeMessages.waitForMessage((m) => m.type === 'market.tick');
+    const tickMsg = await client.waitForMessage(
+      'initial EURUSD market tick',
+      (message) => message.type === 'market.tick',
+    );
     const tick = tickMsg.payload as { bid: string; ask: string };
     const pricePrecision = 5;
     const onePoint = Number(`1e-${pricePrecision}`);
@@ -275,22 +211,23 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
     const takeProfit = (Number(triggerPrice) + 50 * onePoint).toFixed(pricePrecision);
 
     const createIdempotencyKey = randomUUID();
-    ws1.send(
-      JSON.stringify({
+    const pendingOrder = createPendingOrderMessageSchema.parse({
+      accountId,
+      idempotencyKey: createIdempotencyKey,
+      symbol: 'EURUSD',
+      orderType: 'buy_limit',
+      quantity: '0.50',
+      triggerPrice,
+      stopLoss,
+      takeProfit,
+    });
+    const created = await client.sendCommandAndAwaitResult({
+      expectedEvent: 'pending_order_result',
+      command: {
         type: 'create_pending_order',
-        pendingOrder: {
-          accountId,
-          idempotencyKey: createIdempotencyKey,
-          symbol: 'EURUSD',
-          orderType: 'buy_limit',
-          quantity: '0.50',
-          triggerPrice,
-          stopLoss,
-          takeProfit,
-        },
-      }),
-    );
-    const created = await tradeMessages.waitForMessage((m) => m.type === 'pending_order_result');
+        pendingOrder,
+      },
+    });
     const createdPayload = created.payload as {
       status: string;
       order: { id: string; requestedStopLoss: string; requestedTakeProfit: string } | null;
@@ -306,10 +243,11 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
     // idempotencyKey is `pending-order:${pendingOrderId}`, never the
     // create command's own key, by design (packages/database/src/
     // pending-orders.ts's triggerPendingOrders doc comment).
-    const filled = await tradeMessages.waitForMessage(
-      (m) =>
-        m.type === 'order_result' &&
-        (m.payload as { idempotencyKey: string }).idempotencyKey ===
+    const filled = await client.waitForMessage(
+      `authoritative fill for pending order ${pendingOrderId}`,
+      (message) =>
+        message.type === 'order_result' &&
+        (message.payload as { idempotencyKey: string }).idempotencyKey ===
           `pending-order:${pendingOrderId}`,
       60000,
     );
@@ -330,11 +268,10 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
     // pending-order-derived idempotency key arrives on a further burst of
     // ticks, and the DB agrees — exactly one fill, one position, one
     // trade_orders row for this pending order.
-    const extraFills = await waitForMessages(
-      ws1,
-      (m) =>
-        m.type === 'order_result' &&
-        (m.payload as { idempotencyKey: string }).idempotencyKey ===
+    const extraFills = await client.observeMessages(
+      (message) =>
+        message.type === 'order_result' &&
+        (message.payload as { idempotencyKey: string }).idempotencyKey ===
           `pending-order:${pendingOrderId}`,
       3000,
     );
@@ -370,17 +307,14 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
     expect(positionRow.stop_loss).toBe(stopLoss);
     expect(positionRow.take_profit).toBe(takeProfit);
 
-    ws1.close();
-    tradeMessages.dispose();
-
     // Reconnect: a brand new connection, fresh subscribe, must see the
     // same entry/SL/TP from the server's own persisted state — never
     // from any client-side cache (there is none to fall back to).
-    const ws2 = new WsClient(`${WS_URL}?token=${token}`);
-    const messages2 = createMessageBuffer(ws2, 45000);
-    await waitForOpen(ws2);
-    ws2.send(JSON.stringify({ type: 'subscribe', channels: [accountStateChannel(accountId)] }));
-    const reconnectSnapshot = await messages2.waitForMessage((m) => m.type === 'account.snapshot');
+    const reconnectedClient = await client.reconnect();
+    const reconnectSnapshot = await reconnectedClient.subscribeAndWait(
+      [accountStateChannel(accountId)],
+      'account.snapshot',
+    );
     const snapshotPayload = reconnectSnapshot.payload as {
       openPositions: { id: string; stopLoss: string; takeProfit: string }[];
       pendingOrders: unknown[];
@@ -391,7 +325,6 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
     expect(reconnectedPosition?.takeProfit).toBe(takeProfit);
     // The now-filled pending order no longer appears among active ones.
     expect(snapshotPayload.pendingOrders).toHaveLength(0);
-    ws2.close();
-    messages2.dispose();
+    reconnectedClient.close();
   }, 150000);
 });

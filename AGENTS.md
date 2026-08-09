@@ -935,10 +935,22 @@ pnpm lint
 pnpm format:check
 pnpm typecheck
 pnpm test
+pnpm test:fast
 pnpm test:unit
 pnpm test:integration
+pnpm test:integration:smoke
 pnpm test:e2e
+pnpm test:e2e:smoke
+pnpm test:e2e:trade
+pnpm test:e2e:payout
+pnpm test:e2e:mobile
+pnpm test:e2e:full
 pnpm test:rls
+pnpm test:rls:smoke
+pnpm test:rls:full
+pnpm test:recovery
+pnpm test:load
+pnpm test:certification
 pnpm test:visual
 pnpm db:start
 pnpm db:reset
@@ -1029,18 +1041,26 @@ Une PR ne doit pas mélanger plusieurs milestones majeurs.
 ### 27.1 PR
 
 ```text
-install
-→ format
-→ lint
-→ typecheck
-→ unit
-→ build
-→ migrations/RLS
-→ integration
-→ E2E ciblés
+static ───────────────┐
+unit ────────────────┤
+build ───────────────┤
+DB integration ──────┤→ PR Fast Gate
+RLS smoke ───────────┤
+E2E smoke ───────────┘
 ```
 
-### 27.2 Main
+Les jobs indépendants s'exécutent en parallèle et une nouvelle révision de la même PR annule
+le run devenu obsolète. Le workflow de diagnostic obligatoire est : test exact → classification
+produit/test/infrastructure → correction racine → même test → groupe affecté → push → gate PR.
+
+### 27.2 Certification
+
+Le full fonctionnel, le restart/recovery et la charge 150 connexions sont nocturnes, manuels ou
+déclenchés avant un jalon/release ; ils ne font pas partie de la boucle normale. Les scénarios
+multi-node failover/chaos ne peuvent être déclarés verts avant une architecture HA réelle avec
+leadership/fencing. Voir `docs/07-assurance/WARIBA_CI_E2E_Test_Architecture_v1.0.md`.
+
+### 27.3 Main
 
 ```text
 merge
@@ -1050,7 +1070,7 @@ merge
 → E2E
 ```
 
-### 27.3 Production
+### 27.4 Production
 
 Manuelle uniquement :
 

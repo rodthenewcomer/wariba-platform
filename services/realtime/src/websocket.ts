@@ -27,6 +27,7 @@ import {
   modifyPriceAlertMessageSchema,
   alertIdMessageSchema,
   markNotificationsReadMessageSchema,
+  requestPayoutMessageSchema,
   buildEnvelope,
   accountStateChannel,
   accountOrdersChannel,
@@ -38,6 +39,7 @@ import {
   type QueueReductionResultMessage,
   type PendingOrderResultMessage,
   type AlertResultMessage,
+  type PayoutResultMessage,
   type SymbolSpec,
 } from '@wariba/contracts';
 import type { Logger } from '@wariba/observability';
@@ -66,6 +68,7 @@ import {
   buildResultMessage,
   readAllMarkets,
 } from './order-handler';
+import { handleRequestPayout } from './payout-handler';
 
 const clientMessageSchema = z.discriminatedUnion('type', [
   subscribeMessageSchema,
@@ -103,6 +106,7 @@ const clientMessageSchema = z.discriminatedUnion('type', [
     type: z.literal('mark_notifications_read'),
     notifications: markNotificationsReadMessageSchema,
   }),
+  z.object({ type: z.literal('request_payout'), payout: requestPayoutMessageSchema }),
 ]);
 
 const HEARTBEAT_INTERVAL_MS = 15_000;
@@ -645,8 +649,18 @@ async function processMessage(
     return;
   }
 
-  // mark_notifications_read
-  await handleMarkNotificationsRead(db, userId, msg.notifications);
+  if (msg.type === 'mark_notifications_read') {
+    await handleMarkNotificationsRead(db, userId, msg.notifications);
+    return;
+  }
+
+  // request_payout
+  const outcome = await handleRequestPayout(db, userId, msg.payout);
+  if (outcome === 'not_owner') {
+    sendError(registry, connectionId, 'not_owner', 'You do not own this account.');
+    return;
+  }
+  broadcastPayoutResult(registry, msg.payout.accountId, outcome);
 }
 
 async function channelAllowed(db: Db, userId: string, channel: string): Promise<boolean> {
@@ -817,6 +831,20 @@ function broadcastAlertResult(
       payload: message,
     }),
   );
+}
+
+function broadcastPayoutResult(
+  registry: ConnectionRegistry,
+  accountId: string,
+  message: PayoutResultMessage,
+): void {
+  const envelope = buildEnvelope({
+    type: 'payout_result',
+    sequence: 0,
+    correlationId: accountId,
+    payload: message,
+  });
+  registry.broadcast(accountOrdersChannel(accountId), envelope);
 }
 
 function sendError(

@@ -10,7 +10,26 @@ import {
   isProfitTargetReached,
   type EvaluationAccountStatus,
 } from '@wariba/domain';
-import type { EvaluationOnePolicyParameters } from './schema';
+
+/**
+ * The subset of policy parameters this pure risk engine actually reads —
+ * narrower than EvaluationOnePolicyParameters so a WARIBA_PERFORMANCE
+ * policy (Prompt 08) can satisfy it too, structurally, without inventing a
+ * second copy of this function. `profit_target_rate` is optional/nullable:
+ * WARIBA_ONE always sets it (a profit target is the whole point of an
+ * Evaluation); WARIBA_PERFORMANCE never does, since a Performance account
+ * has no "pass" concept — it cycles via Performance Days and payouts
+ * instead (see packages/database/src/performance.ts). Its absence is what
+ * disables the pass_pending transition below, not a separate "program"
+ * flag — one less thing that could drift out of sync with the policy row
+ * actually loaded.
+ */
+export interface RiskPolicyParameters {
+  daily_loss_rate: string;
+  maximum_loss_rate: string;
+  best_day_max_ratio: string;
+  profit_target_rate?: string | null;
+}
 
 export type RiskRuleCode =
   | 'RISK_DAILY_LOSS_LOCK'
@@ -50,7 +69,7 @@ export interface EvaluateAccountRiskParams {
     status: EvaluationAccountStatus;
     nominalBalance: string;
   };
-  policy: EvaluationOnePolicyParameters;
+  policy: RiskPolicyParameters;
   currentBalance: string;
   /** Actual balance less cumulative short-duration profit that is not program-eligible. */
   currentProgramEligibleBalance?: string;
@@ -75,12 +94,22 @@ export interface RiskEngineResult {
     bestDayProfit: string;
     positiveDaysProfitSum: string;
   };
+  /** Meaningless for WARIBA_PERFORMANCE (policy.profit_target_rate absent) — always reports reached: true. */
   target: { required: string; current: string; reached: boolean };
+  /** eligibility.passEligible never drives a transition for WARIBA_PERFORMANCE — see recommendedStatus. */
   eligibility: { passEligible: boolean; blockingReasons: readonly RiskRuleCode[] };
   /**
-   * Never 'passed' — this pure function stops at 'pass_pending' by design,
-   * leaving the pass_pending -> passed transition to the orchestration layer
-   * (packages/database/src/risk.ts), which is the extension point for a
+   * Never 'pass_pending' or 'passed' when policy.profit_target_rate is
+   * absent (WARIBA_PERFORMANCE) — those states only exist for an
+   * Evaluation's one-time pass. A Performance account only ever cycles
+   * among active/soft_locked/breached here; its cycle/payout eligibility
+   * is a separate concern (packages/database/src/performance.ts), not a
+   * trading_accounts.status transition.
+   *
+   * Never 'passed' for WARIBA_ONE either — this pure function stops at
+   * 'pass_pending' by design, leaving the pass_pending -> passed transition
+   * to the orchestration layer (packages/database/src/risk.ts), which is
+   * the extension point for a
    * future manual-review gate ("no_blocking_review" is hardcoded true here;
    * no review workflow exists yet).
    */
@@ -174,17 +203,25 @@ export function evaluateAccountRisk(params: EvaluateAccountRiskParams): RiskEngi
     maxRatio: policy.best_day_max_ratio,
   });
 
-  const requiredProfit = computeProfitTargetRequired({
-    nominalBalance: account.nominalBalance,
-    profitTargetRate: policy.profit_target_rate,
-  });
-  const targetReached = isProfitTargetReached({
-    realizedNetProfit,
-    requiredProfit,
-  });
+  // WARIBA_PERFORMANCE policies carry no profit_target_rate — there is no
+  // "pass" concept to reach, so the target is reported as vacuously met
+  // rather than as a permanently-unreachable blocker.
+  const requiredProfit =
+    policy.profit_target_rate != null
+      ? computeProfitTargetRequired({
+          nominalBalance: account.nominalBalance,
+          profitTargetRate: policy.profit_target_rate,
+        })
+      : '0.00';
+  const targetReached =
+    policy.profit_target_rate != null
+      ? isProfitTargetReached({ realizedNetProfit, requiredProfit })
+      : true;
 
   const blockingReasons: RiskRuleCode[] = [];
-  if (!targetReached) blockingReasons.push('RISK_TARGET_NOT_REALIZED');
+  if (policy.profit_target_rate != null && !targetReached) {
+    blockingReasons.push('RISK_TARGET_NOT_REALIZED');
+  }
   if (!bestDayCompliant) blockingReasons.push('RISK_CONSISTENCY_NON_COMPLIANT');
   if (params.openPositionCount > 0) blockingReasons.push('RISK_OPEN_POSITIONS_BLOCK_TRANSITION');
   if (params.pendingOrderCount > 0) blockingReasons.push('RISK_PENDING_ORDERS_BLOCK_TRANSITION');
@@ -213,7 +250,11 @@ export function evaluateAccountRisk(params: EvaluateAccountRiskParams): RiskEngi
   let recommendedStatus: EvaluationAccountStatus = account.status;
   if (maximumLossBreached) {
     recommendedStatus = 'breached';
-  } else if (passEligible && (account.status === 'active' || account.status === 'soft_locked')) {
+  } else if (
+    policy.profit_target_rate != null &&
+    passEligible &&
+    (account.status === 'active' || account.status === 'soft_locked')
+  ) {
     recommendedStatus = 'pass_pending';
   } else if (softLockTriggered && account.status === 'active') {
     recommendedStatus = 'soft_locked';

@@ -1,0 +1,67 @@
+name: Setup isolated WARIBA Supabase
+description: Start and migrate a local-only Supabase stack for one CI job.
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Supabase CLI
+      uses: supabase/setup-cli@v1
+      with:
+        version: 2.107.0
+
+    - name: Start and migrate isolated Supabase
+      shell: bash
+      run: |
+        supabase start
+        supabase db reset
+        supabase status -o env > "$RUNNER_TEMP/wariba-supabase.env"
+        set -a
+        source "$RUNNER_TEMP/wariba-supabase.env"
+        set +a
+        for attempt in $(seq 1 60); do
+          if psql "$DB_URL" -Atqc 'select 1' >/dev/null 2>&1; then
+            break
+          fi
+          if [ "$attempt" -eq 60 ]; then
+            echo "Supabase Postgres did not become query-ready after reset." >&2
+            exit 1
+          fi
+          sleep 1
+        done
+        consecutive_auth_checks=0
+        for attempt in $(seq 1 60); do
+          status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+            --header "apikey: $SERVICE_ROLE_KEY" \
+            --header "Authorization: Bearer $SERVICE_ROLE_KEY" \
+            "$API_URL/auth/v1/admin/users?page=1&per_page=1" || true)
+          if [ "$status" = "200" ]; then
+            consecutive_auth_checks=$((consecutive_auth_checks + 1))
+            if [ "$consecutive_auth_checks" -eq 3 ]; then
+              break
+            fi
+          else
+            consecutive_auth_checks=0
+          fi
+          if [ "$attempt" -eq 60 ]; then
+            echo "Supabase Auth did not sustain a query-ready connection to Postgres." >&2
+            exit 1
+          fi
+          sleep 1
+        done
+        {
+          echo "APP_ENV=local"
+          echo "APP_BASE_URL=http://127.0.0.1:3000"
+          echo "DATABASE_URL=$DB_URL"
+          echo "SUPABASE_URL=$API_URL"
+          echo "SUPABASE_ANON_KEY=$ANON_KEY"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+          echo "NEXT_PUBLIC_REALTIME_WS_URL=ws://127.0.0.1:4001/ws"
+          echo "REALTIME_PORT=4001"
+          echo "MARKET_DATA_PROVIDER=mock"
+          echo "MARKET_DATA_REPLAY_MODE=false"
+          echo "PAYMENT_PROVIDER=sandbox"
+          echo "PAYOUT_PROVIDER=mock"
+          echo "SANDBOX_WEBHOOK_SECRET=ci-local-only"
+        } >> "$GITHUB_ENV"

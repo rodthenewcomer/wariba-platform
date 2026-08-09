@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { createDbClient, type Db, type StaffRole } from '@wariba/database';
+import { createAuthFixtureUser, deleteAuthFixtureUser } from './supabase-auth-fixture';
 
 /**
  * E2E fixture helpers for Prompt 7 Appendix 07-B's /control authorization
@@ -27,26 +28,22 @@ export function createFixtureDb(): Db {
 }
 
 async function createTestUser(email: string): Promise<string> {
-  const res = await fetch(`${requireEnv('SUPABASE_URL')}/auth/v1/admin/users`, {
-    method: 'POST',
-    headers: {
-      apikey: requireEnv('SUPABASE_SERVICE_ROLE_KEY'),
-      Authorization: `Bearer ${requireEnv('SUPABASE_SERVICE_ROLE_KEY')}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ email, password: STAFF_E2E_TEST_PASSWORD, email_confirm: true }),
+  return createAuthFixtureUser({
+    supabaseUrl: requireEnv('SUPABASE_URL'),
+    serviceRoleKey: requireEnv('SUPABASE_SERVICE_ROLE_KEY'),
+    email,
+    password: STAFF_E2E_TEST_PASSWORD,
   });
-  const body = (await res.json()) as { id: string };
-  return body.id;
 }
 
-export async function deleteStaffFixtureUser(fixture: StaffFixtureUser): Promise<void> {
-  await fetch(`${requireEnv('SUPABASE_URL')}/auth/v1/admin/users/${fixture.userId}`, {
-    method: 'DELETE',
-    headers: {
-      apikey: requireEnv('SUPABASE_SERVICE_ROLE_KEY'),
-      Authorization: `Bearer ${requireEnv('SUPABASE_SERVICE_ROLE_KEY')}`,
-    },
+export async function deleteStaffFixtureUser(db: Db, fixture: StaffFixtureUser): Promise<void> {
+  if (fixture.role) {
+    await db.deleteFrom('app.staff_members').where('user_id', '=', fixture.userId).execute();
+  }
+  await deleteAuthFixtureUser({
+    supabaseUrl: requireEnv('SUPABASE_URL'),
+    serviceRoleKey: requireEnv('SUPABASE_SERVICE_ROLE_KEY'),
+    userId: fixture.userId,
   });
 }
 

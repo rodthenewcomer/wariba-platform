@@ -129,10 +129,13 @@ describeIfDb('getLatestAccountForUser — real database', () => {
       .select('source_purchase_order_id')
       .where('id', '=', older)
       .executeTakeFirstOrThrow();
+    // createAccount() always activates from a real purchase order — never
+    // null for a WARIBA_ONE fixture account like this one.
+    expect(olderAccountRow.source_purchase_order_id).not.toBeNull();
 
     const result = await getLatestAccountForUser(db, {
       userId,
-      purchaseOrderId: olderAccountRow.source_purchase_order_id,
+      purchaseOrderId: olderAccountRow.source_purchase_order_id as string,
     });
     expect(result?.id).toBe(older);
   });

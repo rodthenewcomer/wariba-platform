@@ -1616,10 +1616,15 @@ Ne montre aucun bouton non fonctionnel.
 
 # 11. Prompt 08 — Performance & Payout
 
+> Annexe d'exécution CI/E2E :
+> `docs/07-assurance/WARIBA_CI_E2E_Test_Architecture_v1.0.md`. Le Prompt 08 ne peut être déclaré
+> prêt qu'après gate PR, full fonctionnel et certification effectivement verts ; la boucle locale
+> n'exécute pas la certification complète après chaque correction.
+
 ## Branche
 
 ```text
-feat/performance-payout
+feat/prompt-08-program-risk-payout-engine
 ```
 
 ## Objectif

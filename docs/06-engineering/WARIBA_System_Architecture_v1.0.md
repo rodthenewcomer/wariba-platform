@@ -3014,6 +3014,12 @@ Providers :
 - KycProvider ;
 - AnalyticsProvider.
 
+Pour Payout en V1, l'interface `PayoutProvider` est servie uniquement par
+`MockPayoutProvider` et `ManualPayoutProvider`. Une soumission utilise
+une clé idempotente `wariba-payout:{payout_request_id}` et persiste la
+référence, le statut et les preuves de réconciliation avant le règlement
+interne. Aucun rail externe n'est présent dans cette phase.
+
 ---
 
 # 119. Health checks
@@ -3249,7 +3255,9 @@ Format :
 17. status page provider ;
 18. visual regression provider ;
 19. document generation ;
-20. support ticket provider versus module interne.
+20. support ticket provider versus module interne ;
+21. isoler à terme le renderer WariX derrière `ChartEngineAdapter` avant
+    toute évaluation d'Advanced Charts ; Lightweight Charts reste le défaut.
 
 Ces décisions ne bloquent pas Foundation si les adapters sont respectés.
 

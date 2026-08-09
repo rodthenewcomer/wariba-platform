@@ -6,12 +6,26 @@
  * (renamed from SandboxMarketDataProvider in Prompt 07B to match the
  * mock/replay/fcs provider naming used throughout that prompt).
  * Prompt 07B adds ReplayMarketDataProvider and FcsMarketDataProvider.
- * Payout/Email/KYC adapters land in later prompts.
+ * Payout adapters land in Prompt 08; Email/KYC adapters land later.
  */
 
 export const PACKAGE_NAME = '@wariba/adapters';
 
 export { SandboxPaymentProvider, type PaymentProvider } from './payment-provider';
+export {
+  MockPayoutProvider,
+  ManualPayoutProvider,
+  PAYOUT_PROVIDER_NAMES,
+  PAYOUT_PROVIDER_STATUSES,
+  type PayoutProvider,
+  type PayoutProviderName,
+  type PayoutProviderStatus,
+  type PayoutProviderSubmission,
+  type PayoutProviderSubmissionResult,
+  type PayoutProviderStatusResult,
+  type PayoutProviderReconciliationInput,
+  type PayoutProviderReconciliationResult,
+} from './payout-provider';
 export {
   MockMarketDataProvider,
   SANDBOX_BASE_PRICES,

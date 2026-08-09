@@ -29,6 +29,7 @@ export default async function globalSetup(): Promise<void> {
     await page.getByLabel('Mot de passe').fill(E2E_TEST_PASSWORD);
     await page.getByRole('button', { name: 'Se connecter' }).click();
     await page.waitForURL('**/hub');
+    await page.getByRole('link', { name: 'Ouvrir WariX' }).waitFor({ state: 'visible' });
     await page.context().storageState({ path: STORAGE_STATE_FILE });
   } finally {
     await browser.close();

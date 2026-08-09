@@ -7,7 +7,7 @@ language: "fr-FR"
 brand: "WARIBA"
 domain: "wariba.app"
 owner: "WARIBA Leadership, Product, Risk, Engineering & Operations"
-last_updated: "2026-08-06"
+last_updated: "2026-08-07"
 ---
 
 # WARIBA Decision Log v1.0
@@ -445,6 +445,7 @@ Révision:
 | ARCH-025 | `OPEN` | Provider analytics. | Adapter obligatoire. |
 | ARCH-026 | `OPEN` | Provider observabilité. | À choisir avant bêta. |
 | ARCH-027 | `OPEN` | Provider email. | À choisir avant bêta réaliste. |
+| ARCH-028 | `DEFERRED` | WariX isolera à terme le code spécifique au renderer derrière un `ChartEngineAdapter`. | Lightweight Charts reste le renderer par défaut ; une évaluation ultérieure d'Advanced Charts ne constitue ni une migration de stack ni un scope Prompt 08. |
 
 ---
 
@@ -676,6 +677,218 @@ trading manuel ni à la règle d'éligibilité de profit à 60 secondes (TRD-033
 ---
 
 # 26. Historique des versions
+
+## v1.21 — 2026-08-07
+
+Correction d'audit Prompt 08 : le payout passe par une frontière
+`PayoutProvider` explicite avec `MockPayoutProvider` et
+`ManualPayoutProvider`, soumission idempotente
+`wariba-payout:{payout_request_id}`, statut/référence/résultat de
+soumission et résultat de réconciliation persistés. Aucun rail externe
+(Wave, Orange, PayDunya, Rise, Wise ou banque) n'est implémenté ; ces rails
+restent de futurs adapters sélectionnés séparément. Les hypothèses
+actuarielles sont désormais stockées comme enregistrements versionnés et
+activables dans `app.actuarial_scenario_assumptions`; les constantes
+`SCENARIO_ASSUMPTIONS` restent uniquement le seed initial et
+`ACTUARIAL_MODEL_READY` n'est pas activé par cette correction. ARCH-028
+enregistre le suivi `ChartEngineAdapter` sans changer Lightweight Charts.
+
+## v1.20 — 2026-08-07
+
+Prompt 08 Phase G (opérations WARIBA Control) intégré. Nouveau rôle staff
+`compliance` (`app.staff_members.role`, `packages/database/src/staff.ts`) :
+un tier distinct de `finance`, pas une hiérarchie entre les deux — Finance
+approuve/refuse/règle le montant du payout, Compliance vérifie les
+drapeaux sandbox KYC/moyen de paiement
+(`kyc_sandbox_verified`/`payout_method_sandbox_configured`, déjà annotés
+« Staff-set via Control, never trader-set » depuis Phase D). `/control/payouts`
+remplace son stub par la vraie file inter-comptes
+(`loadPayoutRequestsForReview`, jointe compte/trader), câblée aux
+transactions d'approbation/refus/règlement de Phase D via de nouveaux
+wrappers fins dans `@wariba/application`
+(`approvePayoutRequest`/`rejectPayoutRequest`/`settlePayoutRequest`/
+`setPerformanceComplianceFlags`) — apps/web n'ouvre jamais lui-même une
+transaction Kysely (AGENTS.md §7.1), donc ce point d'entrée devait exister
+dans la couche application, pas dans le Server Action lui-même. N'importe
+quel rôle staff peut voir la file ; chaque bouton d'action est activé selon
+le rôle réel du visualisateur, et chaque Server Action revérifie lui-même
+le rôle requis plutôt que de faire confiance à la page (une Server Action
+est un point d'entrée directement appelable, pas seulement accessible via
+la page qui l'affiche). `/control` (overview) affiche maintenant la vraie
+couverture de réserve (Phase E, `evaluateReserveStatus`) au lieu du
+placeholder DEMO. `/control/integrity` étendu avec une liste en lecture
+seule des dossiers `performance_review_cases` ouverts — délibérément sans
+action de résolution/clôture : le commentaire de la migration de Phase C
+marque déjà ce workflow comme « deliberately OPEN » (PERF-021/022, non
+tranché). Périmètre réduit par rapport à la fois au texte du prompt et à
+la référence anticipée de v1.18 (« Phase G affichera modèle vs réel ») :
+aucune UI actuarielle (comparaison scénario/réel, sections Program
+Accounts/Treasury dédiées) n'a été construite cette session —
+`runActuarialScenario` (Phase E) reste sans surface Control, noté
+honnêtement comme non fait plutôt que construit comme une façade vide.
+Bug réel trouvé et corrigé en cours de route : `scripts/check-boundaries.mjs`
+fait une simple recherche de sous-chaîne `@wariba/database` sur le contenu
+brut des fichiers (pas une analyse d'imports par AST) — un commentaire de
+`TradeClient.tsx` qui *mentionnait* ce nom de package en prose (sans
+l'importer) faisait échouer le contrôle CI « Import boundaries » ; corrigé
+en reformulant le commentaire, pas en affaiblissant le contrôle.
+
+## v1.19 — 2026-08-07
+
+Prompt 08 Phase F (UX trader — Hub + Payout Center) intégré.
+`buildAccountPerformanceMissionView`
+(`packages/application/src/performance-mission-view.ts`) reproduit
+exactement la forme de `buildAccountMissionView` (`state`/`progressPercent`/
+`conditions`/`nextAction`/`consistency`) pour traverser les mêmes
+composants `MissionProgress`/`ConsistencyMeter` que WARIBA ONE sans
+modification — remplace le placeholder statique « Mission Performance :
+aucune règle publiée » du Hub, devenu trompeur depuis Phase B/C. Le Payout
+Center (formulaire de demande, montant choisi par le trader — décision
+produit explicite, pas de montant imposé) vit sur `/trade`
+(`PayoutCenterPanel.tsx`), jamais sur le Hub : le Hub est rendu
+côté serveur par requête (`packages/application`, sans WS), `/trade` a
+seule la connexion WS live nécessaire pour réagir immédiatement à un
+`payout_result` — même séparation d'architecture que le reste de WariX
+(TradeClient.tsx vs page.tsx du Hub). Le lien du Hub vers le Payout Center
+(`/trade#payout`) bascule l'onglet au chargement (pas un simple ancrage de
+défilement, `/trade` utilise des onglets, pas des sections). Deux champs
+ajoutés au DTO `account.snapshot` (`packages/contracts/src/trading.ts`) :
+`programType` (distingue « pas un compte Performance » de « compte
+Performance sans cycle actif », les deux donnant `performanceProgress:
+null` sinon) et `performanceProgress.realizedBalance` (corrige un bug de
+rendu du pourcentage de progression sous le plancher du buffer —
+`eligibleExcess` seul se limite à 0 et perd l'information de distance
+réelle). Bug d'environnement CI réel trouvé et corrigé en deux temps :
+`test:e2e` (contrairement à `test:integration`/`test:rls`) n'avait jamais
+`--concurrency=1`, laissant `apps/web:build` tourner en parallèle de la
+suite e2e de `services/realtime` sur un runner à 2 cœurs ; corrigé, mais
+insuffisant seul — deux runs supplémentaires ont montré que la propre
+stack Docker de Supabase (tournant pendant tout le job « Database, RLS and
+E2E ») sature déjà le runner, indépendamment de turbo. Budget du test de
+reprise single-node relevé en conséquence (défaut `waitForMessage` 45s →
+120s, `waitForHealthy` 30s → 60s, timeout du test 240s → 480s) — propriété
+honnête de l'environnement CI, pas un bug de logique du test lui-même.
+
+## v1.18 — 2026-08-07
+
+Prompt 08 Phase E (trésorerie et moteur actuariel) intégré. TREASURY-001 :
+`app.treasury_reserve_entries`, append-only comme le ledger de trading —
+aucun processeur de paiement réel n'existe dans ce build, donc la réserve
+ne peut être dérivée de rien d'autre ; c'est un chiffre saisi par le staff
+(Control, Phase G). TREASURY-002 : ratio de couverture = réserve
+disponible / payouts projetés à 30 jours (somme des `payout_requests` non
+terminaux — `requested_gross_base` pour ceux en revue, `approved_gross_base`
+une fois approuvés, jamais les payés ou rejetés), zones NORMAL/PRUDENCE/
+DEFENSIVE/CRITICAL. La zone DEFENSIVE/CRITICAL est maintenant branchée
+sur la disponibilité commerciale réelle : `commerce.ts`'s
+`isCommerciallyAvailable` compose le flag statique existant
+(`SANDBOX_PRODUCT_FEATURE_FLAGS`, inchangé) avec la zone de réserve — les
+deux doivent être positifs pour qu'une taille reste achetable ;
+DEFENSIVE masque 50K/100K, CRITICAL masque tout, indépendamment des
+drapeaux statiques. Moteur actuariel
+(`packages/domain/src/actuarial-scenario.ts`) : simulation de cohorte
+pure sur hypothèses passées explicitement à la fonction, jamais sur données
+de compte réelles — quatre scénarios
+(conservative/base/aggressive/stress) avec les valeurs par défaut exactes
+fournies par l'opérateur. Ces constantes ne sont pas une configuration
+autoritaire permanente : la correction v1.21 les persiste et les versionne,
+sans jamais les écraser par les métriques mesurées (Phase G affichera modèle
+vs réel).
+Périmètre réduit par rapport au texte du prompt : la projection de
+payouts à 30 jours utilise les demandes déjà connues, pas une projection
+statistique des comptes pas encore au stade de demande — noté
+honnêtement, pas construit comme un modèle plus riche que ce qui existe
+réellement.
+
+## v1.17 — 2026-08-07
+
+Prompt 08 Phase D (moteur de payout) intégré. Formule complète en
+fonctions pures (`packages/domain/src/performance-math.ts`) : split
+résolu par rang de cycle (PERF-027/028), cap converti en base brute
+équivalente, base brute approuvée = min(excédent éligible, base demandée,
+cap converti) — PERF-029, aucun plafond universel de 50 %.
+`waribaShare` est calculé par soustraction (`approvedGrossBase -
+traderNetCash`), jamais par une seconde multiplication indépendante —
+sinon l'arrondi du dernier centime peut diverger entre les deux, et le
+ledger doit réconcilier exactement. `WARIBA_PERFORMANCE` republié en
+v1.1.0 (v1.0.0 retiré) pour ajouter la grille de caps PERF-030
+(`payout_caps_by_nominal_balance`, toujours `CANDIDATE`) — même
+précédent que le retrait de WARIBA_ONE v1.0.0. Nouvelle table
+`app.payout_requests` : un seul index unique partiel sur `cycle_id` pour
+tout statut non terminal est la véritable garantie anti-duplication
+(PERF-013), pas seulement une vérification applicative. KYC et méthode de
+payout sont des drapeaux sandbox (`kyc_sandbox_verified`,
+`payout_method_sandbox_configured`), jamais une vraie vérification
+d'identité — mis à jour uniquement par le staff (Control, Phase G).
+L'éligibilité complète (`evaluatePayoutEligibility`) est revalidée à
+l'identique à la demande ET à l'approbation, pas seulement au moment de
+la demande — le vrai test contre "approve while account state changes".
+Le débit ledger (`payout_debit`, PERF-014) et la clôture de cycle
+n'arrivent qu'au règlement (`settlePayoutProviderInTransaction`), jamais
+à l'approbation — idempotent par statut de la ligne elle-même (`paid`
+n'est jamais redébité). Périmètre volontairement réduit par rapport au
+texte du prompt : un seul `MockPayoutProvider` implicite plutôt que huit
+adaptateurs nommés (Wave, Orange Money, etc.) — non construits, à noter
+honnêtement comme non résolu plutôt que créés comme façades vides.
+Reserve/trésorerie (Phase E) n'est pas encore branché sur l'approbation.
+
+## v1.16 — 2026-08-07
+
+Prompt 08 Phase C (buffer permanent, cycles de payout, Performance Days)
+intégré. Nouvelles tables `app.performance_cycles` (au plus un cycle non
+`closed` par compte — index unique partiel, pas seulement une garantie
+applicative) et `app.performance_review_cases` (créée après le 5e cycle,
+PERF-018/031 ; statut minimal `open`/`closed`, aucun critère de sortie
+inventé — PERF-021/022 restent `OPEN`). Une Performance Day appartient à
+un cycle par simple appartenance de date (`trading_day` dans
+`[opened_at, closed_at)`), jamais par un flag "consommé" séparé — même
+raisonnement "dériver, ne pas dupliquer" que le reste du dépôt. Formules
+pures dans `packages/domain/src/performance-math.ts`
+(`computePayoutBufferFloor`, `computeEligibleExcess`,
+`computePerformanceDayThreshold`) vérifiées contre les tables complètes du
+Program Rulebook v1.1 §7.1/§8 pour les cinq tailles. `evaluateCycleProgress`
+reste volontairement scindé de l'éligibilité payout complète (Phase D) —
+il ne vérifie que buffer/jours/consistance, pas position ouverte/ordre en
+attente/KYC, pour éviter de dupliquer les vérifications d'équité déjà
+faites par `risk.ts`. Bug réel trouvé et corrigé en cours de route : les
+tests d'intégration existants qui font passer un compte Evaluation
+(`risk.integration.test.ts`) déclenchent maintenant la création d'un
+compte Performance en effet de bord — leur nettoyage générique ne le
+savait pas et échouait sur la contrainte de clé étrangère
+`source_evaluation_account_id_fkey` en tentant de supprimer le compte
+Evaluation en premier ; corrigé par une découverte générique des comptes
+Performance engendrés dans `afterAll`, plutôt que par un suivi manuel par
+test.
+
+## v1.15 — 2026-08-07
+
+Prompt 08 Phase B (programme + moteur de risque pour WARIBA Performance)
+intégré sur `feat/prompt-08-program-engine`. Un compte Performance n'a pas
+de notion de "réussite" (PROGRAM-005/006, PERF-020) — `risk-engine.ts` est
+reparamétré pour l'exprimer par l'absence du champ `profit_target_rate`
+plutôt que par un flag de programme séparé : `RiskPolicyParameters` ne
+retient que le sous-ensemble DLL/Max Loss/Best Day réellement utilisé par
+le moteur, structurellement satisfait par les deux schémas de policy
+(`evaluationOnePolicyParametersSchema` et le nouveau
+`performancePolicyParametersSchema`). L'absence du champ est ce qui
+empêche `pass_pending` d'être jamais recommandé pour un compte Performance
+— pas un flag qu'un futur changement pourrait faire diverger de la policy
+réellement chargée. Premier `policy_versions` WARIBA_PERFORMANCE publié
+(1.0.0), mêmes paramètres de risque que WARIBA_ONE (PERF-032/033/034).
+Activation atomique : `activatePerformanceAccountInTransaction` est
+appelée dans la même transaction Postgres que la transition
+`pass_pending -> passed` (`packages/database/src/risk.ts`) — soit les deux
+atterrissent, soit aucune. `trading_accounts.source_purchase_order_id`
+(`not null unique`) ne pouvait pas représenter la provenance d'un compte
+Performance (issu d'un compte Evaluation, pas d'un nouvel achat) ; ajout de
+`source_evaluation_account_id` (nullable, unique) avec une contrainte
+`check` garantissant qu'exactement une des deux colonnes de provenance est
+renseignée — transforme PERF-020 en invariant base de données, pas
+seulement applicatif. Aucun changement au moteur de trading WariX
+lui-même — un compte Performance l'utilise sans modification. Voir
+TRADING docs à venir (Phase C-H) pour le reste du programme (buffer,
+Performance Days, payouts, treasury, actuariel) — non construit dans cette
+étape, volontairement scindée pour rester revuable.
 
 ## v1.14 — 2026-08-06
 

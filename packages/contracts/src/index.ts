@@ -131,3 +131,18 @@ export {
   type NotificationsSnapshotMessage,
   type NewAlertNotificationMessage,
 } from './price-alerts';
+
+export {
+  performanceCycleStatusSchema,
+  performanceProgressDtoSchema,
+  payoutRequestStatusSchema,
+  payoutRequestDtoSchema,
+  requestPayoutMessageSchema,
+  payoutResultMessageSchema,
+  type PerformanceCycleStatusDTO,
+  type PerformanceProgressDTO,
+  type PayoutRequestStatus,
+  type PayoutRequestDTO,
+  type RequestPayoutMessage,
+  type PayoutResultMessage,
+} from './performance';

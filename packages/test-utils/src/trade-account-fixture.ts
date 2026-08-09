@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { createDbClient, activateEvaluationAccount, type Db } from '@wariba/database';
+import { createAuthFixtureUser } from './supabase-auth-fixture';
 
 /**
  * E2E fixture helper — real DB seeding for Playwright specs. Lives here
@@ -26,17 +27,12 @@ async function createTestUser(
   email: string,
   password: string,
 ): Promise<string> {
-  const res = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
-    method: 'POST',
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ email, password, email_confirm: true }),
+  return createAuthFixtureUser({
+    supabaseUrl,
+    serviceRoleKey,
+    email,
+    password,
   });
-  const body = (await res.json()) as { id: string };
-  return body.id;
 }
 
 async function activateTradeAccount(db: Db, userId: string): Promise<string> {

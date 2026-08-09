@@ -12,6 +12,7 @@ import {
   alertResultMessageSchema,
   notificationsSnapshotMessageSchema,
   newAlertNotificationMessageSchema,
+  payoutResultMessageSchema,
   type MessageEnvelope,
   type SubmitOrderMessage,
   type CloseAllMessage,
@@ -25,6 +26,7 @@ import {
   type ModifyPriceAlertMessage,
   type AlertIdMessage,
   type MarkNotificationsReadMessage,
+  type RequestPayoutMessage,
 } from '@wariba/contracts';
 
 export type RealtimeConnectionState = 'connecting' | 'resyncing' | 'open' | 'closed';
@@ -141,6 +143,8 @@ export class RealtimeClient {
       return notificationsSnapshotMessageSchema.safeParse(envelope.payload).success;
     if (envelope.type === 'notification.new')
       return newAlertNotificationMessageSchema.safeParse(envelope.payload).success;
+    if (envelope.type === 'payout_result')
+      return payoutResultMessageSchema.safeParse(envelope.payload).success;
     if (envelope.type === 'error') {
       const payload = envelope.payload as { code?: unknown; message?: unknown };
       return typeof payload.code === 'string' && typeof payload.message === 'string';
@@ -187,6 +191,22 @@ export class RealtimeClient {
 
   subscribe(channels: string[]): void {
     for (const c of channels) this.subscribedChannels.add(c);
+    this.send({ type: 'subscribe', channels });
+  }
+
+  /**
+   * Requests a fresh authoritative snapshot even when the channel's
+   * sequence has not advanced. Some account snapshot fields (pending
+   * orders, queued reductions, Performance progress and payout requests)
+   * are persisted outside the trading account version counter, so a plain
+   * re-subscribe would otherwise be discarded as a duplicate.
+   */
+  resync(channels: string[]): void {
+    for (const channel of channels) {
+      this.subscribedChannels.add(channel);
+      this.lastSequenceByChannel.delete(channel);
+    }
+    this.emitState('resyncing');
     this.send({ type: 'subscribe', channels });
   }
 
@@ -249,6 +269,10 @@ export class RealtimeClient {
 
   markNotificationsRead(notifications: MarkNotificationsReadMessage): void {
     this.send({ type: 'mark_notifications_read', notifications });
+  }
+
+  requestPayout(payout: RequestPayoutMessage): void {
+    this.send({ type: 'request_payout', payout });
   }
 
   private send(payload: unknown): void {

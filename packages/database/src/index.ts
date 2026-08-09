@@ -20,6 +20,8 @@ export type {
   AlertDirection,
   AlertSource,
   AlertRecurrence,
+  PayoutProviderStatus,
+  ActuarialScenarioName,
 } from './schema';
 export { getStaffRole, staffRoleSatisfies } from './staff';
 export {
@@ -28,6 +30,60 @@ export {
   type ActivateEvaluationAccountParams,
   type ActivatedAccount,
 } from './activation';
+export {
+  activatePerformanceAccountInTransaction,
+  findActivePerformanceAccountForUser,
+  loadActiveCycle,
+  evaluateCycleProgress,
+  closeCycleAndAdvanceInTransaction,
+  setPerformanceAccountComplianceFlags,
+  loadOpenPerformanceReviewCases,
+  asPerformancePolicy,
+  type ActivatePerformanceAccountParams,
+  type ActivatedPerformanceAccount,
+  type PerformanceCycle,
+  type CycleProgress,
+  type OpenPerformanceReviewCase,
+} from './performance';
+export {
+  createPayoutRequestInTransaction,
+  approvePayoutRequestInTransaction,
+  rejectPayoutRequestInTransaction,
+  loadPayoutProviderWorkItem,
+  recordPayoutProviderSubmissionInTransaction,
+  recordPayoutProviderReconciliationInTransaction,
+  settlePayoutProviderInTransaction,
+  loadPayoutRequestsForAccount,
+  loadPayoutRequestsForReview,
+  evaluatePayoutEligibility,
+  type CreatePayoutRequestParams,
+  type ReviewPayoutRequestParams,
+  type PayoutProviderWorkItem,
+  type RecordPayoutProviderSubmissionParams,
+  type RecordPayoutProviderReconciliationParams,
+  type PayoutRequestSummary,
+  type PayoutRequestResult,
+  type PayoutRejectionCode,
+  type PayoutRequestHistoryEntry,
+  type ControlPayoutQueueEntry,
+} from './payouts';
+export {
+  recordTreasuryReserveEntry,
+  loadCurrentReserve,
+  computeProjected30DayPayouts,
+  evaluateReserveStatus,
+  type RecordTreasuryReserveEntryParams,
+  type ReserveStatus,
+} from './treasury';
+export {
+  loadActiveActuarialScenarioAssumptions,
+  replaceActuarialScenarioAssumptionsInTransaction,
+  runPersistedActuarialScenario,
+  type PersistedActuarialScenarioAssumptions,
+  type ReplaceActuarialScenarioAssumptionsParams,
+  type RunPersistedActuarialScenarioParams,
+  type PersistedActuarialScenarioRun,
+} from './actuarial-scenarios';
 export {
   recordPaymentEvent,
   type RecordPaymentEventParams,

@@ -19,6 +19,7 @@ import {
 import {
   buildAccountHubView,
   buildAccountMissionView,
+  buildAccountPerformanceMissionView,
   buildAccountRiskView,
   buildOpenPositionsView,
   buildRecentActivityView,
@@ -188,9 +189,12 @@ export default async function HubPage({
   }
 
   const now = new Date();
+  const isPerformanceAccount = activeAccount.programType === 'WARIBA_PERFORMANCE';
   const [hubView, missionView, riskView, activity, openPositions] = await Promise.all([
     buildAccountHubView(db, { accountId: activeAccount.id, now }),
-    buildAccountMissionView(db, { accountId: activeAccount.id, now }),
+    isPerformanceAccount
+      ? buildAccountPerformanceMissionView(db, { accountId: activeAccount.id })
+      : buildAccountMissionView(db, { accountId: activeAccount.id, now }),
     buildAccountRiskView(db, { accountId: activeAccount.id, now }),
     buildRecentActivityView(db, { accountId: activeAccount.id, limit: 15 }),
     buildOpenPositionsView(db, { accountId: activeAccount.id }),
@@ -217,7 +221,8 @@ export default async function HubPage({
 
       {hubView.activatedAtLabel ? (
         <Text variant="body-sm" color="secondary">
-          Activé le {hubView.activatedAtLabel} · Répartition après passage : 85 % → 90 %
+          Activé le {hubView.activatedAtLabel}
+          {isPerformanceAccount ? '' : ' · Répartition après passage : 85 % → 90 %'}
         </Text>
       ) : null}
 
@@ -259,7 +264,9 @@ export default async function HubPage({
               </TrackedClick>
             ) : (
               <Text variant="body-sm" color="secondary">
-                Rien de plus à faire pour l’instant.
+                {missionView.variant === 'performance' && missionView.blockingSummary
+                  ? missionView.blockingSummary
+                  : 'Rien de plus à faire pour l’instant.'}
               </Text>
             )
           }
@@ -267,7 +274,7 @@ export default async function HubPage({
       ) : (
         <Card padding="comfortable">
           <Text variant="body-sm" color="secondary">
-            Mission Performance : aucune règle publiée pour l’instant.
+            {missionView.reason}
           </Text>
         </Card>
       )}
@@ -282,6 +289,35 @@ export default async function HubPage({
             ? { requiredProfitFormatted: missionView.consistency.requiredProfitFormatted }
             : {})}
         />
+      ) : null}
+
+      {missionView.available && missionView.variant === 'performance' ? (
+        <Card padding="comfortable" className="flex flex-col gap-4">
+          <Text as="h2" variant="heading-sm">
+            Historique des payouts
+          </Text>
+          {missionView.recentPayouts.length === 0 ? (
+            <Text variant="body-sm" color="secondary">
+              Aucune demande de payout pour l’instant.
+            </Text>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {missionView.recentPayouts.map((payout, index) => (
+                <li
+                  key={`${payout.cycleNumber}-${payout.dateLabel}-${index}`}
+                  className="flex items-center justify-between gap-3 text-[length:var(--wariba-font-size-body-sm)]"
+                >
+                  <span className="text-[color:var(--wariba-text-primary)]">
+                    Cycle n°{payout.cycleNumber} · {payout.statusLabel}
+                  </span>
+                  <span className="wariba-data text-[color:var(--wariba-text-secondary)]">
+                    {payout.amountFormatted ?? '—'} · {payout.dateLabel}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
       ) : null}
 
       <div className="flex flex-col gap-3">

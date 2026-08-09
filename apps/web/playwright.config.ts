@@ -3,6 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 const BASE_URL = process.env.APP_BASE_URL ?? 'http://localhost:3000';
 const REALTIME_WS_URL = process.env.NEXT_PUBLIC_REALTIME_WS_URL ?? 'ws://127.0.0.1:4001/ws';
 const REALTIME_HEALTH_URL = `${REALTIME_WS_URL.replace(/^ws(s?):/, 'http$1:').replace(/\/ws$/, '')}/health`;
+const REALTIME_PORT = new URL(REALTIME_WS_URL).port || '4001';
 
 /**
  * globalSetup creates one real activated WARIBA ONE account, signs in
@@ -17,18 +18,18 @@ const REALTIME_HEALTH_URL = `${REALTIME_WS_URL.replace(/^ws(s?):/, 'http$1:').re
 export default defineConfig({
   testDir: './tests/e2e',
   testMatch: '**/*.spec.ts',
-  // Generous: real hosted Supabase + pg.Pool round trips for a single order
-  // routinely take 10-20s in this environment, and Close All/reconnection
-  // tests stack several such round trips in one test.
+  // Generous: the isolated Supabase stack + pg.Pool round trips for a single
+  // order can take several seconds under CI contention, and Close
+  // All/reconnection tests stack several such round trips in one test.
   timeout: 120_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
-  // Real Supabase-hosted DB + a single sandbox market feed shared across
+  // One isolated Supabase DB + a single sandbox market feed shared across
   // every test, plus one shared global-setup fixture user — concurrent
   // workers would race/contend. Small suite; serial is the safe default.
   workers: 1,
   retries: 0,
-  reporter: 'list',
+  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   globalSetup: './tests/e2e/global-setup.ts',
   globalTeardown: './tests/e2e/global-teardown.ts',
   use: {
@@ -46,6 +47,11 @@ export default defineConfig({
     {
       command: 'pnpm --filter @wariba/realtime start',
       url: REALTIME_HEALTH_URL,
+      env: {
+        REALTIME_PORT,
+        MARKET_DATA_PROVIDER: 'mock',
+        MARKET_DATA_REPLAY_MODE: 'false',
+      },
       reuseExistingServer: true,
       timeout: 60_000,
     },

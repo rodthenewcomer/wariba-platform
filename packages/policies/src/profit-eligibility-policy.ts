@@ -3,13 +3,26 @@ import {
   SHORT_DURATION_ENTRY_LOCK_THRESHOLD,
   SHORT_DURATION_WARNING_THRESHOLD,
 } from '@wariba/domain';
-import type { EvaluationOnePolicyParameters } from './schema';
 
 export interface ProfitEligibilityPolicyControl {
   enabled: boolean;
   minimumDurationMs: number;
   warningCount: number;
   entryLockCount: number;
+}
+
+/**
+ * The subset of policy parameters this reads — narrower than
+ * EvaluationOnePolicyParameters so a PerformancePolicyParameters row (which
+ * has none of these fields yet — Prompt 08 Phase C wires up the equivalent
+ * exclusion for Performance Days) satisfies this structurally too and
+ * simply resolves to `enabled: false`, same as a pre-07B WARIBA_ONE row.
+ */
+export interface ProfitEligibilitySourceParameters {
+  program_eligible_balance_enabled?: boolean | undefined;
+  minimum_profit_eligible_duration_ms?: number | undefined;
+  short_duration_warning_count?: number | undefined;
+  short_duration_entry_lock_count?: number | undefined;
 }
 
 /**
@@ -20,7 +33,7 @@ export interface ProfitEligibilityPolicyControl {
  * diverge from what a policy row that omits the field actually gets.
  */
 export function resolveProfitEligibilityPolicy(
-  parameters: EvaluationOnePolicyParameters,
+  parameters: ProfitEligibilitySourceParameters,
 ): ProfitEligibilityPolicyControl {
   const enabled = parameters.program_eligible_balance_enabled === true;
   return {

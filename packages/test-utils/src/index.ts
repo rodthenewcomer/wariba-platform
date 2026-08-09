@@ -11,6 +11,12 @@ export const PACKAGE_NAME = '@wariba/test-utils';
 
 export { seedTradeAccount, type TradeAccountFixture } from './trade-account-fixture';
 export {
+  seedPayoutAccount,
+  deletePayoutAccount,
+  type PayoutAccountFixture,
+  type PayoutFixtureEnvironment,
+} from './payout-account-fixture';
+export {
   E2E_TEST_PASSWORD,
   createFixtureDb,
   createFixtureAccount,

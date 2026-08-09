@@ -1919,6 +1919,14 @@ Tester :
 
 L’objectif est la confiance, pas un pipeline spectaculaire.
 
+## 50.1 Boucles de validation
+
+La CI suit cinq tiers explicites : boucle locale rapide, validation feature ciblée, gate PR
+parallèle, E2E fonctionnel complet, puis certification nightly/release. Les sleeps arbitraires
+ne sont pas une synchronisation ; les tests realtime enregistrent l'attente et les subscriptions
+avant la commande, via le harness partagé. La norme opérationnelle détaillée est
+`docs/07-assurance/WARIBA_CI_E2E_Test_Architecture_v1.0.md`.
+
 ---
 
 # 51. CD

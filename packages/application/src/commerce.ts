@@ -1,10 +1,11 @@
 import {
   activateEvaluationAccountInTransaction,
   recordPaymentEvent,
+  evaluateReserveStatus,
   type Db,
   type ActivatedAccount,
 } from '@wariba/database';
-import { assertPurchaseOrderTransition } from '@wariba/domain';
+import { assertPurchaseOrderTransition, isSizeCommerciallyAvailableInZone } from '@wariba/domain';
 import type { ProductCode } from '@wariba/validation';
 
 export interface ProductDTO {
@@ -43,6 +44,25 @@ export function isSandboxProductFeatureEnabled(featureFlagKey: string | null): b
 }
 
 /**
+ * Prompt 08 Phase E, TREASURY-002 — the reserve-zone-driven half of
+ * availability, layered on top of the static feature flag above rather
+ * than replacing it: either one being "off" is enough to hide a product.
+ * A zone check failing open (treated as available) on a query error would
+ * be the wrong default for something that exists specifically to protect
+ * the reserve, so this is the only availability signal here that's ever
+ * awaited per call rather than computed from an already-fetched row.
+ */
+async function isCommerciallyAvailable(
+  db: Db,
+  productCode: ProductCode,
+  featureFlagKey: string | null,
+): Promise<boolean> {
+  if (!isSandboxProductFeatureEnabled(featureFlagKey)) return false;
+  const reserveStatus = await evaluateReserveStatus(db);
+  return isSizeCommerciallyAvailableInZone({ zone: reserveStatus.zone, productCode });
+}
+
+/**
  * Public product catalog — the client never independently decides whether
  * 25K is purchasable (AGENTS.md); this function is the single place that
  * evaluates the flag, for both the listing and order-creation paths.
@@ -64,8 +84,19 @@ export async function listActiveProducts(db: Db): Promise<ProductDTO[]> {
     .orderBy('app.products.nominal_balance', 'asc')
     .execute();
 
+  // One reserve-status read for the whole listing, not one per row — the
+  // zone doesn't vary by product, only which sizes it hides.
+  const reserveStatus = await evaluateReserveStatus(db);
+
   return rows
-    .filter((row) => isSandboxProductFeatureEnabled(row.feature_flag_key))
+    .filter(
+      (row) =>
+        isSandboxProductFeatureEnabled(row.feature_flag_key) &&
+        isSizeCommerciallyAvailableInZone({
+          zone: reserveStatus.zone,
+          productCode: row.code as ProductCode,
+        }),
+    )
     .map((row) => ({
       code: row.code,
       nominalBalance: row.nominal_balance,
@@ -158,7 +189,10 @@ export async function createPurchaseOrder(
     .where('app.product_versions.retired_at', 'is', null)
     .executeTakeFirst();
 
-  if (!productVersion || !isSandboxProductFeatureEnabled(productVersion.feature_flag_key)) {
+  if (
+    !productVersion ||
+    !(await isCommerciallyAvailable(db, params.productCode, productVersion.feature_flag_key))
+  ) {
     return { kind: 'product_not_available' };
   }
 

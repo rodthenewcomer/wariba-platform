@@ -4,14 +4,14 @@ import type { StaffRole } from '../src/schema';
 
 describe('staffRoleSatisfies', () => {
   it('a role satisfies its own requirement', () => {
-    const roles: StaffRole[] = ['support', 'risk', 'finance', 'admin', 'super_admin'];
+    const roles: StaffRole[] = ['support', 'risk', 'finance', 'compliance', 'admin', 'super_admin'];
     for (const role of roles) {
       expect(staffRoleSatisfies(role, role)).toBe(true);
     }
   });
 
   it('admin and super_admin satisfy every scoped role requirement', () => {
-    for (const required of ['support', 'risk', 'finance'] as const) {
+    for (const required of ['support', 'risk', 'finance', 'compliance'] as const) {
       expect(staffRoleSatisfies('admin', required)).toBe(true);
       expect(staffRoleSatisfies('super_admin', required)).toBe(true);
     }
@@ -23,6 +23,14 @@ describe('staffRoleSatisfies', () => {
     expect(staffRoleSatisfies('risk', 'support')).toBe(false);
     expect(staffRoleSatisfies('support', 'admin')).toBe(false);
     expect(staffRoleSatisfies('admin', 'super_admin')).toBe(false);
+  });
+
+  it('compliance is a distinct tier from finance — neither satisfies the other', () => {
+    // Prompt 08 Phase G: compliance verifies KYC/payout-method sandbox
+    // flags, finance approves/settles the payout amount — deliberately
+    // separate responsibilities, not a hierarchy between the two.
+    expect(staffRoleSatisfies('compliance', 'finance')).toBe(false);
+    expect(staffRoleSatisfies('finance', 'compliance')).toBe(false);
   });
 
   it('super_admin does not satisfy an admin-or-higher requirement lower than itself in the wrong direction', () => {

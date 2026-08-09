@@ -23,12 +23,9 @@ export interface AccountRiskEngineInputs {
 }
 
 /**
- * Thrown when an account's program has no published policy to evaluate risk
- * against (WARIBA_PERFORMANCE today — no policy has been published for it
- * yet). Callers must catch this and render an honest "not available yet"
- * state rather than let it surface as an unhandled crash — this is the
- * Prompt 06 STOP CONDITION ("aucune donnée nécessaire côté serveur") made
- * catchable instead of a hard failure.
+ * Thrown when an account references a program the risk engine does not
+ * support. Both published V1 programs are supported; this remains a typed
+ * guard for future program additions rather than a Performance exclusion.
  */
 export class UnsupportedProgramError extends Error {
   constructor(public readonly programType: string) {
@@ -99,10 +96,6 @@ export async function loadAccountRiskEngineInputs(
     .executeTakeFirstOrThrow(
       () => new Error(`loadAccountRiskEngineInputs: account ${params.accountId} not found.`),
     );
-
-  if (account.program_type !== 'WARIBA_ONE') {
-    throw new UnsupportedProgramError(account.program_type);
-  }
 
   const policy = await loadPolicyById(db, account.policy_version_id);
   const eligibilityPolicy = resolveProfitEligibilityPolicy(policy.parameters);

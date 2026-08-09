@@ -62,6 +62,38 @@ export {
   isProfitTargetReached,
 } from './risk-math';
 export {
+  computePayoutBufferFloor,
+  computeEligibleExcess,
+  isPayoutBufferReached,
+  computePerformanceDayThreshold,
+  isPerformanceDayQualified,
+  resolveTraderSplitRate,
+  computeMaxGrossBaseFromCap,
+  computeRequestedGrossBase,
+  computeApprovedGrossBase,
+  computeTraderNetCash,
+  computeWaribaShare,
+} from './performance-math';
+export {
+  computeReserveCoverageRatio,
+  resolveReserveZone,
+  isSizeCommerciallyAvailableInZone,
+  type ReserveZone,
+} from './treasury-math';
+export {
+  runActuarialScenario,
+  parseScenarioAssumptions,
+  SCENARIO_NAMES,
+  SCENARIO_ASSUMPTIONS,
+  type ScenarioName,
+  type ScenarioAssumptions,
+  type ProductCode as ActuarialProductCode,
+  type ProductInputs as ActuarialProductInputs,
+  type CohortInputs as ActuarialCohortInputs,
+  type ScenarioResult as ActuarialScenarioResult,
+  type ProductScenarioResult as ActuarialProductScenarioResult,
+} from './actuarial-scenario';
+export {
   deriveHubDisplayState,
   isInAttentionZone,
   isHubStateReadOnly,

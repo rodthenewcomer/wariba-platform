@@ -4,6 +4,7 @@ dist
 build
 .next
 coverage
+supabase/.temp
 pnpm-lock.yaml
 *.tsbuildinfo
 

@@ -1,0 +1,224 @@
+name: WARIBA Full Certification
+
+on:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Certification scope
+        type: choice
+        required: true
+        default: certification
+        options:
+          - certification
+          - full-functional
+  pull_request:
+    types: [labeled]
+
+concurrency:
+  group: certification-${{ github.ref }}-${{ github.run_id }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  unit-and-build:
+    if: >-
+      (github.event_name != 'pull_request' || github.event.label.name == 'full-certification') &&
+      (github.event_name != 'workflow_dispatch' || inputs.mode == 'certification')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: timing
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/setup-node
+      - run: pnpm test:unit
+      - run: pnpm build
+      - if: always()
+        uses: ./.github/actions/record-ci-metric
+        with:
+          metric-id: unit-and-build
+          label: UNIT + BUILD
+          started-at: ${{ steps.timing.outputs.epoch }}
+          status: ${{ job.status }}
+
+  database-full:
+    if: >-
+      (github.event_name != 'pull_request' || github.event.label.name == 'full-certification') &&
+      (github.event_name != 'workflow_dispatch' || inputs.mode == 'certification')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: timing
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/setup-node
+      - uses: ./.github/actions/setup-supabase
+      - run: pnpm db:test
+      - run: pnpm test:integration:full
+      - if: always()
+        run: supabase stop --no-backup
+      - if: always()
+        uses: ./.github/actions/record-ci-metric
+        with:
+          metric-id: database-full
+          label: DATABASE FULL
+          started-at: ${{ steps.timing.outputs.epoch }}
+          status: ${{ job.status }}
+
+  rls-full:
+    if: >-
+      (github.event_name != 'pull_request' || github.event.label.name == 'full-certification') &&
+      (github.event_name != 'workflow_dispatch' || inputs.mode == 'certification')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: timing
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/setup-node
+      - uses: ./.github/actions/setup-supabase
+      - run: pnpm test:rls:full
+      - if: always()
+        run: supabase stop --no-backup
+      - if: always()
+        uses: ./.github/actions/record-ci-metric
+        with:
+          metric-id: rls-full
+          label: RLS FULL
+          started-at: ${{ steps.timing.outputs.epoch }}
+          status: ${{ job.status }}
+
+  web-e2e-full:
+    if: github.event_name != 'pull_request' || github.event.label.name == 'full-certification'
+    name: Web E2E — ${{ matrix.group }}
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [auth, trade, payout, control]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: timing
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/setup-node
+      - uses: ./.github/actions/setup-supabase
+      - run: pnpm --filter @wariba/web exec playwright install --with-deps chromium
+      - run: pnpm test:e2e:${{ matrix.group }}
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-${{ matrix.group }}-failure-${{ github.run_attempt }}
+          path: |
+            apps/web/test-results
+            apps/web/playwright-report
+          if-no-files-found: ignore
+          retention-days: 14
+      - if: always()
+        run: supabase stop --no-backup
+      - if: always()
+        uses: ./.github/actions/record-ci-metric
+        with:
+          metric-id: web-e2e-${{ matrix.group }}
+          label: WEB E2E ${{ matrix.group }}
+          started-at: ${{ steps.timing.outputs.epoch }}
+          status: ${{ job.status }}
+
+  realtime-functional:
+    if: github.event_name != 'pull_request' || github.event.label.name == 'full-certification'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: timing
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/setup-node
+      - uses: ./.github/actions/setup-supabase
+      - run: pnpm --filter @wariba/realtime test:e2e:full
+      - if: always()
+        run: supabase stop --no-backup
+      - if: always()
+        uses: ./.github/actions/record-ci-metric
+        with:
+          metric-id: realtime-functional
+          label: REALTIME FUNCTIONAL
+          started-at: ${{ steps.timing.outputs.epoch }}
+          status: ${{ job.status }}
+
+  recovery:
+    if: >-
+      (github.event_name != 'pull_request' || github.event.label.name == 'full-certification') &&
+      (github.event_name != 'workflow_dispatch' || inputs.mode == 'certification')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: timing
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/setup-node
+      - uses: ./.github/actions/setup-supabase
+      - run: pnpm test:recovery
+      - if: always()
+        run: supabase stop --no-backup
+      - if: always()
+        uses: ./.github/actions/record-ci-metric
+        with:
+          metric-id: recovery
+          label: RESTART / RECOVERY
+          started-at: ${{ steps.timing.outputs.epoch }}
+          status: ${{ job.status }}
+
+  load:
+    if: >-
+      (github.event_name != 'pull_request' || github.event.label.name == 'full-certification') &&
+      (github.event_name != 'workflow_dispatch' || inputs.mode == 'certification')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: timing
+        run: echo "epoch=$(date +%s)" >> "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/setup-node
+      - uses: ./.github/actions/setup-supabase
+      - run: pnpm test:load
+      - if: always()
+        run: supabase stop --no-backup
+      - if: always()
+        uses: ./.github/actions/record-ci-metric
+        with:
+          metric-id: load
+          label: LOAD 150 CONNECTIONS
+          started-at: ${{ steps.timing.outputs.epoch }}
+          status: ${{ job.status }}
+
+  summary:
+    name: Certification Summary
+    if: always() && (github.event_name != 'pull_request' || github.event.label.name == 'full-certification')
+    needs:
+      [unit-and-build, database-full, rls-full, web-e2e-full, realtime-functional, recovery, load]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ci-metric-*
+          path: ci-metrics
+          merge-multiple: true
+      - name: Write measured summary
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const rows = fs.readdirSync('ci-metrics').sort().map((file) => {
+            const [label, status, duration, started, ended] = fs.readFileSync(`ci-metrics/${file}`, 'utf8').trim().split('|');
+            return { label, status: status.toUpperCase(), duration: Number(duration), started: Number(started), ended: Number(ended) };
+          });
+          const format = (seconds) => `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+          const total = Math.max(...rows.map((row) => row.ended)) - Math.min(...rows.map((row) => row.started));
+          const lines = ['## WARIBA Full Certification', '', '| Suite | Status | Duration |', '|---|---:|---:|'];
+          for (const row of rows) lines.push(`| ${row.label} | ${row.status} | ${format(row.duration)} |`);
+          lines.push('', `**Total wall clock:** ${format(total)}`);
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${lines.join('\n')}\n`);
+          if (rows.some((row) => row.status !== 'SUCCESS')) process.exitCode = 1;
+          NODE
+          cat >> "$GITHUB_STEP_SUMMARY" <<'SUMMARY'
+
+          ### Architecture limitation
+
+          Multi-node failover and chaos remain outside certification until WARIBA has a real HA leader/fencing design; no passing result is fabricated.
+          SUMMARY
