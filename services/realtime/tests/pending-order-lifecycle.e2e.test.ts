@@ -203,7 +203,14 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
     const tick = tickMsg.payload as { bid: string; ask: string };
     const pricePrecision = 5;
     const onePoint = Number(`1e-${pricePrecision}`);
-    const triggerDistancePoints = 17;
+    // Just below the observed ask. The creation-time check only requires
+    // `triggerPrice < ask` (isPendingOrderCreationPriceValid), so this is
+    // still derived from a real tick and still a genuine limit order — but
+    // it triggers on the next downtick instead of waiting for the random
+    // walk to travel a fixed distance. At 17 points CI saw 61 ticks pass
+    // without the market ever falling that far, and the test timed out
+    // waiting for a fill that was never going to come.
+    const triggerDistancePoints = 2;
     const triggerPrice = (Number(tick.ask) - triggerDistancePoints * onePoint).toFixed(
       pricePrecision,
     );
