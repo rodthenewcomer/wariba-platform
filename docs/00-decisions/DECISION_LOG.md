@@ -697,6 +697,28 @@ trading manuel ni à la règle d'éligibilité de profit à 60 secondes (TRD-033
 
 # 26. Historique des versions
 
+## v1.23 — 2026-08-10
+
+Prompt 09 — WARIBA Control clôturé sur ses six jalons. Quatorze aires
+d'exploitation réelles, aucune page d'annonce restante : l'aire Trading était
+le dernier placeholder et devient un explorateur d'ordres à l'échelle de la
+plateforme, en lecture seule. L'autorisation façonne la récupération et non
+l'affichage — les sections non autorisées ne sont jamais interrogées. Les
+surfaces de gouvernance (Policies, Commercial, Team Access) sont en lecture
+seule parce qu'aucune mutation canonique n'existe, ce que l'audit préalable a
+établi plutôt que supposé : `POLICY_MUTATION_AUTHORIZED = false`,
+`COMMERCIAL_MUTATION_SURFACED = false`, aucune permission de mutation staff.
+Décisions ajoutées : SEC-017 (rétention d'identité staff), SEC-018 (garde-fou
+plan de données local), ACTUARIAL-VARIANCE-001/002, ARCH-FLAG-001/002,
+POLICY-GOV-001/002. `ACTUARIAL_MODEL_VALIDATED` reste `false`,
+`LAST_VALID_TICK_AGE_SOURCE` reste `UNAVAILABLE`, et
+`PUBLIC_PRODUCTION_READY` reste `false`. Deux défauts trouvés par la
+certification elle-même et corrigés : le shell Control poussait le document
+de 9 px latéralement à 412 px, et la suite E2E Control demandait 53
+authentifications contre une limite GoTrue de 30 par cinq minutes — corrigée
+par capture/réutilisation d'une session par rôle, la limite n'ayant pas été
+relevée. Voir `docs/09-prompts/WARIBA_Prompt_09_Completion_Record.md`.
+
 ## v1.22 — 2026-08-09
 
 Appendice 08-A : reconstruction financière et integrity hold, reversal par
@@ -1120,14 +1142,17 @@ Création initiale consolidée à partir de :
 
 # 27. Prochaine action opérationnelle
 
-Les Prompts 01 à 07 sont implémentés et audités sur `main`, y compris les
-Appendices 07-A à 07-D (v1.11 à v1.13 ci-dessus). La séquence suivante est :
+Les Prompts 01 à 09 sont implémentés, audités et certifiés — y compris les
+Appendices 07-A à 07-D et 08-A, et les six jalons du Prompt 09 (v1.23
+ci-dessus). La séquence suivante est :
 
 ```text
-1. Prompt 08 — Performance & Payout (buffer permanent 10 %, cinq Performance
-   Days à 0,50 %, calcul et review de payout) — voir Prompt Pack §11
-2. Continuer d'auditer chaque prompt avant de l'implémenter, comme jusqu'ici
-3. Ne pas ouvrir la vente publique avant les gates actuariels, juridiques et de réserve
+1. Fusionner le Prompt 09 (WARIBA Control) après revue humaine
+2. WariX Workstation 2026 — refonte UX/UI de l'espace de trading (chantier
+   distinct : ne doit pas entrer dans la PR du Prompt 09)
+3. Continuer d'auditer chaque prompt avant de l'implémenter, comme jusqu'ici
+4. Ne pas ouvrir la vente publique avant les gates actuariels, juridiques,
+   de réserve et de providers réels — PUBLIC_PRODUCTION_READY reste false
 ```
 
 ---

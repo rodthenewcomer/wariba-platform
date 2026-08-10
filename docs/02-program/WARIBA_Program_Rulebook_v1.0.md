@@ -33,7 +33,7 @@ next_documents:
 | Produit commercial initial | WARIBA ONE |
 | Étape suivante | WARIBA Performance |
 | Étape après cinq payouts | WARIBA Review |
-| État réel du projet | Dossier créé, aucun code produit commencé |
+| État réel du projet | Document historique v1.0 — superseded par `WARIBA_Program_Rulebook_v1.1.md`. L'état d'implémentation réel est suivi dans le Prompt Pack et le Decision Log, pas ici. |
 | Statut du Rulebook | Baseline interne, candidate pour bêta privée |
 | Langue de référence | Français |
 | Monnaie commerciale | FCFA |
