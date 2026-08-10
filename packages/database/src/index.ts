@@ -23,7 +23,18 @@ export type {
   PayoutProviderStatus,
   ActuarialScenarioName,
 } from './schema';
-export { getStaffRole, staffRoleSatisfies } from './staff';
+export { getStaffRole, staffRoleSatisfies, staffCan, type ControlPermission } from './staff';
+export {
+  consumeStaffActionRateLimit,
+  StaffActionRateLimitExceededError,
+  type ConsumeStaffActionRateLimitParams,
+} from './staff-action-rate-limit';
+export { recordStaffAuditEvent, type RecordStaffAuditEventParams } from './audit';
+export {
+  findExposureIncreaseRejection,
+  EXPOSURE_INCREASE_REJECTION,
+  type ExposureIncreaseRejectionCode,
+} from './exposure-gate';
 export {
   activateEvaluationAccount,
   activateEvaluationAccountInTransaction,
@@ -53,6 +64,7 @@ export {
   recordPayoutProviderSubmissionInTransaction,
   recordPayoutProviderReconciliationInTransaction,
   settlePayoutProviderInTransaction,
+  reversePayoutInTransaction,
   loadPayoutRequestsForAccount,
   loadPayoutRequestsForReview,
   evaluatePayoutEligibility,
@@ -61,6 +73,7 @@ export {
   type PayoutProviderWorkItem,
   type RecordPayoutProviderSubmissionParams,
   type RecordPayoutProviderReconciliationParams,
+  type ReversePayoutParams,
   type PayoutRequestSummary,
   type PayoutRequestResult,
   type PayoutRejectionCode,
@@ -74,15 +87,20 @@ export {
   evaluateReserveStatus,
   type RecordTreasuryReserveEntryParams,
   type ReserveStatus,
+  type TreasuryReserveEntryType,
 } from './treasury';
 export {
   loadActiveActuarialScenarioAssumptions,
   replaceActuarialScenarioAssumptionsInTransaction,
   runPersistedActuarialScenario,
+  loadActiveActuarialScenarios,
+  loadRecentActuarialScenarioRuns,
+  loadDefaultActuarialScenarioInput,
   type PersistedActuarialScenarioAssumptions,
   type ReplaceActuarialScenarioAssumptionsParams,
   type RunPersistedActuarialScenarioParams,
   type PersistedActuarialScenarioRun,
+  type ActuarialScenarioRunComparison,
 } from './actuarial-scenarios';
 export {
   recordPaymentEvent,
@@ -91,7 +109,9 @@ export {
 } from './payment-events';
 export {
   openPosition,
+  openPositionInTransaction,
   closePosition,
+  closePositionInTransaction,
   closeAllPositions,
   modifyPositionRisk,
   countShortDurationProfitClosures,
@@ -151,8 +171,53 @@ export {
   type ExecuteQueuedReductionsParams,
   type ExecutedQueuedReduction,
 } from './position-reduction-queue';
+export {
+  resolvePositionProtectionTrigger,
+  triggerPositionProtections,
+  type PositionProtectionTrigger,
+  type TriggeredPositionProtection,
+} from './position-protections';
 export { loadPublishedPolicy, loadPolicyById } from './policy';
 export { loadAccountBalanceProjection, type AccountBalanceProjection } from './program-eligibility';
+export {
+  reconstructAccountFinancialState,
+  reconcileAccountFinancialStateInTransaction,
+  placeAccountIntegrityHoldInTransaction,
+  clearAccountIntegrityHoldInTransaction,
+  type FinancialReconstructionBreakdown,
+  type AccountFinancialReconstruction,
+  type AccountReconciliationResult,
+} from './financial-reconciliation';
+export {
+  measureActuarialActuals,
+  recordActuarialVarianceRun,
+  loadRecentActuarialVarianceRuns,
+  type PersistedActuarialVarianceRun,
+} from './actuarial-actuals';
+export {
+  OPERATIONAL_ALERT,
+  evaluateOperationalAlerts,
+  reconcileOperationalAlerts,
+  loadDatabaseAlertSignals,
+  type AlertReconciliationResult,
+  type AlertSeverity,
+  type EvaluatedAlert,
+  type OperationalAlertCode,
+  type OperationalAlertSignals,
+} from './operational-alerts';
+export {
+  MARKET_TRIGGER_WRITER_SERVICE,
+  StaleLeadershipError,
+  acquireOrRenewRealtimeLeadership,
+  assertCurrentLeadershipInTransaction,
+  assertExecutionLeadershipInTransaction,
+  expireRealtimeLeadership,
+  loadRealtimeLeadership,
+  TRADER_COMMAND_EXECUTION,
+  type LeadershipToken,
+  type MarketMutationExecution,
+  type RealtimeLeadershipState,
+} from './realtime-leadership';
 export {
   evaluateAndApplyAccountRisk,
   evaluateAndApplyAccountRiskInTransaction,

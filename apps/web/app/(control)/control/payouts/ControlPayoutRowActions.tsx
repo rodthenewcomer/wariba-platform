@@ -7,6 +7,7 @@ import {
   rejectPayoutAction,
   settlePayoutAction,
   submitPayoutAction,
+  reversePayoutAction,
   setKycVerifiedAction,
   setPayoutMethodConfiguredAction,
 } from './actions';
@@ -17,10 +18,12 @@ export interface ControlPayoutRowActionsProps {
   canApproveOrReject: boolean;
   canSubmit: boolean;
   canSettle: boolean;
+  canReverse: boolean;
   kycVerified: boolean;
   payoutMethodConfigured: boolean;
   staffCanReviewFinance: boolean;
   staffCanManageCompliance: boolean;
+  reversalReason: string | null;
 }
 
 /**
@@ -36,15 +39,20 @@ export function ControlPayoutRowActions({
   canApproveOrReject,
   canSubmit,
   canSettle,
+  canReverse,
   kycVerified,
   payoutMethodConfigured,
   staffCanReviewFinance,
   staffCanManageCompliance,
+  reversalReason,
 }: ControlPayoutRowActionsProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [reverseOpen, setReverseOpen] = useState(false);
+  const [reverseReason, setReverseReason] = useState('');
+  const [reverseEvidence, setReverseEvidence] = useState('');
 
   const approve = () => {
     setError(null);
@@ -80,6 +88,20 @@ export function ControlPayoutRowActions({
       }
       setRejectOpen(false);
       setRejectReason('');
+    });
+  };
+
+  const confirmReverse = () => {
+    setError(null);
+    startTransition(async () => {
+      const result = await reversePayoutAction(payoutRequestId, reverseReason, reverseEvidence);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      setReverseOpen(false);
+      setReverseReason('');
+      setReverseEvidence('');
     });
   };
 
@@ -139,7 +161,22 @@ export function ControlPayoutRowActions({
             Soumettre au prestataire
           </Button>
         ) : null}
+        {staffCanReviewFinance && canReverse ? (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setReverseOpen(true)}
+            disabled={isPending}
+          >
+            Reversal
+          </Button>
+        ) : null}
       </div>
+      {reversalReason ? (
+        <Text variant="body-sm" color="secondary">
+          Motif : {reversalReason}
+        </Text>
+      ) : null}
       {error ? (
         <Text variant="body-sm" color="danger">
           {error}
@@ -175,6 +212,42 @@ export function ControlPayoutRowActions({
           onChange={(e) => setRejectReason(e.target.value)}
           helperText="Visible côté staff uniquement — expliquez pourquoi cette demande est refusée."
         />
+      </Dialog>
+      <Dialog
+        open={reverseOpen}
+        onClose={() => setReverseOpen(false)}
+        title="Reversal du payout"
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setReverseOpen(false)}>
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={confirmReverse}
+              disabled={isPending || !reverseReason.trim()}
+            >
+              Confirmer le reversal
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <Input
+            label="Motif obligatoire"
+            name="reverseReason"
+            value={reverseReason}
+            onChange={(event) => setReverseReason(event.target.value)}
+          />
+          <Input
+            label="Référence de preuve"
+            name="reverseEvidence"
+            value={reverseEvidence}
+            onChange={(event) => setReverseEvidence(event.target.value)}
+          />
+        </div>
       </Dialog>
     </div>
   );

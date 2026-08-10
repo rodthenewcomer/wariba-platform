@@ -72,6 +72,8 @@ const REJECTION_LABEL: Record<PayoutRejectionCode, string> = {
   payout_method_not_configured: 'Aucune méthode de payout sandbox configurée.',
   invalid_requested_amount: 'Le montant demandé doit être positif.',
   no_cap_for_account_size: 'Aucun plafond de payout n’est publié pour cette taille de compte.',
+  integrity_hold:
+    'Une anomalie de rapprochement financier bloque temporairement les opérations sensibles.',
 };
 
 const PAYOUT_STATUS_LABEL: Record<string, string> = {
@@ -83,6 +85,7 @@ const PAYOUT_STATUS_LABEL: Record<string, string> = {
   paid: 'Versé',
   failed: 'Échec du versement',
   cancelled: 'Annulé',
+  reversed: 'Annulé par écriture compensatoire',
 };
 
 /**

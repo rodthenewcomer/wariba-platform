@@ -103,10 +103,12 @@ export default async function ControlPayoutsPage() {
                     canApproveOrReject={item.canApproveOrReject}
                     canSubmit={item.canSubmit}
                     canSettle={item.canSettle}
+                    canReverse={item.canReverse}
                     kycVerified={item.kycVerified}
                     payoutMethodConfigured={item.payoutMethodConfigured}
                     staffCanReviewFinance={staffCanReviewFinance}
                     staffCanManageCompliance={staffCanManageCompliance}
+                    reversalReason={item.reversalReason}
                   />
                 </DataTableCell>
               </DataTableRow>

@@ -271,3 +271,13 @@ WARIBA récompense les performances reproductibles. Le buffer permanent protège
 ## 13. Gates commerciales
 
 Les prix et caps restent candidats. Le 50K et le 100K ne peuvent pas être ouverts publiquement avant validation du scénario Stress, de la réserve dédiée, de la marge et des contrôles Risk/CFO. Les cinq tailles restent toutefois actives pour la bêta sandbox privée.
+
+## 14. Clarification opérationnelle payout
+
+La demande, l'approbation, la soumission provider, la confirmation et le paiement
+sont des étapes distinctes. Une soumission n'est pas un paiement. Pendant un
+payout actif, toute augmentation d'exposition est refusée côté serveur ; fermer,
+réduire et annuler un ordre en attente restent autorisés lorsque l'état du compte
+le permet. Une reversal conserve l'historique et utilise une écriture
+compensatoire. Cette clarification ne modifie ni les caps, ni les splits, ni le
+buffer, ni les cinq cycles de la policy v1.1.

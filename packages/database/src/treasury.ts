@@ -2,8 +2,10 @@ import Decimal from 'decimal.js';
 import { computeReserveCoverageRatio, resolveReserveZone, type ReserveZone } from '@wariba/domain';
 import type { Db } from './client';
 
+export type TreasuryReserveEntryType = 'deposit' | 'withdrawal' | 'adjustment';
+
 export interface RecordTreasuryReserveEntryParams {
-  entryType: 'deposit' | 'withdrawal' | 'adjustment';
+  entryType: TreasuryReserveEntryType;
   /** Always a positive magnitude — sign is applied here from entryType, so callers never have to remember the convention. */
   amount: string;
   reason: string;
@@ -23,16 +25,19 @@ export async function recordTreasuryReserveEntry(
   trx: Db,
   params: RecordTreasuryReserveEntryParams,
 ): Promise<void> {
+  const magnitude = new Decimal(params.amount);
+  if (!magnitude.isFinite() || !magnitude.greaterThan(0)) {
+    throw new Error('Treasury reserve entry amount must be positive.');
+  }
+  if (params.reason.trim().length === 0) throw new Error('Treasury reserve reason is required.');
   const signedAmount =
-    params.entryType === 'withdrawal'
-      ? new Decimal(params.amount).negated().toFixed(2)
-      : new Decimal(params.amount).toFixed(2);
+    params.entryType === 'withdrawal' ? magnitude.negated().toFixed(2) : magnitude.toFixed(2);
   await trx
     .insertInto('app.treasury_reserve_entries')
     .values({
       entry_type: params.entryType,
       amount: signedAmount,
-      reason: params.reason,
+      reason: params.reason.trim(),
       created_by: params.createdBy,
       occurred_at: params.now ?? new Date(),
     })

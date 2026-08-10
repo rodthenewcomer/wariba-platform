@@ -393,20 +393,42 @@ export async function setPerformanceAccountComplianceFlags(
     payoutMethodConfigured?: boolean;
     now: Date;
   },
-): Promise<void> {
+): Promise<{
+  before: { kycVerified: boolean; payoutMethodConfigured: boolean };
+  after: { kycVerified: boolean; payoutMethodConfigured: boolean };
+}> {
   const update: { kyc_sandbox_verified?: boolean; payout_method_sandbox_configured?: boolean } = {};
   if (params.kycVerified !== undefined) update.kyc_sandbox_verified = params.kycVerified;
   if (params.payoutMethodConfigured !== undefined) {
     update.payout_method_sandbox_configured = params.payoutMethodConfigured;
   }
-  if (Object.keys(update).length === 0) return;
+  const before = await trx
+    .selectFrom('app.trading_accounts')
+    .select(['kyc_sandbox_verified', 'payout_method_sandbox_configured'])
+    .where('id', '=', params.accountId)
+    .where('program_type', '=', 'WARIBA_PERFORMANCE')
+    .forUpdate()
+    .executeTakeFirstOrThrow(() => new Error('Performance account was not found.'));
+  const beforeSnapshot = {
+    kycVerified: before.kyc_sandbox_verified,
+    payoutMethodConfigured: before.payout_method_sandbox_configured,
+  };
+  if (Object.keys(update).length === 0) return { before: beforeSnapshot, after: beforeSnapshot };
 
-  await trx
+  const after = await trx
     .updateTable('app.trading_accounts')
     .set({ ...update, updated_at: params.now })
     .where('id', '=', params.accountId)
     .where('program_type', '=', 'WARIBA_PERFORMANCE')
-    .execute();
+    .returning(['kyc_sandbox_verified', 'payout_method_sandbox_configured'])
+    .executeTakeFirstOrThrow();
+  return {
+    before: beforeSnapshot,
+    after: {
+      kycVerified: after.kyc_sandbox_verified,
+      payoutMethodConfigured: after.payout_method_sandbox_configured,
+    },
+  };
 }
 
 export interface OpenPerformanceReviewCase {

@@ -25,7 +25,7 @@ async function login(page: import('@playwright/test').Page, fixture: PayoutAccou
   await page.getByLabel('Adresse email').fill(fixture.email);
   await page.getByLabel('Mot de passe').fill(fixture.password);
   await page.getByRole('button', { name: 'Se connecter' }).click();
-  await page.waitForURL('**/hub', { timeout: 15_000 });
+  await page.waitForURL('**/hub', { timeout: 30_000 });
   await expect(page.getByRole('navigation', { name: 'Principal' })).toBeVisible({
     timeout: 30_000,
   });

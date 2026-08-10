@@ -8,7 +8,11 @@ import {
   createPendingOrderMessageSchema,
 } from '@wariba/contracts';
 import { RealtimeTestClient } from './realtime-test-client.js';
-import { spawnRealtimeTestProcess, type RealtimeTestProcess } from './realtime-test-process.js';
+import {
+  spawnRealtimeTestProcess,
+  waitForCondition,
+  type RealtimeTestProcess,
+} from './realtime-test-process.js';
 
 globalThis.WebSocket ??= class {} as unknown as typeof WebSocket;
 
@@ -137,7 +141,38 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
         ACCOUNT_RISK_PREVIEW_INTERVAL_MS: '5000',
       },
     });
-  }, 40000);
+
+    // Only the leader evaluates market triggers (Appendix 08-A fencing), so
+    // a standby serves /health perfectly while silently never filling a
+    // pending order. The previous suite in this file group kills its own
+    // realtime process without awaiting the exit, so this one can come up
+    // while that lease is still live. Waiting for leadership turns that into
+    // a clear, fast failure instead of a mystery timeout sixty ticks later.
+    let lastHealth = 'never fetched';
+    try {
+      await waitForCondition(
+        'realtime node leadership',
+        async () => {
+          const response = await fetch(`${BASE_URL}/health`);
+          const body = (await response.json()) as { leader?: boolean };
+          lastHealth = `${response.status} ${JSON.stringify(body)}`;
+          return body.leader === true;
+        },
+        20000,
+      );
+    } catch (error) {
+      const lease = await db
+        .selectFrom('app.realtime_leadership')
+        .selectAll()
+        .where('service_name', '=', 'market-trigger-writer')
+        .executeTakeFirst();
+      throw new Error(
+        `${error instanceof Error ? error.message : String(error)}\n` +
+          `lastHealth=${lastHealth}\nlease=${JSON.stringify(lease)}\n` +
+          `--- realtime logs ---\n${realtime.logs()}`,
+      );
+    }
+  }, 60000);
 
   afterAll(async () => {
     await realtime?.stop();
@@ -203,12 +238,32 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
     const tick = tickMsg.payload as { bid: string; ask: string };
     const pricePrecision = 5;
     const onePoint = Number(`1e-${pricePrecision}`);
-    const triggerDistancePoints = 17;
+    // Just below the observed ask. The creation-time check only requires
+    // `triggerPrice < ask` (isPendingOrderCreationPriceValid), so this is
+    // still derived from a real tick and still a genuine limit order — but
+    // it triggers on the next downtick instead of waiting for the random
+    // walk to travel a fixed distance. At 17 points CI saw 61 ticks pass
+    // without the market ever falling that far, and the test timed out
+    // waiting for a fill that was never going to come.
+    const triggerDistancePoints = 2;
     const triggerPrice = (Number(tick.ask) - triggerDistancePoints * onePoint).toFixed(
       pricePrecision,
     );
-    const stopLoss = (Number(triggerPrice) - 50 * onePoint).toFixed(pricePrecision);
-    const takeProfit = (Number(triggerPrice) + 50 * onePoint).toFixed(pricePrecision);
+    // Far enough that the sandbox market cannot reach either one while this
+    // test runs. This test is about SL/TP being *attached* atomically by the
+    // trigger and surviving a reconnect — position-protections.integration
+    // is where they actually firing is proven. At ±50 points the market
+    // crossed one of them whenever the machine was loaded enough for the
+    // test to take ~60s instead of ~8s, which closed the position and left
+    // the reconnect assertions looking for an open position that had
+    // legitimately gone.
+    const protectionDistancePoints = 1000;
+    const stopLoss = (Number(triggerPrice) - protectionDistancePoints * onePoint).toFixed(
+      pricePrecision,
+    );
+    const takeProfit = (Number(triggerPrice) + protectionDistancePoints * onePoint).toFixed(
+      pricePrecision,
+    );
 
     const createIdempotencyKey = randomUUID();
     const pendingOrder = createPendingOrderMessageSchema.parse({
@@ -277,10 +332,19 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
     );
     expect(extraFills).toHaveLength(0);
 
+    // Scoped to opening fills: the guarantee under test is that the
+    // trigger fired once, and an *opening* fill is what a trigger produces.
+    // Counting every fill on the position also counted the close fill that
+    // the attached SL/TP legitimately produces if the sandbox market
+    // reaches one of them while the test is still running — which happened
+    // whenever the machine was loaded enough for this test to take ~40s
+    // instead of ~8s, failing a duplicate-trigger assertion for something
+    // that is not a duplicate trigger.
     const fillRows = await db
       .selectFrom('app.fills')
       .select('id')
       .where('position_id', '=', positionId)
+      .where('fill_type', '=', 'open')
       .execute();
     expect(fillRows).toHaveLength(1);
     const settledPendingOrder = await db

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { AccountSwitchLink } from './AccountSwitchLink';
 import { redirect } from 'next/navigation';
 import {
   AccountContext,
@@ -116,7 +117,7 @@ export default async function HubPage({
 
   const selector = (
     <AccountSelector
-      LinkComponent={Link}
+      LinkComponent={AccountSwitchLink}
       accounts={selectorAccounts}
       activeAccountId={activeAccount.id}
     />

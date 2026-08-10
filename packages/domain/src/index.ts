@@ -86,6 +86,7 @@ export {
   SCENARIO_NAMES,
   SCENARIO_ASSUMPTIONS,
   type ScenarioName,
+  type SeedScenarioName,
   type ScenarioAssumptions,
   type ProductCode as ActuarialProductCode,
   type ProductInputs as ActuarialProductInputs,
@@ -93,6 +94,15 @@ export {
   type ScenarioResult as ActuarialScenarioResult,
   type ProductScenarioResult as ActuarialProductScenarioResult,
 } from './actuarial-scenario';
+export {
+  compareModelToActual,
+  resolveVarianceCoverage,
+  MINIMUM_COMPARABLE_SAMPLE,
+  type ActuarialActuals,
+  type ActuarialVarianceMetric,
+  type ActuarialVarianceReport,
+  type VarianceCoverage,
+} from './actuarial-variance';
 export {
   deriveHubDisplayState,
   isInAttentionZone,

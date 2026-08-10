@@ -7,7 +7,7 @@ language: "fr-FR"
 brand: "WARIBA"
 domain: "wariba.app"
 owner: "WARIBA Leadership, Product, Risk, Engineering & Operations"
-last_updated: "2026-08-07"
+last_updated: "2026-08-09"
 ---
 
 # WARIBA Decision Log v1.0
@@ -331,7 +331,7 @@ Révision:
 | TRADING-ORDER-001 | `LOCKED` | Prompt 7 Appendice 07-D — Buy/Sell Limit/Stop supportés, GTC uniquement (`time_in_force` fixé à `'GTC'` en base, `app.pending_orders`) ; aucune autre durée n'est proposée. | Résout TRD-005. Machine d'états canonique : `active` → `triggered` → `filled` \| `failed`, ou `active` → `cancelled`, ou rejet direct à la création (`rejected` n'est jamais une ligne persistée — un rejet à la création ne crée pas de ligne du tout). `suspended_market_data` existe dans le schéma mais n'est pas encore atteint par ce build (aucun scénario d'outage n'écrit ce statut). |
 | TRADING-ORDER-002 | `LOCKED` | Un ordre en attente déclenché se remplit via la transaction `openPosition()` existante et inchangée (`packages/database/src/trading.ts`, nouveau paramètre `fillPriceOverride`), jamais un second chemin d'exécution divergent. Le SL/TP demandé à la création s'active atomiquement dans ce même fill. | Un seul chemin d'exécution financière autoritatif dans tout le système, plutôt que dupliquer commission/ledger/évaluation de risque pour les ordres en attente. |
 | TRADING-ORDER-003 | `LOCKED` | La vérification d'exposition agrégée à la création d'un ordre en attente ne considère que les positions actuellement ouvertes, jamais la quantité d'autres ordres en attente sur le même symbole. | Limitation documentée et acceptée : plusieurs ordres en attente peuvent en théorie, une fois tous déclenchés, dépasser ensemble la limite d'exposition. Le filet de sécurité réel est la re-vérification propre d'`openPosition()` au moment du déclenchement — un ordre qui dépasserait la limite au moment de se remplir est marqué `failed`, jamais silencieusement exécuté en sur-exposition. |
-| TRADING-ORDER-004 | `LOCKED` | Aucune infrastructure d'élection de leader / fencing / active-standby n'existe dans ce dépôt (`services/realtime` est un processus unique ; `packages/database` n'a aucune primitive de coordination distribuée). La sécurité des ordres en attente repose sur le même modèle que toute autre commande du système : un unique écrivain autoritatif, verrous de ligne Postgres, et clés d'idempotence. | Le prompt suppose à tort qu'une telle infrastructure existe déjà ; construire un vrai basculement multi-nœud serait un projet d'infrastructure séparé, non demandé par ailleurs et hors du périmètre de cet appendice. Documenté explicitement plutôt que fabriqué ou passé sous silence. |
+| TRADING-ORDER-004 | `SUPERSEDED` | Le modèle single-node de l'Appendice 07-D reste une preuve de restart, mais n'est plus la limite courante. | Remplacé par ARCH-HA-001 à 003 dans l'Appendice 08-A ; l'historique de la décision initiale est conservé. |
 | TRADING-ORDER-005 | `LOCKED` | L'ordre en attente extension le ticket d'ordre existant (sélecteur de type Market/Limit/Stop), jamais un second ticket. Le menu contextuel du graphique ne propose que les types Achat/Vente Limite/Stop réellement valides au prix cliqué par rapport au bid/ask courant (`isPendingOrderCreationPriceValid`, `@wariba/domain`), jamais un choix invalide en façade désactivée. | Remplace la décision de scope UX-TRADING-003 (07-C) — voir UX-TRADING-009. |
 | TRADING-ALERT-001 | `LOCKED` | Les alertes de prix sont évaluées exclusivement côté serveur, sur chaque tick réel de `services/realtime` (`evaluateAlerts`), jamais côté client. | Cohérent avec TRD-006 (prix d'exécution serveur, le client n'est jamais autoritaire) appliqué au domaine des alertes. |
 | TRADING-ALERT-002 | `LOCKED` | Les alertes sont basées sur un franchissement (`cross_above`/`cross_below`, détecteur de transition via `last_observed_side_above`), jamais une égalité de seuil. La toute première évaluation après création ou réactivation établit seulement la base de référence et ne déclenche jamais. | Une alerte créée alors que le prix est déjà du côté "déclenchant" ne doit pas se déclencher immédiatement sans franchissement réel observé. |
@@ -446,6 +446,11 @@ Révision:
 | ARCH-026 | `OPEN` | Provider observabilité. | À choisir avant bêta. |
 | ARCH-027 | `OPEN` | Provider email. | À choisir avant bêta réaliste. |
 | ARCH-028 | `DEFERRED` | WariX isolera à terme le code spécifique au renderer derrière un `ChartEngineAdapter`. | Lightweight Charts reste le renderer par défaut ; une évaluation ultérieure d'Advanced Charts ne constitue ni une migration de stack ni un scope Prompt 08. |
+| ARCH-HA-001 | `LOCKED` | La haute disponibilité Realtime V1 utilise une coordination de leader PostgreSQL avec bail durable et epoch de fencing monotone, sans Redis. | Deux instances peuvent fonctionner en actif/standby chaud tout en gardant PostgreSQL comme arbitre autoritatif. |
+| ARCH-HA-002 | `LOCKED` | Seul le leader détenant l'epoch courant peut commettre une mutation financière déclenchée par tick. | Toute transaction tardive d'un ancien leader échoue avant effet financier. |
+| ARCH-HA-003 | `LOCKED` | Un standby peut être prêt opérationnellement mais ne se déclare jamais écrivain actif. | Les probes distinguent processus vivant, DB, feed, leader, standby prêt et trafic de trading sûr. |
+| UX-NAV-001 | `LOCKED` | Le sélecteur de compte du Hub effectue une navigation document complète, pas une navigation client Next. | Changer de compte ne modifie qu'un paramètre de recherche sur le même segment de route : le routeur ne valide l'URL qu'après avoir appliqué la charge utile, et le client abandonnait la réponse RSC (`net::ERR_ABORTED`) alors que le serveur l'avait rendue correctement. `next/link` et `router.push()` dans une transition se comportaient de la même façon. Le clic du trader ne faisait rien, sans erreur ni retour. Un changement de compte remplace tout le contexte de données de la page, donc aucune mise à jour partielle n'est à préserver. |
+| ARCH-HA-004 | `LOCKED` | Le bail de leadership est initialisé à l'epoch Unix, jamais à `-infinity`. | Un timestamptz infini ne se décode pas en `Date` côté pilote : la première élection sur une base fraîchement migrée échouait, donc le service realtime ne pouvait pas prendre le leadership sur un déploiement neuf. La lecture coerce aussi défensivement — un bail illisible se lit comme expiré (repli vers standby), jamais comme détenu. |
 
 ---
 
@@ -524,6 +529,7 @@ Révision:
 | QA-012 | `CANDIDATE` | SLO bêta Web/BFF 99,5 %. | Interne, non contractuel. |
 | QA-013 | `CANDIDATE` | Order ack/reject p95 < 750 ms. | Cible interne. |
 | QA-014 | `CANDIDATE` | Risk update p95 < 500 ms. | Cible interne. |
+| QA-CERT-001 | `LOCKED` | Une certification critique exige tests d'échec, concurrence, restart, failover et charge en plus des happy paths. | Une CI statique verte seule ne suffit pas à déclarer le système certifié. |
 
 ---
 
@@ -546,6 +552,11 @@ Révision:
 | OPS-013 | `OPEN` | Payout SLA final. | Nécessite opérations réelles. |
 | OPS-014 | `OPEN` | Processus comptable/ledger trésorerie réel. | Gate avant payout réel. |
 | OPS-015 | `LOCKED` | À 1,2x–1,5x de couverture, suspendre les nouvelles ventes des tailles à plus forte exposition par ordre 100K, 50K, 25K, puis réduire les promotions. | Préserver la réserve sans modifier rétroactivement un compte déjà activé. |
+| FIN-INTEGRITY-001 | `LOCKED` | L'état financier d'un compte est reconstruisible depuis fills, ledger, payouts et écritures compensatoires immuables. | Le stocké est comparé au reconstruit par une voie canonique persistée. |
+| FIN-INTEGRITY-002 | `LOCKED` | Un échec de réconciliation pose un integrity hold, bloque les opérations financières sensibles et ouvre un incident critique. | Aucune correction silencieuse des écritures historiques n'est permise. |
+| PAYOUT-PROVIDER-001 | `LOCKED` | La logique payout dépend de l'interface `PayoutProvider`, jamais d'un rail externe concret. | Les rails réels futurs restent des adapters. |
+| PAYOUT-PROVIDER-002 | `LOCKED` | Une soumission provider n'est pas un règlement. | `paid` exige une réconciliation confirmée ou une confirmation manuelle autorisée avec preuve. |
+| PAYOUT-PROVIDER-003 | `LOCKED` | Seuls `mock` et `manual` sont implémentés pour le sandbox V1. | Aucun API Wave, Orange, PayDunya, Rise, Wise ou bancaire n'est fabriqué. |
 
 ---
 
@@ -677,6 +688,17 @@ trading manuel ni à la règle d'éligibilité de profit à 60 secondes (TRD-033
 ---
 
 # 26. Historique des versions
+
+## v1.22 — 2026-08-09
+
+Appendice 08-A : reconstruction financière et integrity hold, reversal par
+écriture compensatoire, provider payout agnostique avec soumission distincte
+du règlement, hypothèses actuarielles persistées/versionnées, rate limit
+Control partagé par PostgreSQL, métriques opérationnelles, et actif/standby
+Realtime avec bail, epoch de fencing et test de SIGKILL à deux processus.
+TRADING-ORDER-004 est supersedée par ARCH-HA-001 à 003. Lightweight Charts
+reste inchangé ; ARCH-028 conserve seulement le suivi futur
+`ChartEngineAdapter`.
 
 ## v1.21 — 2026-08-07
 

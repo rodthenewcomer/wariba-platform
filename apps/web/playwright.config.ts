@@ -4,6 +4,7 @@ const BASE_URL = process.env.APP_BASE_URL ?? 'http://localhost:3000';
 const REALTIME_WS_URL = process.env.NEXT_PUBLIC_REALTIME_WS_URL ?? 'ws://127.0.0.1:4001/ws';
 const REALTIME_HEALTH_URL = `${REALTIME_WS_URL.replace(/^ws(s?):/, 'http$1:').replace(/\/ws$/, '')}/health`;
 const REALTIME_PORT = new URL(REALTIME_WS_URL).port || '4001';
+const WEB_SERVER_COMMAND = process.env.PLAYWRIGHT_WEB_SERVER_COMMAND ?? 'pnpm build && pnpm start';
 
 /**
  * globalSetup creates one real activated WARIBA ONE account, signs in
@@ -39,15 +40,22 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'pnpm dev',
+      command: WEB_SERVER_COMMAND,
       url: BASE_URL,
+      env: {
+        APP_ENV: 'local',
+        NEXT_PUBLIC_REALTIME_WS_URL: REALTIME_WS_URL,
+        NEXT_PUBLIC_SUPABASE_URL: process.env.SUPABASE_URL ?? '',
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY ?? '',
+      },
       reuseExistingServer: true,
-      timeout: 60_000,
+      timeout: 180_000,
     },
     {
       command: 'pnpm --filter @wariba/realtime start',
       url: REALTIME_HEALTH_URL,
       env: {
+        APP_ENV: 'local',
         REALTIME_PORT,
         MARKET_DATA_PROVIDER: 'mock',
         MARKET_DATA_REPLAY_MODE: 'false',
@@ -56,10 +64,26 @@ export default defineConfig({
       timeout: 60_000,
     },
   ],
+  /*
+   * Two projects, partitioned by the @mobile tag so nothing runs twice:
+   * `desktop` takes everything except @mobile, `mobile` takes exactly
+   * @mobile on a real device profile (touch, mobile user agent, device
+   * scale factor) rather than a desktop browser that has merely been
+   * resized. Individual specs still narrow the viewport further — notably
+   * the 320px minimum-supported-width test — which is the point: the
+   * device profile supplies the mobile *platform*, the spec supplies the
+   * exact width under test.
+   */
   projects: [
     {
       name: 'desktop',
+      grepInvert: /@mobile/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
+    },
+    {
+      name: 'mobile',
+      grep: /@mobile/,
+      use: { ...devices['Pixel 7'] },
     },
   ],
 });

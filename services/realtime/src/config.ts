@@ -1,8 +1,12 @@
 import { z } from 'zod';
+import { hostname } from 'node:os';
 import { baseEnvironmentSchema, loadConfig, assertNotSandboxInProduction } from '@wariba/config';
 
 const realtimeEnvSchema = baseEnvironmentSchema.extend({
   REALTIME_PORT: z.coerce.number().int().positive().default(4001),
+  INSTANCE_ID: z.string().min(1),
+  LEADER_LEASE_DURATION_MS: z.coerce.number().int().min(1000).default(4000),
+  LEADER_RENEW_INTERVAL_MS: z.coerce.number().int().min(250).default(1000),
   DATABASE_URL: z.string().min(1),
   SUPABASE_URL: z.string().url(),
   SUPABASE_ANON_KEY: z.string().min(1),
@@ -34,6 +38,8 @@ const realtimeEnvSchema = baseEnvironmentSchema.extend({
   // fresh live-priced equity/risk push (see websocket.ts's risk preview
   // loop). Configurable mainly so e2e tests don't have to wait 4s per case.
   ACCOUNT_RISK_PREVIEW_INTERVAL_MS: z.coerce.number().int().positive().default(4000),
+  OPERATIONAL_ALERT_INTERVAL_MS: z.coerce.number().int().positive().default(30000),
+  LEADER_TAKEOVER_TARGET_MS: z.coerce.number().int().positive().default(10000),
 });
 
 export type RealtimeConfig = z.infer<typeof realtimeEnvSchema>;
@@ -44,7 +50,13 @@ export function loadRealtimeConfig(
   source: Record<string, string | undefined> = process.env,
 ): RealtimeConfig {
   if (!cached) {
-    cached = loadConfig(realtimeEnvSchema, source);
+    cached = loadConfig(realtimeEnvSchema, {
+      ...source,
+      INSTANCE_ID: source.INSTANCE_ID ?? `${hostname()}:${process.pid}`,
+    });
+    if (cached.LEADER_RENEW_INTERVAL_MS >= cached.LEADER_LEASE_DURATION_MS) {
+      throw new Error('LEADER_RENEW_INTERVAL_MS must be lower than LEADER_LEASE_DURATION_MS.');
+    }
     assertNotSandboxInProduction({
       environment: cached.APP_ENV,
       providerName: 'MARKET_DATA_PROVIDER',

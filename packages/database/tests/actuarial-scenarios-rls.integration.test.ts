@@ -64,12 +64,27 @@ describeIfDb('actuarial scenario assumptions — row level security (real databa
       .where('is_active', '=', true)
       .orderBy('scenario_name')
       .execute();
-    expect(active).toHaveLength(4);
+    expect(active).toHaveLength(5);
     expect(active.map((row) => row.scenario_name)).toEqual([
       'aggressive',
       'base',
       'conservative',
+      'custom',
       'stress',
     ]);
+  });
+
+  it.each([
+    'actuarial_scenario_runs',
+    'account_reconciliation_runs',
+    'operations_incidents',
+    'realtime_leadership',
+    'staff_action_rate_limits',
+  ] as const)('denies authenticated direct reads of server-only %s evidence', async (table) => {
+    await expect(
+      asRole(db, 'authenticated', randomUUID(), (trx) =>
+        trx.selectFrom(`app.${table}`).selectAll().execute(),
+      ),
+    ).rejects.toThrow(/permission denied/);
   });
 });

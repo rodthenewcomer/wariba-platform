@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { staffRoleSatisfies } from '../src/staff';
+import { staffCan, staffRoleSatisfies, type ControlPermission } from '../src/staff';
 import type { StaffRole } from '../src/schema';
 
 describe('staffRoleSatisfies', () => {
@@ -37,6 +37,44 @@ describe('staffRoleSatisfies', () => {
     // admin requirement is satisfied by admin or super_admin...
     expect(staffRoleSatisfies('super_admin', 'admin')).toBe(true);
     // ...but admin does not satisfy a super_admin-only requirement.
+    expect(staffRoleSatisfies('admin', 'super_admin')).toBe(false);
+  });
+});
+
+describe('staffCan — sensitive Control authorization matrix', () => {
+  const permissions: ControlPermission[] = [
+    'account.view',
+    'risk.view',
+    'integrity_hold.place',
+    'integrity_hold.clear',
+    'sandbox_kyc.modify',
+    'payout_method.modify',
+    'payout.approve',
+    'payout.reject',
+    'payout.settle',
+    'payout.reverse',
+    'treasury.modify',
+    'actuarial.modify',
+    'commercial_product.modify',
+    'audit_evidence.view',
+  ];
+
+  it('keeps support, risk, compliance, and finance duties separated', () => {
+    expect(staffCan('support', 'account.view')).toBe(true);
+    expect(staffCan('support', 'payout.approve')).toBe(false);
+    expect(staffCan('risk', 'integrity_hold.place')).toBe(true);
+    expect(staffCan('risk', 'payout.settle')).toBe(false);
+    expect(staffCan('compliance', 'sandbox_kyc.modify')).toBe(true);
+    expect(staffCan('compliance', 'payout.reverse')).toBe(false);
+    expect(staffCan('finance', 'payout.settle')).toBe(true);
+    expect(staffCan('finance', 'sandbox_kyc.modify')).toBe(false);
+  });
+
+  it('allows admin supersets without allowing silent super-admin elevation', () => {
+    for (const permission of permissions) {
+      expect(staffCan('super_admin', permission)).toBe(true);
+    }
+    expect(staffCan('admin', 'commercial_product.modify')).toBe(true);
     expect(staffRoleSatisfies('admin', 'super_admin')).toBe(false);
   });
 });

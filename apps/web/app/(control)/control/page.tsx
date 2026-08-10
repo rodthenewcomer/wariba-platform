@@ -30,6 +30,12 @@ export default async function ControlPage() {
       <Link href="/control/payouts" className={buttonClassNames()}>
         Ouvrir la file de payout
       </Link>
+      <Link href="/control/actuarial" className={buttonClassNames({ variant: 'secondary' })}>
+        Ouvrir les scénarios actuariels
+      </Link>
+      <Link href="/control/treasury" className={buttonClassNames({ variant: 'secondary' })}>
+        Ouvrir la trésorerie
+      </Link>
     </div>
   );
 }

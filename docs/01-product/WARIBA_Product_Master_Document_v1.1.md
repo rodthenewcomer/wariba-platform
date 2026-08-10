@@ -87,3 +87,12 @@ Cette métrique complète la progression globale sans remplacer la North Star pr
 ## 8. WariX — gestion visuelle de position
 
 WariX affiche la position et ses niveaux Stop Loss / Take Profit directement sur le graphique, modifiables par glissement (avec alternative clavier et saisie de prix exact), un menu contextuel manuel au clic droit (appui long sur mobile, bottom sheet tactile) et une clôture partielle par pourcentage ou quantité personnalisée. L’exécution reste exclusivement server-authoritative. Depuis l’Appendice 07-D, WariX propose aussi des ordres en attente Achat/Vente Limit/Stop (GTC, avec Stop Loss / Take Profit optionnels attachés dès la création) et des alertes de prix par franchissement de seuil, déclenchés sur tick réel côté serveur, avec centre de notifications ; le menu contextuel desktop et son équivalent mobile exposent les mêmes actions. Voir DECISION_LOG.md, UX-TRADING-001 à 009, TRADING-ORDER-001 à 005, TRADING-ALERT-001 à 003.
+
+## 9. Performance, payout et sécurité opérationnelle
+
+Une demande de payout gèle toute augmentation d'exposition côté serveur tout
+en conservant les réductions et annulations sûres. L'approbation revalide l'état
+courant ; la soumission provider ne signifie pas payé. Seule une confirmation
+réconciliée ou manuelle autorisée produit le débit payout. Après le payout #5
+payé, WARIBA Review s'ouvre et aucun cycle #6 n'est créé. Les providers réels
+restent hors V1.

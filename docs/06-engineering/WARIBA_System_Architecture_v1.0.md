@@ -1905,7 +1905,7 @@ Un seul processus Realtime actif est acceptable avec :
 - reprise ;
 - monitoring.
 
-Depuis l’Appendice 07-D (2026-08-06), la reprise après restart est testée de bout en bout pour les ordres en attente et les alertes de prix, pas seulement pour les positions : un restart recharge les ordres/alertes actifs depuis Postgres, reprend l’évaluation sur tick, et ne produit ni fill ni notification dupliqués (`services/realtime/tests/pending-order-restart-recovery.e2e.test.ts`). Aucune élection de leader, aucun fencing, aucun standby n’existe — l’intervalle pendant lequel le processus est arrêté reste une interruption de service réelle, non un failover. Voir DECISION_LOG.md TRADING-ORDER-004.
+Depuis l’Appendice 08-A (2026-08-09), cette preuve de restart est complétée par un actif/standby chaud à deux processus : PostgreSQL conserve le bail et un epoch de fencing monotone, et toute transaction financière déclenchée par tick revérifie l'epoch courant avant commit (`services/realtime/tests/multi-node-failover.e2e.test.ts`). Voir DECISION_LOG.md ARCH-HA-001 à 003.
 
 ## 64.2 Scale futur
 
@@ -3508,3 +3508,33 @@ La réponse est :
 - des preuves auditables.
 
 Cette architecture devient la source de vérité technique de WARIBA. Aucun agent ou développeur ne peut introduire un nouveau service, un accès direct aux données financières, une règle codée en dur ou une dépendance d’infrastructure significative sans ADR et validation explicite.
+
+---
+
+# 139. Appendice 08-A — intégrité financière et haute disponibilité
+
+`app.realtime_leadership` conserve un bail singleton, l'instance leader et un
+epoch de fencing monotone. Chaque trigger financier issu d'un tick vérifie
+l'epoch dans la même transaction que le fill/close/notification. Le standby
+reste connecté à la DB et au feed, mais n'écrit aucun effet financier. Les
+probes distinguent `process_alive`, DB, feed, leader, standby prêt et trafic
+de trading sûr. Un load balancer doit envoyer les nouvelles connexions à un
+nœud vivant et laisser le client se reconnecter/réconcilier ; il ne doit pas
+considérer le standby comme l'écrivain actif.
+
+Le trigger d'ordre en attente est atomique : verrou compte + ordre, revalidation
+risque/feed/payout/integrity, fill canonique, puis statut terminal dans un seul
+commit. Les SL/TP utilisent le bid/ask exécutable et le même chemin de clôture.
+Les ticks dupliqués ou hors ordre sont rejetés avant mutation. Les alertes ont
+une identité de trigger unique.
+
+La reconstruction financière compare les soldes stockés aux fills, commissions,
+profits courts inéligibles, payouts et écritures compensatoires. Un mismatch
+ouvre un incident et pose un integrity hold. `/metrics` et `/health` exposent
+connexions, reconnexions, leader/epoch/takeover, feed/ticks rejetés, commandes,
+fills/triggers/alertes et latences P50/P95/P99. Les événements outbox couvrent
+réconciliation, payout, trésorerie et scénarios actuariels.
+
+Lightweight Charts reste le renderer V1. Toute évaluation future d'Advanced
+Charts doit d'abord isoler le code renderer derrière `ChartEngineAdapter`
+(ARCH-028), sans déplacer la logique trading/risk/finance hors du serveur.

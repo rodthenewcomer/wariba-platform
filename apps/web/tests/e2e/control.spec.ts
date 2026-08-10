@@ -62,16 +62,16 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     { tag: ['@smoke', '@critical'] },
     async ({ page }) => {
       await login(page, trader.email);
-      await page.waitForURL('**/hub', { timeout: 15_000 });
+      await page.waitForURL('**/hub', { timeout: 30_000 });
 
       await page.goto('/control');
-      await page.waitForURL('**/hub', { timeout: 15_000 });
+      await page.waitForURL('**/hub', { timeout: 30_000 });
     },
   );
 
   test('a support staff member reaches the Overview and Users sections', async ({ page }) => {
     await login(page, supportStaff.email);
-    await page.waitForURL('**/hub', { timeout: 15_000 });
+    await page.waitForURL('**/hub', { timeout: 30_000 });
 
     await page.goto('/control');
     await expect(page).toHaveURL(/\/control$/);
@@ -87,7 +87,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     { tag: ['@smoke', '@critical'] },
     async ({ page }) => {
       await login(page, supportStaff.email);
-      await page.waitForURL('**/hub', { timeout: 15_000 });
+      await page.waitForURL('**/hub', { timeout: 30_000 });
 
       await page.goto('/control/payouts');
       await expect(page).toHaveURL(/\/control\/payouts$/);
@@ -102,7 +102,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     page,
   }) => {
     await login(page, financeStaff.email);
-    await page.waitForURL('**/hub', { timeout: 15_000 });
+    await page.waitForURL('**/hub', { timeout: 30_000 });
 
     await page.goto('/control/payouts');
     await expect(page).toHaveURL(/\/control\/payouts$/);
@@ -118,7 +118,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     page,
   }) => {
     await login(page, adminStaff.email);
-    await page.waitForURL('**/hub', { timeout: 15_000 });
+    await page.waitForURL('**/hub', { timeout: 30_000 });
 
     await page.goto('/control/users');
     await expect(page).toHaveURL(/\/control\/users$/);

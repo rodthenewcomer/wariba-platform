@@ -3,16 +3,9 @@ import type { OrderSide } from './trading-math';
 
 /**
  * Prompt 7 Appendix 07-D — pure validation/trigger/fill-price semantics for
- * WariX's four pending-order types. No leadership/fencing/failover model
- * exists anywhere in this codebase (services/realtime is a single process
- * with an in-memory market simulator — packages/adapters/src/
- * market-data-provider.ts) — these functions provide exactly-once-safe
- * semantics for THAT real architecture (a single authoritative writer,
- * Postgres transactions + idempotency keys, exactly the model every other
- * command in this codebase already uses), not for a distributed
- * active/standby setup that would need to be a separate infrastructure
- * project first. See the Appendix 07-D final report for the explicit list
- * of what genuine multi-node failover would require.
+ * WariX's four pending-order types. Appendix 08-A adds PostgreSQL-backed
+ * active/warm-standby leadership around these pure semantics; the domain
+ * remains independent from runtime coordination and renderer details.
  */
 export type PendingOrderType = 'buy_limit' | 'sell_limit' | 'buy_stop' | 'sell_stop';
 

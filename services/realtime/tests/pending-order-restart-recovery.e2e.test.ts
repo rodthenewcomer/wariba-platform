@@ -17,17 +17,13 @@ import {
 globalThis.WebSocket ??= class {} as unknown as typeof WebSocket;
 
 /**
- * Appendix 07-D acceptance gate 5 — the strongest honest single-node
- * recovery proof this codebase's actual architecture supports. There is no
- * leader election, fencing, or standby takeover anywhere in this system
- * (TRADING-ORDER-004, DECISION_LOG.md v1.13) — this test proves the
- * single-writer model that exists instead: kill the real realtime process,
+ * Appendix 07-D acceptance gate 5 — complementary single-node restart
+ * recovery proof after Appendix 08-A added a separate two-node failover
+ * suite. Kill the real realtime process,
  * start a fresh one against the same database, and confirm it reloads
  * persisted pending orders/alerts, resumes tick evaluation, settles each
  * exactly once, and a browser reconnecting after the restart sees the
- * correct end state. It does NOT claim zero-downtime failover (there is
- * a real gap while the process is down, disclosed in the final report) —
- * only that recovery, once the process comes back, is correct.
+ * correct end state. The multi-node suite separately proves fenced takeover.
  *
  * Same spawn-the-real-process technique as auth-isolation.e2e.test.ts, on
  * its own port (4579) so this file's two sequential child processes never

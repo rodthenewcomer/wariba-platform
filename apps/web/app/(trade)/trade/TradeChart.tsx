@@ -917,11 +917,11 @@ export function TradeChart({
           className="w-full"
           role="group"
           aria-label={`Graphique ${symbol}`}
-          onContextMenu={handleContextMenuEvent}
-          onPointerDown={handleContainerPointerDown}
-          onPointerMove={handleContainerPointerMove}
-          onPointerUp={clearLongPressTimer}
-          onPointerCancel={clearLongPressTimer}
+          onContextMenuCapture={handleContextMenuEvent}
+          onPointerDownCapture={handleContainerPointerDown}
+          onPointerMoveCapture={handleContainerPointerMove}
+          onPointerUpCapture={clearLongPressTimer}
+          onPointerCancelCapture={clearLongPressTimer}
         />
         {overlay &&
           positions.map((position) => {

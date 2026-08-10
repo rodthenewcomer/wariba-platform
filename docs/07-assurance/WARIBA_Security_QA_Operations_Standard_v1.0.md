@@ -1826,7 +1826,7 @@ Avant bêta :
 13. Soft lock anomaly ;
 14. Hard breach dispute ;
 15. Reserve critical ;
-16. Ordre en attente bloqué en statut `triggered` (crash entre le claim et le fill — voir DECISION_LOG.md TRADING-ORDER-004 ; aucune tâche de réconciliation automatique n'existe pour rejouer ces lignes).
+16. Ordre en attente contesté après restart/failover : vérifier la transaction atomique trigger→fill, l'identité du tick et l'epoch de fencing ; aucun statut intermédiaire `triggered` n'est persisté depuis l'Appendice 08-A.
 
 ---
 
@@ -3131,3 +3131,30 @@ Elle signifie que WARIBA continue à produire un résultat fiable lorsque :
 - une release échoue.
 
 Cette version 1.0 devient la source de vérité pour l’assurance qualité, la sécurité et les opérations de WARIBA. Aucun prompt, agent ou développeur ne peut supprimer un contrôle critique pour accélérer la livraison sans Decision Log, analyse de risque et approbation explicite.
+
+---
+
+# 126. Appendice 08-A — certification et alertes
+
+La matrice Control couvre `support`, `risk`, `finance`, `compliance`, `admin`
+et `super_admin` côté serveur. Les mutations payout, conformité et actuarielle
+sont rate-limitées par acteur/action dans PostgreSQL et produisent un audit
+persisté. Les tables financières, leadership, incidents, réconciliation,
+actuariat et rate limit restent refusées à `anon`/`authenticated`.
+
+Alertes opérationnelles évaluées automatiquement (Appendice 08-A) : leader
+perdu, takeover au-dessus de la cible, aucun standby prêt, feed STALE, feed
+en panne, mismatch de réconciliation, déséquilibre ledger, traitement payout
+bloqué, réserve <1,5x, réserve <1,2x, échec de finalisation quotidienne.
+
+Le mécanisme est **interne** : `OperationalAlertMonitor` (services/realtime)
+évalue les seuils sur minuterie, uniquement sur le nœud leader, et persiste
+chaque condition vraie comme incident dans `app.operations_incidents` — la
+même file que les integrity holds, donc une seule file pour Control. La
+déduplication est garantie par index unique partiel (un incident ouvert par
+code au niveau plateforme) et un incident se résout automatiquement dès que
+sa condition disparaît (`resolved_by` null = résolution par la plateforme).
+
+Aucune livraison externe n'est implémentée ni revendiquée : pas de
+PagerDuty, pas de Slack, pas de SMS, pas d'e-mail. Un incident ouvert *est*
+l'alerte. Procédures détaillées : `WARIBA_Operations_Runbooks_Appendix_08A.md`.

@@ -39,6 +39,7 @@ const PAYOUT_STATUS_LABEL: Record<PayoutRequestDTO['status'], string> = {
   paid: 'Versé',
   failed: 'Échec du versement',
   cancelled: 'Annulé',
+  reversed: 'Annulé par écriture compensatoire',
 };
 
 const PAYOUT_STATUS_BADGE_VARIANT: Record<PayoutRequestDTO['status'], BadgeVariant> = {
@@ -50,6 +51,7 @@ const PAYOUT_STATUS_BADGE_VARIANT: Record<PayoutRequestDTO['status'], BadgeVaria
   paid: 'success',
   failed: 'danger',
   cancelled: 'neutral',
+  reversed: 'warning',
 };
 
 function formatUsd(amount: string): string {

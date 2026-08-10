@@ -158,6 +158,10 @@ export interface TradingAccountsTable {
   /** Sandbox-only — no real identity or payout-rail integration exists. Staff-set via Control (Phase G), never trader-set. */
   kyc_sandbox_verified: Generated<boolean>;
   payout_method_sandbox_configured: Generated<boolean>;
+  integrity_hold: Generated<boolean>;
+  integrity_hold_reason: string | null;
+  integrity_hold_set_at: Timestamp | null;
+  integrity_hold_incident_id: string | null;
   nominal_balance: string;
   currency: Generated<string>;
   status: Generated<TradingAccountStatusColumn>;
@@ -494,8 +498,20 @@ export interface AlertNotificationsTable {
   threshold_price: string;
   triggering_price: string;
   source: AlertSource;
+  trigger_identity: string;
   read_at: Timestamp | null;
   occurred_at: GeneratedTimestamp;
+}
+
+export interface RealtimeLeadershipTable {
+  service_name: string;
+  leader_instance_id: string | null;
+  fencing_epoch: string;
+  lease_expires_at: Timestamp;
+  acquired_at: Timestamp | null;
+  renewed_at: Timestamp | null;
+  previous_leader_instance_id: string | null;
+  takeover_count: Generated<number>;
 }
 
 // Prompt 08 Phase C — see the matching migration's doc comment.
@@ -532,7 +548,8 @@ export type PayoutRequestStatus =
   | 'processing'
   | 'paid'
   | 'failed'
-  | 'cancelled';
+  | 'cancelled'
+  | 'reversed';
 
 export interface PayoutRequestsTable {
   id: Generated<string>;
@@ -560,11 +577,18 @@ export interface PayoutRequestsTable {
   provider_reconciliation_result: unknown | null;
   provider_reconciled_at: Timestamp | null;
   provider_reconciled_by: string | null;
+  eligibility_snapshot: Generated<unknown>;
+  calculation_timestamp: Timestamp | null;
   currency: Generated<string>;
   requested_at: GeneratedTimestamp;
   reviewed_at: Timestamp | null;
   reviewed_by: string | null;
   paid_at: Timestamp | null;
+  reversed_at: Timestamp | null;
+  reversed_by: string | null;
+  reversal_reason: string | null;
+  reversal_evidence: unknown | null;
+  reversal_ledger_entry_id: string | null;
   version: Generated<number>;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
@@ -572,7 +596,7 @@ export interface PayoutRequestsTable {
 
 export type PayoutProviderStatus = 'pending' | 'processing' | 'paid' | 'failed' | 'returned';
 
-export type ActuarialScenarioName = 'conservative' | 'base' | 'aggressive' | 'stress';
+export type ActuarialScenarioName = 'conservative' | 'base' | 'aggressive' | 'stress' | 'custom';
 
 export interface ActuarialScenarioAssumptionsTable {
   id: Generated<string>;
@@ -580,9 +604,73 @@ export interface ActuarialScenarioAssumptionsTable {
   version: Generated<number>;
   assumptions_json: unknown;
   change_reason: string;
+  notes: Generated<string>;
+  effective_status: Generated<'active' | 'retired'>;
   is_active: Generated<boolean>;
   created_by: string | null;
   created_at: GeneratedTimestamp;
+}
+
+export interface ActuarialScenarioRunsTable {
+  id: Generated<string>;
+  scenario_assumption_id: string;
+  scenario_name: ActuarialScenarioName;
+  scenario_version: number;
+  assumptions_snapshot: unknown;
+  input_snapshot: unknown;
+  result_snapshot: unknown;
+  executed_by: string | null;
+  executed_at: GeneratedTimestamp;
+}
+
+export interface ActuarialVarianceRunsTable {
+  id: Generated<string>;
+  scenario_run_id: string;
+  scenario_name: string;
+  scenario_version: number;
+  as_of: Date;
+  model_cohort_size: number;
+  actual_sample_size: number;
+  coverage: 'insufficient_data' | 'partial' | 'comparable';
+  metrics: unknown;
+  executed_by: string | null;
+  executed_at: GeneratedTimestamp;
+}
+
+export interface OperationsIncidentsTable {
+  id: Generated<string>;
+  incident_code: string;
+  severity: 'warning' | 'critical';
+  status: Generated<'open' | 'resolved'>;
+  account_id: string | null;
+  payout_request_id: string | null;
+  evidence: unknown;
+  opened_at: GeneratedTimestamp;
+  resolved_at: Timestamp | null;
+  resolved_by: string | null;
+  resolution_reason: string | null;
+}
+
+export interface AccountReconciliationRunsTable {
+  id: Generated<string>;
+  account_id: string;
+  status: 'matched' | 'mismatched';
+  stored_account_balance: string;
+  reconstructed_account_balance: string;
+  stored_program_eligible_balance: string;
+  reconstructed_program_eligible_balance: string;
+  breakdown: unknown;
+  incident_id: string | null;
+  executed_by: string | null;
+  executed_at: GeneratedTimestamp;
+}
+
+export interface StaffActionRateLimitsTable {
+  actor_id: string;
+  action: string;
+  window_start: Timestamp;
+  attempt_count: Generated<number>;
+  last_attempt_at: Timestamp;
 }
 
 // Prompt 08 Phase E — see the matching migration's doc comment.
@@ -626,10 +714,16 @@ export interface Database {
   'app.pending_orders': PendingOrdersTable;
   'app.price_alerts': PriceAlertsTable;
   'app.alert_notifications': AlertNotificationsTable;
+  'app.realtime_leadership': RealtimeLeadershipTable;
   'app.performance_cycles': PerformanceCyclesTable;
   'app.performance_review_cases': PerformanceReviewCasesTable;
   'app.payout_requests': PayoutRequestsTable;
   'app.treasury_reserve_entries': TreasuryReserveEntriesTable;
   'app.actuarial_scenario_assumptions': ActuarialScenarioAssumptionsTable;
+  'app.actuarial_scenario_runs': ActuarialScenarioRunsTable;
+  'app.actuarial_variance_runs': ActuarialVarianceRunsTable;
+  'app.operations_incidents': OperationsIncidentsTable;
+  'app.account_reconciliation_runs': AccountReconciliationRunsTable;
+  'app.staff_action_rate_limits': StaffActionRateLimitsTable;
   'audit.audit_events': AuditEventsTable;
 }

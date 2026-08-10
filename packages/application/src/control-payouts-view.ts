@@ -24,6 +24,8 @@ export interface ControlPayoutQueueItemView {
   canApproveOrReject: boolean;
   canSubmit: boolean;
   canSettle: boolean;
+  canReverse: boolean;
+  reversalReason: string | null;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -31,6 +33,8 @@ const STATUS_LABEL: Record<string, string> = {
   needs_information: 'Information requise',
   approved: 'Approuvé — à soumettre',
   processing: 'Approuvé — en attente de règlement',
+  paid: 'Versé',
+  reversed: 'Annulé par écriture compensatoire',
 };
 
 const STATUS_VARIANT: Record<string, ControlPayoutStatusVariant> = {
@@ -38,6 +42,8 @@ const STATUS_VARIANT: Record<string, ControlPayoutStatusVariant> = {
   needs_information: 'warning',
   approved: 'warning',
   processing: 'success',
+  paid: 'success',
+  reversed: 'warning',
 };
 
 function formatUsd(amount: string): string {
@@ -73,5 +79,7 @@ export async function buildControlPayoutQueueView(db: Db): Promise<ControlPayout
     canApproveOrReject: row.status === 'pending_review' || row.status === 'needs_information',
     canSubmit: row.status === 'approved',
     canSettle: row.status === 'processing',
+    canReverse: row.status === 'paid',
+    reversalReason: row.reversalReason,
   }));
 }

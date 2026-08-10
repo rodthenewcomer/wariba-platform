@@ -51,6 +51,8 @@ describeIfDb('actuarial scenario assumptions — real database', () => {
           pspFeeRate: '0.03',
         });
         expect(run.assumptionsVersion).toBe(replacement.version);
+        expect(run.id).toMatch(/^[0-9a-f-]{36}$/);
+        expect(run.scenarioName).toBe('base');
         expect(run.result.netCollectedRevenue).toBe('3618730.50');
         throw new Error('Rollback actuarial assumption replacement.');
       }),
@@ -60,5 +62,13 @@ describeIfDb('actuarial scenario assumptions — real database', () => {
     expect(after.id).toBe(before.id);
     expect(after.version).toBe(before.version);
     expect(after.assumptions).toEqual(before.assumptions);
+  });
+
+  it('loads the persisted CUSTOM configuration rather than a code-level authority', async () => {
+    const custom = await loadActiveActuarialScenarioAssumptions(db, 'custom');
+    expect(custom.scenarioName).toBe('custom');
+    expect(custom.version).toBeGreaterThan(0);
+    expect(custom.effectiveStatus).toBe('active');
+    expect(custom.notes.length).toBeGreaterThan(0);
   });
 });

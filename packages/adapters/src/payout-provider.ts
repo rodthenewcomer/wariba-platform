@@ -10,6 +10,15 @@ export const PAYOUT_PROVIDER_STATUSES = [
 ] as const;
 export type PayoutProviderStatus = (typeof PAYOUT_PROVIDER_STATUSES)[number];
 
+export type PayoutProviderReference = string;
+
+export interface PayoutProviderFailure {
+  code: string;
+  message: string;
+  retryable: boolean;
+  observedAt: Date;
+}
+
 export interface PayoutProviderSubmission {
   payoutRequestId: string;
   idempotencyKey: string;
@@ -19,22 +28,24 @@ export interface PayoutProviderSubmission {
 
 export interface PayoutProviderSubmissionResult {
   provider: PayoutProviderName;
-  providerReference: string;
+  providerReference: PayoutProviderReference;
   idempotencyKey: string;
   status: PayoutProviderStatus;
   submittedAt: Date;
+  failure?: PayoutProviderFailure;
 }
 
 export interface PayoutProviderStatusResult {
   provider: PayoutProviderName;
-  providerReference: string;
+  providerReference: PayoutProviderReference;
   idempotencyKey: string;
   status: PayoutProviderStatus;
   observedAt: Date;
+  failure?: PayoutProviderFailure;
 }
 
 export interface PayoutProviderReconciliationInput {
-  providerReference: string;
+  providerReference: PayoutProviderReference;
   idempotencyKey: string;
   reconciledAt: Date;
   manualOutcome?: Extract<PayoutProviderStatus, 'paid' | 'failed' | 'returned'>;
@@ -55,13 +66,13 @@ export interface PayoutProvider {
 }
 
 interface ProviderRecord {
-  providerReference: string;
+  providerReference: PayoutProviderReference;
   idempotencyKey: string;
   status: PayoutProviderStatus;
   observedAt: Date;
 }
 
-function providerReference(input: PayoutProviderSubmission): string {
+function providerReference(input: PayoutProviderSubmission): PayoutProviderReference {
   return 'wariba-payout:' + input.payoutRequestId;
 }
 
@@ -110,6 +121,15 @@ export class MockPayoutProvider implements PayoutProvider {
     idempotencyKey: string;
   }): Promise<PayoutProviderStatusResult> {
     const record = this.records.get(input.idempotencyKey);
+    if (!record && input.providerReference === input.idempotencyKey) {
+      return {
+        provider: this.providerName,
+        providerReference: input.providerReference,
+        idempotencyKey: input.idempotencyKey,
+        status: 'processing',
+        observedAt: new Date(),
+      };
+    }
     if (!record || record.providerReference !== input.providerReference) {
       throw new Error('Mock payout provider reference was not found.');
     }

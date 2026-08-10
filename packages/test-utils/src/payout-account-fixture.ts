@@ -104,6 +104,22 @@ async function deleteAccountRows(db: Db, accountId: string): Promise<void> {
     .where('account_id', '=', accountId)
     .execute();
 
+  await db
+    .updateTable('app.trading_accounts')
+    .set({
+      integrity_hold: false,
+      integrity_hold_reason: null,
+      integrity_hold_set_at: null,
+      integrity_hold_incident_id: null,
+    })
+    .where('id', '=', accountId)
+    .execute();
+  await db
+    .deleteFrom('app.account_reconciliation_runs')
+    .where('account_id', '=', accountId)
+    .execute();
+  await db.deleteFrom('app.operations_incidents').where('account_id', '=', accountId).execute();
+
   await db.deleteFrom('app.position_reduction_queue').where('account_id', '=', accountId).execute();
   await db.deleteFrom('app.pending_orders').where('account_id', '=', accountId).execute();
   await db.deleteFrom('app.payout_requests').where('account_id', '=', accountId).execute();

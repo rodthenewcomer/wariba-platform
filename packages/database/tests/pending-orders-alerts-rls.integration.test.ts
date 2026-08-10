@@ -4,7 +4,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDbClient, type Db } from '../src/client';
 import { activateEvaluationAccount } from '../src/activation';
 import { createPendingOrder } from '../src/pending-orders';
-import { createPriceAlert, evaluateAlerts } from '../src/price-alerts';
+import { createPriceAlert } from '../src/price-alerts';
+import { evaluateAlertsAsLeader } from './market-trigger-fixture';
 
 /**
  * Prompt 7 Appendix 07-D — real RLS integration tests for
@@ -140,12 +141,12 @@ describeIfDb('pending orders / price alerts — row level security (real databas
     });
     alertA = alertResult.alert!.id;
 
-    await evaluateAlerts(db, {
+    await evaluateAlertsAsLeader(db, {
       symbol: 'EURUSD',
       tick: { bid: '1.19000', ask: '1.19010' },
       now: NOW,
     });
-    const fired = await evaluateAlerts(db, {
+    const fired = await evaluateAlertsAsLeader(db, {
       symbol: 'EURUSD',
       tick: { bid: '1.21000', ask: '1.21010' },
       now: new Date(NOW.getTime() + 1_000),

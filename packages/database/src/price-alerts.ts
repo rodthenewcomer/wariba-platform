@@ -1,5 +1,6 @@
 import { resolveAlertPrice, isPriceAboveThreshold, shouldTriggerAlert } from '@wariba/domain';
 import type { Db } from './client';
+import { assertCurrentLeadershipInTransaction, type LeadershipToken } from './realtime-leadership';
 import type { AlertDirection, AlertRecurrence, AlertSource, TradableSymbol } from './schema';
 
 /**
@@ -262,88 +263,93 @@ export interface AlertNotificationSummary {
  */
 export async function evaluateAlerts(
   db: Db,
-  params: { symbol: TradableSymbol; tick: { bid: string; ask: string }; now: Date },
+  params: {
+    symbol: TradableSymbol;
+    tick: { bid: string; ask: string };
+    now: Date;
+    fencingToken: LeadershipToken;
+  },
 ): Promise<AlertNotificationSummary[]> {
   const rows = await db
     .selectFrom('app.price_alerts')
-    .selectAll()
+    .select('id')
     .where('symbol', '=', params.symbol)
     .where('enabled', '=', true)
     .execute();
 
   const notifications: AlertNotificationSummary[] = [];
-  for (const row of rows) {
-    const price = resolveAlertPrice(row.source, params.tick);
-    const currentSideAbove = isPriceAboveThreshold(price, row.threshold_price);
-    const fires = shouldTriggerAlert({
-      direction: row.direction,
-      lastObservedSideAbove: row.last_observed_side_above,
-      currentSideAbove,
-    });
+  for (const candidate of rows) {
+    const notification = await db.transaction().execute(async (trx) => {
+      await assertCurrentLeadershipInTransaction(trx, params.fencingToken);
+      const row = await trx
+        .selectFrom('app.price_alerts')
+        .selectAll()
+        .where('id', '=', candidate.id)
+        .where('enabled', '=', true)
+        .forUpdate()
+        .executeTakeFirst();
+      if (!row) return null;
 
-    if (!fires) {
-      // Still update the baseline — a no-op update guarded by the row's own
-      // current side is cheap and keeps every alert's baseline current even
-      // when it never fires.
-      await db
+      const price = resolveAlertPrice(row.source, params.tick);
+      const currentSideAbove = isPriceAboveThreshold(price, row.threshold_price);
+      const fires = shouldTriggerAlert({
+        direction: row.direction,
+        lastObservedSideAbove: row.last_observed_side_above,
+        currentSideAbove,
+      });
+
+      if (!fires) {
+        await trx
+          .updateTable('app.price_alerts')
+          .set({ last_observed_side_above: currentSideAbove, updated_at: params.now })
+          .where('id', '=', row.id)
+          .execute();
+        return null;
+      }
+
+      const nextTriggerCount = row.trigger_count + 1;
+      await trx
         .updateTable('app.price_alerts')
-        .set({ last_observed_side_above: currentSideAbove, updated_at: params.now })
+        .set({
+          last_observed_side_above: currentSideAbove,
+          last_triggered_at: params.now,
+          trigger_count: nextTriggerCount,
+          enabled: row.recurrence === 'once' ? false : true,
+          updated_at: params.now,
+        })
         .where('id', '=', row.id)
         .execute();
-      continue;
-    }
 
-    // Race guard: only settle if the row still looks exactly like what we
-    // read (same last_observed_side_above) — a concurrent evaluation for
-    // the same alert cannot also fire it. Single-process today, but this
-    // costs nothing and is the same discipline every other command here
-    // already follows.
-    const settled = await db
-      .updateTable('app.price_alerts')
-      .set({
-        last_observed_side_above: currentSideAbove,
-        last_triggered_at: params.now,
-        trigger_count: row.trigger_count + 1,
-        enabled: row.recurrence === 'once' ? false : true,
-        updated_at: params.now,
-      })
-      .where('id', '=', row.id)
-      .where(
-        'last_observed_side_above',
-        row.last_observed_side_above === null ? 'is' : '=',
-        row.last_observed_side_above,
-      )
-      .returningAll()
-      .executeTakeFirst();
-    if (!settled) continue;
+      const inserted = await trx
+        .insertInto('app.alert_notifications')
+        .values({
+          alert_id: row.id,
+          user_id: row.user_id,
+          symbol: row.symbol,
+          direction: row.direction,
+          threshold_price: row.threshold_price,
+          triggering_price: price,
+          source: row.source,
+          trigger_identity: `${row.id}:${nextTriggerCount}`,
+          occurred_at: params.now,
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow();
 
-    const notification = await db
-      .insertInto('app.alert_notifications')
-      .values({
-        alert_id: row.id,
-        user_id: row.user_id,
-        symbol: row.symbol,
-        direction: row.direction,
-        threshold_price: row.threshold_price,
-        triggering_price: price,
-        source: row.source,
-        occurred_at: params.now,
-      })
-      .returningAll()
-      .executeTakeFirstOrThrow();
-
-    notifications.push({
-      id: notification.id,
-      alertId: notification.alert_id,
-      userId: notification.user_id,
-      symbol: notification.symbol,
-      direction: notification.direction,
-      thresholdPrice: notification.threshold_price,
-      triggeringPrice: notification.triggering_price,
-      source: notification.source,
-      readAt: notification.read_at,
-      occurredAt: notification.occurred_at,
+      return {
+        id: inserted.id,
+        alertId: inserted.alert_id,
+        userId: inserted.user_id,
+        symbol: inserted.symbol,
+        direction: inserted.direction,
+        thresholdPrice: inserted.threshold_price,
+        triggeringPrice: inserted.triggering_price,
+        source: inserted.source,
+        readAt: inserted.read_at,
+        occurredAt: inserted.occurred_at,
+      };
     });
+    if (notification) notifications.push(notification);
   }
   return notifications;
 }

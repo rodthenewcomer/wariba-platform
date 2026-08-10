@@ -33,3 +33,42 @@ const ROLE_HIERARCHY: Record<StaffRole, readonly StaffRole[]> = {
 export function staffRoleSatisfies(role: StaffRole, required: StaffRole): boolean {
   return ROLE_HIERARCHY[required].includes(role);
 }
+
+export type ControlPermission =
+  | 'account.view'
+  | 'risk.view'
+  | 'integrity_hold.place'
+  | 'integrity_hold.clear'
+  | 'sandbox_kyc.modify'
+  | 'payout_method.modify'
+  | 'payout.approve'
+  | 'payout.reject'
+  | 'payout.settle'
+  | 'payout.reverse'
+  | 'treasury.modify'
+  | 'actuarial.modify'
+  | 'commercial_product.modify'
+  | 'audit_evidence.view';
+
+const CONTROL_PERMISSION_REQUIREMENTS: Record<ControlPermission, readonly StaffRole[]> = {
+  'account.view': ['support'],
+  'risk.view': ['risk'],
+  'integrity_hold.place': ['risk'],
+  'integrity_hold.clear': ['risk'],
+  'sandbox_kyc.modify': ['compliance'],
+  'payout_method.modify': ['compliance'],
+  'payout.approve': ['finance'],
+  'payout.reject': ['finance'],
+  'payout.settle': ['finance'],
+  'payout.reverse': ['finance'],
+  'treasury.modify': ['finance'],
+  'actuarial.modify': ['risk', 'finance'],
+  'commercial_product.modify': ['admin'],
+  'audit_evidence.view': ['compliance'],
+};
+
+export function staffCan(role: StaffRole, permission: ControlPermission): boolean {
+  return CONTROL_PERMISSION_REQUIREMENTS[permission].some((required) =>
+    staffRoleSatisfies(role, required),
+  );
+}

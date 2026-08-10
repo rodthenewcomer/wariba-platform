@@ -1,6 +1,6 @@
 begin;
 
-select plan(8);
+select plan(13);
 
 select has_schema('app', 'app schema exists');
 select has_table('app', 'trading_accounts', 'trading accounts table exists');
@@ -9,6 +9,29 @@ select has_table(
   'app',
   'actuarial_scenario_assumptions',
   'editable actuarial assumptions table exists'
+);
+select has_table('app', 'realtime_leadership', 'durable realtime leadership table exists');
+select has_table(
+  'app',
+  'account_reconciliation_runs',
+  'financial reconstruction evidence table exists'
+);
+select has_table(
+  'app',
+  'staff_action_rate_limits',
+  'distributed Control abuse counters exist'
+);
+select has_column(
+  'app',
+  'trading_accounts',
+  'integrity_hold',
+  'financial integrity hold is persisted'
+);
+select has_index(
+  'app',
+  'alert_notifications',
+  'alert_notifications_trigger_identity_unique',
+  'alert trigger identity is unique'
 );
 select has_column(
   'app',
@@ -30,8 +53,8 @@ select has_index(
 );
 select results_eq(
   $$select count(*)::bigint from app.actuarial_scenario_assumptions where is_active$$,
-  array[4::bigint],
-  'all four editable actuarial scenarios are seeded'
+  array[5::bigint],
+  'four defaults plus editable custom actuarial scenario are seeded'
 );
 
 select * from finish();
