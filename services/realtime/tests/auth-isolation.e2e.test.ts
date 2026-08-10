@@ -206,6 +206,13 @@ describeIfDb('realtime service — auth, isolation, reconnect (real end-to-end)'
       cwd: process.cwd(),
       env: childEnv,
       stdio: ['ignore', 'pipe', 'pipe'],
+      // Own process group: `npx` is a wrapper, and the node server that
+      // actually holds the market-trigger leadership lease is its
+      // grandchild. Signalling only the wrapper left that server alive and
+      // renewing the lease, so the next suite's node stayed a standby and
+      // never evaluated a trigger. Same reason realtime-test-process.ts
+      // spawns detached and signals the group.
+      detached: process.platform !== 'win32',
     });
     let startupLog = '';
     child.stdout?.on('data', (d: Buffer) => (startupLog += d.toString()));
@@ -225,18 +232,29 @@ describeIfDb('realtime service — auth, isolation, reconnect (real end-to-end)'
   }, 40000);
 
   afterAll(async () => {
-    // Await the exit rather than firing SIGTERM and moving on. This process
-    // holds the market-trigger leadership lease; releasing it happens in the
-    // shutdown hook, so a not-yet-dead process leaves the next suite's node
-    // as a standby that never evaluates a trigger.
+    // Signal the whole process group and await the exit, rather than firing
+    // SIGTERM at the wrapper and moving on. This process holds the
+    // market-trigger leadership lease; until it is really gone the next
+    // suite's node is a standby that never evaluates a trigger.
     const exiting = child;
-    child?.kill('SIGTERM');
+    const signalGroup = (signal: NodeJS.Signals): void => {
+      if (!exiting) return;
+      if (exiting.pid && process.platform !== 'win32') {
+        try {
+          process.kill(-exiting.pid, signal);
+          return;
+        } catch {
+          // Group already gone — fall through to the direct child.
+        }
+      }
+      exiting.kill(signal);
+    };
+    signalGroup('SIGTERM');
     if (exiting && exiting.exitCode === null && exiting.signalCode === null) {
       await new Promise<void>((resolve) => {
-        const done = () => resolve();
-        exiting.once('exit', done);
+        exiting.once('exit', () => resolve());
         setTimeout(() => {
-          exiting.kill('SIGKILL');
+          signalGroup('SIGKILL');
           resolve();
         }, 10_000).unref?.();
       });
