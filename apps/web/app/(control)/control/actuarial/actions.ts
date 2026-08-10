@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import {
+  recordActuarialVariance,
   replaceActuarialScenarioAssumptions,
   runStoredActuarialScenario,
   staffRoleSatisfies,
@@ -103,10 +104,47 @@ export async function executeActuarialScenarioAction(
       products: input.products,
       pspFeeRate: input.pspFeeRate,
       executedBy: session.userId,
+      // Risk and finance both hold actuarial.modify — the audit trail
+      // records which one actually ran it.
+      executedByRole: session.role,
     });
     revalidatePath('/control/actuarial');
     return {};
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'Scenario execution failed.' };
+  }
+}
+
+const runIdSchema = z.string().uuid();
+
+/**
+ * Compares one persisted scenario run against measured actuals.
+ *
+ * The only input is which run to compare. The MODEL side is read from that
+ * run's own immutable snapshot and the ACTUAL side is measured server-side,
+ * so nothing about the resulting variance can be steered from the browser.
+ * The comparison writes a new artifact; it never edits either side.
+ */
+export async function recordActuarialVarianceAction(
+  scenarioRunId: string,
+): Promise<ActuarialActionResult> {
+  try {
+    const session = await requireActuarialStaff();
+    await authorizeSensitiveStaffAction(getDb(), {
+      actorId: session.userId,
+      actorRole: session.role,
+      permission: 'actuarial.modify',
+      limit: 20,
+    });
+    await recordActuarialVariance(getDb(), {
+      scenarioRunId: runIdSchema.parse(scenarioRunId),
+      executedBy: session.userId,
+      executedByRole: session.role,
+      correlationId: randomUUID(),
+    });
+    revalidatePath('/control/actuarial');
+    return {};
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Variance comparison failed.' };
   }
 }

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { staffCan, staffRoleSatisfies, type ControlPermission } from '../src/staff';
+import {
+  CONTROL_PERMISSIONS,
+  staffCan,
+  staffRoleSatisfies,
+  type ControlPermission,
+} from '../src/staff';
 import type { StaffRole } from '../src/schema';
 
 describe('staffRoleSatisfies', () => {
@@ -57,6 +62,15 @@ describe('staffCan — sensitive Control authorization matrix', () => {
     'actuarial.modify',
     'commercial_product.modify',
     'audit_evidence.view',
+    'commercial_product.view',
+    'market_operations.view',
+    'incident.view',
+    'policy.view',
+    'treasury.view',
+    'actuarial.view',
+    'staff_directory.view',
+    'payout.view',
+    'reconciliation.view',
   ];
 
   it('keeps support, risk, compliance, and finance duties separated', () => {
@@ -76,5 +90,48 @@ describe('staffCan — sensitive Control authorization matrix', () => {
     }
     expect(staffCan('admin', 'commercial_product.modify')).toBe(true);
     expect(staffRoleSatisfies('admin', 'super_admin')).toBe(false);
+  });
+});
+
+/**
+ * Prompt 09 milestone 5 — governance surfaces stay read-only.
+ *
+ * These are negative assertions on purpose. The Policies, Team Access and
+ * Commercial areas each have a schema underneath that *could* support a
+ * mutation, and the cheapest way for one to appear is for a permission to be
+ * added "for later" and then found by a UI. Naming the permissions that must
+ * not exist makes that addition a deliberate, reviewed act.
+ */
+describe('governance mutation permissions do not exist', () => {
+  const FORBIDDEN = [
+    // Team Access is read-only in Prompt 09: no role change, invitation,
+    // removal, disablement or impersonation.
+    'staff.modify',
+    'staff.invite',
+    'staff.remove',
+    'staff.impersonate',
+    'staff_directory.modify',
+    // A policy lifecycle column is not authorization to drive it from
+    // Control. Publication remains a governance act outside the console.
+    'policy.publish',
+    'policy.approve',
+    'policy.retire',
+    'policy.modify',
+    // No broad catch-all that would make every future surface writable.
+    'admin.modify',
+  ];
+
+  it.each(FORBIDDEN)('has no %s permission', (permission) => {
+    expect(CONTROL_PERMISSIONS).not.toContain(permission);
+  });
+
+  it('exposes exactly one policy authority and one staff authority, both reads', () => {
+    // Reading a governance surface never implies acting on it.
+    expect(CONTROL_PERMISSIONS.filter((name) => name.startsWith('policy.'))).toEqual([
+      'policy.view',
+    ]);
+    expect(CONTROL_PERMISSIONS.filter((name) => name.startsWith('staff'))).toEqual([
+      'staff_directory.view',
+    ]);
   });
 });

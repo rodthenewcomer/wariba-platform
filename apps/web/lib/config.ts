@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { baseEnvironmentSchema, loadConfig, assertNotSandboxInProduction } from '@wariba/config';
+import {
+  baseEnvironmentSchema,
+  loadConfig,
+  assertNotSandboxInProduction,
+  assertLocalDataPlane,
+  REMOTE_DATA_PLANE_OVERRIDE,
+} from '@wariba/config';
 
 const webEnvSchema = baseEnvironmentSchema.extend({
   WEB_PORT: z.coerce.number().int().positive().default(3000),
@@ -33,18 +39,35 @@ let cached: WebConfig | undefined;
  * don't re-validate on every request.
  */
 export function loadWebConfig(source: Record<string, string | undefined> = process.env): WebConfig {
-  if (!cached) {
-    cached = loadConfig(webEnvSchema, source);
-    assertNotSandboxInProduction({
-      environment: cached.APP_ENV,
-      providerName: 'PAYMENT_PROVIDER',
-      providerValue: cached.PAYMENT_PROVIDER,
-    });
-    assertNotSandboxInProduction({
-      environment: cached.APP_ENV,
-      providerName: 'PAYOUT_PROVIDER',
-      providerValue: cached.PAYOUT_PROVIDER,
-    });
-  }
+  if (cached) return cached;
+
+  // Validated into a local first: assigning `cached` before the guards run
+  // would mean a rejected configuration was still cached, and the *second*
+  // call — every request after the first — would sail through with exactly
+  // the configuration the guards had refused.
+  const config = loadConfig(webEnvSchema, source);
+  // getDb() resolves through here, so no web request can reach a remote
+  // database in local development without the explicit override.
+  assertLocalDataPlane({
+    environment: config.APP_ENV,
+    endpoints: {
+      DATABASE_URL: config.DATABASE_URL,
+      SUPABASE_URL: config.SUPABASE_URL,
+      NEXT_PUBLIC_SUPABASE_URL: config.NEXT_PUBLIC_SUPABASE_URL,
+    },
+    override: source[REMOTE_DATA_PLANE_OVERRIDE],
+  });
+  assertNotSandboxInProduction({
+    environment: config.APP_ENV,
+    providerName: 'PAYMENT_PROVIDER',
+    providerValue: config.PAYMENT_PROVIDER,
+  });
+  assertNotSandboxInProduction({
+    environment: config.APP_ENV,
+    providerName: 'PAYOUT_PROVIDER',
+    providerValue: config.PAYOUT_PROVIDER,
+  });
+
+  cached = config;
   return cached;
 }

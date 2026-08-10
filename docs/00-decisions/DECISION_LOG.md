@@ -450,6 +450,10 @@ Révision:
 | ARCH-HA-002 | `LOCKED` | Seul le leader détenant l'epoch courant peut commettre une mutation financière déclenchée par tick. | Toute transaction tardive d'un ancien leader échoue avant effet financier. |
 | ARCH-HA-003 | `LOCKED` | Un standby peut être prêt opérationnellement mais ne se déclare jamais écrivain actif. | Les probes distinguent processus vivant, DB, feed, leader, standby prêt et trafic de trading sûr. |
 | UX-NAV-001 | `LOCKED` | Le sélecteur de compte du Hub effectue une navigation document complète, pas une navigation client Next. | Changer de compte ne modifie qu'un paramètre de recherche sur le même segment de route : le routeur ne valide l'URL qu'après avoir appliqué la charge utile, et le client abandonnait la réponse RSC (`net::ERR_ABORTED`) alors que le serveur l'avait rendue correctement. `next/link` et `router.push()` dans une transition se comportaient de la même façon. Le clic du trader ne faisait rien, sans erreur ni retour. Un changement de compte remplace tout le contexte de données de la page, donc aucune mise à jour partielle n'est à préserver. |
+| ARCH-FLAG-001 | `OPEN` | **FEATURE_FLAG_RUNTIME_STATE.** WARIBA ne possède aucun service de feature flags à l'exécution. La source canonique de l'état d'un flag produit est `SANDBOX_PRODUCT_FEATURE_FLAGS` dans `packages/application/src/commerce.ts` — une **constante de build** : la modifier exige un changement de code et un déploiement, et rien à l'exécution ne peut la changer. | Découvert pendant le jalon 5 du Prompt 09. `product_versions.feature_flag_key` est un identifiant : sa présence ne prouve ni `ENABLED`, ni `DISABLED`, ni `LIVE`. La console Commercial affiche donc l'état résolu par cette source canonique **et** nomme sa portée, plutôt que de déduire une disponibilité d'une colonne non nulle. Le Prompt 09 n'introduit ni LaunchDarkly, ni Redis, ni table de flags, ni éditeur de flags. Décision ouverte : si un pilotage à l'exécution devient nécessaire, il faudra un mécanisme canonique explicite, pas une réinterprétation de `feature_flag_key`. La disponibilité commerciale reste la conjonction de ce flag et de la zone de réserve (TREASURY-002), les deux étant présentées séparément. |
+| ARCH-FLAG-002 | `LOCKED` | Une clé de flag absente du résolveur canonique est traitée comme **inconnue**, distincte d'un flag délibérément désactivé. | Le résolveur échoue fermé (clé inconnue ⇒ indisponible), ce qui est le bon défaut. Mais « personne n'a défini cette clé » et « quelqu'un a désactivé ce produit » sont deux faits différents : les confondre à l'écran ferait chercher un interrupteur qui n'existe pas. |
+| POLICY-GOV-001 | `LOCKED` | La version de politique **en vigueur** est celle que `loadPublishedPolicy` résout : `status = 'published'`, la plus récente par `created_at`. Jamais la ligne la plus récente, jamais la version sémantique la plus haute, jamais « `retired_at` est nul ». | Découvert pendant le jalon 5 du Prompt 09 : `app.policy_versions` contient réellement **deux** lignes `published` pour `WARIBA_ONE` (1.1.0 et 1.1.1), toutes deux avec `retired_at` nul. Une règle d'affichage « publiée et non retirée » annoncerait donc deux politiques en vigueur simultanément. Control réutilise la règle du moteur au lieu d'en inventer une seconde qui pourrait le contredire. |
+| POLICY-GOV-002 | `OPEN` | Les lignes de politique `status = 'retired'` seedées en v1.0.0 (`WARIBA_ONE` et `WARIBA_PERFORMANCE`) ont `retired_at` nul : le statut du cycle de vie et l'horodatage de retrait se contredisent en base. | Observation d'audit du jalon 5, **non corrigée** : les Policies sont en lecture seule sous le Prompt 09 et aucune opération canonique de mutation de politique n'existe. Control affiche les deux champs séparément et n'en déduit jamais l'un depuis l'autre. À trancher par la gouvernance : soit `retired_at` est renseigné rétroactivement par migration, soit `status` seul fait foi et `retired_at` devient purement informatif. |
 | ARCH-HA-004 | `LOCKED` | Le bail de leadership est initialisé à l'epoch Unix, jamais à `-infinity`. | Un timestamptz infini ne se décode pas en `Date` côté pilote : la première élection sur une base fraîchement migrée échouait, donc le service realtime ne pouvait pas prendre le leadership sur un déploiement neuf. La lecture coerce aussi défensivement — un bail illisible se lit comme expiré (repli vers standby), jamais comme détenu. |
 
 ---
@@ -508,6 +512,8 @@ Révision:
 | SEC-014 | `OPEN` | Politique de rétention. | Dépend juridique/privacy. |
 | SEC-015 | `CANDIDATE` | Audit indépendant avant scale public. | Assurance sécurité. |
 | SEC-016 | `LOCKED` | SEC-006 s'étend explicitement aux providers `mock` et `replay` (Prompt 07B), pas seulement à la valeur littérale `sandbox` : `assertNotSandboxInProduction` refuse le démarrage en production pour `MARKET_DATA_PROVIDER` valant `sandbox`, `mock` ou `replay`. | Nécessaire car `.env.local` utilise désormais `MARKET_DATA_PROVIDER=mock` comme valeur par défaut locale — l'ancienne regex `/sandbox/i` ne l'aurait pas couverte, ce qui aurait silencieusement contourné le garde-fou en production. `packages/config/src/index.ts`. |
+| SEC-017 | `LOCKED` | **STAFF_IDENTITY_RETENTION.** Une identité staff référencée par une preuve immuable (exécution actuarielle, comparaison d'écart, événement d'audit) n'est jamais supprimée pour désaffecter un membre du staff. La désaffectation signifie : révoquer l'autorité (`app.staff_members`), désactiver l'authentification si nécessaire, et **conserver** l'identité d'acteur historique et la preuve immuable. | Les clés étrangères historiques (`app.actuarial_scenario_runs.executed_by`, `app.actuarial_variance_runs.executed_by`) référencent `auth.users` sans cascade, et `app.actuarial_scenario_runs` est immuable par trigger : une preuve dont l'acteur peut disparaître n'est plus une preuve. Ces contraintes ne sont **pas** affaiblies pour simplifier le nettoyage E2E — les fixtures utilisent un acteur stable et anonyme à la place. Aucun workflow de mutation de rôle staff ni de désaffectation n'est implémenté sous le Prompt 09 ; Team Access reste en lecture seule. |
+| SEC-018 | `LOCKED` | **P09-DEV-SAFETY-001.** En `APP_ENV=local`, les processus web, realtime et worker refusent de démarrer contre un `DATABASE_URL`/`SUPABASE_URL` non local. Dérogation uniquement par `WARIBA_ALLOW_REMOTE_DATA_PLANE=true`, valeur exacte, jamais déduite. | `.env.local` peut pointer vers le projet hébergé ; `pnpm dev` transformait alors chaque clic local en écriture sur l'état WARIBA réel. `run-test-gate.mjs` protégeait déjà les gates de test — `assertLocalDataPlane` étend la même posture aux processus applicatifs, de sorte que le local sûr soit le défaut plutôt qu'une consigne à retenir. Les environnements déployés (`preview`/`staging`/`production`) sont censés être distants et ne sont jamais bloqués ; la CI tourne en `APP_ENV=local` contre 127.0.0.1 et n'est pas affectée. Le message nomme la variable et l'hôte, jamais la chaîne de connexion. `packages/config/src/index.ts`. |
 
 ---
 
@@ -557,6 +563,8 @@ Révision:
 | PAYOUT-PROVIDER-001 | `LOCKED` | La logique payout dépend de l'interface `PayoutProvider`, jamais d'un rail externe concret. | Les rails réels futurs restent des adapters. |
 | PAYOUT-PROVIDER-002 | `LOCKED` | Une soumission provider n'est pas un règlement. | `paid` exige une réconciliation confirmée ou une confirmation manuelle autorisée avec preuve. |
 | PAYOUT-PROVIDER-003 | `LOCKED` | Seuls `mock` et `manual` sont implémentés pour le sandbox V1. | Aucun API Wave, Orange, PayDunya, Rise, Wise ou bancaire n'est fabriqué. |
+| ACTUARIAL-VARIANCE-001 | `LOCKED` | `ACTUARIAL_MODEL_VALIDATED = false`. Un échantillon comparable n'est pas un modèle validé : `resolveVarianceCoverage` mesure la taille de l'échantillon, pas la justesse du modèle, et aucun seuil de tolérance canonique n'existe. | La console actuarielle affiche « modèle NON VALIDÉ » dans tous les cas, y compris à `coverage = comparable`, et nomme ce qui manque. `ActuarialModelValidation.validated` est typé au littéral `false` pour qu'aucune modification future ne puisse l'inverser sans changer le type. |
+| ACTUARIAL-VARIANCE-002 | `LOCKED` | Le côté ACTUAL représente **toute** la population opérationnelle persistée accessible au moteur 08-A, sans appariement de cohorte ni fenêtre temporelle. | `measureActuarialActuals` compte les commandes payées, activations, buffers et payouts réglés sur l'ensemble de la base, alors que le MODEL simule une cohorte donnée. Une comparaison MODEL/ACTUAL est donc un indicateur d'ordre de grandeur, jamais un test statistique apparié. Le Prompt 09 **n'invente pas** de mécanisme d'appariement que le moteur canonique ne possède pas : la limitation est documentée et affichée sur la console plutôt que masquée derrière une précision implicite. |
 
 ---
 
@@ -688,6 +696,28 @@ trading manuel ni à la règle d'éligibilité de profit à 60 secondes (TRD-033
 ---
 
 # 26. Historique des versions
+
+## v1.23 — 2026-08-10
+
+Prompt 09 — WARIBA Control clôturé sur ses six jalons. Quatorze aires
+d'exploitation réelles, aucune page d'annonce restante : l'aire Trading était
+le dernier placeholder et devient un explorateur d'ordres à l'échelle de la
+plateforme, en lecture seule. L'autorisation façonne la récupération et non
+l'affichage — les sections non autorisées ne sont jamais interrogées. Les
+surfaces de gouvernance (Policies, Commercial, Team Access) sont en lecture
+seule parce qu'aucune mutation canonique n'existe, ce que l'audit préalable a
+établi plutôt que supposé : `POLICY_MUTATION_AUTHORIZED = false`,
+`COMMERCIAL_MUTATION_SURFACED = false`, aucune permission de mutation staff.
+Décisions ajoutées : SEC-017 (rétention d'identité staff), SEC-018 (garde-fou
+plan de données local), ACTUARIAL-VARIANCE-001/002, ARCH-FLAG-001/002,
+POLICY-GOV-001/002. `ACTUARIAL_MODEL_VALIDATED` reste `false`,
+`LAST_VALID_TICK_AGE_SOURCE` reste `UNAVAILABLE`, et
+`PUBLIC_PRODUCTION_READY` reste `false`. Deux défauts trouvés par la
+certification elle-même et corrigés : le shell Control poussait le document
+de 9 px latéralement à 412 px, et la suite E2E Control demandait 53
+authentifications contre une limite GoTrue de 30 par cinq minutes — corrigée
+par capture/réutilisation d'une session par rôle, la limite n'ayant pas été
+relevée. Voir `docs/09-prompts/WARIBA_Prompt_09_Completion_Record.md`.
 
 ## v1.22 — 2026-08-09
 
@@ -1112,14 +1142,17 @@ Création initiale consolidée à partir de :
 
 # 27. Prochaine action opérationnelle
 
-Les Prompts 01 à 07 sont implémentés et audités sur `main`, y compris les
-Appendices 07-A à 07-D (v1.11 à v1.13 ci-dessus). La séquence suivante est :
+Les Prompts 01 à 09 sont implémentés, audités et certifiés — y compris les
+Appendices 07-A à 07-D et 08-A, et les six jalons du Prompt 09 (v1.23
+ci-dessus). La séquence suivante est :
 
 ```text
-1. Prompt 08 — Performance & Payout (buffer permanent 10 %, cinq Performance
-   Days à 0,50 %, calcul et review de payout) — voir Prompt Pack §11
-2. Continuer d'auditer chaque prompt avant de l'implémenter, comme jusqu'ici
-3. Ne pas ouvrir la vente publique avant les gates actuariels, juridiques et de réserve
+1. Fusionner le Prompt 09 (WARIBA Control) après revue humaine
+2. WariX Workstation 2026 — refonte UX/UI de l'espace de trading (chantier
+   distinct : ne doit pas entrer dans la PR du Prompt 09)
+3. Continuer d'auditer chaque prompt avant de l'implémenter, comme jusqu'ici
+4. Ne pas ouvrir la vente publique avant les gates actuariels, juridiques,
+   de réserve et de providers réels — PUBLIC_PRODUCTION_READY reste false
 ```
 
 ---

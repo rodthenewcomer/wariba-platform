@@ -3,6 +3,7 @@ import {
   runActuarialScenario,
   SCENARIO_NAMES,
   resolveTraderSplitRate,
+  type ActuarialModelSummary,
   type ActuarialProductCode as ProductCode,
   type ActuarialCohortInputs as CohortInputs,
   type ScenarioAssumptions,
@@ -280,6 +281,64 @@ export async function loadRecentActuarialScenarioRuns(
       executedAt: row.executed_at,
     };
   });
+}
+
+function requireNumberField(result: unknown, field: string): number {
+  const value = readResultField(result, field);
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error('Stored actuarial result field ' + field + ' is not a number.');
+  }
+  return value;
+}
+
+function requireStringField(result: unknown, field: string): string {
+  const value = readResultField(result, field);
+  if (typeof value !== 'string') {
+    throw new Error('Stored actuarial result field ' + field + ' is not a string.');
+  }
+  return value;
+}
+
+function requireRankTuple(
+  result: unknown,
+  field: string,
+): readonly [number, number, number, number, number] {
+  const value = readResultField(result, field);
+  if (!Array.isArray(value) || value.length !== 5 || value.some((n) => typeof n !== 'number')) {
+    throw new Error('Stored actuarial result field ' + field + ' is not a five-rank tuple.');
+  }
+  return value as unknown as readonly [number, number, number, number, number];
+}
+
+/**
+ * Reads the MODEL side of a comparison back out of the run that produced it.
+ *
+ * A variance run must compare against the assumptions and outputs that were
+ * actually executed, not against numbers a caller supplies — otherwise the
+ * MODEL half is whatever the caller says it is. Only the fields a comparison
+ * consumes are read, and each is validated rather than asserted: the column
+ * is JSON, so an unvalidated cast would silently turn a malformed snapshot
+ * into a plausible-looking variance.
+ */
+export async function loadActuarialScenarioRunModel(
+  db: Db,
+  scenarioRunId: string,
+): Promise<ActuarialModelSummary> {
+  const row = await db
+    .selectFrom('app.actuarial_scenario_runs')
+    .select('result_snapshot')
+    .where('id', '=', scenarioRunId)
+    .executeTakeFirstOrThrow(() => new Error('Actuarial scenario run was not found.'));
+
+  const snapshot = row.result_snapshot;
+  return {
+    totalPurchases: requireNumberField(snapshot, 'totalPurchases'),
+    totalSuccessfulEvaluations: requireNumberField(snapshot, 'totalSuccessfulEvaluations'),
+    totalPerformanceActivations: requireNumberField(snapshot, 'totalPerformanceActivations'),
+    totalCompletedBuffers: requireNumberField(snapshot, 'totalCompletedBuffers'),
+    totalPayoutRecipientsByRank: requireRankTuple(snapshot, 'totalPayoutRecipientsByRank'),
+    expectedPayoutCost: requireStringField(snapshot, 'expectedPayoutCost'),
+  };
 }
 
 export async function loadDefaultActuarialScenarioInput(

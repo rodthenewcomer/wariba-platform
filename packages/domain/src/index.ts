@@ -99,6 +99,7 @@ export {
   resolveVarianceCoverage,
   MINIMUM_COMPARABLE_SAMPLE,
   type ActuarialActuals,
+  type ActuarialModelSummary,
   type ActuarialVarianceMetric,
   type ActuarialVarianceReport,
   type VarianceCoverage,

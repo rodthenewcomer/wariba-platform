@@ -19,6 +19,20 @@ type Timestamp = ColumnType<Date, Date | string, Date | string>;
  */
 type GeneratedTimestamp = ColumnType<Date, Date | string | undefined, Date | string>;
 
+/**
+ * Supabase's own auth table, mapped read-only and minimally.
+ *
+ * Control needs an email to identify a user and a signup date to order
+ * them, and nothing else — so only those columns are declared. Deliberately
+ * not a migration: this table belongs to Supabase Auth, WARIBA never writes
+ * to it, and narrowing the type is what keeps that true by construction.
+ */
+export interface AuthUsersTable {
+  id: string;
+  email: string | null;
+  created_at: GeneratedTimestamp;
+}
+
 export interface UserProfilesTable {
   user_id: string;
   first_name: string;
@@ -726,4 +740,5 @@ export interface Database {
   'app.account_reconciliation_runs': AccountReconciliationRunsTable;
   'app.staff_action_rate_limits': StaffActionRateLimitsTable;
   'audit.audit_events': AuditEventsTable;
+  'auth.users': AuthUsersTable;
 }

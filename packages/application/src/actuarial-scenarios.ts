@@ -52,27 +52,48 @@ export async function replaceActuarialScenarioAssumptions(
   });
 }
 
+export interface RunStoredActuarialScenarioParams extends RunPersistedActuarialScenarioParams {
+  /**
+   * The role that actually triggered the execution. Both risk and finance
+   * hold `actuarial.modify`, so recording a fixed role would attribute a
+   * finance operator's run to risk — an audit trail that names the wrong
+   * authority is worse than none.
+   */
+  executedByRole?: string;
+}
+
+/**
+ * Executes a persisted scenario and records who executed it, atomically.
+ *
+ * `app.actuarial_scenario_runs` is immutable by trigger: a run written
+ * without its audit event could never be annotated or removed afterwards,
+ * leaving permanent actuarial evidence with no accountable actor. So the run
+ * insert, its outbox event and the staff audit event share one transaction —
+ * if the audit write fails, the run does not exist either.
+ */
 export async function runStoredActuarialScenario(
   db: Db,
-  params: RunPersistedActuarialScenarioParams,
+  params: RunStoredActuarialScenarioParams,
 ): Promise<PersistedActuarialScenarioRun> {
-  const result = await runPersistedActuarialScenario(db, params);
-  if (params.executedBy) {
-    await recordStaffAuditEvent(db, {
-      actorId: params.executedBy,
-      actorRole: 'risk',
-      permission: 'actuarial.modify',
-      action: 'actuarial.scenario_executed',
-      targetType: 'actuarial_scenario_run',
-      targetId: result.id,
-      before: null,
-      after: { scenarioName: result.scenarioName, assumptionsVersion: result.assumptionsVersion },
-      reason: 'Execute persisted actuarial scenario',
-      correlationId: result.id,
-      occurredAt: result.executedAt,
-    });
-  }
-  return result;
+  return db.transaction().execute(async (trx) => {
+    const result = await runPersistedActuarialScenario(trx, params);
+    if (params.executedBy) {
+      await recordStaffAuditEvent(trx, {
+        actorId: params.executedBy,
+        actorRole: params.executedByRole ?? 'risk',
+        permission: 'actuarial.modify',
+        action: 'actuarial.scenario_executed',
+        targetType: 'actuarial_scenario_run',
+        targetId: result.id,
+        before: null,
+        after: { scenarioName: result.scenarioName, assumptionsVersion: result.assumptionsVersion },
+        reason: 'Execute persisted actuarial scenario',
+        correlationId: result.id,
+        occurredAt: result.executedAt,
+      });
+    }
+    return result;
+  });
 }
 
 export async function loadActuarialControlState(db: Db) {

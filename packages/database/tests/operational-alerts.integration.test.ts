@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createDbClient, type Db } from '../src/client';
 import {
   OPERATIONAL_ALERT,
@@ -39,6 +39,27 @@ describeIfDb('operational alerts — real database', () => {
   beforeAll(async () => {
     db = createDbClient(DATABASE_URL as string);
   }, 15000);
+
+  /**
+   * P09-QA-FLAKE-001. These assertions describe transitions from a known
+   * state, so they have to *establish* that state rather than assume it.
+   *
+   * Platform alerts are opened by a real writer: OperationalAlertMonitor in
+   * the realtime service, which runs during the E2E, recovery and failover
+   * suites. A single instance legitimately reports NO_STANDBY_READY, and a
+   * sandbox with no reserve entries legitimately reports
+   * TREASURY_RESERVE_DEFENSIVE. Whichever of those were still open when this
+   * file started were then correctly auto-resolved by the first reconcile
+   * here — turning a healthy-platform assertion red for a reason that had
+   * nothing to do with the code under test, and only when a realtime service
+   * had run earlier in the same session.
+   *
+   * Cleaning before as well as after makes the starting state explicit
+   * instead of inherited.
+   */
+  beforeEach(async () => {
+    await db.deleteFrom('app.operations_incidents').where('account_id', 'is', null).execute();
+  });
 
   afterEach(async () => {
     await db.deleteFrom('app.operations_incidents').where('account_id', 'is', null).execute();

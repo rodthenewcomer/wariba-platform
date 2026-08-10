@@ -20,6 +20,177 @@ export {
   type StaffRole,
   type ControlPermission,
 } from '@wariba/database';
+export { maskEmail, displayName } from './control-pii';
+export {
+  parsePayoutQuery,
+  payoutPageHref,
+  PAYOUT_STATUSES,
+  PAYOUT_PROVIDER_STATUSES,
+  PAYOUT_FILTER_LABELS,
+  type PayoutQuery,
+  type PayoutSearchParams,
+} from './control-payouts-query';
+export {
+  parseAccountQuery,
+  accountPageHref,
+  accountTotalPages,
+  ACCOUNT_PROGRAMS,
+  ACCOUNT_STATUSES,
+  ACCOUNT_FILTER_LABELS,
+  type AccountQuery,
+  type AccountSearchParams,
+} from './control-accounts-view';
+export {
+  ACCOUNT_SECTIONS,
+  ACCOUNT_SECTION_PERMISSION,
+  authorizedAccountSections,
+  canReadAccountSection,
+  type AccountSection,
+} from './control-account-sections';
+export {
+  buildMarketOpsView,
+  observed,
+  unavailable,
+  PROBE_UNAVAILABLE_REASON,
+  LAST_TICK_AGE_UNAVAILABLE_REASON,
+  type MarketOpsView,
+  type Observed,
+  type OperationalAlertView,
+  type RealtimeHealthReport,
+  type RealtimeMetricsReport,
+} from './control-market-ops-view';
+export {
+  parsePolicyQuery,
+  parseStaffQuery,
+  parseOrderQuery,
+  governancePageHref,
+  TRADABLE_SYMBOLS,
+  ORDER_FILTER_LABELS,
+  STAFF_ROLES,
+  POLICY_FILTER_LABELS,
+  STAFF_FILTER_LABELS,
+  type GovernanceSearchParams,
+  type PolicyQuery,
+  type StaffQuery,
+  type OrderQuery,
+} from './control-governance-query';
+export {
+  evaluateCommercialGate,
+  resolveFeatureFlagState,
+  FEATURE_FLAG_STATE_SOURCE,
+  FEATURE_FLAG_SOURCE_LIMITATION,
+  FOUNDER_COHORT_GATE_IMPLEMENTED,
+  FOUNDER_COHORT_GATE_NOTE,
+  PRICING_STATUS_NOTE,
+  type CommercialGateEvaluation,
+  type FeatureFlagState,
+} from './control-feature-gates';
+export {
+  searchControlOrders,
+  loadControlTradingSummary,
+  CONTROL_ORDERS_PAGE_SIZE,
+  TRADE_ORDER_STATUSES,
+  TRADE_ORDER_TYPES,
+  type ControlOrderFilters,
+  type ControlOrderRow,
+  type ControlOrderPage,
+  type ControlTradingSummary,
+  searchControlPolicies,
+  loadControlPolicyDetail,
+  resolveEffectivePolicyVersionIds,
+  loadCommercialCatalogue,
+  searchStaffDirectory,
+  CONTROL_POLICIES_PAGE_SIZE,
+  CONTROL_TEAM_PAGE_SIZE,
+  POLICY_PROGRAMS,
+  POLICY_STATUSES,
+  type ControlPolicyFilters,
+  type ControlPolicyRow,
+  type ControlPolicyPage,
+  type ControlPolicyDetail,
+  type PolicyProgram,
+  type PolicyStatus,
+  type ControlProduct,
+  type ControlProductVersion,
+  type ControlCommercialCatalogue,
+  type ControlStaffFilters,
+  type ControlStaffMember,
+  type ControlStaffPage,
+} from '@wariba/database';
+export {
+  searchControlPayouts,
+  loadControlPayoutDetail,
+  loadTreasuryCockpit,
+  CONTROL_PAYOUTS_PAGE_SIZE,
+  type ControlPayoutFilters,
+  type ControlPayoutRow,
+  type ControlPayoutPage,
+  type ControlPayoutDetail,
+  type PayoutDetailSection,
+  type TreasuryCockpit,
+  type TreasuryComposition,
+  type TreasuryHistoryEntry,
+} from '@wariba/database';
+export {
+  searchControlIncidents,
+  loadIncidentCodes,
+  loadMarketOperationsState,
+  loadRiskCases,
+  loadRiskInvestigation,
+  CONTROL_INCIDENTS_PAGE_SIZE,
+  type ControlIncidentRow,
+  type ControlIncidentPage,
+  type ControlIncidentFilters,
+  type IncidentScope,
+  type MarketOperationsState,
+  type RiskCaseRow,
+  type RiskInvestigationDetail,
+  type RiskInvestigationSection,
+} from '@wariba/database';
+export {
+  searchControlAccounts,
+  loadControlAccountDetail,
+  CONTROL_ACCOUNTS_PAGE_SIZE,
+  type ControlAccountRow,
+  type ControlAccountPage,
+  type ControlAccountFilters,
+  type ControlAccountDetail,
+} from '@wariba/database';
+export {
+  searchControlUsers,
+  loadControlUserDetail,
+  CONTROL_USERS_PAGE_SIZE,
+  type ControlUserRow,
+  type ControlUserPage,
+  type ControlUserDetail,
+  type ControlUserAccount,
+  type ControlUserLifecycleEvent,
+} from '@wariba/database';
+export {
+  searchAuditEvents,
+  loadAuditFilterOptions,
+  AUDIT_PAGE_SIZE,
+  type AuditEventFilters,
+  type AuditEventPage,
+  type AuditEventRecord,
+} from '@wariba/database';
+export {
+  parseAuditQuery,
+  auditPageHref,
+  auditTotalPages,
+  AUDIT_PAGE_SIZES,
+  AUDIT_FILTER_LABELS,
+  type AuditQuery,
+  type AuditSearchParams,
+} from './control-audit-view';
+export {
+  CONTROL_AREAS,
+  canReadControlArea,
+  controlArea,
+  visibleControlAreas,
+  type ControlArea,
+  type ControlAreaId,
+} from './control-navigation';
 export {
   authorizeSensitiveStaffAction,
   type AuthorizeSensitiveStaffActionParams,
@@ -108,6 +279,8 @@ export {
 
 export {
   buildControlPayoutQueueView,
+  buildControlPayoutReviewView,
+  type ControlPayoutReviewPageView,
   type ControlPayoutQueueItemView,
   type ControlPayoutStatusVariant,
 } from './control-payouts-view';
@@ -132,7 +305,18 @@ export {
   runStoredActuarialScenario,
   loadActuarialControlState,
   type ReplaceActuarialScenarioAssumptionsParams,
+  type RunStoredActuarialScenarioParams,
 } from './actuarial-scenarios';
+
+export {
+  buildActuarialConsoleView,
+  recordActuarialVariance,
+  resolveActuarialModelValidation,
+  ACTUAL_POPULATION_SCOPE,
+  type ActuarialConsoleView,
+  type ActuarialModelValidation,
+  type RecordActuarialVarianceParams,
+} from './control-actuarial-view';
 
 export {
   buildControlReviewCasesView,

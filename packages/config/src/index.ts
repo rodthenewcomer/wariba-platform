@@ -87,6 +87,98 @@ export function assertNotSandboxInProduction({
 }
 
 /**
+ * P09-DEV-SAFETY-001 — the override that lets a local process talk to a
+ * remote data plane.
+ *
+ * Named as a whole sentence and prefixed, because the failure it unlocks is
+ * writing to someone's real Supabase project from a laptop. It must be typed
+ * out deliberately, never inherited from a stray shell export that happened
+ * to look plausible, and never inferred from anything else in the
+ * environment.
+ */
+export const REMOTE_DATA_PLANE_OVERRIDE = 'WARIBA_ALLOW_REMOTE_DATA_PLANE';
+
+const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1', '[::1]', '0.0.0.0']);
+
+/**
+ * Whether an endpoint URL/DSN provably addresses this machine.
+ *
+ * Unparseable values return false: "we could not prove this is local" and
+ * "this is remote" get the same answer, because only one of those is safe to
+ * guess at.
+ */
+export function isLocalEndpoint(value: string): boolean {
+  try {
+    return LOCAL_HOSTNAMES.has(new URL(value).hostname);
+  } catch {
+    return false;
+  }
+}
+
+/** Hostname only — a DSN carries the database password. */
+function describeEndpoint(value: string): string {
+  try {
+    return new URL(value).hostname;
+  } catch {
+    return 'an unparseable endpoint';
+  }
+}
+
+export interface LocalDataPlaneAssertionInput {
+  environment: Environment;
+  /** Endpoint URLs/DSNs keyed by the variable that supplied them. */
+  endpoints: Record<string, string | undefined>;
+  /**
+   * The raw override value, passed in by the caller rather than read from
+   * the ambient environment here — a guard that reads its own escape hatch
+   * is one import away from being disabled by accident.
+   */
+  override?: string | undefined;
+}
+
+/**
+ * P09-DEV-SAFETY-001 — local development refuses a remote data plane.
+ *
+ * A checkout whose `.env.local` points at the hosted project turns every
+ * ordinary `pnpm dev`, seed script and manual click-through into a write
+ * against real WARIBA state. The test-gate runner already refuses this for
+ * test gates; this extends the same posture to the application processes
+ * themselves, so safe-local is the default rather than something each
+ * developer has to remember.
+ *
+ * Only `APP_ENV=local` is guarded. preview, staging and production are
+ * *supposed* to reach a remote data plane, so deployment is never blocked by
+ * this — and CI, which runs APP_ENV=local against a 127.0.0.1 stack, passes
+ * untouched.
+ *
+ * No value is logged: the message names the variable and the hostname, never
+ * the DSN.
+ */
+export function assertLocalDataPlane({
+  environment,
+  endpoints,
+  override,
+}: LocalDataPlaneAssertionInput): void {
+  if (environment !== 'local') return;
+  // Exactly the string, so an accidental `WARIBA_ALLOW_REMOTE_DATA_PLANE=0`
+  // or `=false` keeps the guard on rather than merely being truthy.
+  if (override === 'true') return;
+
+  const remote = Object.entries(endpoints)
+    .filter(([, value]) => typeof value === 'string' && value.trim().length > 0)
+    .filter(([, value]) => !isLocalEndpoint(value as string))
+    .map(([name, value]) => `${name} points at ${describeEndpoint(value as string)}`);
+  if (remote.length === 0) return;
+
+  throw new ConfigValidationError(
+    remote,
+    `APP_ENV=local refuses to start against a remote data plane. ` +
+      `Point these at the local Supabase stack, or set ${REMOTE_DATA_PLANE_OVERRIDE}=true ` +
+      `to accept writing to a remote project on purpose.`,
+  );
+}
+
+/**
  * Deliberately NOT named NODE_ENV: Next.js (and Node tooling generally) owns
  * that variable and forces it to 'development' under `next dev` and
  * 'production' under any build/start — never 'local'/'preview'/'staging',

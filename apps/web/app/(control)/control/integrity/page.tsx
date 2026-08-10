@@ -1,4 +1,5 @@
 import {
+  Badge,
   Card,
   DataTable,
   DataTableBody,
@@ -6,21 +7,25 @@ import {
   DataTableHead,
   DataTableHeaderCell,
   DataTableRow,
-  EmptyState,
   Text,
 } from '@wariba/ui';
-import { buildControlReviewCasesView } from '@wariba/application';
-import { requireStaffRole } from '../../../../lib/staff-auth';
+import { buildControlReviewCasesView, loadRiskCases } from '@wariba/application';
+import Link from 'next/link';
+import { requireControlArea } from '../../../../lib/staff-auth';
 import { getDb } from '../../../../lib/db';
 import { IntegrityHoldManager } from './IntegrityHoldManager';
 
-// requireStaffRole() needs request-time cookies + DB config; see the
+// requireControlArea() needs request-time cookies + DB config; see the
 // (control) layout's dynamic export for why this can't be static.
 export const dynamic = 'force-dynamic';
 
 export default async function ControlIntegrityPage() {
-  await requireStaffRole('risk');
-  const reviewCases = await buildControlReviewCasesView(getDb());
+  await requireControlArea('risk');
+  const db = getDb();
+  const [reviewCases, riskCases] = await Promise.all([
+    buildControlReviewCasesView(db),
+    loadRiskCases(db),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -28,10 +33,98 @@ export default async function ControlIntegrityPage() {
         Integrity
       </Text>
 
-      <EmptyState
-        title="Aucun signal"
-        description="Les signaux d'intégrité (Guardian, revue humaine) arrivent avec Prompt 09."
-      />
+      <Card padding="comfortable" className="flex flex-col gap-4">
+        <div>
+          <Text as="h2" variant="heading-sm">
+            Dossiers d’intégrité
+          </Text>
+          <Text variant="body-sm" color="secondary">
+            Comptes sous integrity hold, portant un incident ouvert, ou dont une réconciliation a
+            échoué. C’est une liste de cas, pas un annuaire : l’identité affichée se limite au
+            strict nécessaire pour identifier le compte à investiguer.
+          </Text>
+        </div>
+
+        {riskCases.length === 0 ? (
+          <Text variant="body-sm" color="secondary">
+            Aucun compte ne requiert d’attention.
+          </Text>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[52rem] text-left text-[length:var(--wariba-font-size-body-sm)]">
+              <caption className="sr-only">Dossiers d’intégrité</caption>
+              <thead className="text-[color:var(--wariba-text-secondary)]">
+                <tr>
+                  <th scope="col" className="p-2 font-semibold">
+                    Compte
+                  </th>
+                  <th scope="col" className="p-2 font-semibold">
+                    Programme
+                  </th>
+                  <th scope="col" className="p-2 font-semibold">
+                    Statut
+                  </th>
+                  <th scope="col" className="p-2 font-semibold">
+                    Integrity hold
+                  </th>
+                  <th scope="col" className="p-2 font-semibold">
+                    Incidents
+                  </th>
+                  <th scope="col" className="p-2 font-semibold">
+                    Violations
+                  </th>
+                  <th scope="col" className="p-2 font-semibold">
+                    Dernier écart
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {riskCases.map((riskCase) => (
+                  <tr
+                    key={riskCase.accountId}
+                    className="border-t border-[color:var(--wariba-border-subtle)]"
+                  >
+                    <td className="p-2">
+                      <Link
+                        href={`/control/integrity/${riskCase.accountId}`}
+                        className="wariba-data text-[length:var(--wariba-font-size-data-sm)] text-[color:var(--wariba-text-link)]"
+                      >
+                        {riskCase.accountPublicId}
+                      </Link>
+                    </td>
+                    <td className="p-2">{riskCase.programType}</td>
+                    <td className="p-2">{riskCase.status}</td>
+                    <td className="p-2">
+                      {riskCase.integrityHold ? (
+                        <Badge variant="danger">actif</Badge>
+                      ) : (
+                        <span className="text-[color:var(--wariba-text-secondary)]">—</span>
+                      )}
+                    </td>
+                    <td className="p-2">
+                      {riskCase.criticalIncidents > 0 ? (
+                        <Badge variant="danger">{riskCase.criticalIncidents} critique(s)</Badge>
+                      ) : riskCase.openIncidents > 0 ? (
+                        <Badge variant="warning">{riskCase.openIncidents} ouvert(s)</Badge>
+                      ) : (
+                        <span className="text-[color:var(--wariba-text-secondary)]">—</span>
+                      )}
+                    </td>
+                    <td className="p-2">{riskCase.violations}</td>
+                    <td className="p-2">
+                      <span className="wariba-data text-[length:var(--wariba-font-size-data-sm)]">
+                        {riskCase.lastMismatchAt
+                          ? riskCase.lastMismatchAt.toISOString().slice(0, 16).replace('T', ' ')
+                          : '—'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
 
       <Card padding="comfortable" className="flex flex-col gap-4">
         <div>

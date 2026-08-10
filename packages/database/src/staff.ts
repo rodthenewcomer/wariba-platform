@@ -48,7 +48,16 @@ export type ControlPermission =
   | 'treasury.modify'
   | 'actuarial.modify'
   | 'commercial_product.modify'
-  | 'audit_evidence.view';
+  | 'commercial_product.view'
+  | 'audit_evidence.view'
+  | 'payout.view'
+  | 'reconciliation.view'
+  | 'market_operations.view'
+  | 'incident.view'
+  | 'policy.view'
+  | 'treasury.view'
+  | 'actuarial.view'
+  | 'staff_directory.view';
 
 const CONTROL_PERMISSION_REQUIREMENTS: Record<ControlPermission, readonly StaffRole[]> = {
   'account.view': ['support'],
@@ -65,7 +74,53 @@ const CONTROL_PERMISSION_REQUIREMENTS: Record<ControlPermission, readonly StaffR
   'actuarial.modify': ['risk', 'finance'],
   'commercial_product.modify': ['admin'],
   'audit_evidence.view': ['compliance'],
+  // Prompt 09 — read authorities for the operating areas Control gained.
+  // Each names the authority to *see* a surface, deliberately separate from
+  // the authority to change it: reusing a `.modify` permission as a read
+  // gate would conflate the two and make a future "finance can read the
+  // treasury but only a treasurer can move it" split impossible to express.
+  // None of these grants any write.
+  'commercial_product.view': ['admin'],
+  // Reading the payout queue is its own authority: support inspects it for
+  // first-line questions and finance acts on it, so gating it on
+  // `account.view` (support-only) would have locked finance out of the
+  // queue it exists to work. Acting still demands payout.approve/reject/
+  // settle/reverse — finance-only — checked at the mutation itself.
+  'payout.view': ['support', 'finance'],
+  // Account financial reconciliation is a cross-domain integrity capability,
+  // not a treasury one: it reconstructs an individual account's ledger
+  // (stored vs reconstructed balances, realized P/L, commissions, swaps,
+  // payout debits, adjustments, reversals), whereas treasury concerns
+  // WARIBA's own reserve and funding. Risk needs it because a mismatch opens
+  // a critical incident and an integrity hold that cannot be cleared while
+  // reconciliation still fails; finance needs it to inspect ledger integrity
+  // around payouts. Support does not need the reconstruction, and compliance
+  // does not inherit it merely by holding audit_evidence.view. Read only —
+  // Control authorizes no reconciliation write and no manual correction.
+  'reconciliation.view': ['risk', 'finance'],
+  'market_operations.view': ['risk'],
+  // Incidents span integrity *and* money — payout processing and reserve
+  // zones open incidents too, so finance needs them as much as risk does.
+  'incident.view': ['risk', 'finance'],
+  'policy.view': ['risk', 'compliance'],
+  'treasury.view': ['finance'],
+  'actuarial.view': ['risk', 'finance'],
+  // The staff roster is an access-control surface: admin only, and read
+  // only — Prompt 09 authorizes no staff-role mutation at all.
+  'staff_directory.view': ['admin'],
 };
+
+/**
+ * Every permission that exists, at runtime.
+ *
+ * Derived from the requirements table rather than restated, so a test can
+ * assert what is *absent* — "Control has no policy.publish" is only a real
+ * guarantee if it is checked against the actual set rather than a list
+ * someone maintains alongside it.
+ */
+export const CONTROL_PERMISSIONS = Object.keys(
+  CONTROL_PERMISSION_REQUIREMENTS,
+) as readonly ControlPermission[];
 
 export function staffCan(role: StaffRole, permission: ControlPermission): boolean {
   return CONTROL_PERMISSION_REQUIREMENTS[permission].some((required) =>

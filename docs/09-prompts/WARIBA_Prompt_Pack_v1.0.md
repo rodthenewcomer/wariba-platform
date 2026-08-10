@@ -42,7 +42,7 @@ depends_on:
 | Marque | WARIBA |
 | Domaine | `wariba.app` |
 | Dépôt cible | GitHub privé `wariba-platform` |
-| État actuel | Dossier créé, aucun code produit commencé |
+| État actuel | Prompts 00 → 09 implémentés, audités et certifiés sur `main`/branche Prompt 09, y compris les Appendices 07-A à 07-D et 08-A. La mention « aucun code produit commencé » était l'état de rédaction initiale et ne décrit plus le dépôt. |
 | Agents IA autorisés | Codex, Claude Code ou tout autre agent IA explicitement mandaté |
 | Rôles autorisés | Construction, modification, audit et documentation — voir AI-015 |
 | Nombre de prompts | 14 |

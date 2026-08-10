@@ -1,15 +1,15 @@
 import Link from 'next/link';
 import { ReserveCoverage, Text, buttonClassNames } from '@wariba/ui';
 import { buildControlReserveView } from '@wariba/application';
-import { requireStaffRole } from '../../../lib/staff-auth';
+import { requireControlArea } from '../../../lib/staff-auth';
 import { getDb } from '../../../lib/db';
 
-// requireStaffRole() needs request-time cookies + DB config; see the
+// requireControlArea() needs request-time cookies + DB config; see the
 // (control) layout's dynamic export for why this can't be static.
 export const dynamic = 'force-dynamic';
 
 export default async function ControlPage() {
-  await requireStaffRole();
+  await requireControlArea('overview');
   const reserve = await buildControlReserveView(getDb());
 
   return (

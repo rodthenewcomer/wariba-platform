@@ -3,7 +3,7 @@ import {
   compareModelToActual,
   type ActuarialActuals,
   type ActuarialVarianceReport,
-  type ActuarialScenarioResult,
+  type ActuarialModelSummary,
 } from '@wariba/domain';
 import type { Db } from './client';
 
@@ -13,6 +13,12 @@ import type { Db } from './client';
  * the platform actually wrote; there is no imputation, no extrapolation and
  * no default-to-model behaviour. An empty platform reports zeros, and the
  * variance report labels that as `insufficient_data`.
+ *
+ * Scope, stated plainly (ACTUARIAL-VARIANCE-002): these are counts over the
+ * *whole* persisted population — no cohort identity, no date window. MODEL
+ * simulates one specific cohort, so a MODEL/ACTUAL comparison is an
+ * order-of-magnitude indicator rather than a paired statistical test. No
+ * matching mechanism exists here, and none is faked.
  */
 async function countRows(query: Promise<{ count: string | number | bigint }[]>): Promise<number> {
   const rows = await query;
@@ -118,7 +124,7 @@ export async function recordActuarialVarianceRun(
   db: Db,
   params: {
     scenarioRunId: string;
-    model: ActuarialScenarioResult;
+    model: ActuarialModelSummary;
     executedBy: string | null;
     now: Date;
   },

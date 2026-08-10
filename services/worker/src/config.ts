@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { baseEnvironmentSchema, loadConfig } from '@wariba/config';
+import {
+  baseEnvironmentSchema,
+  loadConfig,
+  assertLocalDataPlane,
+  REMOTE_DATA_PLANE_OVERRIDE,
+} from '@wariba/config';
 
 const workerEnvSchema = baseEnvironmentSchema.extend({
   WORKER_HEALTH_PORT: z.coerce.number().int().positive().default(4002),
@@ -23,5 +28,13 @@ export type WorkerConfig = z.infer<typeof workerEnvSchema>;
 export function loadWorkerConfig(
   source: Record<string, string | undefined> = process.env,
 ): WorkerConfig {
-  return loadConfig(workerEnvSchema, source);
+  const config = loadConfig(workerEnvSchema, source);
+  // The worker runs financial-state-mutating batch jobs unattended; it is
+  // the last process that should ever point at a remote project by accident.
+  assertLocalDataPlane({
+    environment: config.APP_ENV,
+    endpoints: { DATABASE_URL: config.DATABASE_URL },
+    override: source[REMOTE_DATA_PLANE_OVERRIDE],
+  });
+  return config;
 }

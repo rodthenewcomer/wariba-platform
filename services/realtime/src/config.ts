@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { hostname } from 'node:os';
-import { baseEnvironmentSchema, loadConfig, assertNotSandboxInProduction } from '@wariba/config';
+import {
+  baseEnvironmentSchema,
+  loadConfig,
+  assertNotSandboxInProduction,
+  assertLocalDataPlane,
+  REMOTE_DATA_PLANE_OVERRIDE,
+} from '@wariba/config';
 
 const realtimeEnvSchema = baseEnvironmentSchema.extend({
   REALTIME_PORT: z.coerce.number().int().positive().default(4001),
@@ -49,19 +55,32 @@ let cached: RealtimeConfig | undefined;
 export function loadRealtimeConfig(
   source: Record<string, string | undefined> = process.env,
 ): RealtimeConfig {
-  if (!cached) {
-    cached = loadConfig(realtimeEnvSchema, {
-      ...source,
-      INSTANCE_ID: source.INSTANCE_ID ?? `${hostname()}:${process.pid}`,
-    });
-    if (cached.LEADER_RENEW_INTERVAL_MS >= cached.LEADER_LEASE_DURATION_MS) {
-      throw new Error('LEADER_RENEW_INTERVAL_MS must be lower than LEADER_LEASE_DURATION_MS.');
-    }
-    assertNotSandboxInProduction({
-      environment: cached.APP_ENV,
-      providerName: 'MARKET_DATA_PROVIDER',
-      providerValue: cached.MARKET_DATA_PROVIDER,
-    });
+  if (cached) return cached;
+
+  // Validated into a local first — see loadWebConfig: caching before the
+  // guards run would let the second call return a configuration the first
+  // call had rejected.
+  const config = loadConfig(realtimeEnvSchema, {
+    ...source,
+    INSTANCE_ID: source.INSTANCE_ID ?? `${hostname()}:${process.pid}`,
+  });
+  if (config.LEADER_RENEW_INTERVAL_MS >= config.LEADER_LEASE_DURATION_MS) {
+    throw new Error('LEADER_RENEW_INTERVAL_MS must be lower than LEADER_LEASE_DURATION_MS.');
   }
+  // The realtime service holds the market-mutation leadership lease —
+  // running it against a remote project from a laptop would put a second
+  // leader on someone else's data plane.
+  assertLocalDataPlane({
+    environment: config.APP_ENV,
+    endpoints: { DATABASE_URL: config.DATABASE_URL, SUPABASE_URL: config.SUPABASE_URL },
+    override: source[REMOTE_DATA_PLANE_OVERRIDE],
+  });
+  assertNotSandboxInProduction({
+    environment: config.APP_ENV,
+    providerName: 'MARKET_DATA_PROVIDER',
+    providerValue: config.MARKET_DATA_PROVIDER,
+  });
+
+  cached = config;
   return cached;
 }

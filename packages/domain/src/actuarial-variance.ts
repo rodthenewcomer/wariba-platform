@@ -25,6 +25,25 @@ export interface ActuarialActuals {
   realizedPayoutCost: string;
 }
 
+/**
+ * Exactly the MODEL fields a comparison consumes.
+ *
+ * A stored scenario run is JSON, and a caller that reads one back can only
+ * honestly claim the fields it actually validated. Naming that subset lets
+ * a reader hand over a verified summary instead of asserting a whole
+ * `ScenarioResult` it never checked — a full `ScenarioResult` still
+ * satisfies this, so live callers are unaffected.
+ */
+export type ActuarialModelSummary = Pick<
+  ScenarioResult,
+  | 'totalPurchases'
+  | 'totalSuccessfulEvaluations'
+  | 'totalPerformanceActivations'
+  | 'totalCompletedBuffers'
+  | 'totalPayoutRecipientsByRank'
+  | 'expectedPayoutCost'
+>;
+
 export type VarianceCoverage = 'insufficient_data' | 'partial' | 'comparable';
 
 export interface ActuarialVarianceMetric {
@@ -75,7 +94,7 @@ function metric(name: string, modelValue: Decimal, actualValue: Decimal): Actuar
  * report, so a stored variance run can be recomputed and checked.
  */
 export function compareModelToActual(params: {
-  model: ScenarioResult;
+  model: ActuarialModelSummary;
   actuals: ActuarialActuals;
   asOf: Date;
 }): ActuarialVarianceReport {
