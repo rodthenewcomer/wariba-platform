@@ -34,6 +34,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   let supportStaff: StaffFixtureUser;
   let financeStaff: StaffFixtureUser;
   let complianceStaff: StaffFixtureUser;
+  let riskStaff: StaffFixtureUser;
   let adminStaff: StaffFixtureUser;
 
   test.beforeAll(async () => {
@@ -47,12 +48,20 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     supportStaff = await seedStaffUser(db, 'support');
     financeStaff = await seedStaffUser(db, 'finance');
     complianceStaff = await seedStaffUser(db, 'compliance');
+    riskStaff = await seedStaffUser(db, 'risk');
     adminStaff = await seedStaffUser(db, 'admin');
     payoutAccount = await seedPayoutAccount(payoutEnvironment, { createPendingRequest: true });
   });
 
   test.afterAll(async () => {
-    for (const user of [trader, supportStaff, financeStaff, complianceStaff, adminStaff]) {
+    for (const user of [
+      trader,
+      supportStaff,
+      financeStaff,
+      complianceStaff,
+      riskStaff,
+      adminStaff,
+    ]) {
       await deleteStaffFixtureUser(db, user);
     }
     await deletePayoutAccount(payoutEnvironment, payoutAccount);
@@ -353,5 +362,106 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     await expect(page).toHaveURL(/\/control$/);
     await page.goto(`/control/users/${payoutAccount.userId}`);
     await expect(page).toHaveURL(/\/control$/);
+  });
+
+  test('the Accounts explorer filters server-side and reports rejected values @control', async ({
+    page,
+  }) => {
+    await login(page, supportStaff.email);
+    await page.waitForURL('**/hub');
+    await page.goto('/control/accounts');
+    await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
+    await expect(page.getByRole('table')).toBeVisible();
+    // Bulk exposure is masked here too.
+    await expect(page.getByRole('table')).toContainText('•••@');
+
+    await page.getByLabel('Programme').selectOption('WARIBA_PERFORMANCE');
+    await page.getByRole('button', { name: 'Filtrer' }).click();
+    await expect(page).toHaveURL(/[?&]program=WARIBA_PERFORMANCE/);
+
+    // A rejected value must never sit in the form looking applied.
+    await page.goto('/control/accounts?status=not-a-status&nominal=abc');
+    await expect(page.getByText('Filtres ignorés')).toBeVisible();
+    await expect(page.getByLabel('Statut')).toHaveValue('');
+    await expect(page.getByLabel('Nominal')).toHaveValue('');
+  });
+
+  test('support opens an account and receives Overview and Trading only @control', async ({
+    page,
+  }) => {
+    await login(page, supportStaff.email);
+    await page.waitForURL('**/hub');
+    await page.goto(`/control/accounts/${payoutAccount.accountId}`);
+
+    // Authorized sections are present...
+    await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Trading' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Payout' })).toBeVisible();
+
+    // ...and the rest were never queried, so nothing renders for them. This
+    // asserts the server response, not a hidden tab.
+    await expect(page.getByRole('heading', { name: 'Risk & Integrity' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Réconciliation financière' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Incidents' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Audit' })).toHaveCount(0);
+  });
+
+  test('risk and compliance are refused the Accounts area itself @control', async ({ page }) => {
+    // Opening the Accounts explorer is gated on account.view, which neither
+    // role holds. Their section authorities (risk.view, audit_evidence.view)
+    // govern what a page they *can* open may return — they are not a way in.
+    for (const staff of [riskStaff, complianceStaff]) {
+      await login(page, staff.email);
+      await page.waitForURL('**/hub');
+      await page.goto('/control/accounts');
+      await expect(page, `${staff.email} must be refused the Accounts list`).toHaveURL(
+        /\/control$/,
+      );
+      await page.goto(`/control/accounts/${payoutAccount.accountId}`);
+      await expect(page, `${staff.email} must be refused an account detail`).toHaveURL(
+        /\/control$/,
+      );
+      await page.context().clearCookies();
+    }
+  });
+
+  test('an unauthorized section cannot be revealed by URL manipulation @control', async ({
+    page,
+  }) => {
+    await login(page, supportStaff.email);
+    await page.waitForURL('**/hub');
+    // The section set is derived from the role alone; nothing in the query
+    // string participates in that decision.
+    await page.goto(
+      `/control/accounts/${payoutAccount.accountId}?section=risk&sections=all&reconciliation=1`,
+    );
+    await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Risk & Integrity' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Réconciliation financière' })).toHaveCount(0);
+  });
+
+  test('an admin receives every account section @control', async ({ page }) => {
+    await login(page, adminStaff.email);
+    await page.waitForURL('**/hub');
+    await page.goto(`/control/accounts/${payoutAccount.accountId}`);
+
+    for (const heading of [
+      'Overview',
+      'Trading',
+      'Risk & Integrity',
+      'Payout',
+      'Réconciliation financière',
+      'Incidents',
+      'Audit',
+    ]) {
+      await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+    }
+  });
+
+  test('a malformed account id is a 404, never a database error @control', async ({ page }) => {
+    await login(page, adminStaff.email);
+    await page.waitForURL('**/hub');
+    await page.goto('/control/accounts/not-a-uuid');
+    await expect(page.getByText(/introuvable|not found|404/i).first()).toBeVisible();
   });
 });

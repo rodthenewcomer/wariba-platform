@@ -51,6 +51,7 @@ export type ControlPermission =
   | 'commercial_product.view'
   | 'audit_evidence.view'
   | 'payout.view'
+  | 'reconciliation.view'
   | 'market_operations.view'
   | 'incident.view'
   | 'policy.view'
@@ -86,6 +87,17 @@ const CONTROL_PERMISSION_REQUIREMENTS: Record<ControlPermission, readonly StaffR
   // queue it exists to work. Acting still demands payout.approve/reject/
   // settle/reverse — finance-only — checked at the mutation itself.
   'payout.view': ['support', 'finance'],
+  // Account financial reconciliation is a cross-domain integrity capability,
+  // not a treasury one: it reconstructs an individual account's ledger
+  // (stored vs reconstructed balances, realized P/L, commissions, swaps,
+  // payout debits, adjustments, reversals), whereas treasury concerns
+  // WARIBA's own reserve and funding. Risk needs it because a mismatch opens
+  // a critical incident and an integrity hold that cannot be cleared while
+  // reconciliation still fails; finance needs it to inspect ledger integrity
+  // around payouts. Support does not need the reconstruction, and compliance
+  // does not inherit it merely by holding audit_evidence.view. Read only —
+  // Control authorizes no reconciliation write and no manual correction.
+  'reconciliation.view': ['risk', 'finance'],
   'market_operations.view': ['risk'],
   // Incidents span integrity *and* money — payout processing and reserve
   // zones open incidents too, so finance needs them as much as risk does.

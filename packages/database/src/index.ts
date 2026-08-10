@@ -31,6 +31,16 @@ export {
 } from './staff-action-rate-limit';
 export { recordStaffAuditEvent, type RecordStaffAuditEventParams } from './audit';
 export {
+  searchControlAccounts,
+  loadControlAccountDetail,
+  CONTROL_ACCOUNTS_PAGE_SIZE,
+  type AccountDetailSection,
+  type ControlAccountRow,
+  type ControlAccountPage,
+  type ControlAccountFilters,
+  type ControlAccountDetail,
+} from './control-accounts';
+export {
   searchControlUsers,
   loadControlUserDetail,
   CONTROL_USERS_PAGE_SIZE,

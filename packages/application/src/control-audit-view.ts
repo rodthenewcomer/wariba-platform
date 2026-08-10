@@ -26,6 +26,17 @@ export interface AuditQuery {
   filters: AuditEventFilters;
   page: number;
   pageSize: number;
+  /**
+   * Query parameters that were supplied but rejected, by name.
+   *
+   * The caller needs this because a dropped filter creates the one failure
+   * mode an audit tool cannot have: an operator believing they are looking
+   * at a narrowed result set when the database returned a wider one. The UI
+   * renders the canonical parsed query rather than the raw URL, and names
+   * whatever was ignored — a rejected value is never displayed as though it
+   * were active.
+   */
+  ignored: readonly string[];
 }
 
 export type AuditSearchParams = Record<string, string | string[] | undefined>;
@@ -62,14 +73,24 @@ function positiveInteger(value: string | string[] | undefined): number | undefin
 }
 
 export function parseAuditQuery(params: AuditSearchParams): AuditQuery {
+  const ignored: string[] = [];
+  /** Records a parameter that was supplied but could not be used. */
+  const reject = (key: string): undefined => {
+    if (first(params[key]) !== undefined) ignored.push(key);
+    return undefined;
+  };
+
   const requestedPageSize = positiveInteger(params.pageSize);
-  const pageSize = AUDIT_PAGE_SIZES.includes(requestedPageSize as (typeof AUDIT_PAGE_SIZES)[number])
-    ? (requestedPageSize as number)
-    : AUDIT_PAGE_SIZE;
+  const pageSizeAccepted = AUDIT_PAGE_SIZES.includes(
+    requestedPageSize as (typeof AUDIT_PAGE_SIZES)[number],
+  );
+  const pageSize = pageSizeAccepted ? (requestedPageSize as number) : AUDIT_PAGE_SIZE;
+  if (!pageSizeAccepted) reject('pageSize');
 
   const filters: AuditEventFilters = {};
   const actorId = uuid(params.actor);
   if (actorId) filters.actorId = actorId;
+  else reject('actor');
   const role = first(params.role);
   if (role) filters.role = role;
   const activity = first(params.activity);
@@ -78,15 +99,31 @@ export function parseAuditQuery(params: AuditSearchParams): AuditQuery {
   if (targetType) filters.targetType = targetType;
   const targetId = uuid(params.target);
   if (targetId) filters.targetId = targetId;
+  else reject('target');
   const correlationId = first(params.correlation);
   if (correlationId) filters.correlationId = correlationId;
   const occurredFrom = date(params.from, false);
   if (occurredFrom) filters.occurredFrom = occurredFrom;
+  else reject('from');
   const occurredTo = date(params.to, true);
   if (occurredTo) filters.occurredTo = occurredTo;
+  else reject('to');
 
-  return { filters, page: positiveInteger(params.page) ?? 1, pageSize };
+  const requestedPage = positiveInteger(params.page);
+  if (requestedPage === undefined) reject('page');
+
+  return { filters, page: requestedPage ?? 1, pageSize, ignored };
 }
+
+/** Human-readable names for the parameters the UI may report as ignored. */
+export const AUDIT_FILTER_LABELS: Record<string, string> = {
+  actor: 'Acteur',
+  target: 'Cible',
+  from: 'Du',
+  to: 'Au',
+  page: 'Page',
+  pageSize: 'Taille de page',
+};
 
 /**
  * Rebuilds the query string with `page` replaced, so paging never silently

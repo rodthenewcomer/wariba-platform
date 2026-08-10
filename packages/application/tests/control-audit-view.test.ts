@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { AUDIT_PAGE_SIZE } from '@wariba/database';
 import {
   auditPageHref,
   auditTotalPages,
   parseAuditQuery,
   AUDIT_PAGE_SIZES,
 } from '../src/control-audit-view';
+
+const AUDIT_PAGE_SIZE_DEFAULT = AUDIT_PAGE_SIZE;
 
 const UUID = '3f7ec8e0-e836-4a5a-97b5-632c52cc8fbe';
 const OTHER_UUID = '0085beab-6aae-4a42-8e6e-097800cf2ff6';
@@ -92,5 +95,65 @@ describe('audit explorer query parsing', () => {
     expect(auditTotalPages(50, 50)).toBe(1);
     expect(auditTotalPages(51, 50)).toBe(2);
     expect(auditTotalPages(101, 25)).toBe(5);
+  });
+
+  /**
+   * P09-QA-AUDIT-001 — a rejected value must never read as an applied one.
+   *
+   * The failure mode this closes is an operator believing they are looking
+   * at a narrowed result set when the database returned a wider one. Each
+   * case asserts both halves: the filter is not applied, and the rejection
+   * is reported so the UI can say so instead of showing the raw value in an
+   * otherwise-normal filter box.
+   */
+  it('reports a malformed actor UUID as ignored rather than applying it', () => {
+    const query = parseAuditQuery({ actor: 'abc' });
+    expect(query.filters.actorId).toBeUndefined();
+    expect(query.ignored).toContain('actor');
+  });
+
+  it('reports a malformed target UUID as ignored rather than applying it', () => {
+    const query = parseAuditQuery({ target: 'abc' });
+    expect(query.filters.targetId).toBeUndefined();
+    expect(query.ignored).toContain('target');
+  });
+
+  it('reports an invalid date as ignored on both bounds', () => {
+    const query = parseAuditQuery({ from: 'yesterday', to: '2026-13-45' });
+    expect(query.filters.occurredFrom).toBeUndefined();
+    expect(query.filters.occurredTo).toBeUndefined();
+    expect(query.ignored).toEqual(expect.arrayContaining(['from', 'to']));
+  });
+
+  it('reports an invalid page as ignored while still serving page 1', () => {
+    const query = parseAuditQuery({ page: '-5' });
+    expect(query.page).toBe(1);
+    expect(query.ignored).toContain('page');
+  });
+
+  it('reports an unsupported page size as ignored while serving the default', () => {
+    const query = parseAuditQuery({ pageSize: '999999' });
+    expect(query.pageSize).toBe(AUDIT_PAGE_SIZE_DEFAULT);
+    expect(query.ignored).toContain('pageSize');
+  });
+
+  it('reports nothing as ignored when every supplied value is usable', () => {
+    const query = parseAuditQuery({
+      actor: UUID,
+      target: OTHER_UUID,
+      from: '2026-08-01',
+      to: '2026-08-09',
+      page: '2',
+      pageSize: '25',
+      role: 'finance',
+    });
+    expect(query.ignored).toEqual([]);
+  });
+
+  it('does not report an absent parameter as ignored', () => {
+    // Only values the operator actually supplied can be "ignored" — an
+    // empty query must not accuse the URL of anything.
+    expect(parseAuditQuery({}).ignored).toEqual([]);
+    expect(parseAuditQuery({ role: 'finance' }).ignored).toEqual([]);
   });
 });

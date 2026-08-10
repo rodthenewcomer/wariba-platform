@@ -1,5 +1,6 @@
-import { Badge, Card, EmptyState, Text } from '@wariba/ui';
+import { Alert, Badge, Card, EmptyState, Text } from '@wariba/ui';
 import {
+  AUDIT_FILTER_LABELS,
   auditPageHref,
   auditTotalPages,
   loadAuditFilterOptions,
@@ -89,6 +90,11 @@ function text(value: string | string[] | undefined): string {
   return raw ?? '';
 }
 
+/** `YYYY-MM-DD` for a date input, from the value the server actually used. */
+function dateInputValue(value: Date | undefined): string {
+  return value ? (value.toISOString().slice(0, 10) as string) : '';
+}
+
 export default async function ControlAuditPage({
   searchParams,
 }: {
@@ -120,18 +126,31 @@ export default async function ControlAuditPage({
         reprise n’est possible depuis Control.
       </Text>
 
+      {query.ignored.length > 0 ? (
+        <Alert level="warning" title="Filtres ignorés">
+          {query.ignored
+            .map((key) => `${AUDIT_FILTER_LABELS[key] ?? key} : « ${text(params[key])} »`)
+            .join(' · ')}{' '}
+          — valeur invalide, non appliquée. Les résultats ci-dessous ne sont pas filtrés par cette
+          valeur.
+        </Alert>
+      ) : null}
+
       <Card>
+        {/* Rendered from the *parsed* query, never the raw URL: a value the
+            server rejected must not sit in the form looking active while the
+            results ignore it. */}
         <AuditFilters
           options={options}
           values={{
-            actor: text(params.actor),
-            role: text(params.role),
-            activity: text(params.activity),
-            targetType: text(params.targetType),
-            target: text(params.target),
-            correlation: text(params.correlation),
-            from: text(params.from),
-            to: text(params.to),
+            actor: query.filters.actorId ?? '',
+            role: query.filters.role ?? '',
+            activity: query.filters.activity ?? '',
+            targetType: query.filters.targetType ?? '',
+            target: query.filters.targetId ?? '',
+            correlation: query.filters.correlationId ?? '',
+            from: dateInputValue(query.filters.occurredFrom),
+            to: dateInputValue(query.filters.occurredTo),
             pageSize,
           }}
         />
