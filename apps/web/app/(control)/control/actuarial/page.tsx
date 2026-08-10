@@ -9,14 +9,14 @@ import {
   Text,
 } from '@wariba/ui';
 import { loadActuarialControlState, staffRoleSatisfies } from '@wariba/application';
-import { requireStaffRole } from '../../../../lib/staff-auth';
+import { requireControlArea } from '../../../../lib/staff-auth';
 import { getDb } from '../../../../lib/db';
 import { ActuarialScenarioManager } from './ActuarialScenarioManager';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ControlActuarialPage() {
-  const session = await requireStaffRole();
+  const session = await requireControlArea('actuarial');
   if (!staffRoleSatisfies(session.role, 'risk') && !staffRoleSatisfies(session.role, 'finance')) {
     return (
       <Text variant="body-md" color="danger">

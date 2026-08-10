@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { StaffRole } from '@wariba/application';
-import { requireStaffRole } from '../../lib/staff-auth';
+import { requireStaffRole, staffControlAreas } from '../../lib/staff-auth';
 import { ControlShell } from './ControlShell';
 
 // Every /control page authenticates via requireStaffRole() (cookies() +
@@ -30,6 +30,16 @@ const ROLE_LABEL: Record<StaffRole, string> = {
 export default async function ControlLayout({ children }: { children: ReactNode }) {
   const session = await requireStaffRole();
   const staffLabel = `${ROLE_LABEL[session.role]} — ${session.email ?? session.userId}`;
+  // Role-filtered on the server so the menu never advertises a surface this
+  // operator cannot open. Usability only — each page re-checks for itself.
+  const areas = await staffControlAreas();
 
-  return <ControlShell staffLabel={staffLabel}>{children}</ControlShell>;
+  return (
+    <ControlShell
+      staffLabel={staffLabel}
+      areas={areas.map((area) => ({ href: area.href, label: area.label }))}
+    >
+      {children}
+    </ControlShell>
+  );
 }

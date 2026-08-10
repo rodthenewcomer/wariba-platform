@@ -1,7 +1,15 @@
 import 'server-only';
 import { cache } from 'react';
 import { redirect } from 'next/navigation';
-import { getStaffRole, staffRoleSatisfies, type StaffRole } from '@wariba/application';
+import {
+  canReadControlArea,
+  getStaffRole,
+  staffRoleSatisfies,
+  visibleControlAreas,
+  type ControlArea,
+  type ControlAreaId,
+  type StaffRole,
+} from '@wariba/application';
 import { createSupabaseServerClient } from './supabase/server';
 import { getDb } from './db';
 
@@ -58,4 +66,31 @@ export async function requireStaffRole(required?: StaffRole): Promise<StaffSessi
   if (!session) redirect('/hub');
   if (required && !staffRoleSatisfies(session.role, required)) redirect('/control');
   return session;
+}
+
+/**
+ * Prompt 09 — the server-side guard for a Control operating area.
+ *
+ * Every Control page calls this rather than naming a role inline, so an
+ * area's read authority is declared in exactly one place
+ * (CONTROL_AREAS) and enforced from that same declaration. A staff member
+ * without the authority is returned to /control, the way a staff member
+ * missing a section's role always has been — not shown an error page that
+ * would confirm what lives at the URL.
+ *
+ * This runs on every request to the area, including direct URL entry and
+ * Server Actions rendered by it. Menu filtering is cosmetic; this is the
+ * boundary.
+ */
+export async function requireControlArea(id: ControlAreaId): Promise<StaffSession> {
+  const session = await resolveStaffSession();
+  if (!session) redirect('/hub');
+  if (!canReadControlArea(session.role, id)) redirect('/control');
+  return session;
+}
+
+/** Areas this session's role may open — for rendering the menu only. */
+export async function staffControlAreas(): Promise<readonly ControlArea[]> {
+  const session = await resolveStaffSession();
+  return session ? visibleControlAreas(session.role) : [];
 }

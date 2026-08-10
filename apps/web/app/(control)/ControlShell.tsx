@@ -5,21 +5,42 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 
-const ITEMS = [
-  { href: '/control', label: 'Overview', icon: <OverviewIcon size="sm" /> },
-  { href: '/control/users', label: 'Users', icon: <UsersIcon size="sm" /> },
-  { href: '/control/payouts', label: 'Payouts', icon: <PayoutsIcon size="sm" /> },
-  { href: '/control/integrity', label: 'Integrity', icon: <ShieldIcon size="sm" /> },
-  { href: '/control/actuarial', label: 'Actuarial', icon: <OverviewIcon size="sm" /> },
-  { href: '/control/treasury', label: 'Treasury', icon: <OverviewIcon size="sm" /> },
-] as const;
+export interface ControlNavItem {
+  href: string;
+  label: string;
+}
+
+/**
+ * Icons are chosen here rather than travelling from the server: a React
+ * element is not serializable across that boundary, and the icon carries no
+ * authorization meaning — which areas exist for this operator was already
+ * decided server-side.
+ */
+const AREA_ICON: Record<string, ReactNode> = {
+  '/control': <OverviewIcon size="sm" />,
+  '/control/users': <UsersIcon size="sm" />,
+  '/control/accounts': <UsersIcon size="sm" />,
+  '/control/trading': <OverviewIcon size="sm" />,
+  '/control/integrity': <ShieldIcon size="sm" />,
+  '/control/payouts': <PayoutsIcon size="sm" />,
+  '/control/market-operations': <OverviewIcon size="sm" />,
+  '/control/incidents': <ShieldIcon size="sm" />,
+  '/control/treasury': <OverviewIcon size="sm" />,
+  '/control/actuarial': <OverviewIcon size="sm" />,
+  '/control/policies': <ShieldIcon size="sm" />,
+  '/control/commercial': <OverviewIcon size="sm" />,
+  '/control/audit': <ShieldIcon size="sm" />,
+  '/control/team': <UsersIcon size="sm" />,
+};
 
 /** UX Architecture §35 — dense, clear, no super-admin catch-all. Never reachable from trader nav. */
 export function ControlShell({
   staffLabel,
+  areas,
   children,
 }: {
   staffLabel: string;
+  areas: readonly ControlNavItem[];
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -31,7 +52,11 @@ export function ControlShell({
       <ControlSidebar
         LinkComponent={Link}
         currentPath={pathname}
-        items={[...ITEMS]}
+        items={areas.map((area) => ({
+          href: area.href,
+          label: area.label,
+          icon: AREA_ICON[area.href] ?? <OverviewIcon size="sm" />,
+        }))}
         staffLabel={staffLabel}
       />
       <main className="flex-1 p-6">{children}</main>

@@ -10,16 +10,16 @@ import {
   Text,
 } from '@wariba/ui';
 import { buildControlReviewCasesView } from '@wariba/application';
-import { requireStaffRole } from '../../../../lib/staff-auth';
+import { requireControlArea } from '../../../../lib/staff-auth';
 import { getDb } from '../../../../lib/db';
 import { IntegrityHoldManager } from './IntegrityHoldManager';
 
-// requireStaffRole() needs request-time cookies + DB config; see the
+// requireControlArea() needs request-time cookies + DB config; see the
 // (control) layout's dynamic export for why this can't be static.
 export const dynamic = 'force-dynamic';
 
 export default async function ControlIntegrityPage() {
-  await requireStaffRole('risk');
+  await requireControlArea('risk');
   const reviewCases = await buildControlReviewCasesView(getDb());
 
   return (

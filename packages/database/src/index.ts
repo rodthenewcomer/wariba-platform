@@ -31,6 +31,14 @@ export {
 } from './staff-action-rate-limit';
 export { recordStaffAuditEvent, type RecordStaffAuditEventParams } from './audit';
 export {
+  searchAuditEvents,
+  loadAuditFilterOptions,
+  AUDIT_PAGE_SIZE,
+  type AuditEventFilters,
+  type AuditEventPage,
+  type AuditEventRecord,
+} from './audit-explorer';
+export {
   findExposureIncreaseRejection,
   EXPOSURE_INCREASE_REJECTION,
   type ExposureIncreaseRejectionCode,

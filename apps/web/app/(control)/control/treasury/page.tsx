@@ -1,13 +1,13 @@
 import { Card, Text } from '@wariba/ui';
 import { buildControlReserveView } from '@wariba/application';
 import { getDb } from '../../../../lib/db';
-import { requireStaffRole } from '../../../../lib/staff-auth';
+import { requireControlArea } from '../../../../lib/staff-auth';
 import { TreasuryReserveManager } from './TreasuryReserveManager';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ControlTreasuryPage() {
-  await requireStaffRole('finance');
+  await requireControlArea('treasury');
   const reserve = await buildControlReserveView(getDb());
   return (
     <div className="flex flex-col gap-6">

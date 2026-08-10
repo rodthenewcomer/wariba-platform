@@ -21,6 +21,22 @@ export {
   type ControlPermission,
 } from '@wariba/database';
 export {
+  searchAuditEvents,
+  loadAuditFilterOptions,
+  AUDIT_PAGE_SIZE,
+  type AuditEventFilters,
+  type AuditEventPage,
+  type AuditEventRecord,
+} from '@wariba/database';
+export {
+  CONTROL_AREAS,
+  canReadControlArea,
+  controlArea,
+  visibleControlAreas,
+  type ControlArea,
+  type ControlAreaId,
+} from './control-navigation';
+export {
   authorizeSensitiveStaffAction,
   type AuthorizeSensitiveStaffActionParams,
 } from './control-security';

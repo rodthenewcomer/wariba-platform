@@ -57,6 +57,14 @@ describe('staffCan — sensitive Control authorization matrix', () => {
     'actuarial.modify',
     'commercial_product.modify',
     'audit_evidence.view',
+    'commercial_product.view',
+    'market_operations.view',
+    'incident.view',
+    'policy.view',
+    'treasury.view',
+    'actuarial.view',
+    'staff_directory.view',
+    'payout.view',
   ];
 
   it('keeps support, risk, compliance, and finance duties separated', () => {

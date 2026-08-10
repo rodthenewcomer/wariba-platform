@@ -10,7 +10,7 @@ import {
   Text,
 } from '@wariba/ui';
 import { buildControlPayoutQueueView, staffRoleSatisfies } from '@wariba/application';
-import { requireStaffRole } from '../../../../lib/staff-auth';
+import { requireControlArea } from '../../../../lib/staff-auth';
 import { getDb } from '../../../../lib/db';
 import { ControlPayoutRowActions } from './ControlPayoutRowActions';
 
@@ -23,7 +23,7 @@ export default async function ControlPayoutsPage() {
   // support/risk/admin have legitimate reasons to check status too) — each
   // row's actual buttons are gated per-action below and, authoritatively,
   // by each Server Action's own requireStaffRole call.
-  const session = await requireStaffRole();
+  const session = await requireControlArea('payouts');
   const staffCanReviewFinance = staffRoleSatisfies(session.role, 'finance');
   const staffCanManageCompliance = staffRoleSatisfies(session.role, 'compliance');
 
