@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { activateEvaluationAccount } from '../src/activation';
 import { createDbClient, type Db } from '../src/client';
@@ -114,6 +115,34 @@ describeIfDb('PostgreSQL realtime leadership fencing', () => {
       },
     });
     await db.destroy();
+  }, 30000);
+
+  /**
+   * Regression: the lease column was originally seeded with '-infinity',
+   * which node-postgres does not decode into a Date, so the very first
+   * election on a freshly migrated database threw
+   * `lease_expires_at.getTime is not a function` — the realtime service
+   * could not take leadership at all on a new deployment. Every test run
+   * but a genuinely clean one masked it, because the row had already been
+   * overwritten with a real timestamp.
+   */
+  it('elects a leader from an un-decodable lease sentinel instead of crashing', async () => {
+    await sql`update app.realtime_leadership
+              set leader_instance_id = null,
+                  acquired_at = null,
+                  renewed_at = null,
+                  lease_expires_at = '-infinity'
+              where service_name = 'market-trigger-writer'`.execute(db);
+
+    const elected = await acquireOrRenewRealtimeLeadership(db, {
+      instanceId: 'sentinel-node',
+      leaseDurationMs: 4000,
+    });
+    expect(elected.role).toBe('leader');
+    if (elected.role !== 'leader') throw new Error('sentinel-node was not elected');
+    expect(elected.token.leaseExpiresAt.getTime()).toBeGreaterThan(Date.now() - 60_000);
+
+    await expireRealtimeLeadership(db, elected.token);
   }, 30000);
 
   it('elects one writer, increments epoch on takeover, and fences the former leader', async () => {

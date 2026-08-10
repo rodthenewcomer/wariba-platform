@@ -53,6 +53,32 @@ function toState(row: {
   };
 }
 
+/**
+ * Coerces a timestamptz column into a Date the rest of this module can do
+ * arithmetic on.
+ *
+ * node-postgres does not decode an infinite timestamptz into a Date — it
+ * yields a non-Date value, and `-infinity` was exactly what this table's
+ * lease column was seeded with. The first election on a freshly migrated
+ * database therefore died on `.getTime()`, which no test caught because
+ * every run but a truly clean one had already overwritten the row.
+ * Migration 20260810010000 replaces the sentinel with the Unix epoch; this
+ * makes the read path independent of that fix rather than dependent on it,
+ * since a lease that cannot be parsed must read as "expired" (fail toward
+ * standby), never as "held forever".
+ */
+function toLeaseDate(value: unknown): Date {
+  if (value instanceof Date) return value;
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? new Date(value) : new Date(0);
+  }
+  if (typeof value === 'string') {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? new Date(0) : parsed;
+  }
+  return new Date(0);
+}
+
 async function loadLeadershipRow(db: Db, forUpdate: boolean) {
   let query = db
     .selectFrom('app.realtime_leadership')
@@ -60,7 +86,8 @@ async function loadLeadershipRow(db: Db, forUpdate: boolean) {
     .select(sql<Date>`current_timestamp`.as('database_now'))
     .where('service_name', '=', MARKET_TRIGGER_WRITER_SERVICE);
   if (forUpdate) query = query.forUpdate();
-  return query.executeTakeFirstOrThrow();
+  const row = await query.executeTakeFirstOrThrow();
+  return { ...row, lease_expires_at: toLeaseDate(row.lease_expires_at) };
 }
 
 export async function loadRealtimeLeadership(db: Db): Promise<RealtimeLeadershipState> {

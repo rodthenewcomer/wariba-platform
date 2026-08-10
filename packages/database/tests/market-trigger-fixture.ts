@@ -28,12 +28,30 @@ export async function acquireTestLeadership(db: Db): Promise<LeadershipToken> {
     instanceId: TEST_LEADER_INSTANCE_ID,
     leaseDurationMs: LEASE_DURATION_MS,
   });
-  if (result.role !== 'leader') {
+  if (result.role === 'leader') return result.token;
+
+  // Another instance holds a live lease. In production that is exactly the
+  // right answer — a standby must not write. In this suite it only means a
+  // sibling test (realtime-leadership.integration.test.ts drives the
+  // leadership API directly and leaves node-b holding a short lease) has
+  // not expired yet, and every test here owns the database outright. So
+  // expire the stale holder and take over rather than failing tests for a
+  // reason that has nothing to do with what they assert.
+  await db
+    .updateTable('app.realtime_leadership')
+    .set({ lease_expires_at: new Date(0) })
+    .where('service_name', '=', 'market-trigger-writer')
+    .execute();
+  const retry = await acquireOrRenewRealtimeLeadership(db, {
+    instanceId: TEST_LEADER_INSTANCE_ID,
+    leaseDurationMs: LEASE_DURATION_MS,
+  });
+  if (retry.role !== 'leader') {
     throw new Error(
-      `Test leadership was not granted (another instance holds the lease: ${result.state.leaderInstanceId ?? 'unknown'}).`,
+      `Test leadership was not granted after expiring the stale lease (holder: ${retry.state.leaderInstanceId ?? 'unknown'}).`,
     );
   }
-  return result.token;
+  return retry.token;
 }
 
 type WithoutFencing<T> = Omit<T, 'fencingToken'>;
