@@ -517,7 +517,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     }
   });
 
-  test('Market Ops shows leadership truth to risk and exposes no controls @control', async ({
+  test('Market Ops shows structured operational truth and exposes no controls @control', async ({
     page,
   }) => {
     await login(page, riskStaff.email);
@@ -526,10 +526,26 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
 
     await expect(page.getByRole('heading', { name: 'Market Ops' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Leadership realtime' })).toBeVisible();
-    // A <dt> is role=term — unambiguous, unlike a text match that also
-    // hits the explanatory hint beneath it.
-    await expect(page.getByRole('term').filter({ hasText: 'Epoch de fencing' })).toHaveCount(1);
-    await expect(page.getByRole('heading', { name: 'État du feed' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Haute disponibilité' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Feed de marché' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Processus' })).toBeVisible();
+
+    // Structured fields, not raw JSON for an operator to decode.
+    for (const term of [
+      'Epoch de fencing',
+      'Standby prêt',
+      'Symboles périmés',
+      'Symboles en panne',
+      'Âge du dernier tick valide',
+      'Ticks rejetés',
+      'Reconnexions',
+      'Durée de la dernière reprise',
+    ]) {
+      await expect(
+        page.getByRole('term').filter({ hasText: term }),
+        `${term} must be a labelled field`,
+      ).toHaveCount(1);
+    }
 
     // Leadership is arbitrated by a PostgreSQL lease; a promote/failover
     // control here would be a second, unfenced writer.
@@ -540,6 +556,27 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     // No credential may ever render on this page.
     await expect(page.locator('body')).not.toContainText('SUPABASE_SERVICE_ROLE_KEY');
     await expect(page.locator('body')).not.toContainText('eyJhbGciOi');
+  });
+
+  test('Market Ops says "inconnu" rather than healthy when realtime is unreachable @control', async ({
+    page,
+  }) => {
+    await login(page, riskStaff.email);
+    await page.waitForURL('**/hub');
+    await page.goto('/control/market-operations');
+
+    // The Playwright stack runs one realtime instance with no standby, so
+    // whichever way the probe resolves, the page must never present an
+    // unmeasured datum as healthy. Last-valid-tick age has no authoritative
+    // source at all and is therefore always unknown.
+    const tickAge = page
+      .getByRole('term')
+      .filter({ hasText: 'Âge du dernier tick valide' })
+      .locator('xpath=following-sibling::dd[1]');
+    await expect(tickAge).toHaveText('inconnu');
+
+    // Persisted leadership stays exact regardless of the probe.
+    await expect(page.getByRole('term').filter({ hasText: 'Epoch de fencing' })).toHaveCount(1);
   });
 
   test('support, finance and compliance are refused Market Ops @control', async ({ page }) => {

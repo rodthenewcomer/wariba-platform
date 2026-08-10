@@ -39,6 +39,18 @@ export {
   type AccountSection,
 } from './control-account-sections';
 export {
+  buildMarketOpsView,
+  observed,
+  unavailable,
+  PROBE_UNAVAILABLE_REASON,
+  LAST_TICK_AGE_UNAVAILABLE_REASON,
+  type MarketOpsView,
+  type Observed,
+  type OperationalAlertView,
+  type RealtimeHealthReport,
+  type RealtimeMetricsReport,
+} from './control-market-ops-view';
+export {
   searchControlIncidents,
   loadIncidentCodes,
   loadMarketOperationsState,

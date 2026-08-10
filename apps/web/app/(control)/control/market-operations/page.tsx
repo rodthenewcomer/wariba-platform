@@ -1,7 +1,13 @@
-import { Badge, Card, EmptyState, Text } from '@wariba/ui';
-import { loadMarketOperationsState } from '@wariba/application';
+import { Alert, Badge, Card, Text } from '@wariba/ui';
+import {
+  buildMarketOpsView,
+  loadMarketOperationsState,
+  type Observed,
+  type OperationalAlertView,
+} from '@wariba/application';
 import { requireControlArea } from '../../../../lib/staff-auth';
 import { getDb } from '../../../../lib/db';
+import { probeRealtimeHealth } from '../../../../lib/realtime-health';
 
 // requireControlArea() needs request-time cookies + DB config; see the
 // (control) layout's dynamic export for why this can't be static.
@@ -13,10 +19,59 @@ const DATE_TIME = new Intl.DateTimeFormat('fr-FR', {
   timeZone: 'UTC',
 });
 
-const FEED_ALERTS = new Set(['MARKET_FEED_STALE', 'MARKET_FEED_OUTAGE']);
-const LEADERSHIP_ALERTS = new Set(['LEADER_LOST', 'LEADER_TAKEOVER_SLOW', 'NO_STANDBY_READY']);
+/**
+ * Renders a value, or the reason there isn't one.
+ *
+ * The whole point of this component: an unavailable datum reads as
+ * "inconnu" with its cause, never as a default that an operator would
+ * mistake for a healthy measurement.
+ */
+function ObservedValue<T>({
+  observation,
+  render,
+}: {
+  observation: Observed<T>;
+  render: (value: T) => string;
+}) {
+  if (!observation.available) {
+    return (
+      <span className="text-[color:var(--wariba-text-secondary)]" title={observation.reason}>
+        inconnu
+      </span>
+    );
+  }
+  return <span className="wariba-data">{render(observation.value)}</span>;
+}
 
-function Field({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Field<T>({
+  label,
+  observation,
+  render,
+  hint,
+}: {
+  label: string;
+  observation: Observed<T>;
+  render: (value: T) => string;
+  hint?: string;
+}) {
+  return (
+    <div>
+      <dt className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]">
+        {label}
+      </dt>
+      <dd>
+        <ObservedValue observation={observation} render={render} />
+      </dd>
+      {hint ? (
+        <p className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]">
+          {hint}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function PlainField({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div>
       <dt className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]">
@@ -32,35 +87,57 @@ function Field({ label, value, hint }: { label: string; value: string; hint?: st
   );
 }
 
-function summarise(evidence: unknown): string {
-  if (evidence === null || evidence === undefined) return '—';
-  const text = typeof evidence === 'string' ? evidence : JSON.stringify(evidence);
-  return text.length > 160 ? `${text.slice(0, 157)}…` : text;
+function AlertList({ alerts }: { alerts: readonly OperationalAlertView[] }) {
+  return (
+    <ul className="mt-3 flex flex-col gap-2">
+      {alerts.map((alert) => (
+        <li
+          key={`${alert.incidentCode}-${alert.openedAt.toISOString()}`}
+          className="flex flex-wrap items-baseline gap-2 text-[length:var(--wariba-font-size-body-sm)]"
+        >
+          <Badge variant={alert.severity === 'critical' ? 'danger' : 'warning'}>
+            {alert.incidentCode}
+          </Badge>
+          <span className="wariba-data text-[length:var(--wariba-font-size-data-sm)] text-[color:var(--wariba-text-secondary)]">
+            {DATE_TIME.format(alert.openedAt)}
+          </span>
+          {alert.symbols.length > 0 ? (
+            <span className="wariba-data">{alert.symbols.join(', ')}</span>
+          ) : null}
+          {alert.detail ? (
+            <span className="text-[color:var(--wariba-text-secondary)]">{alert.detail}</span>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 /**
- * Market Operations — read-only operational truth.
+ * Market Operations — read-only operational truth, from the sources that
+ * actually hold each fact.
  *
- * Everything here comes from durable state the platform already writes: the
- * leadership lease row, and the platform-scoped alerts the leader itself
- * persists when the feed goes stale or a takeover runs long. Nothing reaches
- * into a market-data provider and no credential is read, let alone rendered
- * — the realtime service owns its secrets and Control never sees them.
+ * Leadership and the feed/HA alerts are persisted, so they are always
+ * readable. Process, standby and tick state exist only inside the realtime
+ * process, so they come from its own /health report — probed server-side,
+ * never from the browser, and never carrying a credential. When that probe
+ * fails, those fields say so rather than defaulting to healthy.
  *
- * There are no controls on this page. Leadership is arbitrated by PostgreSQL
- * and a lease; a button that "promoted" an instance from here would be a
- * second, unfenced writer, which is precisely what the fencing epoch exists
- * to make impossible.
+ * No controls: leadership is arbitrated by PostgreSQL and a lease, so a
+ * promote button here would be a second unfenced writer — exactly what the
+ * fencing epoch exists to prevent.
  */
 export default async function ControlMarketOperationsPage() {
   await requireControlArea('market-operations');
-  const state = await loadMarketOperationsState(getDb());
-  const { leadership, openAlerts } = state;
+  const [state, health] = await Promise.all([
+    loadMarketOperationsState(getDb()),
+    probeRealtimeHealth(),
+  ]);
+  const view = buildMarketOpsView({ state, health });
+  const { leadership, ha, feed, process } = view;
 
-  const feedAlerts = openAlerts.filter((alert) => FEED_ALERTS.has(alert.incidentCode));
-  const leadershipAlerts = openAlerts.filter((alert) => LEADERSHIP_ALERTS.has(alert.incidentCode));
-  const leaseAgeSeconds = Math.round(
-    (leadership.leaseExpiresAt.getTime() - leadership.databaseNow.getTime()) / 1000,
+  const leaseSeconds = Math.round(
+    (leadership.leaseExpiresAt.getTime() - state.leadership.databaseNow.getTime()) / 1000,
   );
 
   return (
@@ -80,110 +157,164 @@ export default async function ControlMarketOperationsPage() {
         exactement ce que le fencing empêche.
       </Text>
 
+      {!process.reachable ? (
+        <Alert level="warning" title="Service realtime injoignable">
+          L’état persisté ci-dessous (leadership, alertes) reste exact. L’état vivant — santé du
+          processus, standby prêt, compteurs de ticks — n’est pas persisté : il est affiché comme
+          inconnu, et non comme sain.
+        </Alert>
+      ) : null}
+
       <Card>
         <Text as="h2" variant="heading-sm">
           Leadership realtime
         </Text>
+        <Text variant="body-sm" color="secondary">
+          Source : `app.realtime_leadership` (persisté).
+        </Text>
         <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Service" value={leadership.serviceName} />
-          <Field label="Instance leader" value={leadership.leaderInstanceId ?? '—'} />
-          <Field
+          <PlainField label="Instance leader" value={leadership.leaderInstanceId ?? '—'} />
+          <PlainField
             label="Epoch de fencing"
             value={leadership.fencingEpoch}
             hint="Monotone : toute écriture d’un ancien leader échoue."
           />
-          <Field
+          <PlainField
             label="Bail"
-            value={leadership.leaseIsCurrent ? `expire dans ${leaseAgeSeconds}s` : 'expiré'}
+            value={leadership.leaseIsCurrent ? `expire dans ${leaseSeconds}s` : 'expiré'}
           />
-          <Field
+          <PlainField label="Reprises" value={String(leadership.takeoverCount)} />
+          <PlainField
             label="Acquis le"
             value={leadership.acquiredAt ? DATE_TIME.format(leadership.acquiredAt) : '—'}
           />
-          <Field
+          <PlainField
             label="Renouvelé le"
             value={leadership.renewedAt ? DATE_TIME.format(leadership.renewedAt) : '—'}
           />
+          <PlainField label="Leader précédent" value={leadership.previousLeaderInstanceId ?? '—'} />
           <Field
-            label="Leader précédent"
-            value={leadership.previousLeaderInstanceId ?? '—'}
-            hint="Renseigné après une reprise."
+            label="Durée de la dernière reprise"
+            observation={leadership.lastTakeoverDurationMs}
+            render={(value) => (value === null ? 'aucune reprise observée' : `${value} ms`)}
+            hint="Compteur local au processus leader."
           />
-          <Field label="Reprises" value={String(leadership.takeoverCount)} />
         </dl>
       </Card>
 
       <Card>
         <Text as="h2" variant="heading-sm">
-          État du feed
+          Haute disponibilité
         </Text>
-        {feedAlerts.length === 0 ? (
-          <div className="mt-3">
-            <Text variant="body-sm" color="secondary">
-              Aucune alerte de feed ouverte. Un feed périmé ou en panne ouvre un incident plateforme
-              qui apparaîtrait ici.
-            </Text>
-          </div>
+        <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Field
+            label="Standby prêt"
+            observation={ha.standbyReady}
+            render={(value) => (value ? 'oui' : 'non')}
+            hint="Jamais déduit de l’absence d’alerte."
+          />
+          <Field
+            label="Trafic de trading sûr"
+            observation={ha.safeToAcceptTradingTraffic}
+            render={(value) => (value ? 'oui' : 'non')}
+          />
+          <PlainField label="Alertes HA ouvertes" value={String(ha.openLeadershipAlerts.length)} />
+        </dl>
+        {ha.openLeadershipAlerts.length > 0 ? (
+          <AlertList alerts={ha.openLeadershipAlerts} />
         ) : (
-          <ul className="mt-3 flex flex-col gap-2">
-            {feedAlerts.map((alert) => (
-              <li
-                key={alert.incidentCode}
-                className="flex flex-wrap items-baseline gap-2 text-[length:var(--wariba-font-size-body-sm)]"
-              >
-                <Badge variant={alert.severity === 'critical' ? 'danger' : 'warning'}>
-                  {alert.incidentCode}
-                </Badge>
-                <span className="wariba-data text-[length:var(--wariba-font-size-data-sm)] text-[color:var(--wariba-text-secondary)]">
-                  {DATE_TIME.format(alert.openedAt)}
-                </span>
-                <span className="text-[color:var(--wariba-text-secondary)]">
-                  {summarise(alert.evidence)}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <Text variant="body-sm" color="secondary">
+            Aucune alerte de leadership persistée n’est ouverte. Cela ne signifie pas qu’un standby
+            est prêt — voir le champ ci-dessus.
+          </Text>
         )}
       </Card>
 
       <Card>
         <Text as="h2" variant="heading-sm">
-          Alertes haute disponibilité
+          Feed de marché
         </Text>
-        {leadershipAlerts.length === 0 ? (
-          <div className="mt-3">
-            <Text variant="body-sm" color="secondary">
-              Aucune alerte de leadership ouverte.
-            </Text>
-          </div>
-        ) : (
-          <ul className="mt-3 flex flex-col gap-2">
-            {leadershipAlerts.map((alert) => (
-              <li
-                key={alert.incidentCode}
-                className="flex flex-wrap items-baseline gap-2 text-[length:var(--wariba-font-size-body-sm)]"
-              >
-                <Badge variant={alert.severity === 'critical' ? 'danger' : 'warning'}>
-                  {alert.incidentCode}
-                </Badge>
-                <span className="wariba-data text-[length:var(--wariba-font-size-data-sm)] text-[color:var(--wariba-text-secondary)]">
-                  {DATE_TIME.format(alert.openedAt)}
-                </span>
-                <span className="text-[color:var(--wariba-text-secondary)]">
-                  {summarise(alert.evidence)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+        <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Field
+            label="Feed connecté"
+            observation={feed.connected}
+            render={(value) => (value ? 'oui' : 'non')}
+          />
+          <Field
+            label="Adaptateur joignable"
+            observation={feed.marketReachable}
+            render={(value) => (value ? 'oui' : 'non')}
+          />
+          <PlainField
+            label="Symboles périmés"
+            value={feed.staleSymbols.length > 0 ? feed.staleSymbols.join(', ') : 'aucun signalé'}
+            hint="Source : évidence d’alerte persistée."
+          />
+          <PlainField
+            label="Symboles en panne"
+            value={feed.outageSymbols.length > 0 ? feed.outageSymbols.join(', ') : 'aucun signalé'}
+          />
+          <Field
+            label="Âge du dernier tick valide"
+            observation={feed.lastValidTickAge}
+            render={(value) => `${value} ms`}
+            hint="Non persisté et non exposé — décision d’observabilité ouverte."
+          />
+          <Field
+            label="Ticks acceptés"
+            observation={feed.acceptedTicks}
+            render={(value) => String(value)}
+          />
+          <Field
+            label="Ticks rejetés"
+            observation={feed.rejectedTicks}
+            render={(value) => String(value)}
+          />
+          <Field
+            label="Détail des rejets"
+            observation={feed.rejectedBreakdown}
+            render={(value) =>
+              `doublon ${value.duplicate} · désordre ${value.outOfOrder} · marché fermé ${value.notOpen}`
+            }
+          />
+        </dl>
+        {feed.openFeedAlerts.length > 0 ? <AlertList alerts={feed.openFeedAlerts} /> : null}
       </Card>
 
-      {openAlerts.length === 0 ? (
-        <EmptyState
-          title="Plateforme nominale"
-          description="Aucune alerte opérationnelle ouverte au niveau plateforme."
-        />
-      ) : null}
+      <Card>
+        <Text as="h2" variant="heading-sm">
+          Processus
+        </Text>
+        <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Field
+            label="Instance"
+            observation={process.instanceId}
+            render={(value) => value || '—'}
+          />
+          <Field
+            label="Processus vivant"
+            observation={process.alive}
+            render={(value) => (value ? 'oui' : 'non')}
+          />
+          <Field label="Base de données" observation={process.database} render={(value) => value} />
+          <Field
+            label="État global"
+            observation={process.overallStatus}
+            render={(value) => value}
+          />
+          <Field
+            label="Clients connectés"
+            observation={process.connectedClients}
+            render={(value) => String(value)}
+          />
+          <Field
+            label="Reconnexions"
+            observation={process.reconnects}
+            render={(value) => String(value)}
+            hint="Compteur de reprise de session."
+          />
+        </dl>
+      </Card>
     </div>
   );
 }
