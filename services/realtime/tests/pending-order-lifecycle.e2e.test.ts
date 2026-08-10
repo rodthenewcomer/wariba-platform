@@ -148,15 +148,30 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
     // realtime process without awaiting the exit, so this one can come up
     // while that lease is still live. Waiting for leadership turns that into
     // a clear, fast failure instead of a mystery timeout sixty ticks later.
-    await waitForCondition(
-      'realtime node leadership',
-      async () => {
-        const response = await fetch(`${BASE_URL}/health`);
-        if (!response.ok) return false;
-        return ((await response.json()) as { leader?: boolean }).leader === true;
-      },
-      20000,
-    );
+    let lastHealth = 'never fetched';
+    try {
+      await waitForCondition(
+        'realtime node leadership',
+        async () => {
+          const response = await fetch(`${BASE_URL}/health`);
+          const body = (await response.json()) as { leader?: boolean };
+          lastHealth = `${response.status} ${JSON.stringify(body)}`;
+          return body.leader === true;
+        },
+        20000,
+      );
+    } catch (error) {
+      const lease = await db
+        .selectFrom('app.realtime_leadership')
+        .selectAll()
+        .where('service_name', '=', 'market-trigger-writer')
+        .executeTakeFirst();
+      throw new Error(
+        `${error instanceof Error ? error.message : String(error)}\n` +
+          `lastHealth=${lastHealth}\nlease=${JSON.stringify(lease)}\n` +
+          `--- realtime logs ---\n${realtime.logs()}`,
+      );
+    }
   }, 60000);
 
   afterAll(async () => {
