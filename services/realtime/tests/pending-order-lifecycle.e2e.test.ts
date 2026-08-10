@@ -207,8 +207,21 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
     const triggerPrice = (Number(tick.ask) - triggerDistancePoints * onePoint).toFixed(
       pricePrecision,
     );
-    const stopLoss = (Number(triggerPrice) - 50 * onePoint).toFixed(pricePrecision);
-    const takeProfit = (Number(triggerPrice) + 50 * onePoint).toFixed(pricePrecision);
+    // Far enough that the sandbox market cannot reach either one while this
+    // test runs. This test is about SL/TP being *attached* atomically by the
+    // trigger and surviving a reconnect — position-protections.integration
+    // is where they actually firing is proven. At ±50 points the market
+    // crossed one of them whenever the machine was loaded enough for the
+    // test to take ~60s instead of ~8s, which closed the position and left
+    // the reconnect assertions looking for an open position that had
+    // legitimately gone.
+    const protectionDistancePoints = 1000;
+    const stopLoss = (Number(triggerPrice) - protectionDistancePoints * onePoint).toFixed(
+      pricePrecision,
+    );
+    const takeProfit = (Number(triggerPrice) + protectionDistancePoints * onePoint).toFixed(
+      pricePrecision,
+    );
 
     const createIdempotencyKey = randomUUID();
     const pendingOrder = createPendingOrderMessageSchema.parse({
