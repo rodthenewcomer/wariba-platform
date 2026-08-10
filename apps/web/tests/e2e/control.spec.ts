@@ -9,10 +9,14 @@ import {
   deletePayoutAccount,
   seedActuarialScenarioRun,
   deleteActuarialVarianceRuns,
+  seedStaffAuditEvents,
+  deleteStaffAuditEvents,
+  evaluateReserveStatus,
   STAFF_E2E_TEST_PASSWORD,
   type Db,
   type PayoutAccountFixture,
   type PayoutFixtureEnvironment,
+  type StaffAuditFixture,
   type StaffFixtureUser,
 } from '@wariba/test-utils';
 
@@ -84,6 +88,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   let riskStaff: StaffFixtureUser;
   let adminStaff: StaffFixtureUser;
   let scenarioRunId: string;
+  let auditFixture: StaffAuditFixture;
   const createdVarianceRunIds: string[] = [];
 
   test.beforeAll(async ({ browser }) => {
@@ -101,6 +106,11 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     adminStaff = await seedStaffUser(db, 'admin');
     payoutAccount = await seedPayoutAccount(payoutEnvironment, { createPendingRequest: true });
     ({ scenarioRunId } = await seedActuarialScenarioRun(db));
+    // The audit explorer builds its filter options from recorded data. On a
+    // freshly reset database there is none, so the tests seed exactly the
+    // events they assert against rather than depending on whichever staff
+    // action happened to run first.
+    auditFixture = await seedStaffAuditEvents(db, adminStaff.userId);
 
     // Six sign-ins for the whole file — sequential, so the burst stays well
     // inside Supabase's per-IP sign-in limit.
@@ -119,6 +129,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   test.afterAll(async () => {
     // Before the staff users: a variance run references its executor.
     await deleteActuarialVarianceRuns(db, scenarioRunId);
+    await deleteStaffAuditEvents(db, auditFixture);
     for (const id of createdVarianceRunIds) {
       await db.deleteFrom('app.actuarial_variance_runs').where('id', '=', id).execute();
     }
@@ -301,10 +312,11 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     await actAs(page, adminStaff.email);
     await page.goto('/control/audit');
 
-    // Options come from recorded data, not a hard-coded list — the fixtures
-    // above have produced staff audit events by this point.
+    // Options come from recorded data, not a hard-coded list — these are the
+    // roles this suite's own audit fixture wrote.
     const roleSelect = page.getByLabel('Rôle');
     await expect(roleSelect).toBeVisible();
+    await expect(roleSelect.locator('option', { hasText: 'finance' })).toHaveCount(1);
 
     // One filter, applied by the server: submitting navigates, and the
     // choice is legible in the URL so the view can be shared and reloaded.
@@ -355,7 +367,10 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
       '/control/audit?actor=not-a-uuid&target=123&from=yesterday&page=-5&pageSize=999999',
     );
     await expect(page.getByRole('heading', { name: 'Audit' })).toBeVisible();
+    // Normalised, not failed: the unfiltered trail still renders, and the
+    // fixture's own events are in it.
     await expect(page.getByRole('table')).toBeVisible();
+    await expect(page.getByRole('row').filter({ hasText: 'payout.approved' })).not.toHaveCount(0);
   });
 
   test('the Users explorer searches server-side and masks addresses in the list @control', async ({
@@ -1032,8 +1047,14 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     // and the fact that it is a build-time constant, not a runtime service.
     await expect(page.getByText('SANDBOX_PRODUCT_FEATURE_FLAGS')).toBeVisible();
     await expect(page.getByText('Constante de build')).toBeVisible();
-    // The two halves of availability are reported separately.
-    await expect(page.getByText('Zone autorise').first()).toBeVisible();
+    // The two halves of availability are reported separately. Which way the
+    // reserve half resolves is data — a fresh database with a pending payout
+    // and no reserve is genuinely `critical` — so this asserts the page
+    // agrees with the canonical engine rather than pinning a value.
+    const reserve = await evaluateReserveStatus(db);
+    await expect(page.getByText(`Zone de réserve : ${reserve.zone}`)).toBeVisible();
+    const zoneBadge = reserve.zone === 'critical' ? 'Zone suspend' : 'Zone autorise';
+    await expect(page.getByText(zoneBadge).first()).toBeVisible();
     await expect(page.getByText(/FOUNDER_COHORT_GATE = NON IMPLÉMENTÉ/)).toBeVisible();
 
     // Read-only: no canonical commercial mutation exists to surface.

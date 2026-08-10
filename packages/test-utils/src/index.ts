@@ -33,5 +33,15 @@ export {
   type StaffFixtureUser,
 } from './staff-fixture';
 export { seedActuarialScenarioRun, deleteActuarialVarianceRuns } from './actuarial-fixture';
+export {
+  seedStaffAuditEvents,
+  deleteStaffAuditEvents,
+  type StaffAuditFixture,
+} from './audit-fixture';
 // Re-exported so E2E specs never import @wariba/database directly (AGENTS.md §7.1).
-export { evaluateAndApplyAccountRisk, type Db, type StaffRole } from '@wariba/database';
+export {
+  evaluateAndApplyAccountRisk,
+  evaluateReserveStatus,
+  type Db,
+  type StaffRole,
+} from '@wariba/database';
