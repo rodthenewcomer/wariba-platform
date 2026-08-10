@@ -6,6 +6,8 @@ import {
   deleteStaffFixtureUser,
   seedPayoutAccount,
   deletePayoutAccount,
+  seedActuarialScenarioRun,
+  deleteActuarialVarianceRuns,
   STAFF_E2E_TEST_PASSWORD,
   type Db,
   type PayoutAccountFixture,
@@ -36,6 +38,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   let complianceStaff: StaffFixtureUser;
   let riskStaff: StaffFixtureUser;
   let adminStaff: StaffFixtureUser;
+  let scenarioRunId: string;
 
   test.beforeAll(async () => {
     db = createStaffFixtureDb();
@@ -51,9 +54,12 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     riskStaff = await seedStaffUser(db, 'risk');
     adminStaff = await seedStaffUser(db, 'admin');
     payoutAccount = await seedPayoutAccount(payoutEnvironment, { createPendingRequest: true });
+    ({ scenarioRunId } = await seedActuarialScenarioRun(db));
   });
 
   test.afterAll(async () => {
+    // Before the staff users: a variance run references its executor.
+    await deleteActuarialVarianceRuns(db, scenarioRunId);
     for (const user of [
       trader,
       supportStaff,
@@ -118,8 +124,12 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     await page.goto('/control/payouts');
     await expect(page).toHaveURL(/\/control\/payouts$/);
     await expect(page.getByRole('heading', { name: 'Payout queue' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Approuver' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Refuser' })).toBeVisible();
+    // Scoped to the fixture's own row: the queue is shared state, so
+    // "a button exists somewhere on the page" would pass for the wrong
+    // payout and fail whenever a second pending request is present.
+    const fixtureRow = page.getByRole('row').filter({ hasText: payoutAccount.accountPublicId });
+    await expect(fixtureRow.getByRole('button', { name: 'Approuver' })).toBeVisible();
+    await expect(fixtureRow.getByRole('button', { name: 'Refuser' })).toBeVisible();
 
     await page.goto('/control/users');
     await page.waitForURL('**/control', { timeout: 15_000 });
@@ -626,5 +636,254 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     await expect(page).toHaveURL(/\/control$/);
     await page.goto(`/control/integrity/${payoutAccount.accountId}`);
     await expect(page).toHaveURL(/\/control$/);
+  });
+
+  /**
+   * Prompt 09 milestone 4 — the financial operations surfaces.
+   *
+   * These assert the three properties the money surfaces have to hold: the
+   * server does the filtering, the figures shown are the ones the engines
+   * persisted, and reading evidence never becomes authority to change it.
+   */
+  test('the payout queue filters in the database and reports what it could not apply @control', async ({
+    page,
+  }) => {
+    await login(page, financeStaff.email);
+    await page.waitForURL('**/hub');
+    await page.goto('/control/payouts');
+
+    await page.getByLabel('Statut').selectOption('pending_review');
+    await page.getByRole('button', { name: 'Filtrer' }).click();
+    await expect(page).toHaveURL(/[?&]status=pending_review/);
+    await expect(page.getByLabel('Statut')).toHaveValue('pending_review');
+    await expect(page.getByText(payoutAccount.accountPublicId).first()).toBeVisible();
+
+    // A value the checked column cannot hold must not reach SQL, and must
+    // not sit in the control looking applied — an operator who filters and
+    // is silently given everything has been shown the wrong answer.
+    await page.goto('/control/payouts?status=bogus&cycle=9&nominal=1e5&kyc=maybe');
+    await expect(page.getByText('Filtres ignorés')).toBeVisible();
+    await expect(page.getByLabel('Statut')).toHaveValue('');
+    await expect(page.getByLabel('Cycle')).toHaveValue('');
+    await expect(page.getByLabel('KYC')).toHaveValue('');
+  });
+
+  test('a payout’s evidence page shows persisted figures and offers no edit @control', async ({
+    page,
+  }) => {
+    const payoutRequestId = payoutAccount.payoutRequestId as string;
+    const stored = await db
+      .selectFrom('app.payout_requests')
+      .select(['cap_applied', 'trader_split_rate', 'requested_net_trader_cash'])
+      .where('id', '=', payoutRequestId)
+      .executeTakeFirstOrThrow();
+
+    await login(page, financeStaff.email);
+    await page.waitForURL('**/hub');
+    await page.goto(`/control/payouts/${payoutRequestId}`);
+
+    for (const heading of [
+      'Demande',
+      'Calcul autoritatif',
+      'Instantané d’éligibilité',
+      'Gates',
+      'Cycle de vie',
+      'Provider',
+    ]) {
+      await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+    }
+
+    // Byte-identical to what the payout engine wrote. A figure re-derived
+    // for display could disagree with the binding one, and the operator
+    // would have no way to tell which was which.
+    await expect(page.locator('body')).toContainText(stored.cap_applied);
+    await expect(page.locator('body')).toContainText(stored.trader_split_rate);
+    await expect(page.locator('body')).toContainText(stored.requested_net_trader_cash);
+
+    // Read-only: approving, rejecting, settling and reversing stay on the
+    // queue behind their own finance authorities.
+    await expect(page.locator('form')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: /approuver|refuser|régler|annuler|modifier/i }),
+    ).toHaveCount(0);
+  });
+
+  test('payout evidence carries no cross-domain evidence the role cannot read @control', async ({
+    page,
+  }) => {
+    const payoutRequestId = payoutAccount.payoutRequestId as string;
+
+    // support holds payout.view and nothing else here.
+    await login(page, supportStaff.email);
+    await page.waitForURL('**/hub');
+    await page.goto(`/control/payouts/${payoutRequestId}`);
+    await expect(page.getByRole('heading', { name: 'Demande' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Réconciliation' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Audit' })).toHaveCount(0);
+    await page.context().clearCookies();
+
+    // finance adds reconciliation.view — and still not audit_evidence.view.
+    await login(page, financeStaff.email);
+    await page.waitForURL('**/hub');
+    await page.goto(`/control/payouts/${payoutRequestId}`);
+    await expect(page.getByRole('heading', { name: 'Réconciliation' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Audit' })).toHaveCount(0);
+    await page.context().clearCookies();
+
+    await login(page, adminStaff.email);
+    await page.waitForURL('**/hub');
+    await page.goto(`/control/payouts/${payoutRequestId}`);
+    await expect(page.getByRole('heading', { name: 'Réconciliation' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Audit' })).toBeVisible();
+  });
+
+  test('risk and compliance are refused the payout queue and a payout’s evidence @control', async ({
+    page,
+  }) => {
+    const payoutRequestId = payoutAccount.payoutRequestId as string;
+    for (const staff of [riskStaff, complianceStaff]) {
+      await login(page, staff.email);
+      await page.waitForURL('**/hub');
+      await page.goto('/control/payouts');
+      await expect(page, `${staff.email} must be refused the payout queue`).toHaveURL(/\/control$/);
+      await page.goto(`/control/payouts/${payoutRequestId}`);
+      await expect(page, `${staff.email} must be refused payout evidence`).toHaveURL(/\/control$/);
+      await page.context().clearCookies();
+    }
+  });
+
+  test('a malformed payout id is a 404, never a database error @control', async ({ page }) => {
+    await login(page, financeStaff.email);
+    await page.waitForURL('**/hub');
+    await page.goto('/control/payouts/not-a-uuid');
+    await expect(page.getByText(/introuvable|not found|404/i).first()).toBeVisible();
+  });
+
+  test('the Treasury cockpit keeps cash, projection and simulated balances apart @control', async ({
+    page,
+  }) => {
+    await login(page, financeStaff.email);
+    await page.waitForURL('**/hub');
+    await page.goto('/control/treasury');
+
+    await expect(page.getByRole('heading', { name: 'Treasury' })).toBeVisible();
+    for (const heading of [
+      'Composition de la réserve',
+      'Engagements',
+      'Hors réserve — soldes simulés',
+      'Historique des écritures',
+    ]) {
+      await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+    }
+
+    // Simulated trader nominal is not WARIBA cash; a projection is not cash
+    // either. Both are reported beside the reserve, never folded into it.
+    await expect(page.getByText('Nominal simulé cumulé')).toBeVisible();
+    await expect(page.getByText('Réserve disponible (cash)')).toBeVisible();
+    await expect(page.getByText('Projection payouts 30 j')).toBeVisible();
+
+    // Buckets the data model does not have are named, not rendered as zero
+    // balances that would read as real money.
+    await expect(page.getByText('Poches non modélisées')).toBeVisible();
+    await expect(page.getByText('Fonds opérationnels')).toBeVisible();
+  });
+
+  test('support, risk and compliance are refused Treasury @control', async ({ page }) => {
+    for (const staff of [supportStaff, riskStaff, complianceStaff]) {
+      await login(page, staff.email);
+      await page.waitForURL('**/hub');
+      await page.goto('/control/treasury');
+      await expect(page, `${staff.email} must be refused Treasury`).toHaveURL(/\/control$/);
+      await page.context().clearCookies();
+    }
+  });
+
+  test('the Actuarial console separates MODEL, ACTUAL and VARIANCE @control', async ({ page }) => {
+    await login(page, riskStaff.email);
+    await page.waitForURL('**/hub');
+    await page.goto('/control/actuarial');
+
+    await expect(page.getByRole('heading', { name: 'Actuarial' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'RÉEL — mesuré depuis les opérations persistées' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'MODÈLE — hypothèses et exécutions' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'ÉCART — dernière comparaison enregistrée' }),
+    ).toBeVisible();
+
+    // The one claim this surface must never make.
+    await expect(page.getByText('Modèle NON VALIDÉ')).toBeVisible();
+  });
+
+  test('a recorded comparison is labelled by its coverage, never as validation @control', async ({
+    page,
+  }) => {
+    await login(page, riskStaff.email);
+    await page.waitForURL('**/hub');
+    await page.goto('/control/actuarial');
+
+    // Comparing writes a third artifact against the seeded MODEL run; it
+    // edits neither the run's snapshot nor the measured actuals.
+    const row = page
+      .getByRole('row')
+      .filter({ has: page.getByRole('button', { name: 'Comparer' }) });
+    await expect(row.first()).toBeVisible();
+    await row.first().getByRole('button', { name: 'Comparer' }).click();
+
+    const COVERAGE_LABEL = {
+      insufficient_data: 'Données insuffisantes',
+      partial: 'Partielle',
+      comparable: 'Comparable',
+    } as const;
+
+    await expect
+      .poll(
+        async () => {
+          const latest = await db
+            .selectFrom('app.actuarial_variance_runs')
+            .select('id')
+            .where('scenario_run_id', '=', scenarioRunId)
+            .executeTakeFirst();
+          return latest?.id ?? null;
+        },
+        { timeout: 30_000 },
+      )
+      .not.toBeNull();
+
+    const latest = await db
+      .selectFrom('app.actuarial_variance_runs')
+      .select(['coverage', 'actual_sample_size', 'executed_by'])
+      .orderBy('executed_at', 'desc')
+      .limit(1)
+      .executeTakeFirstOrThrow();
+    // Attributed to the operator who ran it, not to whoever the page said.
+    expect(latest.executed_by).toBe(riskStaff.userId);
+
+    await expect(page.getByText(COVERAGE_LABEL[latest.coverage]).first()).toBeVisible({
+      timeout: 30_000,
+    });
+    // Whatever the coverage says, the model is still not validated —
+    // sample sufficiency is not correctness.
+    await expect(page.getByText('Modèle NON VALIDÉ')).toBeVisible();
+    if (latest.coverage !== 'comparable') {
+      await expect(page.getByText('Comparaison non concluante')).toBeVisible();
+    }
+    // The comparison table shows both sides side by side, labelled.
+    await expect(page.getByRole('columnheader', { name: 'Modèle', exact: true })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: 'Réel', exact: true })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: 'Écart', exact: true })).toBeVisible();
+  });
+
+  test('support and compliance are refused the Actuarial console @control', async ({ page }) => {
+    for (const staff of [supportStaff, complianceStaff]) {
+      await login(page, staff.email);
+      await page.waitForURL('**/hub');
+      await page.goto('/control/actuarial');
+      await expect(page, `${staff.email} must be refused Actuarial`).toHaveURL(/\/control$/);
+      await page.context().clearCookies();
+    }
   });
 });

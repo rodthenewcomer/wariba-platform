@@ -31,6 +31,25 @@ export {
 } from './staff-action-rate-limit';
 export { recordStaffAuditEvent, type RecordStaffAuditEventParams } from './audit';
 export {
+  searchControlPayouts,
+  loadControlPayoutDetail,
+  CONTROL_PAYOUTS_PAGE_SIZE,
+  type ControlPayoutFilters,
+  type ControlPayoutRow,
+  type ControlPayoutPage,
+  type ControlPayoutDetail,
+  type PayoutDetailSection,
+  type PayoutLifecycleEvent,
+} from './control-payout-review';
+export {
+  loadTreasuryCockpit,
+  type TreasuryCockpit,
+  type TreasuryComposition,
+  type TreasuryHistoryEntry,
+  type TreasuryLiabilities,
+  type TreasuryNonReserve,
+} from './control-treasury-cockpit';
+export {
   searchControlIncidents,
   loadIncidentCodes,
   loadMarketOperationsState,
@@ -143,6 +162,7 @@ export {
   loadActiveActuarialScenarios,
   loadRecentActuarialScenarioRuns,
   loadDefaultActuarialScenarioInput,
+  loadActuarialScenarioRunModel,
   type PersistedActuarialScenarioAssumptions,
   type ReplaceActuarialScenarioAssumptionsParams,
   type RunPersistedActuarialScenarioParams,

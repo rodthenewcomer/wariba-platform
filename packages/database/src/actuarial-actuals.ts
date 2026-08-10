@@ -3,7 +3,7 @@ import {
   compareModelToActual,
   type ActuarialActuals,
   type ActuarialVarianceReport,
-  type ActuarialScenarioResult,
+  type ActuarialModelSummary,
 } from '@wariba/domain';
 import type { Db } from './client';
 
@@ -118,7 +118,7 @@ export async function recordActuarialVarianceRun(
   db: Db,
   params: {
     scenarioRunId: string;
-    model: ActuarialScenarioResult;
+    model: ActuarialModelSummary;
     executedBy: string | null;
     now: Date;
   },

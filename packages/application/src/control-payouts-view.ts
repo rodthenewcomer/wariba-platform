@@ -1,4 +1,10 @@
-import { loadPayoutRequestsForReview, type Db } from '@wariba/database';
+import {
+  loadPayoutRequestsForReview,
+  searchControlPayouts,
+  type ControlPayoutFilters,
+  type ControlPayoutRow,
+  type Db,
+} from '@wariba/database';
 
 export type ControlPayoutStatusVariant =
   'neutral' | 'information' | 'success' | 'warning' | 'danger';
@@ -82,4 +88,61 @@ export async function buildControlPayoutQueueView(db: Db): Promise<ControlPayout
     canReverse: row.status === 'paid',
     reversalReason: row.reversalReason,
   }));
+}
+
+/**
+ * Prompt 09 milestone 4 — the same queue item shape, but from a filtered,
+ * paged database query instead of "load everything still open".
+ *
+ * The action flags below are computed exactly as they are above, from the
+ * persisted status alone: seeing a row never decides what may be done to
+ * it. Each Server Action re-checks its own finance/compliance authority, so
+ * these flags are UX, not authorization.
+ */
+export interface ControlPayoutReviewPageView {
+  items: ControlPayoutQueueItemView[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+function toQueueItem(row: ControlPayoutRow): ControlPayoutQueueItemView {
+  const traderName = [row.traderFirstName, row.traderLastName].filter(Boolean).join(' ').trim();
+  return {
+    id: row.id,
+    accountId: row.accountId,
+    accountPublicId: row.accountPublicId,
+    traderName: traderName.length > 0 ? traderName : '—',
+    nominalBalanceFormatted: formatUsd(row.nominalBalance),
+    cycleNumber: row.cycleNumber,
+    status: row.status,
+    statusLabel: STATUS_LABEL[row.status] ?? row.status,
+    statusVariant: STATUS_VARIANT[row.status] ?? 'neutral',
+    requestedNetCashFormatted: formatUsd(row.requestedNetTraderCash),
+    capAppliedFormatted: formatUsd(row.capApplied),
+    traderSplitPercent: Math.round(Number(row.traderSplitRate) * 100),
+    approvedGrossBaseFormatted: row.approvedGrossBase ? formatUsd(row.approvedGrossBase) : null,
+    traderNetCashFormatted: row.traderNetCash ? formatUsd(row.traderNetCash) : null,
+    kycVerified: row.kycVerified,
+    payoutMethodConfigured: row.payoutMethodConfigured,
+    requestedAtLabel: row.requestedAt.toLocaleString('fr-FR'),
+    canApproveOrReject: row.status === 'pending_review' || row.status === 'needs_information',
+    canSubmit: row.status === 'approved',
+    canSettle: row.status === 'processing',
+    canReverse: row.status === 'paid',
+    reversalReason: null,
+  };
+}
+
+export async function buildControlPayoutReviewView(
+  db: Db,
+  params: { filters?: ControlPayoutFilters; page?: number } = {},
+): Promise<ControlPayoutReviewPageView> {
+  const result = await searchControlPayouts(db, params);
+  return {
+    items: result.payouts.map(toQueueItem),
+    total: result.total,
+    page: result.page,
+    pageSize: result.pageSize,
+  };
 }
