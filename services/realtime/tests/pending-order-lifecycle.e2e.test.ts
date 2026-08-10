@@ -277,10 +277,19 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
     );
     expect(extraFills).toHaveLength(0);
 
+    // Scoped to opening fills: the guarantee under test is that the
+    // trigger fired once, and an *opening* fill is what a trigger produces.
+    // Counting every fill on the position also counted the close fill that
+    // the attached SL/TP legitimately produces if the sandbox market
+    // reaches one of them while the test is still running — which happened
+    // whenever the machine was loaded enough for this test to take ~40s
+    // instead of ~8s, failing a duplicate-trigger assertion for something
+    // that is not a duplicate trigger.
     const fillRows = await db
       .selectFrom('app.fills')
       .select('id')
       .where('position_id', '=', positionId)
+      .where('fill_type', '=', 'open')
       .execute();
     expect(fillRows).toHaveLength(1);
     const settledPendingOrder = await db
