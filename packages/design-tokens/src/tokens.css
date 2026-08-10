@@ -23,6 +23,7 @@
   --wariba-font-size-data-lg: 24px;
   --wariba-font-size-data-md: 16px;
   --wariba-font-size-data-sm: 12px;
+  --wariba-font-size-data-xs: 11px;
   --wariba-line-height-display-xl: 68px;
   --wariba-line-height-display-lg: 58px;
   --wariba-line-height-display-md: 48px;
@@ -446,6 +447,21 @@
   --wariba-component-control-filter-bar-height: 48px;
   --wariba-component-control-sidebar-width: 240px;
   --wariba-component-control-critical-action-accent: #A73C3C;
+  --wariba-component-workstation-rail-width: 56px;
+  --wariba-component-workstation-statusbar-height: 48px;
+  --wariba-component-workstation-nav-width: 280px;
+  --wariba-component-workstation-nav-width-compact: 240px;
+  --wariba-component-workstation-nav-width-wide: 320px;
+  --wariba-component-workstation-exec-width: 340px;
+  --wariba-component-workstation-exec-width-compact: 320px;
+  --wariba-component-workstation-exec-width-wide: 360px;
+  --wariba-component-workstation-dock-height: 220px;
+  --wariba-component-workstation-dock-height-compact: 200px;
+  --wariba-component-workstation-dock-height-wide: 260px;
+  --wariba-component-workstation-panel-padding: 8px;
+  --wariba-component-workstation-surface-raised: #161A24;
+  --wariba-component-workstation-surface-sunken: #0B0D12;
+  --wariba-component-workstation-seam: #272D3A;
 }
 
 [data-wariba-theme="trade"] {

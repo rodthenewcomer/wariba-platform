@@ -28,40 +28,21 @@ import {
 } from '@wariba/application';
 import { createSupabaseServerClient } from '../../../lib/supabase/server';
 import { getDb } from '../../../lib/db';
+// Shared with WariX since W1 — one definition of the program name and the
+// account-status vocabulary, so the Hub selector and the workstation status
+// bar cannot label the same account differently.
+import {
+  accountStatusLabel,
+  accountStatusVariant,
+  formatNominal,
+  programLabel,
+} from '../../../lib/account-display';
 import { trackEvent } from '../../../lib/analytics';
 import { TrackedClick } from './TrackedClick';
 import { HubRiskDetail } from './HubRiskDetail';
 import { HubBalanceChart } from './HubBalanceChart';
 
 export const dynamic = 'force-dynamic';
-
-// Lightweight labels for the account list/selector — the raw 8-value DB
-// status, not the fuller risk-derived HubDisplayState (that would mean
-// running the risk engine for every account just to render the switcher).
-const SELECTOR_STATUS_LABEL: Record<string, string> = {
-  pending_activation: 'Activation en attente',
-  active: 'Actif',
-  soft_locked: 'Blocage temporaire',
-  pass_pending: 'Passage en attente',
-  inactive: 'Inactif',
-  passed: 'Objectif validé',
-  breached: 'Limite maximale dépassée',
-  closed: 'Compte terminé',
-};
-
-const SELECTOR_STATUS_VARIANT: Record<
-  string,
-  'neutral' | 'information' | 'success' | 'warning' | 'danger'
-> = {
-  pending_activation: 'neutral',
-  active: 'success',
-  soft_locked: 'warning',
-  pass_pending: 'information',
-  inactive: 'neutral',
-  passed: 'success',
-  breached: 'danger',
-  closed: 'neutral',
-};
 
 function accountSelectorHref(accountId: string): string {
   return `/hub?account=${accountId}`;
@@ -109,10 +90,10 @@ export default async function HubPage({
       account.programType === 'WARIBA_ONE'
         ? ('WARIBA ONE' as const)
         : ('WARIBA Performance' as const),
-    nominalFormatted: `${Math.round(Number.parseFloat(account.nominalBalance)).toLocaleString('fr-FR')} ${account.nominalCurrency}`,
+    nominalFormatted: formatNominal(account.nominalBalance, account.nominalCurrency),
     publicId: account.publicId,
-    statusLabel: SELECTOR_STATUS_LABEL[account.status] ?? account.status,
-    statusVariant: SELECTOR_STATUS_VARIANT[account.status] ?? 'neutral',
+    statusLabel: accountStatusLabel(account.status),
+    statusVariant: accountStatusVariant(account.status),
   }));
 
   const selector = (
@@ -146,8 +127,11 @@ export default async function HubPage({
       <div className="mx-auto flex max-w-3xl flex-col gap-6">
         {selector}
         <AccountContext
-          program={activeAccount.programType === 'WARIBA_ONE' ? 'WARIBA ONE' : 'WARIBA Performance'}
-          nominalFormatted={`${Math.round(Number.parseFloat(activeAccount.nominalBalance)).toLocaleString('fr-FR')} ${activeAccount.nominalCurrency}`}
+          program={programLabel(activeAccount.programType)}
+          nominalFormatted={formatNominal(
+            activeAccount.nominalBalance,
+            activeAccount.nominalCurrency,
+          )}
           publicId={activeAccount.publicId}
           statusLabel="Activation en attente"
           statusVariant="neutral"
@@ -167,8 +151,11 @@ export default async function HubPage({
       <div className="mx-auto flex max-w-3xl flex-col gap-6">
         {selector}
         <AccountContext
-          program={activeAccount.programType === 'WARIBA_ONE' ? 'WARIBA ONE' : 'WARIBA Performance'}
-          nominalFormatted={`${Math.round(Number.parseFloat(activeAccount.nominalBalance)).toLocaleString('fr-FR')} ${activeAccount.nominalCurrency}`}
+          program={programLabel(activeAccount.programType)}
+          nominalFormatted={formatNominal(
+            activeAccount.nominalBalance,
+            activeAccount.nominalCurrency,
+          )}
           publicId={activeAccount.publicId}
           statusLabel={dormant ? 'Inactif' : 'Compte terminé'}
           statusVariant="neutral"
@@ -213,8 +200,11 @@ export default async function HubPage({
       {selector}
 
       <AccountContext
-        program={activeAccount.programType === 'WARIBA_ONE' ? 'WARIBA ONE' : 'WARIBA Performance'}
-        nominalFormatted={`${Math.round(Number.parseFloat(activeAccount.nominalBalance)).toLocaleString('fr-FR')} ${activeAccount.nominalCurrency}`}
+        program={programLabel(activeAccount.programType)}
+        nominalFormatted={formatNominal(
+          activeAccount.nominalBalance,
+          activeAccount.nominalCurrency,
+        )}
         publicId={activeAccount.publicId}
         statusLabel={hubView.statusLabel}
         statusVariant={hubView.statusVariant}

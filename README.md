@@ -30,6 +30,7 @@ des traders sur un marché live.
 | **WariX — ordres en attente** | Achat/Vente Limit/Stop server-authoritative (GTC), déclenchement sur tick réel, lignes glissables sur le graphique                                    |
 | **WariX — alertes de prix**   | Franchissement de seuil (pas d'égalité), évaluation serveur, centre de notifications                                                                  |
 | **WariX — graphique**         | Chandeliers `lightweight-charts`, lignes de position/SL/TP interactives, menu contextuel clic droit / appui long                                      |
+| **WariX — poste de travail**  | Grille plein écran (rail 56 px, barre d'état 48 px, dock), graphique dimensionné par son conteneur, sélection de compte résolue côté serveur          |
 | **Trader Hub**                | État de compte, mission, historique de journées, fil d'activité, multi-comptes                                                                        |
 | **Control**                   | Panneau staff RBAC (support/finance/admin) — intégrité, utilisateurs, payouts                                                                         |
 | **Fiabilité**                 | RLS Postgres sur chaque table sensible, idempotence sur chaque commande financière, resync WebSocket sur reconnexion                                  |

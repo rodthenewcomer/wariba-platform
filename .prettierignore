@@ -17,3 +17,8 @@ AGENTS.md
 # machine-formatted output, not hand-edited.
 packages/design-tokens/src/tokens.css
 packages/design-tokens/src/tokens.generated.ts
+
+# Playwright global-setup artefacts (session cookies + the seeded fixture),
+# written on every local E2E run. Machine output, never committed — without
+# this, `pnpm test:fast` fails on any machine that has run the E2E suite.
+apps/web/tests/e2e/.auth

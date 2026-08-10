@@ -17,7 +17,12 @@ export interface TradeAccountFixture {
   email: string;
   password: string;
   accountId: string;
-  /** What the UI shows — accountId.slice(0, 8).toUpperCase(), see AccountContext/OrderTicket. */
+  /**
+   * The account's canonical `public_id`, which is what every surface shows
+   * since W1 — the Hub selector always did, and WariX stopped rendering
+   * `accountId.slice(0, 8)` (an internal detail the trader saw nowhere else)
+   * when the workstation account switcher replaced the terminal header.
+   */
   accountPublicId: string;
 }
 
@@ -35,7 +40,10 @@ async function createTestUser(
   });
 }
 
-async function activateTradeAccount(db: Db, userId: string): Promise<string> {
+async function activateTradeAccount(
+  db: Db,
+  userId: string,
+): Promise<{ id: string; publicId: string }> {
   const productVersion = await db
     .selectFrom('app.product_versions')
     .innerJoin('app.products', 'app.products.id', 'app.product_versions.product_id')
@@ -66,7 +74,12 @@ async function activateTradeAccount(db: Db, userId: string): Promise<string> {
     nominalBalance: productVersion.nominal_balance,
     currency: productVersion.nominal_currency,
   });
-  return account.id;
+  const row = await db
+    .selectFrom('app.trading_accounts')
+    .select('public_id')
+    .where('id', '=', account.id)
+    .executeTakeFirstOrThrow();
+  return { id: account.id, publicId: row.public_id };
 }
 
 /**
@@ -82,14 +95,14 @@ export async function seedTradeAccount(env: {
   const email = `e2e-trade-${Date.now()}-${randomUUID().slice(0, 8)}@wariba-test.invalid`;
   const password = randomUUID();
   const userId = await createTestUser(env.supabaseUrl, env.supabaseServiceRoleKey, email, password);
-  const accountId = await activateTradeAccount(db, userId);
+  const account = await activateTradeAccount(db, userId);
   await db.destroy();
 
   return {
     userId,
     email,
     password,
-    accountId,
-    accountPublicId: accountId.slice(0, 8).toUpperCase(),
+    accountId: account.id,
+    accountPublicId: account.publicId,
   };
 }
