@@ -14,7 +14,7 @@ import { REMOTE_DATA_PLANE_OVERRIDE } from '@wariba/config';
 const LOCAL_ENV = {
   APP_ENV: 'local',
   APP_BASE_URL: 'http://127.0.0.1:3000',
-  DATABASE_URL: 'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
+  DATABASE_URL: 'postgresql://127.0.0.1:54322/postgres',
   SUPABASE_URL: 'http://127.0.0.1:54321',
   SUPABASE_ANON_KEY: 'anon',
   SUPABASE_SERVICE_ROLE_KEY: 'service',
@@ -25,8 +25,18 @@ const LOCAL_ENV = {
   NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon',
 } as const;
 
-const REMOTE_DB =
-  'postgresql://postgres.abcdefgh:hunter2@aws-0-eu-west-1.pooler.supabase.com:6543/postgres';
+/**
+ * Remote fixtures carry no userinfo.
+ *
+ * The guard reads only the hostname, so a username:password component would
+ * add nothing here while putting a credential-shaped string in the
+ * repository for a secret scanner to flag — exactly the noise that makes a
+ * real finding easy to miss. `.invalid` is reserved by RFC 2606 and can
+ * never resolve.
+ */
+const REMOTE_DB = 'postgresql://db.example.invalid:6543/postgres';
+const REMOTE_HOST = 'db.example.invalid';
+const REMOTE_API = 'https://api.example.invalid';
 
 async function load(source: Record<string, string | undefined>) {
   vi.resetModules();
@@ -56,9 +66,7 @@ describe('loadWebConfig — local data plane guard', () => {
   });
 
   it('refuses a hosted Supabase API in local development', async () => {
-    await expect(
-      load({ ...LOCAL_ENV, SUPABASE_URL: 'https://abcdefgh.supabase.co' }),
-    ).rejects.toThrow(REFUSAL);
+    await expect(load({ ...LOCAL_ENV, SUPABASE_URL: REMOTE_API })).rejects.toThrow(REFUSAL);
   });
 
   it('never puts the connection string in the error', async () => {
@@ -69,7 +77,14 @@ describe('loadWebConfig — local data plane guard', () => {
       message = error instanceof Error ? error.message : String(error);
     }
     expect(message).toContain('DATABASE_URL');
-    expect(message).not.toContain('hunter2');
+    expect(message).toContain(REMOTE_HOST);
+    // The hostname alone. A real DSN carries a password in its userinfo, so
+    // a guard that echoed the URI would leak the credential into every log
+    // line; asserting the port and path are absent proves only the hostname
+    // survives, which is what keeps userinfo out too.
+    expect(message).not.toContain(REMOTE_DB);
+    expect(message).not.toContain(':6543');
+    expect(message).not.toContain('/postgres');
   });
 
   it('lets the explicit override through', async () => {
@@ -98,8 +113,8 @@ describe('loadWebConfig — local data plane guard', () => {
         ...LOCAL_ENV,
         APP_ENV: 'staging',
         DATABASE_URL: REMOTE_DB,
-        SUPABASE_URL: 'https://abcdefgh.supabase.co',
-        NEXT_PUBLIC_SUPABASE_URL: 'https://abcdefgh.supabase.co',
+        SUPABASE_URL: REMOTE_API,
+        NEXT_PUBLIC_SUPABASE_URL: REMOTE_API,
       }),
     ).resolves.toMatchObject({ APP_ENV: 'staging' });
   });

@@ -8,6 +8,7 @@ import {
 } from '../src/control-policies';
 import { loadCommercialCatalogue } from '../src/control-commercial';
 import { searchStaffDirectory } from '../src/control-team';
+import { loadControlTradingSummary, searchControlOrders } from '../src/control-trading';
 import { loadPublishedPolicy } from '../src/policy';
 
 /**
@@ -267,5 +268,54 @@ describeIfDb('Control governance surfaces — real database', () => {
     await expect(searchStaffDirectory(db, { filters: { query: '%' } })).resolves.toMatchObject({
       total: 0,
     });
+  });
+
+  // ----------------------------------------------------------------- trading
+
+  it('pages orders in the database and caps an oversized page size', async () => {
+    const page = await searchControlOrders(db, { pageSize: 10_000 });
+    expect(page.pageSize).toBeLessThanOrEqual(100);
+    expect(page.orders.length).toBeLessThanOrEqual(page.pageSize);
+    expect(page.total).toBeGreaterThanOrEqual(page.orders.length);
+  });
+
+  it('narrows orders by status and symbol in the database', async () => {
+    const all = await searchControlOrders(db, { pageSize: 100 });
+    const filled = await searchControlOrders(db, { filters: { status: 'filled' }, pageSize: 100 });
+    for (const order of filled.orders) expect(order.status).toBe('filled');
+    expect(filled.total).toBeLessThanOrEqual(all.total);
+
+    const eurusd = await searchControlOrders(db, { filters: { symbol: 'EURUSD' }, pageSize: 100 });
+    for (const order of eurusd.orders) expect(order.symbol).toBe('EURUSD');
+  });
+
+  it('returns only orders that carry a rejection code when asked', async () => {
+    const rejected = await searchControlOrders(db, {
+      filters: { rejectedOnly: true },
+      pageSize: 100,
+    });
+    for (const order of rejected.orders) expect(order.rejectionCode).not.toBeNull();
+  });
+
+  it('preserves a null symbol rather than inventing one', async () => {
+    // A close/modify order referencing a missing position genuinely has no
+    // symbol to record — the explorer must carry that through, not guess.
+    const page = await searchControlOrders(db, { pageSize: 100 });
+    for (const order of page.orders) {
+      if (order.symbol === null) expect(order.orderType).not.toBe('market_open');
+    }
+  });
+
+  it('counts platform-wide operational state, not the current page', async () => {
+    const summary = await loadControlTradingSummary(db);
+    const openPositions = await db
+      .selectFrom('app.positions')
+      .select((eb) => eb.fn.countAll().as('count'))
+      .where('status', '=', 'open')
+      .executeTakeFirstOrThrow();
+    expect(summary.openPositionCount).toBe(Number(openPositions.count));
+    expect(summary.activePendingOrderCount).toBeGreaterThanOrEqual(0);
+    expect(summary.rejectedOrdersLast24h).toBeGreaterThanOrEqual(0);
+    expect(summary.queuedReductionCount).toBeGreaterThanOrEqual(0);
   });
 });

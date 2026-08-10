@@ -1,9 +1,13 @@
 import {
   POLICY_PROGRAMS,
   POLICY_STATUSES,
+  TRADE_ORDER_STATUSES,
+  TRADE_ORDER_TYPES,
+  type ControlOrderFilters,
   type ControlPolicyFilters,
   type ControlStaffFilters,
   type StaffRole,
+  type TradableSymbol,
 } from '@wariba/database';
 
 /**
@@ -129,5 +133,82 @@ export const POLICY_FILTER_LABELS: Record<string, string> = {
 
 export const STAFF_FILTER_LABELS: Record<string, string> = {
   role: 'Rôle',
+  page: 'Page',
+};
+
+export interface OrderQuery {
+  filters: ControlOrderFilters;
+  page: number;
+  ignored: readonly string[];
+}
+
+export const TRADABLE_SYMBOLS: readonly TradableSymbol[] = [
+  'EURUSD',
+  'GBPUSD',
+  'USDJPY',
+  'XAUUSD',
+  'NAS100',
+];
+
+function parseDate(value: string | undefined, endOfDay: boolean): Date | undefined {
+  if (!value) return undefined;
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? `${value}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}Z`
+    : value;
+  const parsed = new Date(iso);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}
+
+export function parseOrderQuery(params: GovernanceSearchParams): OrderQuery {
+  const ignored: string[] = [];
+  const reject = (key: string): void => {
+    if (first(params[key]) !== undefined) ignored.push(key);
+  };
+  const filters: ControlOrderFilters = {};
+
+  const status = first(params.status);
+  if (status && (TRADE_ORDER_STATUSES as readonly string[]).includes(status)) {
+    filters.status = status as (typeof TRADE_ORDER_STATUSES)[number];
+  } else if (status) reject('status');
+
+  const type = first(params.type);
+  if (type && (TRADE_ORDER_TYPES as readonly string[]).includes(type)) {
+    filters.orderType = type as (typeof TRADE_ORDER_TYPES)[number];
+  } else if (type) reject('type');
+
+  const symbol = first(params.symbol);
+  if (symbol && (TRADABLE_SYMBOLS as readonly string[]).includes(symbol)) {
+    filters.symbol = symbol as TradableSymbol;
+  } else if (symbol) reject('symbol');
+
+  const account = first(params.account);
+  if (account) filters.accountPublicId = account;
+
+  const rejected = first(params.rejected);
+  if (rejected === 'true') filters.rejectedOnly = true;
+  else if (rejected === 'false') filters.rejectedOnly = false;
+  else if (rejected) reject('rejected');
+
+  const from = parseDate(first(params.from), false);
+  if (from) filters.receivedFrom = from;
+  else reject('from');
+  const to = parseDate(first(params.to), true);
+  if (to) filters.receivedTo = to;
+  else reject('to');
+
+  const rawPage = first(params.page);
+  const page = rawPage && /^\d+$/.test(rawPage) ? Math.max(1, Number.parseInt(rawPage, 10)) : 1;
+  if (rawPage && !/^\d+$/.test(rawPage)) reject('page');
+
+  return { filters, page, ignored };
+}
+
+export const ORDER_FILTER_LABELS: Record<string, string> = {
+  status: 'Statut',
+  type: 'Type',
+  symbol: 'Symbole',
+  rejected: 'Rejetés',
+  from: 'Du',
+  to: 'Au',
   page: 'Page',
 };

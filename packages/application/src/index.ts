@@ -62,13 +62,17 @@ export {
 export {
   parsePolicyQuery,
   parseStaffQuery,
+  parseOrderQuery,
   governancePageHref,
+  TRADABLE_SYMBOLS,
+  ORDER_FILTER_LABELS,
   STAFF_ROLES,
   POLICY_FILTER_LABELS,
   STAFF_FILTER_LABELS,
   type GovernanceSearchParams,
   type PolicyQuery,
   type StaffQuery,
+  type OrderQuery,
 } from './control-governance-query';
 export {
   evaluateCommercialGate,
@@ -82,6 +86,15 @@ export {
   type FeatureFlagState,
 } from './control-feature-gates';
 export {
+  searchControlOrders,
+  loadControlTradingSummary,
+  CONTROL_ORDERS_PAGE_SIZE,
+  TRADE_ORDER_STATUSES,
+  TRADE_ORDER_TYPES,
+  type ControlOrderFilters,
+  type ControlOrderRow,
+  type ControlOrderPage,
+  type ControlTradingSummary,
   searchControlPolicies,
   loadControlPolicyDetail,
   resolveEffectivePolicyVersionIds,

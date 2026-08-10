@@ -118,11 +118,20 @@ describe('assertNotSandboxInProduction', () => {
 });
 
 describe('assertLocalDataPlane', () => {
-  const LOCAL_DB = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+  /**
+   * Fixture endpoints carry no userinfo.
+   *
+   * The guard reads only the hostname, so a username:password component
+   * would add nothing to these tests while putting a credential-shaped
+   * string in the repository for a secret scanner to flag — which is
+   * exactly the noise that makes a real finding easy to miss. `.invalid`
+   * is reserved by RFC 2606 and can never resolve.
+   */
+  const LOCAL_DB = 'postgresql://127.0.0.1:54322/postgres';
   const LOCAL_API = 'http://127.0.0.1:54321';
-  const REMOTE_DB =
-    'postgresql://postgres.abc:secret@aws-0-eu-west-1.pooler.supabase.com:6543/postgres';
-  const REMOTE_API = 'https://abcdefgh.supabase.co';
+  const REMOTE_DB = 'postgresql://db.example.invalid:6543/postgres';
+  const REMOTE_HOST = 'db.example.invalid';
+  const REMOTE_API = 'https://api.example.invalid';
 
   it('allows a local stack in local development', () => {
     expect(() =>
@@ -151,7 +160,7 @@ describe('assertLocalDataPlane', () => {
     ).toThrow(ConfigValidationError);
   });
 
-  it('names the variable and host but never the credential', () => {
+  it('reports the variable and the hostname, and nothing else from the URI', () => {
     let message = '';
     try {
       assertLocalDataPlane({ environment: 'local', endpoints: { DATABASE_URL: REMOTE_DB } });
@@ -159,11 +168,15 @@ describe('assertLocalDataPlane', () => {
       message = error instanceof Error ? error.message : String(error);
     }
     expect(message).toContain('DATABASE_URL');
-    expect(message).toContain('aws-0-eu-west-1.pooler.supabase.com');
-    // A DSN carries the database password; a guard that leaks it into logs
-    // would be worse than the mistake it prevents.
-    expect(message).not.toContain('secret');
+    expect(message).toContain(REMOTE_HOST);
+    // The hostname alone, never the connection string. A real DSN carries a
+    // password in its userinfo, so a guard that echoed the URI would leak
+    // the credential into every log line — worse than the mistake it
+    // prevents. Asserting the port and path are absent proves only the
+    // hostname survives, which is what keeps userinfo out too.
     expect(message).not.toContain(REMOTE_DB);
+    expect(message).not.toContain(':6543');
+    expect(message).not.toContain('/postgres');
   });
 
   it('refuses an endpoint it cannot parse rather than assuming it is local', () => {

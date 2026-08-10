@@ -47,7 +47,7 @@ export function ControlShell({
   return (
     <div
       data-wariba-section="control"
-      className="flex min-h-dvh bg-[color:var(--wariba-background-canvas)]"
+      className="flex min-h-dvh flex-col bg-[color:var(--wariba-background-canvas)] md:flex-row"
     >
       <ControlSidebar
         LinkComponent={Link}
@@ -59,7 +59,10 @@ export function ControlShell({
         }))}
         staffLabel={staffLabel}
       />
-      <main className="flex-1 p-6">{children}</main>
+      {/* min-w-0: a flex child defaults to min-width:auto, so without this
+          the main column refuses to shrink below its content's intrinsic
+          width and pushes the whole document sideways instead. */}
+      <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>
     </div>
   );
 }

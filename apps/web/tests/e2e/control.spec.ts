@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { test, expect } from './fixtures';
 import {
   createStaffFixtureDb,
@@ -1105,5 +1106,211 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
       await expect(page, `${staff.email} must be refused Team Access`).toHaveURL(/\/control$/);
       await page.context().clearCookies();
     }
+  });
+  /**
+   * Prompt 09 milestone 6 — the Trading area, the last Prompt 09-owned
+   * surface to carry a placeholder.
+   */
+  test('Trading inspects platform-wide orders and writes nothing @control', async ({ page }) => {
+    await actAs(page, supportStaff.email);
+    await page.goto('/control/trading');
+
+    await expect(page.getByRole('heading', { name: 'Trading' })).toBeVisible();
+    for (const tile of [
+      'Positions ouvertes',
+      'Ordres en attente actifs',
+      'Rejets (24 h)',
+      'Réductions en file',
+    ]) {
+      await expect(page.getByText(tile)).toBeVisible();
+    }
+
+    // Orders are execution evidence: nothing here replays, cancels or edits.
+    await expect(
+      page.getByRole('button', { name: /annuler|rejouer|modifier|supprimer|forcer/i }),
+    ).toHaveCount(0);
+    const forms = page.locator('form');
+    await expect(forms).toHaveCount(1);
+    await expect(forms.first()).toHaveAttribute('method', /get/i);
+  });
+
+  test('Trading filters server-side and drops unknown values @control', async ({ page }) => {
+    await actAs(page, supportStaff.email);
+    await page.goto('/control/trading');
+
+    await page.getByLabel('Statut').selectOption('rejected');
+    await page.getByRole('button', { name: 'Filtrer' }).click();
+    await expect(page).toHaveURL(/[?&]status=rejected/);
+    await expect(page.getByLabel('Statut')).toHaveValue('rejected');
+
+    // BTCUSD is not a WARIBA symbol and must never reach a typed column.
+    await page.goto('/control/trading?status=settled&symbol=BTCUSD&type=martingale');
+    await expect(page.getByText('Filtres ignorés')).toBeVisible();
+    await expect(page.getByLabel('Statut')).toHaveValue('');
+    await expect(page.getByLabel('Symbole')).toHaveValue('');
+  });
+
+  test('risk, finance and compliance are refused Trading @control', async ({ page }) => {
+    for (const staff of [riskStaff, financeStaff, complianceStaff]) {
+      await actAs(page, staff.email);
+      await page.goto('/control/trading');
+      await expect(page, `${staff.email} must be refused Trading`).toHaveURL(/\/control$/);
+      await page.context().clearCookies();
+    }
+  });
+
+  /**
+   * Prompt 09 milestone 6 — no Control area may still be a placeholder.
+   *
+   * Asserted as a property over the whole navigation rather than page by
+   * page, so a future area added to CONTROL_AREAS without an implementation
+   * fails here instead of shipping as an announcement.
+   */
+  test('no Control area renders a "coming in a later milestone" placeholder @control', async ({
+    page,
+  }) => {
+    await actAs(page, adminStaff.email);
+    const areas = [
+      '/control',
+      '/control/users',
+      '/control/accounts',
+      '/control/trading',
+      '/control/integrity',
+      '/control/payouts',
+      '/control/market-operations',
+      '/control/incidents',
+      '/control/treasury',
+      '/control/actuarial',
+      '/control/policies',
+      '/control/commercial',
+      '/control/audit',
+      '/control/team',
+    ];
+    for (const area of areas) {
+      await page.goto(area);
+      await expect(page, `${area} must be reachable by admin`).toHaveURL(
+        new RegExp(`${area.replace(/\//g, '\\/')}$`),
+      );
+      await expect(page.locator('body'), `${area} must not be a placeholder`).not.toContainText(
+        /arrive(nt)? avec le jalon/,
+      );
+    }
+  });
+
+  /**
+   * Accessibility regression check — not a WCAG certification.
+   *
+   * Scoped to critical Control surfaces at the severity the repository
+   * already gates on elsewhere (critical + serious).
+   */
+  test('critical Control surfaces have no critical or serious axe violations @control', async ({
+    page,
+  }) => {
+    await actAs(page, adminStaff.email);
+    for (const area of [
+      '/control',
+      '/control/payouts',
+      '/control/incidents',
+      '/control/policies',
+      '/control/team',
+      '/control/trading',
+    ]) {
+      await page.goto(area);
+      const results = await new AxeBuilder({ page }).analyze();
+      const serious = results.violations.filter(
+        (violation) => violation.impact === 'critical' || violation.impact === 'serious',
+      );
+      if (serious.length > 0) {
+        console.error(
+          `axe violations on ${area}:`,
+          serious.map((v) => `${v.id}: ${v.description} (${v.nodes.length} node(s))`).join('\n'),
+        );
+      }
+      expect(serious, `${area} must have no critical or serious axe violations`).toHaveLength(0);
+    }
+  });
+});
+
+/**
+ * Prompt 09 milestone 6 — mobile usability of the read-critical Control
+ * surfaces.
+ *
+ * Control is desktop-first and Prompt 09 does not optimise every operator
+ * workflow for a phone. What must hold is that an operator paged at night
+ * can still reach a surface, read its status, and not meet a page that
+ * scrolls sideways. Wide tables are allowed to scroll — inside their own
+ * container, never by moving the document.
+ */
+test.describe('WariX Control — mobile', { tag: ['@control', '@mobile'] }, () => {
+  let db: Db;
+  let adminStaff: StaffFixtureUser;
+
+  test.beforeAll(async ({ browser }) => {
+    db = createStaffFixtureDb();
+    adminStaff = await seedStaffUser(db, 'admin');
+    await captureSession(browser, adminStaff.email);
+  });
+
+  test.afterAll(async () => {
+    await deleteStaffFixtureUser(db, adminStaff);
+    await db.destroy();
+  });
+
+  const READ_CRITICAL_AREAS = [
+    '/control',
+    '/control/payouts',
+    '/control/incidents',
+    '/control/integrity',
+    '/control/treasury',
+    '/control/policies',
+    '/control/team',
+  ];
+
+  test('read-critical Control surfaces never scroll the document sideways', async ({ page }) => {
+    await actAs(page, adminStaff.email);
+    for (const area of READ_CRITICAL_AREAS) {
+      await page.goto(area);
+      const overflow = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        clientWidth: document.documentElement.clientWidth,
+      }));
+      // A wide table scrolling inside its own container is deliberate; the
+      // document scrolling is the defect — it moves the navigation and the
+      // headings off-screen too.
+      expect(
+        overflow.scrollWidth,
+        `${area} overflows horizontally (${overflow.scrollWidth}px > ${overflow.clientWidth}px)`,
+      ).toBeLessThanOrEqual(overflow.clientWidth);
+    }
+  });
+
+  test('Control navigation is reachable on a phone', async ({ page }) => {
+    await actAs(page, adminStaff.email);
+    await page.goto('/control');
+    await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible();
+    // Every authorized area must be navigable without a pointer-only affordance.
+    const nav = page.getByRole('navigation');
+    await expect(nav.first()).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Payouts' }).first()).toBeVisible();
+  });
+
+  test('a payout stays inspectable on a phone', async ({ page }) => {
+    await actAs(page, adminStaff.email);
+    await page.goto('/control/payouts');
+    await expect(page.getByRole('heading', { name: 'Payout queue' })).toBeVisible();
+    // Status must survive the narrow viewport — it is the reason to open
+    // this page at 3am.
+    await expect(page.getByLabel('Statut')).toBeVisible();
+  });
+
+  test('governance reads stay usable on a phone', async ({ page }) => {
+    await actAs(page, adminStaff.email);
+    await page.goto('/control/policies');
+    await expect(page.getByRole('heading', { name: 'Policies' })).toBeVisible();
+    await expect(page.getByText('Lecture seule').first()).toBeVisible();
+
+    await page.goto('/control/team');
+    await expect(page.getByRole('heading', { name: 'Team Access' })).toBeVisible();
+    await expect(page.getByText('La gestion des accès est en lecture seule')).toBeVisible();
   });
 });

@@ -37,6 +37,17 @@ export {
 } from './staff-action-rate-limit';
 export { recordStaffAuditEvent, type RecordStaffAuditEventParams } from './audit';
 export {
+  searchControlOrders,
+  loadControlTradingSummary,
+  CONTROL_ORDERS_PAGE_SIZE,
+  TRADE_ORDER_STATUSES,
+  TRADE_ORDER_TYPES,
+  type ControlOrderFilters,
+  type ControlOrderRow,
+  type ControlOrderPage,
+  type ControlTradingSummary,
+} from './control-trading';
+export {
   searchControlPolicies,
   loadControlPolicyDetail,
   resolveEffectivePolicyVersionIds,
