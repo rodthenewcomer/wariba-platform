@@ -8,7 +8,11 @@ import {
   createPendingOrderMessageSchema,
 } from '@wariba/contracts';
 import { RealtimeTestClient } from './realtime-test-client.js';
-import { spawnRealtimeTestProcess, type RealtimeTestProcess } from './realtime-test-process.js';
+import {
+  spawnRealtimeTestProcess,
+  waitForCondition,
+  type RealtimeTestProcess,
+} from './realtime-test-process.js';
 
 globalThis.WebSocket ??= class {} as unknown as typeof WebSocket;
 
@@ -137,7 +141,23 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
         ACCOUNT_RISK_PREVIEW_INTERVAL_MS: '5000',
       },
     });
-  }, 40000);
+
+    // Only the leader evaluates market triggers (Appendix 08-A fencing), so
+    // a standby serves /health perfectly while silently never filling a
+    // pending order. The previous suite in this file group kills its own
+    // realtime process without awaiting the exit, so this one can come up
+    // while that lease is still live. Waiting for leadership turns that into
+    // a clear, fast failure instead of a mystery timeout sixty ticks later.
+    await waitForCondition(
+      'realtime node leadership',
+      async () => {
+        const response = await fetch(`${BASE_URL}/health`);
+        if (!response.ok) return false;
+        return ((await response.json()) as { leader?: boolean }).leader === true;
+      },
+      20000,
+    );
+  }, 60000);
 
   afterAll(async () => {
     await realtime?.stop();

@@ -225,7 +225,22 @@ describeIfDb('realtime service — auth, isolation, reconnect (real end-to-end)'
   }, 40000);
 
   afterAll(async () => {
+    // Await the exit rather than firing SIGTERM and moving on. This process
+    // holds the market-trigger leadership lease; releasing it happens in the
+    // shutdown hook, so a not-yet-dead process leaves the next suite's node
+    // as a standby that never evaluates a trigger.
+    const exiting = child;
     child?.kill('SIGTERM');
+    if (exiting && exiting.exitCode === null && exiting.signalCode === null) {
+      await new Promise<void>((resolve) => {
+        const done = () => resolve();
+        exiting.once('exit', done);
+        setTimeout(() => {
+          exiting.kill('SIGKILL');
+          resolve();
+        }, 10_000).unref?.();
+      });
+    }
     for (const id of cleanupAccountIds) {
       const positions = await db
         .selectFrom('app.positions')
