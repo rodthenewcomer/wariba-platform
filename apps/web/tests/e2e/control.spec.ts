@@ -215,10 +215,78 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     await page.goto('/control/audit');
 
     await expect(page.getByRole('heading', { name: 'Audit' })).toBeVisible();
-    // Immutable evidence: the page exposes no Server Action at all, so there
-    // is nothing to press that could edit, delete or backfill a record.
+    // Immutable evidence: the only form on the page is the GET filter form,
+    // so there is no Server Action and nothing to press that could edit,
+    // delete or backfill a record.
     await expect(page.getByRole('button', { name: /supprimer|delete|modifier|edit/i })).toHaveCount(
       0,
     );
+    const forms = page.locator('form');
+    await expect(forms).toHaveCount(1);
+    await expect(forms.first()).toHaveAttribute('method', /get/i);
+  });
+
+  test('audit filters are server-driven and survive in the URL @control', async ({ page }) => {
+    await login(page, adminStaff.email);
+    await page.waitForURL('**/hub');
+    await page.goto('/control/audit');
+
+    // Options come from recorded data, not a hard-coded list — the fixtures
+    // above have produced staff audit events by this point.
+    const roleSelect = page.getByLabel('Rôle');
+    await expect(roleSelect).toBeVisible();
+
+    // One filter, applied by the server: submitting navigates, and the
+    // choice is legible in the URL so the view can be shared and reloaded.
+    await roleSelect.selectOption('finance');
+    await page.getByRole('button', { name: 'Filtrer' }).click();
+    await expect(page).toHaveURL(/[?&]role=finance/);
+    await expect(page.getByRole('heading', { name: 'Audit' })).toBeVisible();
+    await expect(page.getByLabel('Rôle')).toHaveValue('finance');
+
+    // Combined filters travel together.
+    await page.getByLabel('Type de cible').selectOption('payout_request');
+    await page.getByRole('button', { name: 'Filtrer' }).click();
+    await expect(page).toHaveURL(/[?&]role=finance/);
+    await expect(page).toHaveURL(/[?&]targetType=payout_request/);
+
+    // Reset returns to the unfiltered trail.
+    await page.getByRole('link', { name: 'Réinitialiser' }).click();
+    await expect(page).toHaveURL(/\/control\/audit$/);
+  });
+
+  test('audit pagination keeps its filters and never exceeds the page size @control', async ({
+    page,
+  }) => {
+    await login(page, adminStaff.email);
+    await page.waitForURL('**/hub');
+    // Smallest page size makes paging reachable with the handful of events
+    // this suite's own sensitive actions have written.
+    await page.goto('/control/audit?pageSize=25');
+    await expect(page.getByRole('heading', { name: 'Audit' })).toBeVisible();
+
+    const rows = page.locator('tbody tr');
+    expect(await rows.count()).toBeLessThanOrEqual(25);
+
+    const next = page.getByRole('link', { name: 'Suivant' });
+    if ((await next.count()) > 0) {
+      await next.click();
+      await expect(page).toHaveURL(/[?&]page=2/);
+      // Paging must not silently drop the page size the operator chose.
+      await expect(page).toHaveURL(/[?&]pageSize=25/);
+      await expect(page.getByRole('link', { name: 'Précédent' })).toBeVisible();
+    }
+  });
+
+  test('a hostile audit query normalises instead of failing @control', async ({ page }) => {
+    await login(page, adminStaff.email);
+    await page.waitForURL('**/hub');
+    // A malformed UUID would be a Postgres error against a uuid column, and
+    // a negative page would be a negative OFFSET — both must be dropped.
+    await page.goto(
+      '/control/audit?actor=not-a-uuid&target=123&from=yesterday&page=-5&pageSize=999999',
+    );
+    await expect(page.getByRole('heading', { name: 'Audit' })).toBeVisible();
+    await expect(page.getByRole('table')).toBeVisible();
   });
 });

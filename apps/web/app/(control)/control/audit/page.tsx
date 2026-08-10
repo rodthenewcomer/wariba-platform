@@ -1,7 +1,16 @@
 import { Badge, Card, EmptyState, Text } from '@wariba/ui';
-import { searchAuditEvents, type AuditEventRecord } from '@wariba/application';
+import {
+  auditPageHref,
+  auditTotalPages,
+  loadAuditFilterOptions,
+  parseAuditQuery,
+  searchAuditEvents,
+  type AuditEventRecord,
+  type AuditSearchParams,
+} from '@wariba/application';
 import { requireControlArea } from '../../../../lib/staff-auth';
 import { getDb } from '../../../../lib/db';
+import { AuditFilters } from './AuditFilters';
 
 // requireControlArea() needs request-time cookies + DB config; see the
 // (control) layout's dynamic export for why this can't be static.
@@ -75,9 +84,28 @@ function AuditRow({ event }: { event: AuditEventRecord }) {
   );
 }
 
-export default async function ControlAuditPage() {
+function text(value: string | string[] | undefined): string {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw ?? '';
+}
+
+export default async function ControlAuditPage({
+  searchParams,
+}: {
+  searchParams: Promise<AuditSearchParams>;
+}) {
   await requireControlArea('audit');
-  const { events, total } = await searchAuditEvents(getDb(), { page: 1 });
+  const params = await searchParams;
+  // Every filter is applied by the database, never in the browser: the page
+  // only ever holds the rows an operator is authorized to see and actually
+  // asked for.
+  const query = parseAuditQuery(params);
+  const db = getDb();
+  const [{ events, total, page, pageSize }, options] = await Promise.all([
+    searchAuditEvents(db, query),
+    loadAuditFilterOptions(db),
+  ]);
+  const totalPages = auditTotalPages(total, pageSize);
 
   return (
     <div className="flex flex-col gap-6">
@@ -92,10 +120,27 @@ export default async function ControlAuditPage() {
         reprise n’est possible depuis Control.
       </Text>
 
+      <Card>
+        <AuditFilters
+          options={options}
+          values={{
+            actor: text(params.actor),
+            role: text(params.role),
+            activity: text(params.activity),
+            targetType: text(params.targetType),
+            target: text(params.target),
+            correlation: text(params.correlation),
+            from: text(params.from),
+            to: text(params.to),
+            pageSize,
+          }}
+        />
+      </Card>
+
       {events.length === 0 ? (
         <EmptyState
           title="Aucun événement d’audit"
-          description="Les actions sensibles effectuées depuis Control apparaîtront ici."
+          description="Aucun événement ne correspond à ces filtres."
         />
       ) : (
         <Card>
@@ -136,6 +181,37 @@ export default async function ControlAuditPage() {
           </div>
         </Card>
       )}
+
+      {totalPages > 1 ? (
+        <nav
+          aria-label="Pagination des événements d’audit"
+          className="flex flex-wrap items-center gap-3"
+        >
+          <span className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]">
+            Page {page} sur {totalPages}
+          </span>
+          <div className="flex gap-2">
+            {page > 1 ? (
+              <a
+                href={auditPageHref(params, page - 1)}
+                rel="prev"
+                className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-link)]"
+              >
+                Précédent
+              </a>
+            ) : null}
+            {page < totalPages ? (
+              <a
+                href={auditPageHref(params, page + 1)}
+                rel="next"
+                className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-link)]"
+              >
+                Suivant
+              </a>
+            ) : null}
+          </div>
+        </nav>
+      ) : null}
     </div>
   );
 }

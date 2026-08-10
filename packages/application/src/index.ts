@@ -29,6 +29,14 @@ export {
   type AuditEventRecord,
 } from '@wariba/database';
 export {
+  parseAuditQuery,
+  auditPageHref,
+  auditTotalPages,
+  AUDIT_PAGE_SIZES,
+  type AuditQuery,
+  type AuditSearchParams,
+} from './control-audit-view';
+export {
   CONTROL_AREAS,
   canReadControlArea,
   controlArea,
