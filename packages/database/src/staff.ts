@@ -110,6 +110,18 @@ const CONTROL_PERMISSION_REQUIREMENTS: Record<ControlPermission, readonly StaffR
   'staff_directory.view': ['admin'],
 };
 
+/**
+ * Every permission that exists, at runtime.
+ *
+ * Derived from the requirements table rather than restated, so a test can
+ * assert what is *absent* — "Control has no policy.publish" is only a real
+ * guarantee if it is checked against the actual set rather than a list
+ * someone maintains alongside it.
+ */
+export const CONTROL_PERMISSIONS = Object.keys(
+  CONTROL_PERMISSION_REQUIREMENTS,
+) as readonly ControlPermission[];
+
 export function staffCan(role: StaffRole, permission: ControlPermission): boolean {
   return CONTROL_PERMISSION_REQUIREMENTS[permission].some((required) =>
     staffRoleSatisfies(role, required),

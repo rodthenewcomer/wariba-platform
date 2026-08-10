@@ -21,11 +21,55 @@ import {
  * session experiences (not just the DB-level RLS covered by
  * packages/database/tests/staff-rls.integration.test.ts).
  */
-async function login(page: import('@playwright/test').Page, email: string) {
-  await page.goto('/login');
-  await page.getByLabel('Adresse email').fill(email);
-  await page.getByLabel('Mot de passe').fill(STAFF_E2E_TEST_PASSWORD);
-  await page.getByRole('button', { name: 'Se connecter' }).click();
+type BrowserCookies = Awaited<ReturnType<import('@playwright/test').BrowserContext['cookies']>>;
+
+/**
+ * One real sign-in per fixture user, captured once in beforeAll.
+ *
+ * Supabase caps sign-ins at `sign_in_sign_ups = 30` per five minutes per IP
+ * (supabase/config.toml). This spec exercises ~50 role checks; authenticating
+ * for each one exceeded that limit and GoTrue started rejecting logins, which
+ * surfaced as a login that never reached /hub — indistinguishable from an
+ * authorization failure, and moving from test to test as the suite's timing
+ * shifted. The limit is a real protection and is not raised here: the suite
+ * simply stops asking for 50 sessions when it needs six.
+ */
+const sessions = new Map<string, BrowserCookies>();
+
+async function captureSession(
+  browser: import('@playwright/test').Browser,
+  email: string,
+): Promise<void> {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    await page.goto('/login');
+    await page.getByLabel('Adresse email').fill(email);
+    await page.getByLabel('Mot de passe').fill(STAFF_E2E_TEST_PASSWORD);
+    await page.getByRole('button', { name: 'Se connecter' }).click();
+    await page.waitForURL('**/hub', { timeout: 30_000 });
+
+    // Landing on /hub is not proof the session is usable by the next
+    // navigation: the redirect can complete before the auth cookie is
+    // committed to the jar. Waiting for the cookie is a real state check —
+    // it is the thing every later request will actually carry.
+    await expect
+      .poll(async () => (await context.cookies()).some((c) => c.name.includes('auth-token')), {
+        timeout: 15_000,
+      })
+      .toBe(true);
+    sessions.set(email, await context.cookies());
+  } finally {
+    await context.close();
+  }
+}
+
+/** Adopts a captured session. No network sign-in, so no rate-limit budget. */
+async function actAs(page: import('@playwright/test').Page, email: string): Promise<void> {
+  const cookies = sessions.get(email);
+  if (!cookies) throw new Error(`No captured session for ${email}.`);
+  await page.context().clearCookies();
+  await page.context().addCookies(cookies);
 }
 
 test.describe('WariX Control — role-based authorization', { tag: ['@control'] }, () => {
@@ -41,7 +85,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   let scenarioRunId: string;
   const createdVarianceRunIds: string[] = [];
 
-  test.beforeAll(async () => {
+  test.beforeAll(async ({ browser }) => {
     db = createStaffFixtureDb();
     payoutEnvironment = {
       databaseUrl: process.env.DATABASE_URL as string,
@@ -56,6 +100,19 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     adminStaff = await seedStaffUser(db, 'admin');
     payoutAccount = await seedPayoutAccount(payoutEnvironment, { createPendingRequest: true });
     ({ scenarioRunId } = await seedActuarialScenarioRun(db));
+
+    // Six sign-ins for the whole file — sequential, so the burst stays well
+    // inside Supabase's per-IP sign-in limit.
+    for (const user of [
+      trader,
+      supportStaff,
+      financeStaff,
+      complianceStaff,
+      riskStaff,
+      adminStaff,
+    ]) {
+      await captureSession(browser, user.email);
+    }
   });
 
   test.afterAll(async () => {
@@ -82,8 +139,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     'a regular trader (no staff role) is redirected away from /control to /hub',
     { tag: ['@smoke', '@critical'] },
     async ({ page }) => {
-      await login(page, trader.email);
-      await page.waitForURL('**/hub', { timeout: 30_000 });
+      await actAs(page, trader.email);
 
       await page.goto('/control');
       await page.waitForURL('**/hub', { timeout: 30_000 });
@@ -91,8 +147,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   );
 
   test('a support staff member reaches the Overview and Users sections', async ({ page }) => {
-    await login(page, supportStaff.email);
-    await page.waitForURL('**/hub', { timeout: 30_000 });
+    await actAs(page, supportStaff.email);
 
     await page.goto('/control');
     await expect(page).toHaveURL(/\/control$/);
@@ -107,8 +162,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     'a support staff member can inspect the Payout queue without gaining finance-only controls',
     { tag: ['@smoke', '@critical'] },
     async ({ page }) => {
-      await login(page, supportStaff.email);
-      await page.waitForURL('**/hub', { timeout: 30_000 });
+      await actAs(page, supportStaff.email);
 
       await page.goto('/control/payouts');
       await expect(page).toHaveURL(/\/control\/payouts$/);
@@ -122,8 +176,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   test('a finance staff member reaches Payouts but is redirected away from the support-only Users section', async ({
     page,
   }) => {
-    await login(page, financeStaff.email);
-    await page.waitForURL('**/hub', { timeout: 30_000 });
+    await actAs(page, financeStaff.email);
 
     await page.goto('/control/payouts');
     await expect(page).toHaveURL(/\/control\/payouts$/);
@@ -142,8 +195,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   test('an admin reaches every section, including finance- and support-scoped ones', async ({
     page,
   }) => {
-    await login(page, adminStaff.email);
-    await page.waitForURL('**/hub', { timeout: 30_000 });
+    await actAs(page, adminStaff.email);
 
     await page.goto('/control/users');
     await expect(page).toHaveURL(/\/control\/users$/);
@@ -172,8 +224,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   test('a compliance staff member reaches Audit but not the areas outside their scope @control', async ({
     page,
   }) => {
-    await login(page, complianceStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, complianceStaff.email);
 
     await page.goto('/control/audit');
     await expect(page).toHaveURL(/\/control\/audit$/);
@@ -190,8 +241,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   test('a support staff member is refused every area outside support scope @control', async ({
     page,
   }) => {
-    await login(page, supportStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, supportStaff.email);
 
     // Support reads accounts and the payout queue; it holds none of the
     // seven Prompt 09 read authorities, so each of these is a server-side
@@ -203,8 +253,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   });
 
   test('an admin reaches every Prompt 09 operating area @control', async ({ page }) => {
-    await login(page, adminStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, adminStaff.email);
 
     for (const { path } of AREA_CASES) {
       await page.goto(path);
@@ -217,8 +266,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   test('Control navigation only advertises areas the operator can open @control', async ({
     page,
   }) => {
-    await login(page, supportStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, supportStaff.email);
     await page.goto('/control');
 
     const nav = page.getByRole('navigation').first();
@@ -233,8 +281,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   test('the audit trail is read-only — no mutating control is offered @control', async ({
     page,
   }) => {
-    await login(page, adminStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, adminStaff.email);
     await page.goto('/control/audit');
 
     await expect(page.getByRole('heading', { name: 'Audit' })).toBeVisible();
@@ -250,8 +297,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   });
 
   test('audit filters are server-driven and survive in the URL @control', async ({ page }) => {
-    await login(page, adminStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, adminStaff.email);
     await page.goto('/control/audit');
 
     // Options come from recorded data, not a hard-coded list — the fixtures
@@ -281,8 +327,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   test('audit pagination keeps its filters and never exceeds the page size @control', async ({
     page,
   }) => {
-    await login(page, adminStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, adminStaff.email);
     // Smallest page size makes paging reachable with the handful of events
     // this suite's own sensitive actions have written.
     await page.goto('/control/audit?pageSize=25');
@@ -302,8 +347,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   });
 
   test('a hostile audit query normalises instead of failing @control', async ({ page }) => {
-    await login(page, adminStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, adminStaff.email);
     // A malformed UUID would be a Postgres error against a uuid column, and
     // a negative page would be a negative OFFSET — both must be dropped.
     await page.goto(
@@ -316,8 +360,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   test('the Users explorer searches server-side and masks addresses in the list @control', async ({
     page,
   }) => {
-    await login(page, supportStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, supportStaff.email);
     await page.goto('/control/users');
     await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible();
 
@@ -339,8 +382,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   test('a user detail page shows the full address and stays read-only @control', async ({
     page,
   }) => {
-    await login(page, supportStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, supportStaff.email);
     await page.goto(`/control/users/${payoutAccount.userId}`);
 
     // Targeted, single-subject lookup — the address is shown in full here.
@@ -353,8 +395,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   test('a malformed or unknown user id is a 404, never a database error @control', async ({
     page,
   }) => {
-    await login(page, adminStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, adminStaff.email);
 
     // A non-UUID would be a Postgres error against a uuid column.
     await page.goto('/control/users/not-a-uuid');
@@ -367,8 +408,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   test('finance cannot reach the Users explorer or a user detail page @control', async ({
     page,
   }) => {
-    await login(page, financeStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, financeStaff.email);
 
     // Refused server-side at both the list and the detail route — a direct
     // URL must not be a way around the area boundary.
@@ -381,8 +421,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   test('the Accounts explorer filters server-side and reports rejected values @control', async ({
     page,
   }) => {
-    await login(page, supportStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, supportStaff.email);
     await page.goto('/control/accounts');
     await expect(page.getByRole('heading', { name: 'Accounts' })).toBeVisible();
     await expect(page.getByRole('table')).toBeVisible();
@@ -403,8 +442,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   test('support opens an account and receives Overview and Trading only @control', async ({
     page,
   }) => {
-    await login(page, supportStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, supportStaff.email);
     await page.goto(`/control/accounts/${payoutAccount.accountId}`);
 
     // Authorized sections are present...
@@ -425,8 +463,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     // role holds. Their section authorities (risk.view, audit_evidence.view)
     // govern what a page they *can* open may return — they are not a way in.
     for (const staff of [riskStaff, complianceStaff]) {
-      await login(page, staff.email);
-      await page.waitForURL('**/hub');
+      await actAs(page, staff.email);
       await page.goto('/control/accounts');
       await expect(page, `${staff.email} must be refused the Accounts list`).toHaveURL(
         /\/control$/,
@@ -442,8 +479,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   test('an unauthorized section cannot be revealed by URL manipulation @control', async ({
     page,
   }) => {
-    await login(page, supportStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, supportStaff.email);
     // The section set is derived from the role alone; nothing in the query
     // string participates in that decision.
     await page.goto(
@@ -455,8 +491,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   });
 
   test('an admin receives every account section @control', async ({ page }) => {
-    await login(page, adminStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, adminStaff.email);
     await page.goto(`/control/accounts/${payoutAccount.accountId}`);
 
     for (const heading of [
@@ -473,8 +508,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   });
 
   test('a malformed account id is a 404, never a database error @control', async ({ page }) => {
-    await login(page, adminStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, adminStaff.email);
     await page.goto('/control/accounts/not-a-uuid');
     await expect(page.getByText(/introuvable|not found|404/i).first()).toBeVisible();
   });
@@ -483,8 +517,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     page,
   }) => {
     for (const staff of [riskStaff, financeStaff]) {
-      await login(page, staff.email);
-      await page.waitForURL('**/hub');
+      await actAs(page, staff.email);
       await page.goto('/control/incidents');
       await expect(page.getByRole('heading', { name: 'Incidents' })).toBeVisible();
 
@@ -504,8 +537,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   });
 
   test('Incidents filters are server-driven and drop unknown values @control', async ({ page }) => {
-    await login(page, riskStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, riskStaff.email);
     await page.goto('/control/incidents');
 
     await page.getByLabel('Statut').selectOption('open');
@@ -523,8 +555,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
 
   test('support and compliance are refused the Incidents console @control', async ({ page }) => {
     for (const staff of [supportStaff, complianceStaff]) {
-      await login(page, staff.email);
-      await page.waitForURL('**/hub');
+      await actAs(page, staff.email);
       await page.goto('/control/incidents');
       await expect(page, `${staff.email} must be refused Incidents`).toHaveURL(/\/control$/);
       await page.context().clearCookies();
@@ -534,8 +565,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   test('Market Ops shows structured operational truth and exposes no controls @control', async ({
     page,
   }) => {
-    await login(page, riskStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, riskStaff.email);
     await page.goto('/control/market-operations');
 
     await expect(page.getByRole('heading', { name: 'Market Ops' })).toBeVisible();
@@ -575,8 +605,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   test('Market Ops says "inconnu" rather than healthy when realtime is unreachable @control', async ({
     page,
   }) => {
-    await login(page, riskStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, riskStaff.email);
     await page.goto('/control/market-operations');
 
     // The Playwright stack runs one realtime instance with no standby, so
@@ -595,8 +624,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
 
   test('support, finance and compliance are refused Market Ops @control', async ({ page }) => {
     for (const staff of [supportStaff, financeStaff, complianceStaff]) {
-      await login(page, staff.email);
-      await page.waitForURL('**/hub');
+      await actAs(page, staff.email);
       await page.goto('/control/market-operations');
       await expect(page, `${staff.email} must be refused Market Ops`).toHaveURL(/\/control$/);
       await page.context().clearCookies();
@@ -604,8 +632,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   });
 
   test('Risk & Integrity is the risk operator’s route to an account @control', async ({ page }) => {
-    await login(page, riskStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, riskStaff.email);
     await page.goto('/control/integrity');
 
     await expect(page.getByRole('heading', { name: 'Dossiers d’intégrité' })).toBeVisible();
@@ -618,8 +645,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   test('a risk investigation carries evidence but not trader identity @control', async ({
     page,
   }) => {
-    await login(page, riskStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, riskStaff.email);
     await page.goto(`/control/integrity/${payoutAccount.accountId}`);
 
     await expect(page.getByRole('heading', { name: 'Intégrité' })).toBeVisible();
@@ -634,8 +660,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   });
 
   test('support cannot reach the risk investigation surface @control', async ({ page }) => {
-    await login(page, supportStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, supportStaff.email);
     await page.goto('/control/integrity');
     await expect(page).toHaveURL(/\/control$/);
     await page.goto(`/control/integrity/${payoutAccount.accountId}`);
@@ -652,8 +677,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   test('the payout queue filters in the database and reports what it could not apply @control', async ({
     page,
   }) => {
-    await login(page, financeStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, financeStaff.email);
     await page.goto('/control/payouts');
 
     await page.getByLabel('Statut').selectOption('pending_review');
@@ -682,8 +706,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
       .where('id', '=', payoutRequestId)
       .executeTakeFirstOrThrow();
 
-    await login(page, financeStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, financeStaff.email);
     await page.goto(`/control/payouts/${payoutRequestId}`);
 
     for (const heading of [
@@ -718,8 +741,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     const payoutRequestId = payoutAccount.payoutRequestId as string;
 
     // support holds payout.view and nothing else here.
-    await login(page, supportStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, supportStaff.email);
     await page.goto(`/control/payouts/${payoutRequestId}`);
     await expect(page.getByRole('heading', { name: 'Demande' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Réconciliation' })).toHaveCount(0);
@@ -727,15 +749,13 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     await page.context().clearCookies();
 
     // finance adds reconciliation.view — and still not audit_evidence.view.
-    await login(page, financeStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, financeStaff.email);
     await page.goto(`/control/payouts/${payoutRequestId}`);
     await expect(page.getByRole('heading', { name: 'Réconciliation' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Audit' })).toHaveCount(0);
     await page.context().clearCookies();
 
-    await login(page, adminStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, adminStaff.email);
     await page.goto(`/control/payouts/${payoutRequestId}`);
     await expect(page.getByRole('heading', { name: 'Réconciliation' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Audit' })).toBeVisible();
@@ -746,8 +766,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   }) => {
     const payoutRequestId = payoutAccount.payoutRequestId as string;
     for (const staff of [riskStaff, complianceStaff]) {
-      await login(page, staff.email);
-      await page.waitForURL('**/hub');
+      await actAs(page, staff.email);
       await page.goto('/control/payouts');
       await expect(page, `${staff.email} must be refused the payout queue`).toHaveURL(/\/control$/);
       await page.goto(`/control/payouts/${payoutRequestId}`);
@@ -757,8 +776,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   });
 
   test('a malformed payout id is a 404, never a database error @control', async ({ page }) => {
-    await login(page, financeStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, financeStaff.email);
     await page.goto('/control/payouts/not-a-uuid');
     await expect(page.getByText(/introuvable|not found|404/i).first()).toBeVisible();
   });
@@ -766,8 +784,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   test('the Treasury cockpit keeps cash, projection and simulated balances apart @control', async ({
     page,
   }) => {
-    await login(page, financeStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, financeStaff.email);
     await page.goto('/control/treasury');
 
     await expect(page.getByRole('heading', { name: 'Treasury' })).toBeVisible();
@@ -794,8 +811,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
 
   test('support, risk and compliance are refused Treasury @control', async ({ page }) => {
     for (const staff of [supportStaff, riskStaff, complianceStaff]) {
-      await login(page, staff.email);
-      await page.waitForURL('**/hub');
+      await actAs(page, staff.email);
       await page.goto('/control/treasury');
       await expect(page, `${staff.email} must be refused Treasury`).toHaveURL(/\/control$/);
       await page.context().clearCookies();
@@ -803,8 +819,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   });
 
   test('the Actuarial console separates MODEL, ACTUAL and VARIANCE @control', async ({ page }) => {
-    await login(page, riskStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, riskStaff.email);
     await page.goto('/control/actuarial');
 
     await expect(page.getByRole('heading', { name: 'Actuarial' })).toBeVisible();
@@ -825,8 +840,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   test('a recorded comparison is labelled by its coverage, never as validation @control', async ({
     page,
   }) => {
-    await login(page, riskStaff.email);
-    await page.waitForURL('**/hub');
+    await actAs(page, riskStaff.email);
     await page.goto('/control/actuarial');
 
     // Which model run sits in the first row is not this test's business:
@@ -894,10 +908,201 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
 
   test('support and compliance are refused the Actuarial console @control', async ({ page }) => {
     for (const staff of [supportStaff, complianceStaff]) {
-      await login(page, staff.email);
-      await page.waitForURL('**/hub');
+      await actAs(page, staff.email);
       await page.goto('/control/actuarial');
       await expect(page, `${staff.email} must be refused Actuarial`).toHaveURL(/\/control$/);
+      await page.context().clearCookies();
+    }
+  });
+
+  /**
+   * Prompt 09 milestone 5 — the governance surfaces.
+   *
+   * All three are read-only, and the tests assert that as an absence of
+   * controls rather than as a disabled button: the corresponding server
+   * operations do not exist, so there is nothing for the page to hide.
+   */
+  test('Policies shows one version in force per program, by database truth @control', async ({
+    page,
+  }) => {
+    // The seed deliberately holds two `published` WARIBA_ONE rows, both with
+    // retired_at NULL. Only the newest by created_at is what the engine
+    // pins accounts to — a surface that read "published and not retired"
+    // would claim two policies are in force at once.
+    const published = await db
+      .selectFrom('app.policy_versions')
+      .select(['semantic_version', 'created_at'])
+      .where('program', '=', 'WARIBA_ONE')
+      .where('status', '=', 'published')
+      .orderBy('created_at', 'desc')
+      .execute();
+    expect(published.length).toBeGreaterThan(1);
+    const inForce = published[0]?.semantic_version as string;
+    const alsoPublished = published[1]?.semantic_version as string;
+
+    await actAs(page, riskStaff.email);
+    await page.goto('/control/policies?program=WARIBA_ONE');
+
+    await expect(page.getByRole('heading', { name: 'Policies' })).toBeVisible();
+    const forceRow = page.getByRole('row').filter({ hasText: inForce });
+    await expect(forceRow.getByText('En vigueur')).toBeVisible();
+    const otherRow = page.getByRole('row').filter({ hasText: alsoPublished });
+    await expect(otherRow.getByText('En vigueur')).toHaveCount(0);
+  });
+
+  test('a policy version is inspectable and offers no lifecycle control @control', async ({
+    page,
+  }) => {
+    const policy = await db
+      .selectFrom('app.policy_versions')
+      .select(['id', 'semantic_version', 'machine_hash', 'human_document_hash'])
+      .where('program', '=', 'WARIBA_PERFORMANCE')
+      .where('status', '=', 'published')
+      .orderBy('created_at', 'desc')
+      .executeTakeFirstOrThrow();
+
+    await actAs(page, complianceStaff.email);
+    await page.goto(`/control/policies/${policy.id}`);
+
+    for (const heading of ['Identité', 'Intégrité', 'Usage opérationnel', 'Paramètres']) {
+      await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+    }
+    // Hashes are shown as stored, not recomputed for display.
+    if (policy.machine_hash) {
+      await expect(page.locator('body')).toContainText(policy.machine_hash);
+    }
+
+    // Read-only: no editable parameters, no save, no lifecycle transition.
+    await expect(page.locator('form')).toHaveCount(0);
+    await expect(page.locator('textarea')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: /publier|approuver|retirer|enregistrer|modifier/i }),
+    ).toHaveCount(0);
+  });
+
+  test('Policies filters server-side and drops unknown values @control', async ({ page }) => {
+    await actAs(page, riskStaff.email);
+    await page.goto('/control/policies');
+
+    await page.getByLabel('Programme').selectOption('WARIBA_PERFORMANCE');
+    await page.getByRole('button', { name: 'Filtrer' }).click();
+    await expect(page).toHaveURL(/[?&]program=WARIBA_PERFORMANCE/);
+    await expect(page.getByLabel('Programme')).toHaveValue('WARIBA_PERFORMANCE');
+
+    await page.goto('/control/policies?program=WARIBA_SECRET&status=live&version=latest');
+    await expect(page.getByText('Filtres ignorés')).toBeVisible();
+    await expect(page.getByLabel('Programme')).toHaveValue('');
+    await expect(page.getByLabel('Statut')).toHaveValue('');
+  });
+
+  test('support and finance are refused Policies @control', async ({ page }) => {
+    const policy = await db
+      .selectFrom('app.policy_versions')
+      .select('id')
+      .executeTakeFirstOrThrow();
+    for (const staff of [supportStaff, financeStaff]) {
+      await actAs(page, staff.email);
+      await page.goto('/control/policies');
+      await expect(page, `${staff.email} must be refused Policies`).toHaveURL(/\/control$/);
+      // Direct URL entry to a detail page is refused by the same guard.
+      await page.goto(`/control/policies/${policy.id}`);
+      await expect(page, `${staff.email} must be refused a policy detail`).toHaveURL(/\/control$/);
+      await page.context().clearCookies();
+    }
+  });
+
+  test('Commercial reports flag state and reserve zone as separate facts @control', async ({
+    page,
+  }) => {
+    const products = await db.selectFrom('app.products').select('code').execute();
+
+    await actAs(page, adminStaff.email);
+    await page.goto('/control/commercial');
+
+    await expect(page.getByRole('heading', { name: 'Commercial' })).toBeVisible();
+    for (const product of products) {
+      await expect(
+        page.getByRole('heading', { name: product.code, exact: true }),
+        `${product.code} must be listed from the database`,
+      ).toBeVisible();
+    }
+
+    // A flag key is an identifier. The page must name its canonical source
+    // and the fact that it is a build-time constant, not a runtime service.
+    await expect(page.getByText('SANDBOX_PRODUCT_FEATURE_FLAGS')).toBeVisible();
+    await expect(page.getByText('Constante de build')).toBeVisible();
+    // The two halves of availability are reported separately.
+    await expect(page.getByText('Zone autorise').first()).toBeVisible();
+    await expect(page.getByText(/FOUNDER_COHORT_GATE = NON IMPLÉMENTÉ/)).toBeVisible();
+
+    // Read-only: no canonical commercial mutation exists to surface.
+    await expect(page.locator('form')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: /enregistrer|modifier|retirer|activer|désactiver/i }),
+    ).toHaveCount(0);
+  });
+
+  test('scoped roles are refused Commercial @control', async ({ page }) => {
+    for (const staff of [supportStaff, riskStaff, financeStaff, complianceStaff]) {
+      await actAs(page, staff.email);
+      await page.goto('/control/commercial');
+      await expect(page, `${staff.email} must be refused Commercial`).toHaveURL(/\/control$/);
+      await page.context().clearCookies();
+    }
+  });
+
+  test('Team Access lists granted authority and offers no mutation @control', async ({ page }) => {
+    await actAs(page, adminStaff.email);
+    await page.goto('/control/team');
+
+    await expect(page.getByRole('heading', { name: 'Team Access' })).toBeVisible();
+    // Scoped to the fixtures this suite created, not "some row exists".
+    for (const staff of [riskStaff, financeStaff, complianceStaff, supportStaff]) {
+      const row = page.getByRole('row').filter({ hasText: staff.email });
+      await expect(row, `${staff.email} must appear in the directory`).toHaveCount(1);
+      await expect(row.getByText(staff.role as string, { exact: true })).toBeVisible();
+    }
+    // A trader has an auth identity and no grant — identity is not authority.
+    await expect(page.locator('body')).not.toContainText(trader.email);
+
+    await expect(page.getByText('La gestion des accès est en lecture seule')).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Autorité et identité historique' }),
+    ).toBeVisible();
+
+    await expect(
+      page.getByRole('button', {
+        name: /changer|ajouter|retirer|supprimer|désactiver|promouvoir|réinitialiser|usurper/i,
+      }),
+    ).toHaveCount(0);
+    // The only form is the GET filter — never a mutation.
+    const forms = page.locator('form');
+    await expect(forms).toHaveCount(1);
+    await expect(forms.first()).toHaveAttribute('method', /get/i);
+  });
+
+  test('Team Access filters by role server-side and drops unknown roles @control', async ({
+    page,
+  }) => {
+    await actAs(page, adminStaff.email);
+    await page.goto('/control/team');
+
+    await page.getByLabel('Rôle').selectOption('risk');
+    await page.getByRole('button', { name: 'Filtrer' }).click();
+    await expect(page).toHaveURL(/[?&]role=risk/);
+    await expect(page.getByRole('row').filter({ hasText: riskStaff.email })).toHaveCount(1);
+    await expect(page.getByRole('row').filter({ hasText: financeStaff.email })).toHaveCount(0);
+
+    await page.goto('/control/team?role=owner');
+    await expect(page.getByText('Filtres ignorés')).toBeVisible();
+    await expect(page.getByLabel('Rôle')).toHaveValue('');
+  });
+
+  test('scoped roles are refused Team Access @control', async ({ page }) => {
+    for (const staff of [supportStaff, riskStaff, financeStaff, complianceStaff]) {
+      await actAs(page, staff.email);
+      await page.goto('/control/team');
+      await expect(page, `${staff.email} must be refused Team Access`).toHaveURL(/\/control$/);
       await page.context().clearCookies();
     }
   });

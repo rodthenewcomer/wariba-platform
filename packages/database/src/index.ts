@@ -23,13 +23,47 @@ export type {
   PayoutProviderStatus,
   ActuarialScenarioName,
 } from './schema';
-export { getStaffRole, staffRoleSatisfies, staffCan, type ControlPermission } from './staff';
+export {
+  getStaffRole,
+  staffRoleSatisfies,
+  staffCan,
+  CONTROL_PERMISSIONS,
+  type ControlPermission,
+} from './staff';
 export {
   consumeStaffActionRateLimit,
   StaffActionRateLimitExceededError,
   type ConsumeStaffActionRateLimitParams,
 } from './staff-action-rate-limit';
 export { recordStaffAuditEvent, type RecordStaffAuditEventParams } from './audit';
+export {
+  searchControlPolicies,
+  loadControlPolicyDetail,
+  resolveEffectivePolicyVersionIds,
+  CONTROL_POLICIES_PAGE_SIZE,
+  POLICY_PROGRAMS,
+  POLICY_STATUSES,
+  type ControlPolicyFilters,
+  type ControlPolicyRow,
+  type ControlPolicyPage,
+  type ControlPolicyDetail,
+  type ControlPolicyUsage,
+  type PolicyProgram,
+  type PolicyStatus,
+} from './control-policies';
+export {
+  loadCommercialCatalogue,
+  type ControlProduct,
+  type ControlProductVersion,
+  type ControlCommercialCatalogue,
+} from './control-commercial';
+export {
+  searchStaffDirectory,
+  CONTROL_TEAM_PAGE_SIZE,
+  type ControlStaffFilters,
+  type ControlStaffMember,
+  type ControlStaffPage,
+} from './control-team';
 export {
   searchControlPayouts,
   loadControlPayoutDetail,
