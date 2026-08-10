@@ -182,39 +182,41 @@ These runbooks cover the Prompt 08 sandbox financial system. Production executio
 
 Appendix 08-A migrations are forward-only. Disable new runtime writers first, preserve the leadership row and financial evidence, deploy the prior compatible application only if its schema reads remain valid, and use a new compensating migration for schema rollback. Never edit or delete an applied migration. Before re-enabling traffic, run clean reset, database assertions, RLS, integration, restart, failover, and reconciliation checks.
 
-## Known Open Issue — Hub account-switcher navigation
+## Resolved — Hub account-switcher navigation
 
-**STATUS:** open, not fixed by Appendix 08-A. Recorded here rather than
-closed silently, because the acceptance audit surfaced it and the E2E suite
-routes around it.
+**STATUS:** fixed in Appendix 08-A. Recorded because the diagnosis is
+non-obvious and the same shape will recur anywhere a `force-dynamic` page is
+switched by search parameter.
 
 **SYMPTOM:** clicking an account in the Hub account switcher (`/hub`,
-`AccountSelector`) does not always commit the navigation. The link carries
-the correct `href` (`/hub?account=<id>`), a real mouse click fires the
-expected Next.js RSC request for the target account, and the address bar
-then stays on the previous account. A synthetic DOM `click` sometimes
-succeeds where a real mouse click does not, and the behaviour varies
-between runs on an identical build, so it is timing-dependent rather than a
-wiring error. Reproduced against `pnpm build && pnpm start`; the anchor node
-is not being replaced between mousedown and mouseup (checked), and no
-console error or failed response accompanies it.
+`AccountSelector`) did not commit the navigation. The link carried the
+correct `href`, the click reached the anchor, Next's router took it over
+(`defaultPrevented` became true) and issued the RSC request — and the
+address bar never changed. No console error, no failed response, no
+feedback of any kind: the trader's click simply did nothing.
 
-**IMPACT:** a trader with more than one account may have to click twice, or
-reload, to switch. No financial effect: account scoping is server-side, the
-deep link `/hub?account=<id>` always resolves correctly, and nothing is
-mutated by the failed interaction.
+**ROOT CAUSE:** switching account changes only a search parameter, so Next
+resolves it on the *same route segment*. There is no segment boundary to
+swap and no `loading.tsx` to fall back on, so the router commits the URL
+only once it has applied the new payload. The server produced that payload
+correctly every time — its own logs show `hub_viewed … state=soft_locked`
+for the target account on every attempt — but the client aborted the
+response (`net::ERR_ABORTED`) and kept the old URL. `next/link` and
+`router.push()` inside a `startTransition` both behaved identically, and
+disabling prefetch made no difference, which ruled out a prefetch race.
 
-**WHY IT WAS NOT MASKED:** the previous E2E test appeared to cover account
-switching but only ever clicked the link of the account already being
-displayed, so the URL changed merely by gaining a query parameter and a real
-switch was never exercised. The test now asserts the switcher's wiring by
-`href` and verifies state isolation by navigating directly, so the isolation
-guarantee is genuinely covered and this defect stays visible instead of
-being absorbed by a vacuous assertion.
+**FIX:** the switcher renders a plain anchor (`AccountSwitchLink`) and
+performs an ordinary document navigation. For this control that is also the
+honest behaviour: switching account replaces the entire page's data context
+— balance, mission, risk, positions, payouts — so there is no partial
+update worth preserving, and a full navigation cannot race an in-flight
+payload or leave a stale account snapshot. Keyboard, middle-click and
+open-in-new-tab are unaffected.
 
-**IMMEDIATE SAFE ACTION:** none required; advise reload if reported.
+**WHY THE OLD TEST DID NOT CATCH IT:** the multi-account E2E clicked the
+link of the account it was already displaying, so the URL changed merely by
+gaining a query parameter and a real switch was never exercised. It now
+starts on account A, clicks through to account B, asserts B's own status,
+risk and PnL, then clicks back to A and asserts A's state returns — with
+both accounts targeted by id rather than by status label.
 
-**NEXT STEP:** investigate the Next.js client router's handling of a
-same-route search-param navigation on a `force-dynamic` page under a
-production build, before relying on client-side account switching in any
-new flow.

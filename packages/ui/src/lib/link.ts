@@ -9,5 +9,12 @@ export type LinkComponentType = ComponentType<{
   href: string;
   className?: string;
   'aria-current'?: 'page' | undefined;
+  /**
+   * Next.js's prefetch opt-out. Kept optional and framework-neutral (a
+   * router without prefetching simply ignores it) so @wariba/ui stays
+   * uncoupled while callers that must not race a speculative fetch against
+   * their own navigation can say so.
+   */
+  prefetch?: boolean;
   children: ReactNode;
 }>;

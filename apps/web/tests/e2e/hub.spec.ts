@@ -152,12 +152,11 @@ test.describe('Trader Hub', { tag: ['@auth'] }, () => {
       'multi-account isolation: switching accounts never mixes up state or risk',
       { tag: ['@smoke', '@critical', '@risk'] },
       async ({ page }) => {
-        // Start from the primary account explicitly. /hub defaults to
-        // accounts[0], and which account that is depends on
-        // listAccountsForUser's ordering — so "click the other one" is only
-        // a real account switch if we first pin where we are. Landing on the
-        // soft-locked account by default made the click a no-op navigation
-        // and the URL never changed.
+        // Start from the primary explicitly. /hub defaults to accounts[0],
+        // and which account that is depends on listAccountsForUser's
+        // ordering — so "click the other one" is only a real switch if we
+        // first pin where we are. Without this the test could land on the
+        // soft-locked account already and pass while switching nothing.
         const primary = loadPrimaryFixture();
         await page.goto(`/hub?account=${primary.accountId}`);
         const selector = page.getByRole('navigation', { name: 'Changer de compte' });
@@ -166,21 +165,13 @@ test.describe('Trader Hub', { tag: ['@auth'] }, () => {
         // "before" half of the isolation assertion below.
         await expect(page.getByRole('link', { name: 'Ouvrir WariX' })).toHaveCount(1);
 
-        // The switcher must point at the other account by id — this is the
-        // wiring that makes switching possible at all, and it is asserted by
-        // identity rather than by status label so the two accounts can never
-        // be confused for one another.
+        // Switch through the real control a trader uses. Accounts are
+        // targeted by id rather than by status label so the two can never be
+        // confused for one another.
         const softLockedLink = selector.locator(`a[href="/hub?account=${secondary.accountId}"]`);
         await expect(softLockedLink).toContainText('Blocage temporaire');
+        await softLockedLink.click();
 
-        // Then land on that account and assert none of the primary's state
-        // came with it. This navigates rather than clicking: the click path
-        // through Next's client router is currently unreliable for this link
-        // (see WARIBA_Operations_Runbooks_Appendix_08A.md — the RSC request
-        // fires but the navigation does not always commit), and this test's
-        // subject is state isolation between accounts, not the router. The
-        // href assertion above still covers the switcher's wiring.
-        await page.goto(`/hub?account=${secondary.accountId}`);
         await expect(page).toHaveURL(new RegExp(`account=${secondary.accountId}`));
         // Soft-locked account: its own status, its own risk, its own -160 PnL
         // — and none of the primary's.
@@ -191,6 +182,16 @@ test.describe('Trader Hub', { tag: ['@auth'] }, () => {
           path: 'test-results/visual/hub-soft-locked-1440.png',
           fullPage: true,
         });
+
+        // ...and back again, through the switcher, to prove the switch is
+        // not one-way and that account A's state returns intact.
+        const primaryLink = selector.locator(`a[href="/hub?account=${primary.accountId}"]`);
+        await expect(primaryLink).toContainText('Actif');
+        await primaryLink.click();
+
+        await expect(page).toHaveURL(new RegExp(`account=${primary.accountId}`));
+        await expect(page.getByRole('link', { name: 'Ouvrir WariX' })).toHaveCount(1);
+        await expect(page.getByText('PnL du jour : -160 USD')).toHaveCount(0);
       },
     );
   });
