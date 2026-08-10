@@ -247,12 +247,14 @@ export {
   runStoredActuarialScenario,
   loadActuarialControlState,
   type ReplaceActuarialScenarioAssumptionsParams,
+  type RunStoredActuarialScenarioParams,
 } from './actuarial-scenarios';
 
 export {
   buildActuarialConsoleView,
   recordActuarialVariance,
   resolveActuarialModelValidation,
+  ACTUAL_POPULATION_SCOPE,
   type ActuarialConsoleView,
   type ActuarialModelValidation,
   type RecordActuarialVarianceParams,

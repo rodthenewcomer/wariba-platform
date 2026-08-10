@@ -12,7 +12,11 @@ import {
   StatTile,
   Text,
 } from '@wariba/ui';
-import { buildActuarialConsoleView, staffRoleSatisfies } from '@wariba/application';
+import {
+  ACTUAL_POPULATION_SCOPE,
+  buildActuarialConsoleView,
+  staffRoleSatisfies,
+} from '@wariba/application';
 import type { VarianceCoverage } from '@wariba/domain';
 import { requireControlArea } from '../../../../lib/staff-auth';
 import { getDb } from '../../../../lib/db';
@@ -96,6 +100,13 @@ export default async function ControlActuarialPage() {
         {view.validation.latestSampleSize === null
           ? null
           : ` Échantillon réel : ${view.validation.latestSampleSize} (seuil de comparabilité : ${view.validation.minimumComparableSample}).`}
+      </Alert>
+
+      {/* ACTUARIAL-VARIANCE-002. Two columns side by side imply the same
+          population; here they do not, and the only honest fix is to say so
+          rather than let the layout make the claim. */}
+      <Alert level="information" title="Portée de la comparaison">
+        {ACTUAL_POPULATION_SCOPE}
       </Alert>
 
       <Card padding="comfortable" className="flex flex-col gap-4">

@@ -39,6 +39,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   let riskStaff: StaffFixtureUser;
   let adminStaff: StaffFixtureUser;
   let scenarioRunId: string;
+  const createdVarianceRunIds: string[] = [];
 
   test.beforeAll(async () => {
     db = createStaffFixtureDb();
@@ -60,6 +61,9 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
   test.afterAll(async () => {
     // Before the staff users: a variance run references its executor.
     await deleteActuarialVarianceRuns(db, scenarioRunId);
+    for (const id of createdVarianceRunIds) {
+      await db.deleteFrom('app.actuarial_variance_runs').where('id', '=', id).execute();
+    }
     for (const user of [
       trader,
       supportStaff,
@@ -825,8 +829,19 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     await page.waitForURL('**/hub');
     await page.goto('/control/actuarial');
 
-    // Comparing writes a third artifact against the seeded MODEL run; it
-    // edits neither the run's snapshot nor the measured actuals.
+    // Which model run sits in the first row is not this test's business:
+    // `app.actuarial_scenario_runs` is immutable, so every earlier suite
+    // that executed one leaves it there forever. The assertion is about the
+    // comparison the operator just triggered, identified by being the one
+    // that did not exist beforehand.
+    const before = new Set(
+      (await db.selectFrom('app.actuarial_variance_runs').select('id').execute()).map(
+        (run) => run.id,
+      ),
+    );
+
+    // Comparing writes a third artifact; it edits neither the run's snapshot
+    // nor the measured actuals.
     const row = page
       .getByRole('row')
       .filter({ has: page.getByRole('button', { name: 'Comparer' }) });
@@ -842,23 +857,23 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     await expect
       .poll(
         async () => {
-          const latest = await db
-            .selectFrom('app.actuarial_variance_runs')
-            .select('id')
-            .where('scenario_run_id', '=', scenarioRunId)
-            .executeTakeFirst();
-          return latest?.id ?? null;
+          const rows = await db.selectFrom('app.actuarial_variance_runs').select('id').execute();
+          return rows.some((run) => !before.has(run.id));
         },
         { timeout: 30_000 },
       )
-      .not.toBeNull();
+      .toBe(true);
 
     const latest = await db
       .selectFrom('app.actuarial_variance_runs')
-      .select(['coverage', 'actual_sample_size', 'executed_by'])
+      .select(['id', 'coverage', 'actual_sample_size', 'executed_by'])
       .orderBy('executed_at', 'desc')
       .limit(1)
       .executeTakeFirstOrThrow();
+    expect(before.has(latest.id)).toBe(false);
+    // Deleted in afterAll before the staff users: executed_by references
+    // auth.users, and a lingering comparison would pin this operator.
+    createdVarianceRunIds.push(latest.id);
     // Attributed to the operator who ran it, not to whoever the page said.
     expect(latest.executed_by).toBe(riskStaff.userId);
 

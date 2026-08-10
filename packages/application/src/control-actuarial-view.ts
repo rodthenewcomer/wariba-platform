@@ -80,6 +80,23 @@ export function resolveActuarialModelValidation(
   };
 }
 
+/**
+ * ACTUARIAL-VARIANCE-002 — what the ACTUAL side actually is.
+ *
+ * `measureActuarialActuals` counts the whole persisted operational
+ * population: every paid purchase order, every activation, every settled
+ * payout, with no cohort identity and no date window. MODEL, by contrast,
+ * simulates one specific cohort. The canonical 08-A engine has no matching
+ * mechanism, and Prompt 09 does not invent one — so a comparison is an
+ * order-of-magnitude indicator, never a paired statistical test.
+ *
+ * Stating that on the surface is the point. A MODEL column beside an ACTUAL
+ * column implies they describe the same population; where they do not, the
+ * only honest fix is to say so.
+ */
+export const ACTUAL_POPULATION_SCOPE =
+  'Le côté RÉEL mesure toute la population opérationnelle persistée : aucun appariement de cohorte, aucune fenêtre temporelle. Le MODÈLE simule une cohorte donnée. La comparaison est un ordre de grandeur, pas un test statistique apparié.';
+
 export interface ActuarialConsoleView {
   scenarios: Awaited<ReturnType<typeof loadActuarialControlState>>['scenarios'];
   runs: Awaited<ReturnType<typeof loadActuarialControlState>>['runs'];
@@ -123,37 +140,46 @@ export interface RecordActuarialVarianceParams {
  * supplied by the caller — a variance whose model half came from the browser
  * would compare reality against whatever the operator typed. The ACTUAL side
  * is measured fresh. Neither existing artifact is modified.
+ *
+ * The whole sequence — model load, actual measurement, artifact insert,
+ * staff audit insert — runs in one transaction. A sensitive actuarial
+ * mutation that produced a stored comparison with no accountable actor
+ * would be evidence nobody could stand behind, so the two rows exist
+ * together or not at all. Reading the MODEL inside the transaction also
+ * means the snapshot cannot change underneath the comparison.
  */
 export async function recordActuarialVariance(
   db: Db,
   params: RecordActuarialVarianceParams,
 ): Promise<PersistedActuarialVarianceRun> {
-  const model = await loadActuarialScenarioRunModel(db, params.scenarioRunId);
-  const now = new Date();
-  const run = await recordActuarialVarianceRun(db, {
-    scenarioRunId: params.scenarioRunId,
-    model,
-    executedBy: params.executedBy,
-    now,
-  });
+  return db.transaction().execute(async (trx) => {
+    const model = await loadActuarialScenarioRunModel(trx, params.scenarioRunId);
+    const now = new Date();
+    const run = await recordActuarialVarianceRun(trx, {
+      scenarioRunId: params.scenarioRunId,
+      model,
+      executedBy: params.executedBy,
+      now,
+    });
 
-  await recordStaffAuditEvent(db, {
-    actorId: params.executedBy,
-    actorRole: params.executedByRole,
-    permission: 'actuarial.modify',
-    action: 'actuarial.variance_recorded',
-    targetType: 'actuarial_variance_run',
-    targetId: run.id,
-    before: null,
-    after: {
-      scenarioRunId: run.scenarioRunId,
-      coverage: run.coverage,
-      actualSampleSize: run.actualSampleSize,
-    },
-    reason: 'Compare persisted actuarial model against measured actuals',
-    correlationId: params.correlationId ?? run.id,
-    occurredAt: run.executedAt,
-  });
+    await recordStaffAuditEvent(trx, {
+      actorId: params.executedBy,
+      actorRole: params.executedByRole,
+      permission: 'actuarial.modify',
+      action: 'actuarial.variance_recorded',
+      targetType: 'actuarial_variance_run',
+      targetId: run.id,
+      before: null,
+      after: {
+        scenarioRunId: run.scenarioRunId,
+        coverage: run.coverage,
+        actualSampleSize: run.actualSampleSize,
+      },
+      reason: 'Compare persisted actuarial model against measured actuals',
+      correlationId: params.correlationId ?? run.id,
+      occurredAt: run.executedAt,
+    });
 
-  return run;
+    return run;
+  });
 }

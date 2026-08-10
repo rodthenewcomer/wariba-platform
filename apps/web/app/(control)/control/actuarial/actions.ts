@@ -104,6 +104,9 @@ export async function executeActuarialScenarioAction(
       products: input.products,
       pspFeeRate: input.pspFeeRate,
       executedBy: session.userId,
+      // Risk and finance both hold actuarial.modify — the audit trail
+      // records which one actually ran it.
+      executedByRole: session.role,
     });
     revalidatePath('/control/actuarial');
     return {};
