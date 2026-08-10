@@ -39,6 +39,22 @@ export {
   type AccountSection,
 } from './control-account-sections';
 export {
+  searchControlIncidents,
+  loadIncidentCodes,
+  loadMarketOperationsState,
+  loadRiskCases,
+  loadRiskInvestigation,
+  CONTROL_INCIDENTS_PAGE_SIZE,
+  type ControlIncidentRow,
+  type ControlIncidentPage,
+  type ControlIncidentFilters,
+  type IncidentScope,
+  type MarketOperationsState,
+  type RiskCaseRow,
+  type RiskInvestigationDetail,
+  type RiskInvestigationSection,
+} from '@wariba/database';
+export {
   searchControlAccounts,
   loadControlAccountDetail,
   CONTROL_ACCOUNTS_PAGE_SIZE,

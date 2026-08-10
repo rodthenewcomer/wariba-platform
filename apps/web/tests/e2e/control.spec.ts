@@ -464,4 +464,130 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     await page.goto('/control/accounts/not-a-uuid');
     await expect(page.getByText(/introuvable|not found|404/i).first()).toBeVisible();
   });
+
+  test('the Incidents console is readable by risk and finance, and offers no resolution @control', async ({
+    page,
+  }) => {
+    for (const staff of [riskStaff, financeStaff]) {
+      await login(page, staff.email);
+      await page.waitForURL('**/hub');
+      await page.goto('/control/incidents');
+      await expect(page.getByRole('heading', { name: 'Incidents' })).toBeVisible();
+
+      // Resolution belongs to the domain that owns the rule — an integrity
+      // hold cannot clear while reconciliation fails, and a platform alert
+      // closes itself. A manual button here would be a third path knowing
+      // neither, so none exists.
+      await expect(page.getByRole('button', { name: /résoudre|resolve|clore|close/i })).toHaveCount(
+        0,
+      );
+      const forms = page.locator('form');
+      await expect(forms).toHaveCount(1);
+      await expect(forms.first()).toHaveAttribute('method', /get/i);
+
+      await page.context().clearCookies();
+    }
+  });
+
+  test('Incidents filters are server-driven and drop unknown values @control', async ({ page }) => {
+    await login(page, riskStaff.email);
+    await page.waitForURL('**/hub');
+    await page.goto('/control/incidents');
+
+    await page.getByLabel('Statut').selectOption('open');
+    await page.getByRole('button', { name: 'Filtrer' }).click();
+    await expect(page).toHaveURL(/[?&]status=open/);
+    await expect(page.getByLabel('Statut')).toHaveValue('open');
+
+    // An unknown value must not reach a checked column, and must not sit in
+    // the control looking applied.
+    await page.goto('/control/incidents?status=bogus&severity=nope&scope=elsewhere');
+    await expect(page.getByRole('heading', { name: 'Incidents' })).toBeVisible();
+    await expect(page.getByLabel('Statut')).toHaveValue('');
+    await expect(page.getByLabel('Sévérité')).toHaveValue('');
+  });
+
+  test('support and compliance are refused the Incidents console @control', async ({ page }) => {
+    for (const staff of [supportStaff, complianceStaff]) {
+      await login(page, staff.email);
+      await page.waitForURL('**/hub');
+      await page.goto('/control/incidents');
+      await expect(page, `${staff.email} must be refused Incidents`).toHaveURL(/\/control$/);
+      await page.context().clearCookies();
+    }
+  });
+
+  test('Market Ops shows leadership truth to risk and exposes no controls @control', async ({
+    page,
+  }) => {
+    await login(page, riskStaff.email);
+    await page.waitForURL('**/hub');
+    await page.goto('/control/market-operations');
+
+    await expect(page.getByRole('heading', { name: 'Market Ops' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Leadership realtime' })).toBeVisible();
+    // A <dt> is role=term — unambiguous, unlike a text match that also
+    // hits the explanatory hint beneath it.
+    await expect(page.getByRole('term').filter({ hasText: 'Epoch de fencing' })).toHaveCount(1);
+    await expect(page.getByRole('heading', { name: 'État du feed' })).toBeVisible();
+
+    // Leadership is arbitrated by a PostgreSQL lease; a promote/failover
+    // control here would be a second, unfenced writer.
+    await expect(
+      page.getByRole('button', { name: /promouvoir|promote|failover|redémarrer|restart/i }),
+    ).toHaveCount(0);
+    await expect(page.locator('form')).toHaveCount(0);
+    // No credential may ever render on this page.
+    await expect(page.locator('body')).not.toContainText('SUPABASE_SERVICE_ROLE_KEY');
+    await expect(page.locator('body')).not.toContainText('eyJhbGciOi');
+  });
+
+  test('support, finance and compliance are refused Market Ops @control', async ({ page }) => {
+    for (const staff of [supportStaff, financeStaff, complianceStaff]) {
+      await login(page, staff.email);
+      await page.waitForURL('**/hub');
+      await page.goto('/control/market-operations');
+      await expect(page, `${staff.email} must be refused Market Ops`).toHaveURL(/\/control$/);
+      await page.context().clearCookies();
+    }
+  });
+
+  test('Risk & Integrity is the risk operator’s route to an account @control', async ({ page }) => {
+    await login(page, riskStaff.email);
+    await page.waitForURL('**/hub');
+    await page.goto('/control/integrity');
+
+    await expect(page.getByRole('heading', { name: 'Dossiers d’intégrité' })).toBeVisible();
+    // Risk holds no account.view, so the generic explorer stays closed to it
+    // — this surface is the sanctioned way in.
+    await page.goto('/control/accounts');
+    await expect(page).toHaveURL(/\/control$/);
+  });
+
+  test('a risk investigation carries evidence but not trader identity @control', async ({
+    page,
+  }) => {
+    await login(page, riskStaff.email);
+    await page.waitForURL('**/hub');
+    await page.goto(`/control/integrity/${payoutAccount.accountId}`);
+
+    await expect(page.getByRole('heading', { name: 'Intégrité' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Réconciliation financière' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Incidents liés' })).toBeVisible();
+
+    // Minimum necessary identity: the account, never the person behind it.
+    await expect(page.locator('body')).not.toContainText(payoutAccount.email);
+    // Payout and audit evidence belong to other authorities entirely.
+    await expect(page.getByRole('heading', { name: 'Payout' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Audit' })).toHaveCount(0);
+  });
+
+  test('support cannot reach the risk investigation surface @control', async ({ page }) => {
+    await login(page, supportStaff.email);
+    await page.waitForURL('**/hub');
+    await page.goto('/control/integrity');
+    await expect(page).toHaveURL(/\/control$/);
+    await page.goto(`/control/integrity/${payoutAccount.accountId}`);
+    await expect(page).toHaveURL(/\/control$/);
+  });
 });
