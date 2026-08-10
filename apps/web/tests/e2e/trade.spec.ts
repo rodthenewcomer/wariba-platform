@@ -57,6 +57,39 @@ async function openTrade(page: import('@playwright/test').Page) {
   await expect(ticketTrigger).toBeEnabled();
 }
 
+/**
+ * Holds `order_result` frames back so an in-flight command has an
+ * observable window.
+ *
+ * The double-submit assertions below check that a button disables itself
+ * while its command is in flight. Against a warm local stack that round
+ * trip can finish in single-digit milliseconds, so racing the assertion
+ * against the click (Promise.all) only passed when the server happened to
+ * be slow — it failed as soon as the stack got faster, which is the wrong
+ * way round for a test that is supposed to be about the UI's behaviour.
+ *
+ * Delaying only the command's own reply makes the window deterministic
+ * without touching the product: market ticks, snapshots and every other
+ * frame still flow at full speed, and the assertion now measures what it
+ * claims to measure.
+ */
+async function delayOrderResults(
+  page: import('@playwright/test').Page,
+  delayMs: number,
+): Promise<void> {
+  await page.routeWebSocket(/\/ws(\?|$)/, (ws) => {
+    const server = ws.connectToServer();
+    ws.onMessage((message) => server.send(message));
+    server.onMessage(async (message) => {
+      const text = typeof message === 'string' ? message : '';
+      if (text.includes('"order_result"')) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+      ws.send(message);
+    });
+  });
+}
+
 async function openTouchChartMenu(page: import('@playwright/test').Page) {
   const chart = page.getByRole('group', { name: 'Graphique EURUSD' });
   await chart.scrollIntoViewIfNeeded();
@@ -96,17 +129,16 @@ test.describe('WariX order lifecycle', { tag: ['@trade'] }, () => {
     'submits a market order, shows it pending then filled, closes it, and reconciles history',
     { tag: ['@smoke', '@critical'] },
     async ({ page, tradeAccount }) => {
+      await delayOrderResults(page, 2_000);
       await login(page, tradeAccount.email, tradeAccount.password);
       await openTrade(page);
 
       const buyButton = page.getByRole('button', { name: 'Buy' }).first();
-      // Buttons show a spinner (Button's `loading` prop) the instant a command
-      // is in flight. Against this sandbox's local Supabase the round trip can
-      // resolve in a handful of milliseconds, so the disabled state must be
-      // asserted concurrently with the click — awaiting the click first would
-      // let the round trip finish (and the button re-enable) before this
-      // assertion starts polling at all.
-      await Promise.all([expect(buyButton).toBeDisabled(), buyButton.click()]);
+      // Buttons show a spinner (Button's `loading` prop) the instant a
+      // command is in flight. delayOrderResults holds the reply back, so the
+      // disabled state is observable rather than a race against the server.
+      await buyButton.click();
+      await expect(buyButton).toBeDisabled();
 
       await page.getByRole('tab', { name: 'Positions' }).click();
       // Not getByText: QuickOrderConfirm/PendingOrderConfirm render a
@@ -239,6 +271,7 @@ test.describe('WariX Close All', { tag: ['@trade'] }, () => {
     page,
     tradeAccount,
   }) => {
+    await delayOrderResults(page, 2_000);
     await login(page, tradeAccount.email, tradeAccount.password);
     await openTrade(page);
 
@@ -257,14 +290,12 @@ test.describe('WariX Close All', { tag: ['@trade'] }, () => {
 
     const confirmButton = page.getByRole('dialog').getByRole('button', { name: 'Confirmer' });
     // Double-submit protection: the button must be disabled/loading the
-    // instant it's clicked, before the server round trip finishes — a
-    // second rapid click must not be able to land. Against this sandbox's
-    // local Supabase, a 2-position close-all batch can fully resolve (and
-    // the dialog can flip to its result view) in a handful of
-    // milliseconds, so this must be asserted concurrently with the click —
-    // awaiting the click first would let that happen before the assertion
-    // starts polling at all.
-    await Promise.all([expect(confirmButton).toBeDisabled(), confirmButton.click()]);
+    // instant it's clicked, before the server round trip finishes, so a
+    // second rapid click cannot land. delayOrderResults holds the batch's
+    // replies back so that window is deterministic instead of depending on
+    // how fast the local stack happens to be.
+    await confirmButton.click();
+    await expect(confirmButton).toBeDisabled();
 
     await expect(page.getByText('Résultat — Tout fermer')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/2 positions? fermées?/)).toBeVisible();

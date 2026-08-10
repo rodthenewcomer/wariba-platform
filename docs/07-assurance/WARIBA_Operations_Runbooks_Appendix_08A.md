@@ -181,3 +181,40 @@ These runbooks cover the Prompt 08 sandbox financial system. Production executio
 ## Rollback and Migration Safety
 
 Appendix 08-A migrations are forward-only. Disable new runtime writers first, preserve the leadership row and financial evidence, deploy the prior compatible application only if its schema reads remain valid, and use a new compensating migration for schema rollback. Never edit or delete an applied migration. Before re-enabling traffic, run clean reset, database assertions, RLS, integration, restart, failover, and reconciliation checks.
+
+## Known Open Issue — Hub account-switcher navigation
+
+**STATUS:** open, not fixed by Appendix 08-A. Recorded here rather than
+closed silently, because the acceptance audit surfaced it and the E2E suite
+routes around it.
+
+**SYMPTOM:** clicking an account in the Hub account switcher (`/hub`,
+`AccountSelector`) does not always commit the navigation. The link carries
+the correct `href` (`/hub?account=<id>`), a real mouse click fires the
+expected Next.js RSC request for the target account, and the address bar
+then stays on the previous account. A synthetic DOM `click` sometimes
+succeeds where a real mouse click does not, and the behaviour varies
+between runs on an identical build, so it is timing-dependent rather than a
+wiring error. Reproduced against `pnpm build && pnpm start`; the anchor node
+is not being replaced between mousedown and mouseup (checked), and no
+console error or failed response accompanies it.
+
+**IMPACT:** a trader with more than one account may have to click twice, or
+reload, to switch. No financial effect: account scoping is server-side, the
+deep link `/hub?account=<id>` always resolves correctly, and nothing is
+mutated by the failed interaction.
+
+**WHY IT WAS NOT MASKED:** the previous E2E test appeared to cover account
+switching but only ever clicked the link of the account already being
+displayed, so the URL changed merely by gaining a query parameter and a real
+switch was never exercised. The test now asserts the switcher's wiring by
+`href` and verifies state isolation by navigating directly, so the isolation
+guarantee is genuinely covered and this defect stays visible instead of
+being absorbed by a vacuous assertion.
+
+**IMMEDIATE SAFE ACTION:** none required; advise reload if reported.
+
+**NEXT STEP:** investigate the Next.js client router's handling of a
+same-route search-param navigation on a `force-dynamic` page under a
+production build, before relying on client-side account switching in any
+new flow.
