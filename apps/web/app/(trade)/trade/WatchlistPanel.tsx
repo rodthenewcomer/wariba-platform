@@ -80,7 +80,11 @@ export const WatchlistPanel = memo(function WatchlistPanel({
   onSelectSymbol,
 }: WatchlistPanelProps) {
   return (
-    <aside className="flex flex-col gap-1 border-b border-[color:var(--wariba-theme-border)] p-[var(--wariba-component-trade-panel-padding)] lg:w-[var(--wariba-size-trade-watchlist-max)] lg:border-b-0 lg:border-r">
+    // W1: the panel no longer carries its own width, borders or page
+    // position — the workstation shell owns geometry now, and the same
+    // content renders in the desktop navigator column and the mobile sheet
+    // without being built twice. Market semantics are untouched.
+    <div className="flex min-h-0 flex-col gap-1 overflow-y-auto p-[var(--wariba-component-workstation-panel-padding)]">
       <Text variant="label-sm" color="tertiary" className="mb-1">
         Watchlist
       </Text>
@@ -94,6 +98,6 @@ export const WatchlistPanel = memo(function WatchlistPanel({
           onSelect={onSelectSymbol}
         />
       ))}
-    </aside>
+    </div>
   );
 });

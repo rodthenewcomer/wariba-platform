@@ -25,6 +25,16 @@ const OUT_DIR = 'test-results/warix-w0-baseline';
 
 test.describe('WariX W0 baseline', { tag: ['@warix-baseline'] }, () => {
   test('records current terminal geometry and screenshots', async ({ page, tradeAccount }) => {
+    // W1 §28 — the W0 baseline is a historical capture of the *pre-W1*
+    // terminal. Re-running it after the shell landed would overwrite that
+    // evidence with post-refactor numbers still labelled "current", which is
+    // worse than having no files at all. The W0 measurements live in
+    // docs/04-ux/WARIX_Workstation_2026_W0_Audit.md §3C; W1's own numbers are
+    // captured separately by warix-w1-geometry.spec.ts.
+    test.skip(
+      process.env.WARIX_CAPTURE_W0_BASELINE !== '1',
+      'Historical pre-W1 capture — set WARIX_CAPTURE_W0_BASELINE=1 against a pre-W1 checkout to re-record.',
+    );
     mkdirSync(OUT_DIR, { recursive: true });
 
     await page.goto('/login');

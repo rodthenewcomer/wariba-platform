@@ -9,6 +9,47 @@ Baseline: `main` @ `8d2ce25` (post-Prompt-09 merge). Branch:
 
 ---
 
+## 0. ACCEPTANCE & REVIEW CLARIFICATIONS
+
+W0 passed human architecture review. The forensic measurements below are
+unchanged; the four clarifications recorded here **override** any wording in
+later sections that reads more strongly than intended.
+
+**A. Market history — persistence is not yet decided.** A future
+`MarketHistoryPort` is accepted. §8's "OHLC persistence" must *not* be read as
+a locked architectural decision: W3 will choose between a provider historical
+API, WARIBA-owned persistence, WARIBA caching, or a hybrid, from the actual
+capabilities and licensing of the market-data provider once it is known. W1
+does not touch this.
+
+**B. Certification cadence.** W1 does **not** run WARIBA Full Certification —
+§11's exit column is amended accordingly. Per-milestone gates are: focused
+unit/component tests → relevant application/account integration → the WariX
+trade E2E affected by the change → relevant realtime functional and
+account-isolation tests → mobile WariX tests → accessibility regression → one
+PR Fast Gate. Full Certification is reserved for the final Workstation
+certification milestone unless a later architectural change requires
+otherwise.
+
+**C. Render-count semantics.** Risk-register item 3 is amended: the assertion
+is *not* "the entire dock renders zero times for N ticks".
+`PositionsTabPanel` legitimately subscribes to every tick to show live P&L.
+What must be proven is that a selected-symbol tick does not unnecessarily
+re-render `WorkstationShell`, `NavRail`, `WorkstationStatusBar`, the account
+switcher, dock chrome/tab bar, inactive dock panels, closed dialogs, or
+unrelated market rows. Legitimate consumers are the selected chart workspace,
+the Execution Center / current-quote presentation, the affected Market
+Navigator row, and visible Positions content whose live P&L depends on that
+tick.
+
+**D. Drawings, indicators, energies — unchanged.** Indicators come after real
+history; no fake EMA/SMA over session-only candle state; the drawing
+architecture retains the existing renderer-independent HTML overlay boundary
+unless future evidence disproves it; no empty Energies category is rendered
+while no authoritative instruments exist. None of these are implemented in W1.
+
+---
+
 ## 1. CURRENT_WARIX_ARCHITECTURE
 
 `apps/web/app/(trade)/` — 23 files, 6 030 lines.
@@ -479,5 +520,7 @@ W0_MOBILE_ARCHITECTURE_DEFINED  = true
 W0_DATA_GAPS_IDENTIFIED         = true
 W0_PRESERVE_BOUNDARIES_DEFINED  = true
 
-W0_ACCEPTED = false   (awaiting architecture review)
+W0_ACCEPTED = true    (architecture review passed — see §0)
 ```
+
+W1 is delivered in `WARIX_Workstation_2026_W1_Shell.md`.

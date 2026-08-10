@@ -112,6 +112,14 @@ const TIMEFRAMES = [
   { label: '1m', seconds: 60 },
 ] as const;
 
+/**
+ * Emergency fallback for the frame before the container has been measured
+ * (W1 §13). The steady-state height always comes from the ResizeObserver —
+ * if this value is ever what the trader sees, the chart column has zero
+ * computed height and that is the bug to fix, not this number.
+ */
+const CHART_FALLBACK_HEIGHT = 240;
+
 function readToken(element: HTMLElement, name: string, fallback: string): string {
   const value = getComputedStyle(element).getPropertyValue(name).trim();
   return value || fallback;
@@ -291,7 +299,13 @@ export function TradeChart({
     };
 
     const chart = createChart(container, {
-      height: 360,
+      // W1 §13 — the container owns the geometry. This literal is only the
+      // pre-measurement fallback for the single frame before the
+      // ResizeObserver below reports a real box (jsdom, or a container that
+      // has not been laid out yet); it must never become the steady-state
+      // height. `measure()` runs synchronously right after creation.
+      ...(container.clientWidth > 0 ? { width: container.clientWidth } : {}),
+      height: container.clientHeight || CHART_FALLBACK_HEIGHT,
       layout: { background: { color: background }, textColor },
       grid: {
         vertLines: { color: gridColor },
@@ -316,21 +330,53 @@ export function TradeChart({
     chartRef.current = chart;
     seriesRef.current = series;
 
-    const resize = () => {
-      if (containerRef.current) chart.applyOptions({ width: containerRef.current.clientWidth });
-    };
-    resize();
-    window.addEventListener('resize', resize);
-
     // Overlay positions depend on the price scale's visible range, which
     // can change on pan/zoom without any prop of this component changing —
     // re-render the overlay (chartVersion bump) whenever that happens, on
     // top of the tick-driven re-renders that already cover the common case.
     const bumpChartVersion = () => setChartVersion((v) => v + 1);
+
+    /**
+     * W1 §13/§14 — the fix for the W0 defect where `window.resize` applied
+     * **width only** and the 360 px creation literal survived every
+     * resolution (332 px of canvas at 2560×1440).
+     *
+     * Both dimensions are applied, and from the container's own box rather
+     * than the window's: the workstation grid can change this column's size
+     * without the window ever resizing (dock collapse, navigator drawer,
+     * device rotation, a scrollbar appearing). A ResizeObserver is the only
+     * mechanism that sees all of those.
+     *
+     * Every overlay coordinate (position/SL/TP lines, pending-order and
+     * alert lines, drag previews, context-menu price conversion) is derived
+     * from `priceToCoordinate`/`timeToCoordinate`, which both change when
+     * the price scale's pixel height changes — so a resize must bump
+     * chartVersion for the same reason a pan or zoom does. Without that,
+     * a resized chart would keep drawing yesterday's coordinates.
+     */
+    let lastWidth = 0;
+    let lastHeight = 0;
+    const measure = () => {
+      const node = containerRef.current;
+      if (!node) return;
+      const width = node.clientWidth;
+      const height = node.clientHeight;
+      if (width <= 0 || height <= 0) return;
+      if (width === lastWidth && height === lastHeight) return;
+      lastWidth = width;
+      lastHeight = height;
+      chart.applyOptions({ width, height });
+      bumpChartVersion();
+    };
+    measure();
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(container);
+
     chart.timeScale().subscribeVisibleLogicalRangeChange(bumpChartVersion);
 
     return () => {
-      window.removeEventListener('resize', resize);
+      observer.disconnect();
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(bumpChartVersion);
       chart.remove();
       chartRef.current = null;
@@ -889,8 +935,11 @@ export function TradeChart({
   const closeContextMenu = () => setContextMenu(null);
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
+    // W1 §9 — min-h-0 at every ownership boundary: without it a flex child
+    // refuses to shrink below its content, and the chart column would push
+    // the workstation grid past the viewport instead of taking what is left.
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <div className="flex shrink-0 items-center justify-between">
         <div className="flex gap-1">
           {TIMEFRAMES.map((tf) => (
             <button
@@ -911,10 +960,14 @@ export function TradeChart({
           UTC
         </span>
       </div>
-      <div className="relative">
+      {/* The overlays below are absolutely positioned against this box, and
+          the chart container fills it exactly (inset-0), so every
+          priceToCoordinate/timeToCoordinate value stays measured from the
+          same origin it was before the container started owning its height. */}
+      <div className="relative min-h-0 flex-1">
         <div
           ref={containerRef}
-          className="w-full"
+          className="absolute inset-0"
           role="group"
           aria-label={`Graphique ${symbol}`}
           onContextMenuCapture={handleContextMenuEvent}
