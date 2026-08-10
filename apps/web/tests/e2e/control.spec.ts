@@ -289,4 +289,69 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     await expect(page.getByRole('heading', { name: 'Audit' })).toBeVisible();
     await expect(page.getByRole('table')).toBeVisible();
   });
+
+  test('the Users explorer searches server-side and masks addresses in the list @control', async ({
+    page,
+  }) => {
+    await login(page, supportStaff.email);
+    await page.waitForURL('**/hub');
+    await page.goto('/control/users');
+    await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible();
+
+    // The seeded payout account's owner exists, so the roster is not empty.
+    await expect(page.getByRole('table')).toBeVisible();
+    // Bulk exposure is what masking exists to prevent: no full address may
+    // appear in the list, only the masked form.
+    await expect(page.getByRole('table')).toContainText('•••@');
+
+    // Searching is a read: it navigates, and the query survives in the URL.
+    await page.getByRole('searchbox').fill('no-such-user-anywhere');
+    await page.getByRole('button', { name: 'Rechercher' }).click();
+    await expect(page).toHaveURL(/[?&]q=no-such-user-anywhere/);
+    await expect(
+      page.getByText('Aucun utilisateur ne correspond à cette recherche.'),
+    ).toBeVisible();
+  });
+
+  test('a user detail page shows the full address and stays read-only @control', async ({
+    page,
+  }) => {
+    await login(page, supportStaff.email);
+    await page.waitForURL('**/hub');
+    await page.goto(`/control/users/${payoutAccount.userId}`);
+
+    // Targeted, single-subject lookup — the address is shown in full here.
+    await expect(page.getByText(payoutAccount.email)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Comptes' })).toBeVisible();
+    // Read-only: nothing on this page can change a user.
+    await expect(page.locator('form')).toHaveCount(0);
+  });
+
+  test('a malformed or unknown user id is a 404, never a database error @control', async ({
+    page,
+  }) => {
+    await login(page, adminStaff.email);
+    await page.waitForURL('**/hub');
+
+    // A non-UUID would be a Postgres error against a uuid column.
+    await page.goto('/control/users/not-a-uuid');
+    await expect(page.getByText(/introuvable|not found|404/i).first()).toBeVisible();
+
+    await page.goto('/control/users/00000000-0000-0000-0000-000000000000');
+    await expect(page.getByText(/introuvable|not found|404/i).first()).toBeVisible();
+  });
+
+  test('finance cannot reach the Users explorer or a user detail page @control', async ({
+    page,
+  }) => {
+    await login(page, financeStaff.email);
+    await page.waitForURL('**/hub');
+
+    // Refused server-side at both the list and the detail route — a direct
+    // URL must not be a way around the area boundary.
+    await page.goto('/control/users');
+    await expect(page).toHaveURL(/\/control$/);
+    await page.goto(`/control/users/${payoutAccount.userId}`);
+    await expect(page).toHaveURL(/\/control$/);
+  });
 });

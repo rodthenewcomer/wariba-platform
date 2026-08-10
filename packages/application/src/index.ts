@@ -20,6 +20,17 @@ export {
   type StaffRole,
   type ControlPermission,
 } from '@wariba/database';
+export { maskEmail, displayName } from './control-pii';
+export {
+  searchControlUsers,
+  loadControlUserDetail,
+  CONTROL_USERS_PAGE_SIZE,
+  type ControlUserRow,
+  type ControlUserPage,
+  type ControlUserDetail,
+  type ControlUserAccount,
+  type ControlUserLifecycleEvent,
+} from '@wariba/database';
 export {
   searchAuditEvents,
   loadAuditFilterOptions,
