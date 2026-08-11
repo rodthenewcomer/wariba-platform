@@ -7,6 +7,12 @@ interface Connection {
   subscribedChannels: Set<string>;
   lastPongAt: number;
   messageTimestamps: number[];
+  /**
+   * W3 §29 — history reads are metered on their own budget as well as the
+   * shared one, so a client looping history requests cannot starve order
+   * handling, account snapshots or market ticks of the shared allowance.
+   */
+  historyRequestTimestamps: number[];
 }
 
 /**
@@ -27,6 +33,7 @@ export class ConnectionRegistry {
       subscribedChannels: new Set(),
       lastPongAt: Date.now(),
       messageTimestamps: [],
+      historyRequestTimestamps: [],
     });
   }
 
@@ -85,6 +92,19 @@ export class ConnectionRegistry {
       return false;
     }
     conn.messageTimestamps.push(now);
+    return true;
+  }
+
+  /** Same fixed-window shape as `checkRateLimit`, on the history-only budget (W3 §29). */
+  checkHistoryRateLimit(connectionId: string, limit: number, windowMs: number): boolean {
+    const conn = this.connections.get(connectionId);
+    if (!conn) return false;
+    const now = Date.now();
+    conn.historyRequestTimestamps = conn.historyRequestTimestamps.filter((t) => now - t < windowMs);
+    if (conn.historyRequestTimestamps.length >= limit) {
+      return false;
+    }
+    conn.historyRequestTimestamps.push(now);
     return true;
   }
 
