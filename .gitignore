@@ -16,3 +16,7 @@ test-results
 playwright-report
 # Local before/after evidence from product and visual audits.
 output
+# Playwright global-setup session artifacts. Regenerated on every E2E run, and
+# storage-state.json holds a real access token for the throwaway fixture user —
+# never checked in.
+apps/web/tests/e2e/.auth

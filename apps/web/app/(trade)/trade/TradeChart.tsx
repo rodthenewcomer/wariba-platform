@@ -194,17 +194,26 @@ interface OrderDragSession {
  * server-side on drop (`onCommitLevel`) — see the component doc comment on
  * DragSession below for the click-vs-drag disambiguation.
  *
- * DATA-003 (same constraint PriceChart.tsx documented): no tick history is
- * persisted or fetched anywhere in this system — candles are built purely
- * from ticks received while this component is mounted, starting empty on
- * every mount and every symbol/timeframe change. This is why timeframes are
- * limited to a few short live-aggregatable windows rather than the usual
- * 1m/5m/1h/1d menu — a genuine, documented limitation (Prompt 07's own
- * "sélection timeframe (limitée et documentée)"), not an oversight.
+ * W3 — candles are no longer session-local. They are hydrated from history the
+ * realtime process genuinely observed from its own accepted-tick stream
+ * (`chart-history.ts`, `MarketHistoryPort`), then continued live from the tick
+ * store's imperative event stream. Two consequences worth stating here, because
+ * this comment previously asserted the opposite:
+ *
+ * - a mount or reload no longer starts empty, and no longer loses the current
+ *   bucket's true open — the server sends its in-progress bucket as a seed;
+ * - DATA-003 still holds. No tick tape and no candle table exist anywhere:
+ *   history lives in the realtime process's bounded memory, so depth is bounded
+ *   by that process's uptime and nothing survives its restart. That is a real,
+ *   documented product limitation, not an oversight.
+ *
+ * Timeframes stay limited to 5s/30s/1m for the same reason (Prompt 07's own
+ * "sélection timeframe (limitée et documentée)"): longer intervals would need
+ * more depth than process uptime provides.
  *
  * Fill markers (§22.6 "historique d'exécution") are restored from
- * AccountSnapshot.recentFills and updated from order_result. Tick candles
- * remain session-local because DATA-003 does not persist market history.
+ * AccountSnapshot.recentFills and updated from order_result — a separate
+ * concern from market history, and unchanged by W3.
  */
 export function TradeChart({
   symbol,
@@ -989,7 +998,9 @@ export function TradeChart({
   // Read at render time rather than mirrored into state: this component already
   // re-renders on every accepted tick (the `tick` prop), so the count is fresh
   // without a second subscription, and no extra render is caused by history.
-  const historyCandleCount = history.series().finalized.length;
+  const historySeries = history.series();
+  const historyCandleCount = historySeries.finalized.length;
+  const historyNewestBucket = historySeries.finalized.at(-1)?.startTime ?? '';
   const historyMessage =
     historyState.status === 'idle' || historyState.status === 'ready'
       ? null
@@ -1042,11 +1053,20 @@ export function TradeChart({
             execution control: pointer-events-none so it cannot intercept a
             crosshair, a drag or a long press. One restrained polite status
             region for the whole history lifecycle, so a transition is announced
-            once and individual candles never are (§75). */}
+            once and individual candles never are (§75).
+
+            The data-* attributes are W3 §86's deterministic evidence anchors.
+            The epoch is the opaque process-memory generation already carried in
+            the response (it holds no infrastructure detail), and it is what
+            makes "the same process memory survived this browser reload"
+            provable rather than asserted; the newest finalized bucket pins
+            *which* observed history is on screen. */}
         <div
           data-testid="chart-history-status"
           data-history-status={historyState.status}
           data-history-candles={historyCandleCount}
+          data-history-epoch={historyState.sourceEpoch ?? ''}
+          data-history-newest={historyNewestBucket}
           className="pointer-events-none absolute left-2 top-2 z-10"
         >
           {historyMessage && (
