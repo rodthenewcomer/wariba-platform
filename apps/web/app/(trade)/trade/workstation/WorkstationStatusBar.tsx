@@ -91,9 +91,9 @@ function Metric({
  *   untouched account's risk read "Données indisponibles". The *execution*
  *   gate still uses the tick-aware derivation, unchanged, in `ExecutionPanel`.
  * - **Responsive priority, not truncation.** Balance/target/consistency drop
- *   out below wide desktop; nothing is invented and nothing is lost —
- *   "Détail des règles" opens the full server-computed breakdown at every
- *   width.
+ *   out below wide desktop and the daily-loss figure below `sm`; nothing is
+ *   invented and nothing is lost — "Détail des règles" opens the full
+ *   server-computed breakdown at every width.
  *
  * Every figure is server-authoritative (`AccountSnapshot` / `AccountRisk`).
  * This component performs no arithmetic.
@@ -138,7 +138,17 @@ export const WorkstationStatusBar = memo(function WorkstationStatusBar({
           shows fewer. Each metric appears only from the width at which the
           whole row fits, and the bar's own `overflow-x-auto` is the last
           resort. Nothing is clipped and no figure is hidden without being
-          reachable through "Détail des règles". */}
+          reachable through "Détail des règles".
+
+          The ladder has to start at the *narrowest* supported width, not at
+          `sm`. Equity + DLL together measure ~150 px, which with the account
+          identity (~58), the seam, and the right-hand controls (~96) plus
+          gaps and padding needs 364 px — so at 320/360 the row did not fit
+          and the bar quietly became sideways-scrollable, putting
+          Notifications out of reach (the exact W2 §25 regression). Below
+          `sm` only the first metric fits, so only the first one is shown;
+          the daily-loss figure returns at `sm` and is reachable at every
+          width through "Détail des règles" → "Restant avant blocage". */}
       <dl data-testid="workstation-metrics" className="flex shrink-0 items-center gap-3">
         <Metric
           label="Equity"
@@ -152,6 +162,7 @@ export const WorkstationStatusBar = memo(function WorkstationStatusBar({
           value={risk ? `${risk.dailyLoss.remaining} USD` : '—'}
           shortValue={risk ? risk.dailyLoss.remaining : '—'}
           tone={tone}
+          className="hidden sm:flex"
         />
         <Metric
           label="Perte max restante"
