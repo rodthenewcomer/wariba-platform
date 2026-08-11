@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { AccountSnapshot, MarketTick, SymbolSpec } from '@wariba/contracts';
 
 /**
@@ -191,6 +191,18 @@ const SPEC: SymbolSpec = {
   commissionPerLot: '0.00',
 };
 
+/** A second instrument, so the symbol-change assertion has somewhere to go. */
+const NAS100_SPEC: SymbolSpec = {
+  ...SPEC,
+  symbol: 'NAS100',
+  assetClass: 'index_cfd_simulated',
+  pricePrecision: 2,
+  contractSize: '1',
+  minimumQuantity: '0.1',
+  maximumQuantity: '20',
+  quantityStep: '0.1',
+} as SymbolSpec;
+
 const SNAPSHOT: AccountSnapshot = {
   accountId: '11111111-1111-1111-1111-111111111111',
   programType: 'WARIBA_ONE',
@@ -362,6 +374,155 @@ describe('workstation render ownership', () => {
     expect(countOf('execution') - before.execution).toBe(0);
     expect(countOf('statusBar') - before.statusBar).toBe(0);
     expect(countOf('navigator') - before.navigator).toBe(0);
+  });
+
+  it('does not re-render anything above the Execution Center while the ticket is edited', async () => {
+    // W4 §68 — the counterpart of the tick assertion above, for the other
+    // high-frequency input on this screen. Before W4 the draft was `useState`
+    // in `TradeClient`, so a keystroke re-rendered the composition root, which
+    // rebuilds the JSX it passes as props (`headerAction`, `resizeHandle`, the
+    // dock's `account` object). Those are fresh objects each time, so `memo`
+    // could not hold anywhere below and the shell, navigator, status bar and
+    // dock all reconciled per character typed.
+    await act(async () => {
+      render(
+        <TradeClient
+          accountId={SNAPSHOT.accountId}
+          accountPublicId="WRB-0001"
+          userId="22222222-2222-2222-2222-222222222222"
+          wsUrl="ws://localhost:0/ws"
+          accounts={ACCOUNTS}
+        />,
+      );
+    });
+    await act(async () => {
+      emit({ type: 'symbol_specs', payload: { specs: [SPEC] } });
+      emit({ type: 'account.snapshot', payload: SNAPSHOT });
+      emit({ type: 'market.tick', payload: tick(0) });
+    });
+
+    const before = {
+      shell: countOf('shell'),
+      rail: countOf('rail'),
+      statusBar: countOf('statusBar'),
+      accountSwitcher: countOf('accountSwitcher'),
+      dock: countOf('dock'),
+      dialogs: countOf('dialogs'),
+      navigator: countOf('navigator'),
+      chartWorkspace: countOf('chartWorkspace'),
+      execution: countOf('execution'),
+    };
+
+    const quantity = screen.getByLabelText('Quantité (lots)') as HTMLInputElement;
+    // One `change` per character, the way the field actually receives them —
+    // `fireEvent` rather than a raw `input` dispatch because React tracks the
+    // previous value on the DOM node and ignores an event whose value it set
+    // itself.
+    const KEYSTROKES = ['0', '0.', '0.2', '0.25', '0.255'];
+    for (const value of KEYSTROKES) {
+      await act(async () => {
+        fireEvent.change(quantity, { target: { value } });
+      });
+    }
+    expect(quantity.value).toBe('0.255');
+
+    // The execution surface owns the draft and must track it.
+    expect(countOf('execution') - before.execution).toBeGreaterThanOrEqual(KEYSTROKES.length);
+
+    // Nothing else has a path to it — including the chart, which reads the
+    // draft only at click time (from the store, not a subscription).
+    expect(countOf('shell') - before.shell).toBe(0);
+    expect(countOf('rail') - before.rail).toBe(0);
+    expect(countOf('statusBar') - before.statusBar).toBe(0);
+    expect(countOf('accountSwitcher') - before.accountSwitcher).toBe(0);
+    expect(countOf('dock') - before.dock).toBe(0);
+    expect(countOf('dialogs') - before.dialogs).toBe(0);
+    expect(countOf('navigator') - before.navigator).toBe(0);
+    expect(countOf('chartWorkspace') - before.chartWorkspace).toBe(0);
+
+    // eslint-disable-next-line no-console
+    console.log(
+      `TICKET_DRAFT_OWNERSHIP N_KEYSTROKES=${KEYSTROKES.length} ` +
+        `WORKSTATION_SHELL_EXTRA_RENDERS=${countOf('shell') - before.shell} ` +
+        `NAV_RAIL_EXTRA_RENDERS=${countOf('rail') - before.rail} ` +
+        `STATUS_BAR_EXTRA_RENDERS=${countOf('statusBar') - before.statusBar} ` +
+        `ACCOUNT_SWITCHER_EXTRA_RENDERS=${countOf('accountSwitcher') - before.accountSwitcher} ` +
+        `DOCK_CHROME_EXTRA_RENDERS=${countOf('dock') - before.dock} ` +
+        `CLOSED_DIALOGS_EXTRA_RENDERS=${countOf('dialogs') - before.dialogs} ` +
+        `MARKET_NAVIGATOR_CHROME_EXTRA_RENDERS=${countOf('navigator') - before.navigator} ` +
+        `CHART_WORKSPACE_EXTRA_RENDERS=${countOf('chartWorkspace') - before.chartWorkspace} ` +
+        `EXECUTION_EXTRA_RENDERS=${countOf('execution') - before.execution}`,
+    );
+  });
+
+  it('clears the price levels — and only those — when the instrument changes', async () => {
+    // W4 §54, asserted through the real tree rather than on the store alone:
+    // a stop of 1.08500 carried from EURUSD onto NAS100 passes every check the
+    // fields apply (they validate syntax, not instrument range) and looks
+    // entirely plausible on screen. The quantity survives because it *is*
+    // re-validated against the new symbol's own bounds.
+    await act(async () => {
+      render(
+        <TradeClient
+          accountId={SNAPSHOT.accountId}
+          accountPublicId="WRB-0001"
+          userId="22222222-2222-2222-2222-222222222222"
+          wsUrl="ws://localhost:0/ws"
+          accounts={ACCOUNTS}
+        />,
+      );
+    });
+    await act(async () => {
+      emit({ type: 'symbol_specs', payload: { specs: [SPEC, NAS100_SPEC] } });
+      emit({ type: 'account.snapshot', payload: SNAPSHOT });
+      emit({ type: 'market.tick', payload: tick(0) });
+    });
+
+    const quantity = screen.getByLabelText('Quantité (lots)') as HTMLInputElement;
+    const stopLoss = screen.getByTestId('stop-loss-input') as HTMLInputElement;
+    const takeProfit = screen.getByTestId('take-profit-input') as HTMLInputElement;
+    await act(async () => {
+      fireEvent.change(quantity, { target: { value: '0.25' } });
+      fireEvent.change(stopLoss, { target: { value: '1.08000' } });
+      fireEvent.change(takeProfit, { target: { value: '1.09000' } });
+    });
+    expect(stopLoss.value).toBe('1.08000');
+
+    await act(async () => {
+      // The row's own select button, whose name opens with the symbol — not
+      // the favorite toggle beside it ("Ajouter NAS100 aux favoris").
+      fireEvent.click(screen.getByRole('button', { name: /^NAS100/ }));
+    });
+
+    expect((screen.getByTestId('stop-loss-input') as HTMLInputElement).value).toBe('');
+    expect((screen.getByTestId('take-profit-input') as HTMLInputElement).value).toBe('');
+    expect((screen.getByLabelText('Quantité (lots)') as HTMLInputElement).value).toBe('0.25');
+  });
+
+  it('mounts the Execution Center exactly once', async () => {
+    // W4 §69 — it used to be rendered in the shell column *and* inside the
+    // mobile bottom sheet, the desktop copy merely hidden by CSS: two tick
+    // subscriptions, two impact derivations, and every field twice in the DOM.
+    await act(async () => {
+      render(
+        <TradeClient
+          accountId={SNAPSHOT.accountId}
+          accountPublicId="WRB-0001"
+          userId="22222222-2222-2222-2222-222222222222"
+          wsUrl="ws://localhost:0/ws"
+          accounts={ACCOUNTS}
+        />,
+      );
+    });
+    await act(async () => {
+      emit({ type: 'symbol_specs', payload: { specs: [SPEC] } });
+      emit({ type: 'account.snapshot', payload: SNAPSHOT });
+      emit({ type: 'market.tick', payload: tick(0) });
+    });
+
+    expect(screen.getAllByTestId('execution-center')).toHaveLength(1);
+    expect(screen.getAllByLabelText('Quantité (lots)')).toHaveLength(1);
+    expect(screen.getAllByTestId('execution-submit-buy')).toHaveLength(1);
   });
 
   it('does not rebuild the session when favorites or search change', async () => {
