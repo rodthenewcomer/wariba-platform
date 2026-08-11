@@ -15,7 +15,7 @@ import {
   computeNetPnlAfterFees,
   subtractQuantity,
 } from '@wariba/domain';
-import type { OrderRejectionDetail } from './OrderTicket';
+import type { OrderRejectionDetail } from './execution/execution-contract';
 
 /**
  * subtractQuantity (like every other quantity in packages/domain) always

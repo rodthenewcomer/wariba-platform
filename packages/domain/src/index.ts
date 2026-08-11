@@ -133,6 +133,14 @@ export {
   type LevelPnlPreview,
 } from './chart-overlay';
 export {
+  isDecimalQuantityInput,
+  quantityDisplayScale,
+  stepQuantity,
+  deriveQuantityPresets,
+  DEFAULT_QUANTITY_PRESET_MULTIPLIERS,
+  type QuantityBounds,
+} from './execution-quantity';
+export {
   pendingOrderSide,
   isPendingOrderCreationPriceValid,
   isPendingOrderTriggered,
