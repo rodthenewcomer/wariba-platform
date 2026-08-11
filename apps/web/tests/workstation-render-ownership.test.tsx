@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, render } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import type { AccountSnapshot, MarketTick, SymbolSpec } from '@wariba/contracts';
 
 /**
@@ -102,6 +102,11 @@ vi.mock('../app/(trade)/trade/ExecutionPanel', async (importOriginal) => {
   return { ExecutionPanel: instrument('execution', actual.ExecutionPanel as never) };
 });
 
+vi.mock('../app/(trade)/trade/MarketNavigator', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../app/(trade)/trade/MarketNavigator')>();
+  return { MarketNavigator: instrument('navigator', actual.MarketNavigator as never) };
+});
+
 // Instrumented to be *reported*, not constrained: W0 §0.C is explicit that
 // this panel legitimately subscribes to every tick for live P&L.
 vi.mock('../app/(trade)/trade/PositionsTabPanel', async (importOriginal) => {
@@ -118,9 +123,14 @@ vi.mock('../app/(trade)/trade/TradeChart', () => ({
 /** A fake transport: no sockets, and the test drives the message handler. */
 type MessageHandler = (envelope: { type: string; payload: unknown }) => void;
 let emit: MessageHandler = () => {};
+/** Counts transport constructions, so a preference change cannot silently reconnect. */
+let openedSockets = 0;
 
 vi.mock('../lib/realtime-client', () => ({
   RealtimeClient: class {
+    constructor() {
+      openedSockets += 1;
+    }
     onStateChange(cb: (state: string) => void) {
       cb('open');
       return () => {};
@@ -162,6 +172,7 @@ const { TradeClient } = await import('../app/(trade)/trade/TradeClient');
 
 const SPEC: SymbolSpec = {
   symbol: 'EURUSD',
+  assetClass: 'forex_major',
   pricePrecision: 5,
   contractSize: '100000',
   leverage: 30,
@@ -206,6 +217,7 @@ const ACCOUNTS = [
     id: SNAPSHOT.accountId,
     href: `/trade?account=${SNAPSHOT.accountId}`,
     programLabel: 'WARIBA ONE',
+    programShortLabel: 'ONE',
     phaseLabel: 'Évaluation',
     nominalFormatted: '10 000 USD',
     publicId: 'WRB-0001',
@@ -254,6 +266,7 @@ describe('workstation render ownership', () => {
       chartWorkspace: countOf('chartWorkspace'),
       execution: countOf('execution'),
       positions: countOf('positions'),
+      navigator: countOf('navigator'),
     };
     expect(baseline.chartWorkspace).toBeGreaterThan(0);
 
@@ -269,6 +282,10 @@ describe('workstation render ownership', () => {
     expect(countOf('statusBar') - baseline.statusBar).toBe(0);
     expect(countOf('accountSwitcher') - baseline.accountSwitcher).toBe(0);
     expect(countOf('dock') - baseline.dock).toBe(0);
+    // W2 §32 — the Market Navigator's own chrome (search box, category
+    // headings, favorites section) must not reconcile for a price. Only the
+    // affected row does, and the row owns that subscription itself.
+    expect(countOf('navigator') - baseline.navigator).toBe(0);
     // Closed dialogs: the host must not reconcile either, which is only true
     // because each dialog is mounted on demand rather than rendered closed.
     expect(countOf('dialogs') - baseline.dialogs).toBe(0);
@@ -294,6 +311,7 @@ describe('workstation render ownership', () => {
         `CLOSED_DIALOGS_EXTRA_RENDERS=${countOf('dialogs') - baseline.dialogs} ` +
         `CHART_WORKSPACE_EXTRA_RENDERS=${countOf('chartWorkspace') - baseline.chartWorkspace} ` +
         `EXECUTION_EXTRA_RENDERS=${countOf('execution') - baseline.execution} ` +
+        `MARKET_NAVIGATOR_CHROME_EXTRA_RENDERS=${countOf('navigator') - baseline.navigator} ` +
         `VISIBLE_POSITIONS_CONTENT_EXTRA_RENDERS=${positionsExtra}`,
     );
     expect(positionsExtra).toBeGreaterThanOrEqual(0);
@@ -320,6 +338,7 @@ describe('workstation render ownership', () => {
       chartWorkspace: countOf('chartWorkspace'),
       execution: countOf('execution'),
       statusBar: countOf('statusBar'),
+      navigator: countOf('navigator'),
     };
 
     for (let i = 0; i < N_TICKS; i += 1) {
@@ -333,5 +352,39 @@ describe('workstation render ownership', () => {
     expect(countOf('chartWorkspace') - before.chartWorkspace).toBe(0);
     expect(countOf('execution') - before.execution).toBe(0);
     expect(countOf('statusBar') - before.statusBar).toBe(0);
+    expect(countOf('navigator') - before.navigator).toBe(0);
+  });
+
+  it('does not rebuild the session when favorites or search change', async () => {
+    // A layout/preference interaction must never disturb the transport: the
+    // command object's identity is what the whole tree depends on (W2 §32).
+    await act(async () => {
+      render(
+        <TradeClient
+          accountId={SNAPSHOT.accountId}
+          accountPublicId="WRB-0001"
+          userId="22222222-2222-2222-2222-222222222222"
+          wsUrl="ws://localhost:0/ws"
+          accounts={ACCOUNTS}
+        />,
+      );
+    });
+    await act(async () => {
+      emit({ type: 'symbol_specs', payload: { specs: [SPEC] } });
+      emit({ type: 'account.snapshot', payload: SNAPSHOT });
+    });
+
+    const socketsBefore = openedSockets;
+    const favoriteButton = screen.getAllByRole('button', { name: /aux favoris/ })[0] as HTMLElement;
+    await act(async () => {
+      favoriteButton.click();
+    });
+
+    // Same connection, same session: no reconnect, no resubscribe.
+    expect(openedSockets).toBe(socketsBefore);
+    // The favorited instrument now appears under Favoris *and* its category,
+    // so more than one toggle carries the "remove" label — that duplication is
+    // the projection working, not a bug.
+    expect(screen.getAllByRole('button', { name: /des favoris/ }).length).toBeGreaterThan(0);
   });
 });

@@ -34,7 +34,12 @@ import type { OrderRejectionDetail } from './OrderTicket';
 import { createTickStore, type TickStore } from './tick-store';
 import type { FillMarker } from './TradeChart';
 import { ORDER_TYPE_LABEL } from './trade-labels';
-import { payoutRejectionDetailFor, rejectionDetailFor, rejectionFor } from './trade-copy';
+import { rejectionDetailFor, rejectionFor } from './trade-copy';
+import {
+  applyPayoutResult,
+  requestPayoutCommand,
+  type PayoutSessionEffects,
+} from '../../../lib/payout-session';
 
 async function getAccessToken(): Promise<string | null> {
   const supabase = createSupabaseBrowserClient();
@@ -185,6 +190,18 @@ export function useTradeSession({
   const [notifications, setNotifications] = useState<AlertNotificationDTO[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [payoutAmountError, setPayoutAmountError] = useState<string | null>(null);
+
+  // WariX's side of the shared payout semantics (lib/payout-session.ts). Held
+  // in a ref so both the once-per-connection message handler and the stable
+  // command object can reach it without either being rebuilt.
+  const payoutEffectsRef = useRef<PayoutSessionEffects>({
+    setPending,
+    setPayoutAmountError,
+    announce: setStatusAnnouncement,
+    // WariX shares one `orderError` channel across every command, and issuing
+    // a payout has always cleared it.
+    clearCommandError: () => setOrderError(null),
+  });
 
   // Refs the stable command layer reads instead of capturing render-scoped
   // state — same reasoning as pendingCommandRef, applied to the two values
@@ -437,22 +454,14 @@ export function useTradeSession({
         }
         client.resync([userNotificationsChannel(userId)]);
       } else if (envelope.type === 'payout_result') {
-        // Re-subscribing for a fresh account.snapshot (rather than upserting
-        // result.request into local state) picks up the new payoutRequests
-        // entry AND the recomputed performanceProgress (cycle moves to
-        // payout_pending) in one round trip — same "resubscribe for truth"
-        // convention as pending_order_result/alert_result above.
-        setPending(false);
-        const result = envelope.payload as PayoutResultMessage;
-        if (result.status === 'rejected') {
-          const detail = payoutRejectionDetailFor(result.rejectionCode);
-          setPayoutAmountError(detail);
-          setStatusAnnouncement(`Refusé : ${detail}`);
-        } else {
-          setPayoutAmountError(null);
-          setStatusAnnouncement('Demande de payout envoyée.');
-        }
-        client.resync([accountStateChannel(accountId)]);
+        // One canonical reading of payout_result, shared with /payouts
+        // (W2 §16) — see lib/payout-session.ts.
+        applyPayoutResult(
+          client,
+          accountId,
+          envelope.payload as PayoutResultMessage,
+          payoutEffectsRef.current,
+        );
       } else if (envelope.type === 'notifications.snapshot') {
         const notificationsSnapshot = envelope.payload as NotificationsSnapshotMessage;
         setAlerts(notificationsSnapshot.alerts);
@@ -683,18 +692,7 @@ export function useTradeSession({
       // method) is PayoutCenterPanel's own proactive disable via
       // performanceProgress, never re-checked here.
       requestPayout(amount) {
-        if (!clientRef.current) return;
-        if (!(Number(amount) > 0)) {
-          setPayoutAmountError('Le montant demandé doit être positif.');
-          return;
-        }
-        setPayoutAmountError(null);
-        begin();
-        clientRef.current.requestPayout({
-          accountId,
-          idempotencyKey: crypto.randomUUID(),
-          requestedNetTraderCash: amount,
-        });
+        requestPayoutCommand(clientRef.current, accountId, amount, payoutEffectsRef.current);
       },
     };
   }, [accountId]);

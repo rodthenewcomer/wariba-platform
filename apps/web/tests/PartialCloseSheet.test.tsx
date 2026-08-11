@@ -25,6 +25,7 @@ beforeAll(() => {
 // only ever showed up against this padded shape, never a hand-typed '0.01'.
 const SPEC: SymbolSpec = {
   symbol: 'EURUSD',
+  assetClass: 'forex_major',
   pricePrecision: 5,
   contractSize: '100000',
   minimumQuantity: '0.0100',

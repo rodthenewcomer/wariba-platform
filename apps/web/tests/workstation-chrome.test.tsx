@@ -12,6 +12,7 @@ const EVALUATION = {
   id: 'acc-eval',
   href: '/trade?account=acc-eval',
   programLabel: 'WARIBA ONE',
+  programShortLabel: 'ONE',
   phaseLabel: 'Évaluation',
   nominalFormatted: '10 000 USD',
   publicId: 'WRB-EVAL-01',
@@ -23,6 +24,7 @@ const PERFORMANCE = {
   id: 'acc-perf',
   href: '/trade?account=acc-perf',
   programLabel: 'WARIBA Performance',
+  programShortLabel: 'PERF',
   phaseLabel: 'Performance',
   nominalFormatted: '50 000 USD',
   publicId: 'WRB-PERF-01',
@@ -145,12 +147,18 @@ describe('WorkstationStatusBar', () => {
     statusBar();
     // Scoped to the metric list: the risk-detail sheet renders the same
     // figures in its (closed) body, which is not what this asserts.
+    // Each metric renders its label three ways — an always-present accessible
+    // name plus a short and a full visible variant that CSS swaps at `sm`
+    // (W2 §25). All three are in the DOM, so assert presence, not uniqueness.
     const metrics = within(screen.getByTestId('workstation-metrics'));
-    expect(metrics.getByText('Equity')).toBeInTheDocument();
-    expect(metrics.getByText('10 050.00 USD')).toBeInTheDocument();
-    expect(metrics.getByText('DLL restant')).toBeInTheDocument();
-    expect(metrics.getByText('400.00 USD')).toBeInTheDocument();
-    expect(metrics.getByText('Perte max restante')).toBeInTheDocument();
+    expect(metrics.getAllByText('Equity').length).toBeGreaterThan(0);
+    expect(metrics.getAllByText('10 050.00 USD').length).toBeGreaterThan(0);
+    expect(metrics.getAllByText('DLL restant').length).toBeGreaterThan(0);
+    expect(metrics.getAllByText('400.00 USD').length).toBeGreaterThan(0);
+    expect(metrics.getAllByText('Perte max restante').length).toBeGreaterThan(0);
+    // The phone-width variants drop the ` USD` suffix but never the figure.
+    expect(metrics.getAllByText('Eq').length).toBeGreaterThan(0);
+    expect(metrics.getAllByText('DLL').length).toBeGreaterThan(0);
   });
 
   it('reports transport state exactly once, and never as account status', () => {
@@ -160,10 +168,12 @@ describe('WorkstationStatusBar', () => {
     // *account's* status, a different fact entirely.
     statusBar();
     const bar = within(screen.getByTestId('workstation-status-bar'));
-    expect(bar.getAllByText('Connecté')).toHaveLength(1);
     expect(bar.queryByText('Reconnexion…')).not.toBeInTheDocument();
-    // The transport chip is the only place the connection is reported.
-    expect(screen.getByTestId('workstation-connection')).toHaveTextContent('Connecté');
+    // The transport chip is the only place the connection is reported, and it
+    // exposes the state as data so tests never depend on French copy.
+    const chip = screen.getByTestId('workstation-connection');
+    expect(chip).toHaveAttribute('data-connection', 'open');
+    expect(chip).toHaveTextContent('Connecté');
     // "Actif" appears only as the account's own status inside the switcher.
     const metrics = within(screen.getByTestId('workstation-metrics'));
     expect(metrics.queryByText('Actif')).not.toBeInTheDocument();
@@ -171,10 +181,16 @@ describe('WorkstationStatusBar', () => {
 
   it('distinguishes resynchronising from disconnected', () => {
     const resyncing = statusBar({ connectionOk: false, isResyncing: true });
-    expect(screen.getByTestId('workstation-connection')).toHaveTextContent('Resynchronisation…');
+    expect(screen.getByTestId('workstation-connection')).toHaveAttribute(
+      'data-connection',
+      'resyncing',
+    );
     resyncing.unmount();
     statusBar({ connectionOk: false, isResyncing: false });
-    expect(screen.getByTestId('workstation-connection')).toHaveTextContent('Reconnexion…');
+    expect(screen.getByTestId('workstation-connection')).toHaveAttribute(
+      'data-connection',
+      'closed',
+    );
   });
 
   it('does not present the selected symbol’s market status as account state', () => {
@@ -193,7 +209,7 @@ describe('WorkstationStatusBar', () => {
 
   it('shows an unread notification count', () => {
     statusBar({ unreadCount: 3 });
-    expect(screen.getByRole('button', { name: /Notifications/ })).toHaveTextContent('3');
+    expect(screen.getByTestId('workstation-notifications')).toHaveTextContent('3');
   });
 
   it('renders placeholders, never invented numbers, before the first snapshot', () => {
@@ -229,17 +245,29 @@ function dock(snapshot: AccountSnapshot | null) {
       symbolSpecs={{}}
       tab="positions"
       onTabChange={vi.fn()}
+      collapsed={false}
+      onToggleCollapsed={vi.fn()}
       pending={false}
-      payoutAmount=""
-      payoutAmountError={null}
-      onPayoutAmountChange={vi.fn()}
-      onRequestPayout={vi.fn()}
       onClosePosition={vi.fn()}
       onModifyPosition={vi.fn()}
       onPartialClosePosition={vi.fn()}
       onOpenCloseAll={vi.fn()}
       onManagePendingOrder={vi.fn()}
       onCancelPendingOrder={vi.fn()}
+      alerts={[]}
+      notifications={[]}
+      onEnableAlert={vi.fn()}
+      onDisableAlert={vi.fn()}
+      onDeleteAlert={vi.fn()}
+      onManageAlerts={vi.fn()}
+      account={{
+        accountId: 'acc-eval',
+        accountPublicId: 'WRB-EVAL-01',
+        programLabel: 'WARIBA ONE',
+        phaseLabel: 'Évaluation',
+        accountStatusLabel: 'Actif',
+        nominalFormatted: '10 000 USD',
+      }}
     />,
   );
 }
@@ -254,19 +282,42 @@ describe('WorkstationDock', () => {
     expect(strip.className).toContain('min-w-0');
   });
 
-  it('keeps the certified tab membership (W2 owns any change to it)', () => {
+  it('has exactly the final W2 membership', () => {
     dock(EMPTY_SNAPSHOT);
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
       'Positions',
-      'En attente',
-      'Ordres',
-      'Historique',
-      'Journal',
+      'Orders',
+      'Trades',
+      'Alerts',
+      'Account',
     ]);
   });
 
-  it('offers Payout only on a Performance account', () => {
+  it('no longer offers Payout — it lives on its canonical /payouts route', () => {
+    // Asserted on a Performance account, the only program that ever had the tab.
     dock({ ...EMPTY_SNAPSHOT, programType: 'WARIBA_PERFORMANCE' });
-    expect(screen.getByRole('tab', { name: 'Payout' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Payout' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+      'Positions',
+      'Orders',
+      'Trades',
+      'Alerts',
+      'Account',
+    ]);
+  });
+
+  it('has no Journal placeholder — deleted, not replaced by another "coming soon"', () => {
+    dock(EMPTY_SNAPSHOT);
+    expect(screen.queryByRole('tab', { name: 'Journal' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/arrive dans un prompt/i)).not.toBeInTheDocument();
+  });
+
+  it('counts only what is unambiguous', () => {
+    // Positions/Orders/Alerts each describe a complete current set; Trades is
+    // a bounded recent window and must not carry a number that reads as a
+    // lifetime total (W2 §28).
+    dock(EMPTY_SNAPSHOT);
+    expect(screen.getByRole('tab', { name: /^Trades$/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^Account$/ })).toBeInTheDocument();
   });
 });

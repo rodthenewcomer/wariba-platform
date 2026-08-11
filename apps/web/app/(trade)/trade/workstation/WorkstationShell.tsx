@@ -3,6 +3,19 @@
 import { memo, type ReactNode } from 'react';
 
 export interface WorkstationShellProps {
+  /**
+   * Desktop layout dimensions (W2 §12/§13/§22/§23). The shell applies them and
+   * nothing else — it still owns no state, reads no data and subscribes to no
+   * tick. Collapsing genuinely removes the track rather than hiding a panel
+   * inside a track that still occupies space.
+   */
+  navigatorWidth: number;
+  navigatorCollapsed: boolean;
+  dockHeight: number;
+  dockCollapsed: boolean;
+  navigatorResizeHandle: ReactNode;
+  /** Shown in the chart cell while the navigator is collapsed, so it can always be brought back. */
+  navigatorRestore: ReactNode;
   rail: ReactNode;
   statusBar: ReactNode;
   /** Compact market trigger, mobile only — opens the navigator sheet. */
@@ -46,6 +59,12 @@ export interface WorkstationShellProps {
  * tables and the dock's tab strip own their own `overflow-x`.
  */
 export const WorkstationShell = memo(function WorkstationShell({
+  navigatorWidth,
+  navigatorCollapsed,
+  dockHeight,
+  dockCollapsed,
+  navigatorResizeHandle,
+  navigatorRestore,
   rail,
   statusBar,
   mobileMarketTrigger,
@@ -78,10 +97,17 @@ export const WorkstationShell = memo(function WorkstationShell({
       // Ignored while the shell is a flex column (<1024px); the grid tracks
       // below only take effect once `lg:grid` switches display.
       style={{
-        gridTemplateColumns:
-          'var(--wariba-component-workstation-rail-width) var(--workstation-nav-w) minmax(0, 1fr) var(--workstation-exec-w)',
-        gridTemplateRows:
-          'var(--wariba-component-workstation-statusbar-height) minmax(0, 1fr) var(--workstation-dock-h)',
+        // A collapsed navigator contributes a 0px track — the width is gone,
+        // not merely invisible, so the chart column actually receives it.
+        gridTemplateColumns: `var(--wariba-component-workstation-rail-width) ${
+          navigatorCollapsed ? '0px' : `${navigatorWidth}px`
+        } minmax(0, 1fr) var(--workstation-exec-w)`,
+        // Same for the dock: collapsed leaves only its header row.
+        gridTemplateRows: `var(--wariba-component-workstation-statusbar-height) minmax(0, 1fr) ${
+          dockCollapsed
+            ? 'var(--wariba-component-workstation-dock-collapsed-height)'
+            : `min(${dockHeight}px, 55dvh)`
+        }`,
       }}
     >
       <div className="hidden lg:[grid-area:1/1/3/2] lg:block">{rail}</div>
@@ -90,11 +116,20 @@ export const WorkstationShell = memo(function WorkstationShell({
 
       <div className="min-w-0 shrink-0 lg:hidden">{mobileMarketTrigger}</div>
 
-      <div className="hidden min-h-0 min-w-0 border-r border-[color:var(--wariba-component-workstation-seam)] lg:[grid-area:2/2/3/3] lg:flex lg:flex-col">
-        {navigator}
-      </div>
+      {/* Collapsed unmounts the navigator rather than hiding it: its rows each
+          hold a per-symbol tick subscription, and an invisible panel has no
+          business paying for them. */}
+      {navigatorCollapsed ? null : (
+        <div className="hidden min-h-0 min-w-0 lg:[grid-area:2/2/3/3] lg:flex lg:flex-row">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{navigator}</div>
+          {navigatorResizeHandle}
+        </div>
+      )}
 
       <div className="flex min-h-[40dvh] min-w-0 flex-1 flex-col lg:min-h-0 lg:[grid-area:2/3/3/4]">
+        {navigatorCollapsed ? (
+          <div className="hidden shrink-0 lg:block">{navigatorRestore}</div>
+        ) : null}
         {chart}
       </div>
 

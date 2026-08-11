@@ -3,14 +3,16 @@
 import { memo, useCallback, useState } from 'react';
 import { BottomSheet } from '@wariba/ui';
 import type { SymbolSpec, TradableSymbol } from '@wariba/contracts';
-import { WatchlistPanel } from '../WatchlistPanel';
+import { MarketNavigator } from '../MarketNavigator';
 import { useTick, type TickStore } from '../tick-store';
 
 export interface MobileMarketBarProps {
   store: TickStore;
   symbolSpecs: Partial<Record<TradableSymbol, SymbolSpec>>;
   selectedSymbol: TradableSymbol;
+  favorites: readonly TradableSymbol[];
   onSelectSymbol: (symbol: TradableSymbol) => void;
+  onToggleFavorite: (symbol: TradableSymbol) => void;
 }
 
 /**
@@ -22,9 +24,9 @@ export interface MobileMarketBarProps {
  * behind this ~36px trigger, in an already-certified BottomSheet, so the
  * chart starts immediately under the status bar.
  *
- * The list itself is the existing `WatchlistPanel`, unchanged: no search, no
- * favorites, no categories — those are W2's, and adding them here would mean
- * building the navigator twice.
+ * The sheet holds the same `MarketNavigator` the desktop column does — same
+ * catalogue, same categories, same favorites, same search (W2 §26). There is
+ * deliberately no second mobile market list to keep in step.
  *
  * This trigger shows the selected symbol's live quote, so it subscribes to
  * that one tick (a legitimate consumer under §16 — it is the selected
@@ -34,7 +36,9 @@ export const MobileMarketBar = memo(function MobileMarketBar({
   store,
   symbolSpecs,
   selectedSymbol,
+  favorites,
   onSelectSymbol,
+  onToggleFavorite,
 }: MobileMarketBarProps) {
   const [open, setOpen] = useState(false);
   const tick = useTick(store, selectedSymbol);
@@ -81,13 +85,20 @@ export const MobileMarketBar = memo(function MobileMarketBar({
       </button>
 
       <BottomSheet open={open} onClose={() => setOpen(false)} title="Marchés">
+        {/* The same navigator as desktop — same catalogue, same categories,
+            same favorites, same search. There is no second mobile market
+            list to keep in step (W2 §26). */}
         {open ? (
-          <WatchlistPanel
-            store={store}
-            symbolSpecs={symbolSpecs}
-            selectedSymbol={selectedSymbol}
-            onSelectSymbol={select}
-          />
+          <div className="max-h-[70dvh] min-h-0">
+            <MarketNavigator
+              store={store}
+              symbolSpecs={symbolSpecs}
+              selectedSymbol={selectedSymbol}
+              favorites={favorites}
+              onSelectSymbol={select}
+              onToggleFavorite={onToggleFavorite}
+            />
+          </div>
         ) : null}
       </BottomSheet>
     </>

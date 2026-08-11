@@ -49,9 +49,10 @@ test.describe('Performance payout request', { tag: ['@payout'] }, () => {
     { tag: ['@smoke', '@critical'] },
     async ({ page }) => {
       await login(page, payoutAccount);
-      await page.goto('/trade');
-      await expect(page.getByText('Connecté')).toBeVisible({ timeout: 30_000 });
-      await page.getByRole('tab', { name: 'Payout' }).click();
+      // W2 §16 — the Payout Center's canonical home. It used to be a tab in the
+      // WariX execution dock; the workflow, the command and the eligibility
+      // rules are unchanged, only where they are mounted.
+      await page.goto(`/payouts?account=${payoutAccount.accountId}`);
 
       const amount = page.getByLabel('Montant net demandé');
       await expect(amount).toBeVisible();
@@ -59,10 +60,11 @@ test.describe('Performance payout request', { tag: ['@payout'] }, () => {
       await amount.fill('1000');
       await page.getByRole('button', { name: 'Demander un payout' }).click();
 
-      const payoutPanel = page.getByRole('tabpanel');
-      await expect(payoutPanel.getByText('En revue')).toBeVisible({ timeout: 30_000 });
+      // No longer scoped to a tabpanel: on its canonical route the Payout
+      // Center is the page, not a dock tab.
+      await expect(page.getByText('En revue')).toBeVisible({ timeout: 30_000 });
       await expect(
-        payoutPanel.getByText('Une demande de payout est déjà en cours de revue pour ce cycle.'),
+        page.getByText('Une demande de payout est déjà en cours de revue pour ce cycle.'),
       ).toBeVisible();
       await expect(page.getByRole('button', { name: 'Approuver' })).toHaveCount(0);
     },

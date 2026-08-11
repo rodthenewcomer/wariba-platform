@@ -789,6 +789,7 @@ async function sendInitialSnapshot(
       .executeTakeFirstOrThrow();
     const specs: SymbolSpec[] = (Object.keys(symbolSpecs) as TradableSymbol[]).map((symbol) => ({
       symbol,
+      assetClass: symbolSpecs[symbol].assetClass,
       pricePrecision: symbolSpecs[symbol].pricePrecision,
       contractSize: symbolSpecs[symbol].contractSize,
       minimumQuantity: symbolSpecs[symbol].minimumQuantity,

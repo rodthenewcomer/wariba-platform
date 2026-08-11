@@ -1,71 +1,58 @@
 'use client';
 
-import { memo } from 'react';
-import {
-  Badge,
-  Button,
-  DataTable,
-  DataTableBody,
-  DataTableCell,
-  DataTableHead,
-  DataTableHeaderCell,
-  DataTableRow,
-  Tab,
-  TabList,
-  TabPanel,
-  Tabs,
-  Text,
-} from '@wariba/ui';
-import type { AccountSnapshot, FillDTO, SymbolSpec, TradableSymbol } from '@wariba/contracts';
-import { PayoutCenterPanel } from '../PayoutCenterPanel';
+import { memo, type ReactNode } from 'react';
+import { Tab, TabList, TabPanel, Tabs } from '@wariba/ui';
+import type { AccountSnapshot, SymbolSpec, TradableSymbol } from '@wariba/contracts';
 import { PositionsTabPanel } from '../PositionsTabPanel';
 import type { TickStore } from '../tick-store';
-import { rejectionDetailFor } from '../trade-copy';
-import {
-  ELIGIBILITY_BADGE_VARIANT,
-  ELIGIBILITY_LABEL,
-  ORDER_STATUS_BADGE_VARIANT,
-  ORDER_STATUS_LABEL,
-  ORDER_TYPE_LABEL,
-  PENDING_ORDER_TYPE_LABEL,
-  formatDuration,
-  formatOrderTimestamp,
-} from '../trade-labels';
+import { AccountPanel, type AccountPanelProps } from './dock/AccountPanel';
+import { AlertsPanel, type AlertsPanelProps } from './dock/AlertsPanel';
+import { OrdersPanel } from './dock/OrdersPanel';
+import { TradesPanel } from './dock/TradesPanel';
+
+export const DOCK_TABS = ['positions', 'orders', 'trades', 'alerts', 'account'] as const;
+export type DockTab = (typeof DOCK_TABS)[number];
 
 export interface WorkstationDockProps {
   store: TickStore;
   snapshot: AccountSnapshot | null;
   symbolSpecs: Partial<Record<TradableSymbol, SymbolSpec>>;
-  tab: string;
-  onTabChange: (tab: string) => void;
+  tab: DockTab;
+  onTabChange: (tab: DockTab) => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
   pending: boolean;
-  payoutAmount: string;
-  payoutAmountError: string | null;
-  onPayoutAmountChange: (value: string) => void;
-  onRequestPayout: () => void;
   onClosePosition: (positionId: string) => void;
   onModifyPosition: (positionId: string) => void;
   onPartialClosePosition: (positionId: string) => void;
   onOpenCloseAll: () => void;
   onManagePendingOrder: (pendingOrderId: string) => void;
   onCancelPendingOrder: (pendingOrderId: string) => void;
+  alerts: AlertsPanelProps['alerts'];
+  notifications: AlertsPanelProps['notifications'];
+  onEnableAlert: (alertId: string) => void;
+  onDisableAlert: (alertId: string) => void;
+  onDeleteAlert: (alertId: string) => void;
+  onManageAlerts: () => void;
+  account: Omit<AccountPanelProps, 'snapshot'>;
+  /** The horizontal resize separator, supplied by the shell. */
+  resizeHandle?: ReactNode;
 }
 
 /**
- * The trading dock, relocated into the workstation grid's bottom row.
+ * The trading dock, at its final W2 membership: **Positions · Orders · Trades ·
+ * Alerts · Account** (W2 §15).
  *
- * W1 deliberately keeps the dock's **membership** exactly as Prompt 08 left
- * it — Positions · En attente · Ordres · Historique · Payout · Journal. W2
- * owns collapse, resize, the Payout relocation and the Journal decision;
- * duplicating that judgement here would make the shell milestone
- * unreviewable.
+ * Two surfaces left, for opposite reasons. Payout was a *program* workflow
+ * sitting in an *execution* dock — it now lives on its canonical `/payouts`
+ * route (W2 §16), reachable from the Account tab. Journal was a placeholder
+ * sentence promising a future feature; it is deleted outright rather than
+ * replaced by another "coming soon" panel (W2 §17). No dead UI.
  *
- * What W1 does close is the proven document-overflow defect the W0 audit
- * measured at 390 px (`scrollWidth 425 > clientWidth 390`, the six-button tab
- * strip): the strip now scrolls inside its own `overflow-x-auto` box, and the
- * panel body owns its own scrolling too, so neither can push the document
- * sideways. Same fix class as the Control shell overflow closed in Prompt 09
- * M6.
+ * Only the active panel is mounted — `TabPanel` returns null when inactive — so
+ * the Positions panel's `useAllTicks` subscription exists only while Positions
+ * is the visible tab, and an inactive Orders/Trades/Alerts/Account tree costs
+ * nothing per tick.
  */
 export const WorkstationDock = memo(function WorkstationDock({
   store,
@@ -73,249 +60,141 @@ export const WorkstationDock = memo(function WorkstationDock({
   symbolSpecs,
   tab,
   onTabChange,
+  collapsed,
+  onToggleCollapsed,
   pending,
-  payoutAmount,
-  payoutAmountError,
-  onPayoutAmountChange,
-  onRequestPayout,
   onClosePosition,
   onModifyPosition,
   onPartialClosePosition,
   onOpenCloseAll,
   onManagePendingOrder,
   onCancelPendingOrder,
+  alerts,
+  notifications,
+  onEnableAlert,
+  onDisableAlert,
+  onDeleteAlert,
+  onManageAlerts,
+  account,
+  resizeHandle,
 }: WorkstationDockProps) {
+  // Counts only where the number is unambiguous (W2 §28). Open positions,
+  // live pending orders and enabled alerts are each a complete current set.
+  // Trades deliberately has none: the snapshot carries a bounded recent
+  // window that would read as a lifetime total.
+  const openPositions = snapshot?.openPositions.length ?? 0;
+  const pendingOrders = snapshot?.pendingOrders.length ?? 0;
+  const activeAlerts = alerts.filter((alert) => alert.enabled).length;
+
+  const label = (text: string, count: number) => (
+    <>
+      {text}
+      {count > 0 ? (
+        <span className="wariba-data ml-1.5 text-[length:var(--wariba-font-size-data-xs)] text-[color:var(--wariba-text-tertiary)]">
+          {count}
+        </span>
+      ) : null}
+    </>
+  );
+
   return (
     <section
       aria-label="Compte"
       data-testid="workstation-dock"
-      // `lg:flex-1` only: on desktop the shell's dock cell is a fixed grid
-      // track, and without it the panel sits at its content height, leaving
-      // the bottom of the row as bare canvas. On mobile the cell is
-      // content-sized (capped at 38dvh), so growing to a zero basis there
-      // would fight the chart for the first screen.
       className="flex min-h-0 min-w-0 flex-col border-t border-[color:var(--wariba-component-workstation-seam)] bg-[color:var(--wariba-component-workstation-surface-raised)] lg:flex-1"
     >
-      <Tabs value={tab} onValueChange={onTabChange} className="flex min-h-0 min-w-0 flex-col">
-        {/* The tab strip is the one element allowed to be wider than the
-            viewport, and only inside this box — never the document. */}
-        <div
-          data-testid="workstation-dock-tabs"
-          // `whitespace-nowrap` is what makes the strip *scroll* rather than
-          // wrap: without it the tabs keep their box and break their labels
-          // onto a second line ("En attente"), which silently makes the dock
-          // header taller instead of using the scroll box it already has.
-          className="min-w-0 shrink-0 overflow-x-auto overflow-y-hidden whitespace-nowrap"
-        >
-          <TabList aria-label="Compte">
-            <Tab value="positions">Positions</Tab>
-            <Tab value="pending">En attente</Tab>
-            <Tab value="orders">Ordres</Tab>
-            <Tab value="history">Historique</Tab>
-            {snapshot?.programType === 'WARIBA_PERFORMANCE' ? (
-              <Tab value="payout">Payout</Tab>
-            ) : null}
-            <Tab value="journal">Journal</Tab>
-          </TabList>
+      {resizeHandle}
+
+      <Tabs
+        value={tab}
+        onValueChange={(next) => onTabChange(next as DockTab)}
+        className="flex min-h-0 min-w-0 flex-col"
+      >
+        <div className="flex shrink-0 items-center gap-2 pr-1">
+          {/* The tab strip is the one element allowed to be wider than the
+              viewport, and only inside this box — never the document. */}
+          <div
+            data-testid="workstation-dock-tabs"
+            className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden whitespace-nowrap"
+          >
+            <TabList aria-label="Compte">
+              <Tab value="positions">{label('Positions', openPositions)}</Tab>
+              <Tab value="orders">{label('Orders', pendingOrders)}</Tab>
+              <Tab value="trades">Trades</Tab>
+              <Tab value="alerts">{label('Alerts', activeAlerts)}</Tab>
+              <Tab value="account">Account</Tab>
+            </TabList>
+          </div>
+
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? 'Déplier le dock' : 'Replier le dock'}
+            data-testid="workstation-dock-collapse"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--wariba-radius-sm)] text-[color:var(--wariba-text-secondary)] hover:bg-[color:var(--wariba-surface-selected)] hover:text-[color:var(--wariba-theme-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]"
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              className={`h-4 w-4 transition-transform ${collapsed ? '' : 'rotate-180'}`}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="m6 15 6-6 6 6" />
+            </svg>
+          </button>
         </div>
 
-        <div className="min-h-0 min-w-0 flex-1 overflow-auto p-[var(--wariba-component-workstation-panel-padding)]">
-          <TabPanel value="positions">
-            <PositionsTabPanel
-              store={store}
-              openPositions={snapshot?.openPositions ?? []}
-              symbolSpecs={symbolSpecs}
-              onClosePosition={onClosePosition}
-              onModifyPosition={onModifyPosition}
-              onPartialClosePosition={onPartialClosePosition}
-              onOpenCloseAll={onOpenCloseAll}
-              pending={pending}
-            />
-          </TabPanel>
-
-          <TabPanel value="pending">
-            <DataTable>
-              <DataTableHead>
-                <DataTableRow>
-                  <DataTableHeaderCell>Type</DataTableHeaderCell>
-                  <DataTableHeaderCell>Symbole</DataTableHeaderCell>
-                  <DataTableHeaderCell align="right">Quantité</DataTableHeaderCell>
-                  <DataTableHeaderCell align="right">Déclenchement</DataTableHeaderCell>
-                  <DataTableHeaderCell align="right">Actions</DataTableHeaderCell>
-                </DataTableRow>
-              </DataTableHead>
-              <DataTableBody>
-                {!snapshot || snapshot.pendingOrders.length === 0 ? (
-                  <DataTableRow>
-                    <DataTableCell
-                      colSpan={5}
-                      className="text-center text-[color:var(--wariba-text-secondary)]"
-                    >
-                      Aucun ordre en attente.
-                    </DataTableCell>
-                  </DataTableRow>
-                ) : (
-                  snapshot.pendingOrders.map((o) => (
-                    <DataTableRow key={o.id}>
-                      <DataTableCell>{PENDING_ORDER_TYPE_LABEL[o.orderType]}</DataTableCell>
-                      <DataTableCell>{o.symbol}</DataTableCell>
-                      <DataTableCell numeric>{o.quantity}</DataTableCell>
-                      <DataTableCell numeric>{o.triggerPrice}</DataTableCell>
-                      <DataTableCell align="right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onManagePendingOrder(o.id)}
-                          disabled={pending}
-                        >
-                          Gérer
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onCancelPendingOrder(o.id)}
-                          disabled={pending}
-                          className="text-[color:var(--wariba-status-danger-text)]"
-                        >
-                          Annuler
-                        </Button>
-                      </DataTableCell>
-                    </DataTableRow>
-                  ))
-                )}
-              </DataTableBody>
-            </DataTable>
-          </TabPanel>
-
-          <TabPanel value="orders">
-            <DataTable>
-              <DataTableHead>
-                <DataTableRow>
-                  <DataTableHeaderCell>Type</DataTableHeaderCell>
-                  <DataTableHeaderCell>Symbole</DataTableHeaderCell>
-                  <DataTableHeaderCell align="right">Statut</DataTableHeaderCell>
-                  <DataTableHeaderCell>Raison</DataTableHeaderCell>
-                </DataTableRow>
-              </DataTableHead>
-              <DataTableBody>
-                {!snapshot || snapshot.recentOrders.length === 0 ? (
-                  <DataTableRow>
-                    <DataTableCell
-                      colSpan={4}
-                      className="text-center text-[color:var(--wariba-text-secondary)]"
-                    >
-                      Aucun ordre.
-                    </DataTableCell>
-                  </DataTableRow>
-                ) : (
-                  snapshot.recentOrders.map((o) => (
-                    <DataTableRow key={o.id}>
-                      <DataTableCell>{ORDER_TYPE_LABEL[o.orderType]}</DataTableCell>
-                      <DataTableCell>{o.symbol ?? '—'}</DataTableCell>
-                      <DataTableCell align="right">
-                        <Badge variant={ORDER_STATUS_BADGE_VARIANT[o.status]}>
-                          {ORDER_STATUS_LABEL[o.status]}
-                        </Badge>
-                      </DataTableCell>
-                      <DataTableCell className="text-[color:var(--wariba-text-secondary)]">
-                        {o.status === 'rejected' ? rejectionDetailFor(o.rejectionCode).reason : '—'}
-                      </DataTableCell>
-                    </DataTableRow>
-                  ))
-                )}
-              </DataTableBody>
-            </DataTable>
-          </TabPanel>
-
-          <TabPanel value="history">
-            {snapshot?.profitEligibility.enabled && (
-              <Text variant="body-sm" color="secondary" className="mb-3 block max-w-4xl">
-                La balance réelle inclut chaque résultat. Pour la progression WARIBA, seul le profit
-                net positif d’une clôture détenue moins de 60 secondes est exclu. Les pertes nettes
-                comptent toujours ; les commissions sont appliquées avant la classification.
-              </Text>
-            )}
-            <DataTable>
-              <DataTableHead>
-                <DataTableRow>
-                  <DataTableHeaderCell>Clôture</DataTableHeaderCell>
-                  <DataTableHeaderCell>Symbole</DataTableHeaderCell>
-                  <DataTableHeaderCell>Sens</DataTableHeaderCell>
-                  <DataTableHeaderCell align="right">Quantité</DataTableHeaderCell>
-                  <DataTableHeaderCell>Ouverture → clôture</DataTableHeaderCell>
-                  <DataTableHeaderCell align="right">Durée</DataTableHeaderCell>
-                  <DataTableHeaderCell align="right">PnL net</DataTableHeaderCell>
-                  <DataTableHeaderCell align="right">PnL éligible</DataTableHeaderCell>
-                  <DataTableHeaderCell align="right">Règle</DataTableHeaderCell>
-                </DataTableRow>
-              </DataTableHead>
-              <DataTableBody>
-                {!snapshot ||
-                snapshot.recentFills.filter((fill) => fill.fillType === 'close').length === 0 ? (
-                  <DataTableRow>
-                    <DataTableCell
-                      colSpan={9}
-                      className="text-center text-[color:var(--wariba-text-secondary)]"
-                    >
-                      Aucune clôture exécutée.
-                    </DataTableCell>
-                  </DataTableRow>
-                ) : (
-                  snapshot.recentFills
-                    .filter(
-                      (
-                        fill,
-                      ): fill is FillDTO & {
-                        eligibilityReason: NonNullable<FillDTO['eligibilityReason']>;
-                      } => fill.fillType === 'close' && fill.eligibilityReason !== null,
-                    )
-                    .map((fill) => (
-                      <DataTableRow key={fill.id}>
-                        <DataTableCell numeric>
-                          {formatOrderTimestamp(fill.occurredAt)}
-                        </DataTableCell>
-                        <DataTableCell>{fill.symbol}</DataTableCell>
-                        <DataTableCell>{fill.side === 'buy' ? 'Achat' : 'Vente'}</DataTableCell>
-                        <DataTableCell numeric>{fill.quantity}</DataTableCell>
-                        <DataTableCell numeric>
-                          {fill.openingPrice} → {fill.price}
-                        </DataTableCell>
-                        <DataTableCell numeric>{formatDuration(fill.durationMs)}</DataTableCell>
-                        <DataTableCell numeric>{fill.netRealizedPnl ?? '—'} USD</DataTableCell>
-                        <DataTableCell numeric>{fill.eligibleRealizedPnl ?? '—'} USD</DataTableCell>
-                        <DataTableCell align="right">
-                          <Badge variant={ELIGIBILITY_BADGE_VARIANT[fill.eligibilityReason]}>
-                            {ELIGIBILITY_LABEL[fill.eligibilityReason]}
-                          </Badge>
-                        </DataTableCell>
-                      </DataTableRow>
-                    ))
-                )}
-              </DataTableBody>
-            </DataTable>
-          </TabPanel>
-
-          {snapshot?.programType === 'WARIBA_PERFORMANCE' ? (
-            <TabPanel value="payout">
-              <PayoutCenterPanel
-                performanceProgress={snapshot.performanceProgress}
-                payoutRequests={snapshot.payoutRequests}
-                requestedAmount={payoutAmount}
-                onRequestedAmountChange={onPayoutAmountChange}
-                onSubmit={onRequestPayout}
+        {/* Collapsed keeps the tab strip and its counts — the trader still sees
+            which surface is active and how many positions are open — while the
+            body's vertical space returns to the chart. */}
+        {collapsed ? null : (
+          <div className="min-h-0 min-w-0 flex-1 overflow-auto p-[var(--wariba-component-workstation-panel-padding)]">
+            <TabPanel value="positions">
+              <PositionsTabPanel
+                store={store}
+                openPositions={snapshot?.openPositions ?? []}
+                symbolSpecs={symbolSpecs}
+                onClosePosition={onClosePosition}
+                onModifyPosition={onModifyPosition}
+                onPartialClosePosition={onPartialClosePosition}
+                onOpenCloseAll={onOpenCloseAll}
                 pending={pending}
-                amountError={payoutAmountError}
               />
             </TabPanel>
-          ) : null}
 
-          <TabPanel value="journal">
-            <Text variant="body-sm" color="tertiary">
-              Le journal de trading (annotations, tags, revue de session) arrive dans un prompt
-              ultérieur.
-            </Text>
-          </TabPanel>
-        </div>
+            <TabPanel value="orders">
+              <OrdersPanel
+                snapshot={snapshot}
+                pending={pending}
+                onManagePendingOrder={onManagePendingOrder}
+                onCancelPendingOrder={onCancelPendingOrder}
+              />
+            </TabPanel>
+
+            <TabPanel value="trades">
+              <TradesPanel snapshot={snapshot} />
+            </TabPanel>
+
+            <TabPanel value="alerts">
+              <AlertsPanel
+                alerts={alerts}
+                notifications={notifications}
+                pending={pending}
+                onEnableAlert={onEnableAlert}
+                onDisableAlert={onDisableAlert}
+                onDeleteAlert={onDeleteAlert}
+                onManageAlerts={onManageAlerts}
+              />
+            </TabPanel>
+
+            <TabPanel value="account">
+              <AccountPanel {...account} snapshot={snapshot} />
+            </TabPanel>
+          </div>
+        )}
       </Tabs>
     </section>
   );

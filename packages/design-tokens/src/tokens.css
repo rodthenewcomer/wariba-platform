@@ -458,6 +458,7 @@
   --wariba-component-workstation-dock-height: 220px;
   --wariba-component-workstation-dock-height-compact: 200px;
   --wariba-component-workstation-dock-height-wide: 260px;
+  --wariba-component-workstation-dock-collapsed-height: 40px;
   --wariba-component-workstation-panel-padding: 8px;
   --wariba-component-workstation-surface-raised: #161A24;
   --wariba-component-workstation-surface-sunken: #0B0D12;

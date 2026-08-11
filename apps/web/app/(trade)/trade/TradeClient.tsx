@@ -1,22 +1,31 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { BottomSheet, Button } from '@wariba/ui';
 import type { PendingOrderType, TradableSymbol } from '@wariba/contracts';
 import { useOneClickTrading } from '../../../lib/one-click-trading';
 import { ChartWorkspace, type ChartWorkspaceActions } from './ChartWorkspace';
+import { MarketNavigator } from './MarketNavigator';
+import { useIsDesktop } from './use-viewport';
 import { ExecutionPanel } from './ExecutionPanel';
 import { pendingOrderTypeFor } from './OrderTicket';
 import { TradeDialogs, type TradeDialogActions, type TradeDialogState } from './TradeDialogs';
-import { WatchlistPanel } from './WatchlistPanel';
 import { useTicketDraft } from './ticket-draft';
 import { useTradeSession } from './trade-session';
 import { MobileMarketBar } from './workstation/MobileMarketBar';
 import { NavRail } from './workstation/NavRail';
-import { WorkstationDock } from './workstation/WorkstationDock';
+import { ResizeSeparator } from './workstation/ResizeSeparator';
+import { WorkstationDock, type DockTab } from './workstation/WorkstationDock';
 import { WorkstationShell } from './workstation/WorkstationShell';
 import { WorkstationStatusBar } from './workstation/WorkstationStatusBar';
 import type { WorkstationAccountOption } from './workstation/WorkstationAccountSwitcher';
+import {
+  DOCK_HEIGHT_MAX,
+  DOCK_HEIGHT_MIN,
+  NAVIGATOR_WIDTH_MAX,
+  NAVIGATOR_WIDTH_MIN,
+  useWorkstationPreferences,
+} from './workstation/workstation-preferences';
 
 export interface TradeClientProps {
   /** Server-validated: this account belongs to `userId` (see trade/page.tsx). */
@@ -78,9 +87,23 @@ export function TradeClient({
   const oneClickTradingRef = useRef(oneClickTrading);
   oneClickTradingRef.current = oneClickTrading;
 
-  const [tab, setTab] = useState('positions');
+  const [tab, setTab] = useState<DockTab>('positions');
+  // The switcher option for the loaded account — the server already resolved
+  // its program, phase, size and status, so the Account dock tab reuses those
+  // rather than deriving them a second time.
+  const activeAccount = accounts.find((option) => option.id === accountId);
+  // Exactly one dock tree is mounted at a time — see use-viewport.ts.
+  const isDesktop = useIsDesktop();
+  const [mobileDockOpen, setMobileDockOpen] = useState(false);
+  const {
+    preferences,
+    setNavigatorWidth,
+    setNavigatorCollapsed,
+    setDockHeight,
+    setDockCollapsed,
+    toggleFavorite,
+  } = useWorkstationPreferences();
   const [ticketOpen, setTicketOpen] = useState(false);
-  const [payoutAmount, setPayoutAmount] = useState('');
   const [dialogs, setDialogs] = useState<TradeDialogState>({
     closeAllOpen: false,
     modifyPositionId: null,
@@ -96,13 +119,6 @@ export function TradeClient({
 
   const patchDialogs = useCallback((patch: Partial<TradeDialogState>) => {
     setDialogs((prev) => ({ ...prev, ...patch }));
-  }, []);
-
-  // The Hub's Performance mission view links here as /trade#payout — this
-  // page has tabs, not scroll anchors, so the hash needs to actively switch
-  // the tab rather than just be a scroll target.
-  useEffect(() => {
-    if (window.location.hash === '#payout') setTab('payout');
   }, []);
 
   const submitMarketOrder = useCallback(
@@ -278,9 +294,55 @@ export function TradeClient({
     (pendingOrderId: string) => patchDialogs({ managePendingOrderId: pendingOrderId }),
     [patchDialogs],
   );
-  const requestPayout = useCallback(
-    () => commands.requestPayout(payoutAmount),
-    [commands, payoutAmount],
+
+  const openPositionCount = snapshot?.openPositions.length ?? 0;
+
+  const workstationDock = (
+    <WorkstationDock
+      store={tickStore}
+      snapshot={snapshot}
+      symbolSpecs={symbolSpecs}
+      tab={tab}
+      onTabChange={setTab}
+      collapsed={preferences.dockCollapsed}
+      onToggleCollapsed={() => setDockCollapsed(!preferences.dockCollapsed)}
+      pending={session.pending}
+      onClosePosition={commands.closePosition}
+      onModifyPosition={openModifyPosition}
+      onPartialClosePosition={openPartialClose}
+      onOpenCloseAll={openCloseAllDialog}
+      onManagePendingOrder={openManagePendingOrder}
+      onCancelPendingOrder={commands.cancelPendingOrder}
+      alerts={session.alerts}
+      notifications={session.notifications}
+      onEnableAlert={commands.enableAlert}
+      onDisableAlert={commands.disableAlert}
+      onDeleteAlert={commands.deleteAlert}
+      onManageAlerts={openNotifications}
+      account={{
+        accountId,
+        accountPublicId,
+        programLabel: activeAccount?.programLabel ?? '—',
+        phaseLabel: activeAccount?.phaseLabel ?? '—',
+        accountStatusLabel: activeAccount?.statusLabel ?? '—',
+        nominalFormatted: activeAccount?.nominalFormatted ?? '—',
+      }}
+      resizeHandle={
+        // The dock is only resizable where it is a grid track.
+        isDesktop && !preferences.dockCollapsed ? (
+          <ResizeSeparator
+            orientation="horizontal"
+            label="Hauteur du dock"
+            value={preferences.dockHeight}
+            min={DOCK_HEIGHT_MIN}
+            max={DOCK_HEIGHT_MAX}
+            onChange={setDockHeight}
+            direction={-1}
+            testId="dock-resize"
+          />
+        ) : null
+      }
+    />
   );
 
   const executionPanel = (
@@ -309,6 +371,45 @@ export function TradeClient({
       </div>
 
       <WorkstationShell
+        navigatorWidth={preferences.navigatorWidth}
+        navigatorCollapsed={preferences.navigatorCollapsed}
+        dockHeight={preferences.dockHeight}
+        dockCollapsed={preferences.dockCollapsed}
+        navigatorResizeHandle={
+          preferences.navigatorCollapsed ? null : (
+            <ResizeSeparator
+              orientation="vertical"
+              label="Largeur du navigateur de marchés"
+              value={preferences.navigatorWidth}
+              min={NAVIGATOR_WIDTH_MIN}
+              max={NAVIGATOR_WIDTH_MAX}
+              onChange={setNavigatorWidth}
+              direction={1}
+              testId="navigator-resize"
+            />
+          )
+        }
+        navigatorRestore={
+          <button
+            type="button"
+            onClick={() => setNavigatorCollapsed(false)}
+            aria-label="Afficher le navigateur de marchés"
+            data-testid="navigator-restore"
+            className="m-1 flex items-center gap-1 rounded-[var(--wariba-radius-sm)] border border-[color:var(--wariba-component-workstation-seam)] px-2 py-1 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)] hover:bg-[color:var(--wariba-surface-selected)] hover:text-[color:var(--wariba-theme-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]"
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              className="h-3.5 w-3.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="m9 18 6-6-6-6" />
+            </svg>
+            Marchés
+          </button>
+        }
         rail={<NavRail currentPath="/trade" />}
         statusBar={
           <WorkstationStatusBar
@@ -328,15 +429,39 @@ export function TradeClient({
             store={tickStore}
             symbolSpecs={symbolSpecs}
             selectedSymbol={selectedSymbol}
+            favorites={preferences.favorites}
             onSelectSymbol={setSelectedSymbol}
+            onToggleFavorite={toggleFavorite}
           />
         }
         navigator={
-          <WatchlistPanel
+          <MarketNavigator
             store={tickStore}
             symbolSpecs={symbolSpecs}
             selectedSymbol={selectedSymbol}
+            favorites={preferences.favorites}
             onSelectSymbol={setSelectedSymbol}
+            onToggleFavorite={toggleFavorite}
+            headerAction={
+              <button
+                type="button"
+                onClick={() => setNavigatorCollapsed(true)}
+                aria-label="Replier le navigateur de marchés"
+                data-testid="navigator-collapse"
+                className="flex h-6 w-6 items-center justify-center rounded-[var(--wariba-radius-sm)] text-[color:var(--wariba-text-secondary)] hover:bg-[color:var(--wariba-surface-selected)] hover:text-[color:var(--wariba-theme-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]"
+              >
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="m15 18-6-6 6-6" />
+                </svg>
+              </button>
+            }
           />
         }
         chart={
@@ -356,32 +481,40 @@ export function TradeClient({
           />
         }
         mobileExecutionAction={
-          <Button variant="secondary" className="w-full" onClick={() => setTicketOpen(true)}>
-            Trader {selectedSymbol}
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" className="flex-1" onClick={() => setTicketOpen(true)}>
+              Trader {selectedSymbol}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => setMobileDockOpen(true)}
+              data-testid="mobile-dock-trigger"
+            >
+              Compte
+              {openPositionCount > 0 ? (
+                <span className="wariba-data ml-1.5 text-[length:var(--wariba-font-size-data-xs)]">
+                  {openPositionCount}
+                </span>
+              ) : null}
+            </Button>
+          </div>
         }
         execution={executionPanel}
-        dock={
-          <WorkstationDock
-            store={tickStore}
-            snapshot={snapshot}
-            symbolSpecs={symbolSpecs}
-            tab={tab}
-            onTabChange={setTab}
-            pending={session.pending}
-            payoutAmount={payoutAmount}
-            payoutAmountError={session.payoutAmountError}
-            onPayoutAmountChange={setPayoutAmount}
-            onRequestPayout={requestPayout}
-            onClosePosition={commands.closePosition}
-            onModifyPosition={openModifyPosition}
-            onPartialClosePosition={openPartialClose}
-            onOpenCloseAll={openCloseAllDialog}
-            onManagePendingOrder={openManagePendingOrder}
-            onCancelPendingOrder={commands.cancelPendingOrder}
-          />
-        }
+        // W2 §27 — the dock is mounted inline on desktop and inside the sheet
+        // on mobile, never both: a hidden Positions panel would still hold a
+        // useAllTicks subscription and still recompute live P&L per tick.
+        dock={isDesktop ? workstationDock : null}
       />
+
+      <BottomSheet
+        open={!isDesktop && mobileDockOpen}
+        onClose={() => setMobileDockOpen(false)}
+        title="Compte"
+      >
+        {!isDesktop && mobileDockOpen ? (
+          <div className="max-h-[70dvh] min-h-0 overflow-auto">{workstationDock}</div>
+        ) : null}
+      </BottomSheet>
 
       <BottomSheet
         open={ticketOpen}

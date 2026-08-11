@@ -203,7 +203,10 @@ export async function buildAccountPerformanceMissionView(
     progressPercent,
     conditions,
     nextAction: eligibility.eligible
-      ? { label: 'Demander un payout', href: '/trade#payout' }
+      ? // W2 §16 — the Payout Center moved out of the WariX execution dock onto
+        // its canonical route. Deep-linked to this account so the destination
+        // does not have to guess which one the mission meant.
+        { label: 'Demander un payout', href: `/payouts?account=${params.accountId}` }
       : null,
     consistency,
     payoutEligible: eligibility.eligible,
