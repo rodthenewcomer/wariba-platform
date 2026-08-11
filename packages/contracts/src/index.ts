@@ -38,6 +38,22 @@ export {
 } from './market';
 
 export {
+  CANDLE_TIMEFRAMES,
+  candleTimeframeSchema,
+  marketCandleSchema,
+  bucketStartSeconds,
+  bucketStartForTimestamp,
+  createCandleAggregator,
+  midPrice,
+  timeframeSeconds,
+  type CandleAggregator,
+  type CandleObservation,
+  type CandleTimeframe,
+  type CandleUpdate,
+  type MarketCandle,
+} from './market-candles';
+
+export {
   orderTypeSchema,
   sideSchema,
   tradeOrderStatusSchema,
