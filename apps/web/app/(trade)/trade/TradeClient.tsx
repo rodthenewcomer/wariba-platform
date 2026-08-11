@@ -92,7 +92,8 @@ export function TradeClient({
   // its program, phase, size and status, so the Account dock tab reuses those
   // rather than deriving them a second time.
   const activeAccount = accounts.find((option) => option.id === accountId);
-  // Exactly one dock tree is mounted at a time — see use-viewport.ts.
+  // The two dock presentations are never concurrently active — see
+  // use-viewport.ts for the SSR/hydration caveat on "one tree".
   const isDesktop = useIsDesktop();
   const [mobileDockOpen, setMobileDockOpen] = useState(false);
   const {
@@ -490,7 +491,7 @@ export function TradeClient({
               onClick={() => setMobileDockOpen(true)}
               data-testid="mobile-dock-trigger"
             >
-              Compte
+              Activité
               {openPositionCount > 0 ? (
                 <span className="wariba-data ml-1.5 text-[length:var(--wariba-font-size-data-xs)]">
                   {openPositionCount}
@@ -501,15 +502,16 @@ export function TradeClient({
         }
         execution={executionPanel}
         // W2 §27 — the dock is mounted inline on desktop and inside the sheet
-        // on mobile, never both: a hidden Positions panel would still hold a
-        // useAllTicks subscription and still recompute live P&L per tick.
+        // on mobile, never both at once: a hidden Positions panel would still
+        // hold a useAllTicks subscription and still recompute live P&L per
+        // tick. (After viewport resolution; see use-viewport.ts.)
         dock={isDesktop ? workstationDock : null}
       />
 
       <BottomSheet
         open={!isDesktop && mobileDockOpen}
         onClose={() => setMobileDockOpen(false)}
-        title="Compte"
+        title="Activité de trading"
       >
         {!isDesktop && mobileDockOpen ? (
           <div className="max-h-[70dvh] min-h-0 overflow-auto">{workstationDock}</div>

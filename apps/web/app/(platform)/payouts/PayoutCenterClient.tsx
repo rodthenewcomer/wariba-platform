@@ -16,9 +16,13 @@ export interface PayoutCenterClientProps {
  *
  * This is the *same* `PayoutCenterPanel` the dock rendered, driven by the same
  * `account.snapshot` fields (`performanceProgress`, `payoutRequests`) and the
- * same `requestPayout` command — only the transport is narrowed to the account
- * state channel. No eligibility, cap, split or amount logic exists on this
- * page; every one of those is server-authoritative and arrives in the snapshot.
+ * same `requestPayout` command. Only the transport is narrowed: this page
+ * subscribes to the account **state** channel (for `account.snapshot`) and the
+ * account **orders** channel (where `payout_result` is broadcast), and to no
+ * market channel at all — see `payout-account-session.ts`.
+ *
+ * No eligibility, cap, split or amount logic exists on this page; every one of
+ * those is server-authoritative and arrives in the snapshot.
  */
 export function PayoutCenterClient({ accountId, wsUrl }: PayoutCenterClientProps) {
   const session = usePayoutAccountSession({ accountId, wsUrl });

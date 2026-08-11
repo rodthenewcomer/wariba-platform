@@ -180,6 +180,14 @@ pending orders, enabled alerts. Trades deliberately carries none: the snapshot
 holds a bounded recent window that a number would misrepresent as a lifetime
 total.
 
+## 6b. DOCK NAMING
+
+The dock's accessible name is **"Dock de trading"** — for the `section` and the
+`TabList` — because it is no longer an account panel: it carries positions,
+orders, trades and alerts, with Account as one tab among five. The mobile
+trigger reads **"Activité"** and its sheet is titled **"Activité de trading"**.
+The internal tab keeps the name **"Account"**.
+
 ## 7. MOBILE
 
 The W1 status-bar limitation is closed: at phone widths labels shorten
@@ -188,12 +196,20 @@ risk-detail trigger becomes "Risque", the connection chip shows its dot with
 the state in its accessible name, and Notifications becomes an icon — while
 the full labels remain the accessible names at every width.
 
-The dock became a sheet, and — the part that matters — **only one dock tree is
-ever mounted**. CSS can hide the desktop dock on a phone but cannot unmount it,
-and a hidden `PositionsTabPanel` would still hold a `useAllTicks`
-subscription and still recompute live P&L on every tick. `useIsDesktop()`
-chooses in JavaScript so exactly one exists: inline on desktop, inside the
-sheet on mobile.
+The dock became a sheet, and — the part that matters — the two presentations
+are **never concurrently active**. CSS can hide the desktop dock on a phone but
+cannot unmount it, and a hidden `PositionsTabPanel` would still hold a
+`useAllTicks` subscription and still recompute live P&L on every tick.
+`useIsDesktop()` chooses in JavaScript: inline on desktop, inside the sheet on
+mobile.
+
+Stated precisely, because the difference matters for what this milestone
+certifies: `useIsDesktop()` renders the SSR-safe desktop assumption first and
+resolves `matchMedia` after mount, so on a phone the desktop branch does exist
+for the first client paint before being replaced. The certified invariant is
+therefore **after viewport resolution, exactly one dock presentation remains
+mounted** — not that only one is ever constructed. Redesigning the hook to
+resolve before first paint is deliberately out of scope here.
 
 The mobile Markets trigger opens the **same** `MarketNavigator` — same
 catalogue, same categories, same favorites, same search. There is no second
@@ -221,6 +237,28 @@ VISIBLE_POSITIONS_CONTENT_EXTRA_RENDERS  = 25   (legitimate — live P&L)
 A tick on an unselected symbol reaches none of them, and toggling a favorite
 opens no new transport: the socket count is unchanged across the interaction,
 so a preference can never rebuild the session.
+
+## 8b. HUMAN-REVIEW VISUAL EVIDENCE
+
+Captured by `tests/e2e/warix-w2-review-evidence.spec.ts` (tagged
+`@warix-w2-evidence`, in no gate, asserts no pixels) into a directory of its
+own so the W0 baseline and the W1 geometry evidence are never overwritten:
+
+```
+apps/web/test-results/warix-w2-review/
+  1440x900-default-workspace.png
+  1440x900-navigator-collapsed.png
+  1440x900-dock-expanded-trades.png
+  1920x1080-default-workstation.png
+  390x844-chart-first-default.png
+  390x844-market-navigator-sheet.png
+  390x844-trading-dock-sheet.png
+```
+
+The capture waits for the account's symbol specs and first ticks before
+shooting, not merely for a connected socket: the first version of this spec
+fired on connection alone and produced screenshots of an empty navigator and
+em-dash metrics, which would have misrepresented the milestone.
 
 ## 9. TESTS
 

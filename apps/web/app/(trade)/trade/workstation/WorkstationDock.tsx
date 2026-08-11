@@ -99,7 +99,10 @@ export const WorkstationDock = memo(function WorkstationDock({
 
   return (
     <section
-      aria-label="Compte"
+      // The dock is no longer an account panel: it carries positions, orders,
+      // trades and alerts, with Account as one tab among five. Its accessible
+      // name names the whole surface, not its narrowest member.
+      aria-label="Dock de trading"
       data-testid="workstation-dock"
       className="flex min-h-0 min-w-0 flex-col border-t border-[color:var(--wariba-component-workstation-seam)] bg-[color:var(--wariba-component-workstation-surface-raised)] lg:flex-1"
     >
@@ -117,7 +120,7 @@ export const WorkstationDock = memo(function WorkstationDock({
             data-testid="workstation-dock-tabs"
             className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden whitespace-nowrap"
           >
-            <TabList aria-label="Compte">
+            <TabList aria-label="Dock de trading">
               <Tab value="positions">{label('Positions', openPositions)}</Tab>
               <Tab value="orders">{label('Orders', pendingOrders)}</Tab>
               <Tab value="trades">Trades</Tab>

@@ -52,7 +52,9 @@ const DESKTOP_TICKET_BREAKPOINT = 1024;
  * Opens the dock and selects a tab.
  *
  * W2 §27 made the dock a BottomSheet on mobile so the chart keeps the
- * viewport — and, more importantly, so only one dock tree is ever mounted.
+ * viewport — and, more importantly, so the mobile and desktop dock
+ * presentations are never concurrently active (see use-viewport.ts for the
+ * SSR/hydration caveat).
  * Its tabs therefore do not exist until the sheet is opened. Desktop keeps
  * the dock inline, where the tab is already present.
  */

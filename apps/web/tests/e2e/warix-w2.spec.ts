@@ -304,7 +304,7 @@ test.describe('WariX W2 mobile', { tag: ['@trade', '@mobile'] }, () => {
     expect(failures, failures.join('\n')).toEqual([]);
   });
 
-  test('the dock is a sheet, and only one dock tree is ever mounted', async ({
+  test('the dock is a sheet, and only one dock presentation is mounted', async ({
     page,
     tradeAccount,
   }) => {
@@ -312,7 +312,9 @@ test.describe('WariX W2 mobile', { tag: ['@trade', '@mobile'] }, () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await openWorkstation(page);
 
-    // Chart-first: no dock consuming the viewport behind the chart.
+    // Chart-first: after viewport resolution no dock consumes the viewport
+    // behind the chart, and the desktop presentation is gone rather than
+    // hidden (W2 §27).
     await expect(page.getByTestId('workstation-dock')).toHaveCount(0);
 
     const canvas = page

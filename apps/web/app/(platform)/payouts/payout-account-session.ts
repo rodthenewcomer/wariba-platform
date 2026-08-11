@@ -42,10 +42,24 @@ export interface PayoutAccountSession {
  * and every order-entry command — none of which a payout surface can use, and
  * all of which would then be live on a page that never draws a price.
  *
- * So this hook subscribes to exactly one channel — the account state channel —
- * and handles exactly the three messages payout depends on: `account.snapshot`
- * (which carries `performanceProgress` and `payoutRequests`), `payout_result`,
- * and the transport `error` frame.
+ * So this hook subscribes to exactly **two account channels** and no others:
+ *
+ * ```
+ * PAYOUT_SESSION_ACCOUNT_STATE_SUBSCRIPTION = true   accountStateChannel(accountId)
+ * PAYOUT_SESSION_ORDERS_SUBSCRIPTION        = true   accountOrdersChannel(accountId)
+ * PAYOUT_SESSION_MARKET_SUBSCRIPTIONS       = 0
+ * ```
+ *
+ * The state channel carries `account.snapshot` (and with it
+ * `performanceProgress` and `payoutRequests`). The orders channel is **not
+ * optional**: `broadcastPayoutResult` publishes `payout_result` there
+ * (`services/realtime/src/websocket.ts`), so a state-channel-only subscription
+ * receives every snapshot correctly and never receives the command's own
+ * reply — leaving each request permanently in flight. That was a real defect
+ * caught by the relocation parity test, not a theoretical one.
+ *
+ * Between them the hook handles exactly three messages: `account.snapshot`,
+ * `payout_result`, and the transport `error` frame.
  *
  * Critically, it does **not** re-implement payout. The command and the result
  * handling are the same canonical functions WariX calls
@@ -103,17 +117,10 @@ export function usePayoutAccountSession({
     });
 
     void client.connect().then(() => {
-      // Two account channels, and deliberately no more.
-      //
-      // The state channel answers a subscribe with a full account.snapshot —
-      // the only payload payout reads. The orders channel is required because
-      // `broadcastPayoutResult` publishes `payout_result` there
-      // (services/realtime/src/websocket.ts), alongside order results; a
-      // state-channel-only subscription receives the snapshot but never the
-      // command's own reply, leaving the request permanently in flight.
-      //
-      // Still no market channel and no notifications channel, so no tick and
-      // no alert can reach this page at all.
+      // Two account channels, and deliberately no more — see this hook's own
+      // doc comment for why the orders channel is required rather than
+      // incidental. Still no market channel and no notifications channel, so
+      // no tick and no alert can reach this page at all.
       client.subscribe([accountStateChannel(accountId), accountOrdersChannel(accountId)]);
     });
 
