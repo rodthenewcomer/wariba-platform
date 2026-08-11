@@ -468,6 +468,7 @@ export function TradeClient({
         chart={
           <ChartWorkspace
             store={tickStore}
+            historyTransport={session.historyTransport}
             symbol={selectedSymbol}
             spec={symbolSpecs[selectedSymbol]}
             snapshot={snapshot}

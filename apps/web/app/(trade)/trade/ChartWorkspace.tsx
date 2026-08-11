@@ -18,6 +18,7 @@ import type { FillMarker } from './TradeChart';
 import type { PendingOrderAction, PendingRiskAction } from './trade-session';
 import { MARKET_STATUS_LABEL } from './trade-labels';
 import { useTick, type TickStore } from './tick-store';
+import type { ChartHistoryTransport } from './chart-history';
 
 // lightweight-charts touches the DOM/canvas directly and has no useful
 // server-rendered output — Prompt 07's own performance requirement ("chart
@@ -53,6 +54,8 @@ export interface ChartWorkspaceActions {
 
 export interface ChartWorkspaceProps {
   store: TickStore;
+  /** W3 §30 — the chart data layer's history port, passed straight through to TradeChart. */
+  historyTransport: ChartHistoryTransport;
   symbol: TradableSymbol;
   spec: SymbolSpec | undefined;
   snapshot: AccountSnapshot | null;
@@ -83,6 +86,7 @@ export interface ChartWorkspaceProps {
  */
 export const ChartWorkspace = memo(function ChartWorkspace({
   store,
+  historyTransport,
   symbol,
   spec,
   snapshot,
@@ -136,6 +140,8 @@ export const ChartWorkspace = memo(function ChartWorkspace({
 
       <TradeChart
         symbol={symbol}
+        store={store}
+        historyTransport={historyTransport}
         tick={tick}
         positions={symbolPositions}
         fills={symbolFills}

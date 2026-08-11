@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, render } from '@testing-library/react';
 import type { TradableSymbol } from '@wariba/contracts';
+import { createTickStore } from '../app/(trade)/trade/tick-store';
 
 /**
  * W1 §13/§14 — the chart's container owns its geometry.
@@ -73,10 +74,20 @@ function stubContainerBox(width: number, height: number) {
 
 const NOOP = () => {};
 
+/** W3 — this suite is about geometry, so history is an inert stub. */
+const NO_HISTORY_TRANSPORT = {
+  request: NOOP,
+  onResult: () => NOOP,
+  onError: () => NOOP,
+  onSocketOpen: () => NOOP,
+};
+
 function renderChart() {
   return render(
     <TradeChart
       symbol={'EURUSD' as TradableSymbol}
+      store={createTickStore()}
+      historyTransport={NO_HISTORY_TRANSPORT}
       tick={null}
       positions={[]}
       fills={[]}

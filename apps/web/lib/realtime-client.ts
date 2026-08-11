@@ -13,6 +13,9 @@ import {
   notificationsSnapshotMessageSchema,
   newAlertNotificationMessageSchema,
   payoutResultMessageSchema,
+  marketHistoryResultSchema,
+  marketHistoryErrorMessageSchema,
+  type MarketHistoryRequest,
   type MessageEnvelope,
   type SubmitOrderMessage,
   type CloseAllMessage,
@@ -51,6 +54,7 @@ export class RealtimeClient {
   private readonly subscribedChannels = new Set<string>();
   private readonly messageListeners = new Set<MessageListener>();
   private readonly stateListeners = new Set<StateListener>();
+  private readonly socketOpenListeners = new Set<() => void>();
   private readonly lastSequenceByChannel = new Map<string, number>();
 
   constructor(
@@ -85,6 +89,13 @@ export class RealtimeClient {
       if (this.subscribedChannels.size > 0) {
         this.send({ type: 'subscribe', channels: [...this.subscribedChannels] });
       }
+      // W3 §48 — fires once per genuinely new socket, which `onStateChange`
+      // cannot express: `emitState('open')` also runs on every message that
+      // advances a channel sequence, so a state listener sees 'open'
+      // continuously and could never tell a reconnect from normal traffic. The
+      // chart's history controller needs exactly that distinction, because the
+      // server may have kept observing ticks through the disconnect.
+      for (const listener of this.socketOpenListeners) listener();
     });
 
     socket.addEventListener('message', (event: MessageEvent<string>) => {
@@ -145,6 +156,10 @@ export class RealtimeClient {
       return newAlertNotificationMessageSchema.safeParse(envelope.payload).success;
     if (envelope.type === 'payout_result')
       return payoutResultMessageSchema.safeParse(envelope.payload).success;
+    if (envelope.type === 'market_history_result')
+      return marketHistoryResultSchema.safeParse(envelope.payload).success;
+    if (envelope.type === 'market_history_error')
+      return marketHistoryErrorMessageSchema.safeParse(envelope.payload).success;
     if (envelope.type === 'error') {
       const payload = envelope.payload as { code?: unknown; message?: unknown };
       return typeof payload.code === 'string' && typeof payload.message === 'string';
@@ -275,6 +290,16 @@ export class RealtimeClient {
     this.send({ type: 'request_payout', payout });
   }
 
+  /**
+   * W3 §26 — history over the connection the trader already has, never a direct
+   * provider call from the browser. Fire-and-forget like every other command
+   * here; the answer arrives as a `market_history_result` or
+   * `market_history_error` envelope correlated by `requestId`.
+   */
+  requestMarketHistory(history: MarketHistoryRequest): void {
+    this.send({ type: 'market_history_request', history });
+  }
+
   private send(payload: unknown): void {
     if (this.socket?.readyState === WebSocket.OPEN) {
       this.socket.send(JSON.stringify(payload));
@@ -289,6 +314,12 @@ export class RealtimeClient {
   onStateChange(listener: StateListener): () => void {
     this.stateListeners.add(listener);
     return () => this.stateListeners.delete(listener);
+  }
+
+  /** Fires once per newly opened socket — see the 'open' handler above (W3 §48). */
+  onSocketOpen(listener: () => void): () => void {
+    this.socketOpenListeners.add(listener);
+    return () => this.socketOpenListeners.delete(listener);
   }
 
   private emitState(state: RealtimeConnectionState): void {

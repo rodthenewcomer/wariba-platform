@@ -124,6 +124,20 @@ export interface CandleAggregator {
   current(): MarketCandle | null;
   observe(observation: CandleObservation): CandleUpdate;
   reset(): void;
+  /**
+   * W3 §17/§38 — adopt an authoritative snapshot of the in-progress bucket.
+   *
+   * Added for history hydration: the server may already have observed part of
+   * the current bucket before a browser mounted or reloaded, and that bucket's
+   * true open — plus any high or low that happened pre-mount — cannot be
+   * recovered from the first post-mount tick. Seeding lets the next observation
+   * *extend* that bucket instead of restarting it.
+   *
+   * Finalizes nothing and returns nothing: it replaces the open bucket, so the
+   * caller must only seed a bucket that is genuinely current. A later
+   * observation in a later bucket will finalize the seeded candle normally.
+   */
+  seed(candle: MarketCandle): void;
 }
 
 export function createCandleAggregator(timeframe: CandleTimeframe): CandleAggregator {
@@ -134,6 +148,9 @@ export function createCandleAggregator(timeframe: CandleTimeframe): CandleAggreg
     current: () => current,
     reset() {
       current = null;
+    },
+    seed(candle) {
+      current = candle;
     },
     observe({ timestampMs, price }) {
       const startTime = bucketStartSeconds(timestampMs, timeframe);

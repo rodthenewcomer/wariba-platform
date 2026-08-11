@@ -139,6 +139,15 @@ vi.mock('../lib/realtime-client', () => ({
       emit = cb;
       return () => {};
     }
+    /**
+     * W3 §48 — fires once per newly opened socket. Never called here: this suite
+     * proves a history response cannot re-render the workstation chrome, so the
+     * chart's rehydration path must stay inert rather than issue requests.
+     */
+    onSocketOpen() {
+      return () => {};
+    }
+    requestMarketHistory() {}
     connect() {
       return Promise.resolve();
     }
