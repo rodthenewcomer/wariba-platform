@@ -18,6 +18,16 @@ export function programLabel(programType: AccountProgramType): 'WARIBA ONE' | 'W
   return programType === 'WARIBA_PERFORMANCE' ? 'WARIBA Performance' : 'WARIBA ONE';
 }
 
+/**
+ * The program in the fewest characters that stay unambiguous, for the phone
+ * status bar (W2 §25) where the full canonical public id does not fit beside
+ * equity, DLL and the notification control. The full identity is never lost:
+ * it stays in the control's accessible name and one tap away in the switcher.
+ */
+export function programShortLabel(programType: AccountProgramType): string {
+  return programType === 'WARIBA_PERFORMANCE' ? 'PERF' : 'ONE';
+}
+
 /** The phase a program represents — what distinguishes the two at a glance. */
 export function programPhaseLabel(programType: AccountProgramType): string {
   return programType === 'WARIBA_PERFORMANCE' ? 'Performance' : 'Évaluation';

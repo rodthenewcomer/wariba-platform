@@ -19,6 +19,7 @@ beforeAll(() => {
 
 const SPEC: SymbolSpec = {
   symbol: 'EURUSD',
+  assetClass: 'forex_major',
   pricePrecision: 5,
   contractSize: '100000',
   minimumQuantity: '0.01',

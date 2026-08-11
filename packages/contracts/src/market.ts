@@ -35,8 +35,24 @@ export type MarketTick = z.infer<typeof marketTickSchema>;
  * receiving account's program (leverage_one vs leverage_performance) — the
  * client never sees both and never chooses.
  */
+/**
+ * W2 — the instrument's asset class, mirrored from `app.symbol_specs.asset_class`
+ * (typed identically in `packages/database/src/schema.ts`). It is **presentation
+ * metadata only**: the Market Navigator groups instruments by it, and nothing
+ * else reads it. Execution, risk, leverage, quantity validation and pricing are
+ * unchanged and must never branch on this field.
+ *
+ * The union is the database's own, so adding a class is a deliberate two-file
+ * change rather than something a seed can smuggle in. Consumers still handle an
+ * unrecognised value defensively — the client casts this payload rather than
+ * parsing it, so an unknown class would arrive as a plain string at runtime.
+ */
+export const assetClassSchema = z.enum(['forex_major', 'metal', 'index_cfd_simulated']);
+export type AssetClass = z.infer<typeof assetClassSchema>;
+
 export const symbolSpecSchema = z.object({
   symbol: symbolSchema,
+  assetClass: assetClassSchema,
   pricePrecision: z.number().int().nonnegative(),
   contractSize: z.string(),
   minimumQuantity: z.string(),

@@ -11,6 +11,7 @@ import {
   formatNominal,
   programLabel,
   programPhaseLabel,
+  programShortLabel,
 } from '../../../lib/account-display';
 import { resolveWorkstationAccount } from './account-selection';
 import { TradeClient } from './TradeClient';
@@ -31,6 +32,7 @@ function toSwitcherOption(account: AccountSummaryDTO): WorkstationAccountOption 
     id: account.id,
     href: tradeAccountHref(account.id),
     programLabel: programLabel(account.programType),
+    programShortLabel: programShortLabel(account.programType),
     phaseLabel: programPhaseLabel(account.programType),
     nominalFormatted: formatNominal(account.nominalBalance, account.nominalCurrency),
     publicId: account.publicId,

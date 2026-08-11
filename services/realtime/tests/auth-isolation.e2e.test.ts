@@ -377,13 +377,35 @@ describeIfDb('realtime service — auth, isolation, reconnect (real end-to-end)'
       await waitForOpen(ws);
       ws.send(JSON.stringify({ type: 'subscribe', channels: [accountStateChannel(accountB)] }));
       const specsMessage = await waitForMessage(ws, (m) => m.type === 'symbol_specs');
-      const specs = (specsMessage.payload as { specs: { symbol: string; leverage: number }[] })
-        .specs;
+      const specs = (
+        specsMessage.payload as {
+          specs: { symbol: string; leverage: number; assetClass: string }[];
+        }
+      ).specs;
       expect(specs).toHaveLength(5);
       expect(specs.every((s) => s.leverage > 0)).toBe(true);
       expect(specs.map((s) => s.symbol).sort()).toEqual(
         ['EURUSD', 'GBPUSD', 'NAS100', 'USDJPY', 'XAUUSD'].sort(),
       );
+
+      // W2 — assetClass reaches the wire from app.symbol_specs.asset_class and
+      // nowhere else. Asserted against the database row rather than a literal,
+      // so a UI-side classification could never satisfy this test.
+      const rows = await db
+        .selectFrom('app.symbol_specs')
+        .innerJoin(
+          'app.trading_accounts',
+          'app.trading_accounts.symbol_spec_set_id',
+          'app.symbol_specs.symbol_spec_set_id',
+        )
+        .select(['app.symbol_specs.symbol', 'app.symbol_specs.asset_class'])
+        .where('app.trading_accounts.id', '=', accountB)
+        .execute();
+      const expected = Object.fromEntries(rows.map((row) => [row.symbol, row.asset_class]));
+      expect(Object.keys(expected)).toHaveLength(5);
+      for (const spec of specs) {
+        expect(spec.assetClass, `assetClass for ${spec.symbol}`).toBe(expected[spec.symbol]);
+      }
       ws.close();
     }, 10000);
 

@@ -20,6 +20,7 @@ const SPECS: Record<TradableSymbol, LoadedSymbolSpec> = {
     quantityStep: '0.01',
     leverageOne: 100,
     leveragePerformance: 100,
+    assetClass: 'forex_major',
   },
 } as Record<TradableSymbol, LoadedSymbolSpec>;
 

@@ -38,7 +38,11 @@ async function login(page: Page, email: string, password: string) {
 async function openWorkstation(page: Page, url = '/trade') {
   await page.goto(url);
   await expect(page.getByTestId('workstation-status-bar')).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText('Connecté')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('workstation-connection')).toHaveAttribute(
+    'data-connection',
+    'open',
+    { timeout: 30_000 },
+  );
 }
 
 /** The switcher renders each account as a real anchor inside a <details>. */
@@ -125,7 +129,11 @@ test.describe('WariX account selection', { tag: ['@trade'] }, () => {
       await expect(target).toHaveCount(1);
 
       await Promise.all([page.waitForURL(`**/trade?account=${second.accountId}`), target.click()]);
-      await expect(page.getByText('Connecté')).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByTestId('workstation-connection')).toHaveAttribute(
+        'data-connection',
+        'open',
+        { timeout: 30_000 },
+      );
 
       // The loaded account is A2 — A1 is only offered, never active.
       await expect(activeAccountLabel(page)).toContainText(await publicIdOf(second.accountId));
@@ -142,7 +150,11 @@ test.describe('WariX account selection', { tag: ['@trade'] }, () => {
         page.waitForURL(`**/trade?account=${tradeAccount.accountId}`),
         back.click(),
       ]);
-      await expect(page.getByText('Connecté')).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByTestId('workstation-connection')).toHaveAttribute(
+        'data-connection',
+        'open',
+        { timeout: 30_000 },
+      );
       await expect(activeAccountLabel(page)).toContainText(tradeAccount.accountPublicId);
       await expect(equity).toContainText('10000.00 USD');
     },
@@ -208,7 +220,12 @@ test.describe('WariX program identity', { tag: ['@trade'] }, () => {
       await openWorkstation(page, `/trade?account=${performance.accountId}`);
       // W0 §3A.4: this said "WARIBA ONE" for every account before W1.
       await expect(activeAccountLabel(page)).toContainText('WARIBA Performance');
-      await expect(page.getByRole('tab', { name: 'Payout' })).toBeVisible();
+      // W2 §15/§16 moved Payout out of the execution dock; the Account tab now
+      // links to its canonical route for a Performance account.
+      await page.getByRole('tab', { name: /^Account/ }).click();
+      await expect(
+        page.getByTestId('workstation-dock').getByRole('link', { name: 'Payouts' }),
+      ).toBeVisible();
 
       await openWorkstation(page, `/trade?account=${performance.evaluationAccountId}`);
       await expect(activeAccountLabel(page)).toContainText('WARIBA ONE');
@@ -365,8 +382,10 @@ test.describe('WariX mobile shell', { tag: ['@trade', '@mobile'] }, () => {
 
     await page.getByTestId('mobile-market-trigger').click();
     const sheet = page.getByRole('dialog');
-    await expect(sheet.getByText('Watchlist')).toBeVisible();
-    await sheet.getByRole('button', { name: /GBPUSD/ }).click();
+    // W2 §26 replaced the legacy watchlist with the Market Navigator — same
+    // sheet, same trigger, richer content.
+    await expect(sheet.getByTestId('market-search')).toBeVisible();
+    await sheet.getByRole('button', { name: /^GBPUSD/ }).click();
 
     // Selecting from the sheet changes the workspace and closes the sheet.
     await expect(page.getByTestId('mobile-market-trigger')).toContainText('GBPUSD');

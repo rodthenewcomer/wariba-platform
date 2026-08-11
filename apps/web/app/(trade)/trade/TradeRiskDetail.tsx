@@ -6,6 +6,12 @@ import type { AccountRisk } from '@wariba/contracts';
 
 export interface TradeRiskDetailProps {
   risk: AccountRisk;
+  /**
+   * Visible trigger text. The workstation status bar shortens it at phone
+   * widths (W2 §25); the accessible name always carries the full meaning.
+   */
+  triggerLabel?: import('react').ReactNode;
+  triggerClassName?: string;
 }
 
 function row(label: string, value: string) {
@@ -30,7 +36,11 @@ function row(label: string, value: string) {
  * rapide" — desktop, not just mobile), never Dialog, since Dialog is
  * reserved for decisions that require interruption.
  */
-export function TradeRiskDetail({ risk }: TradeRiskDetailProps) {
+export function TradeRiskDetail({
+  risk,
+  triggerLabel = 'Détail des règles',
+  triggerClassName,
+}: TradeRiskDetailProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -38,9 +48,13 @@ export function TradeRiskDetail({ risk }: TradeRiskDetailProps) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-text-primary)] underline decoration-dotted underline-offset-2"
+        aria-label="Détail des règles de risque"
+        className={
+          triggerClassName ??
+          'text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-text-primary)] underline decoration-dotted underline-offset-2'
+        }
       >
-        Détail des règles
+        {triggerLabel}
       </button>
       <BottomSheet open={open} onClose={() => setOpen(false)} title="Détail du risque">
         <div className="flex flex-col gap-4">

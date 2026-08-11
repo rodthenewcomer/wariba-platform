@@ -101,31 +101,11 @@ export function rejectionFor(code: string | null): OrderRejectionDetail | null {
   return code ? { code, ...rejectionDetailFor(code) } : null;
 }
 
-/**
- * The same codes the payout engine's own REJECTION const produces
- * (PayoutRejectionCode, packages/database/src/payouts.ts) — not imported
- * from that package directly, since apps/web never depends on the database
- * package (only @wariba/application, which has no client-facing
- * payout-result mapper).
- */
-export const PAYOUT_REJECTION_DETAIL: Record<string, string> = {
-  account_not_active: 'Votre compte n’est plus actif.',
-  no_active_cycle: 'Aucun cycle actif — le dossier WARIBA Review est ouvert.',
-  buffer_not_reached: 'Le solde éligible n’a pas encore dépassé le plancher du buffer permanent.',
-  performance_days_incomplete: 'Il manque des Performance Days pour ce cycle.',
-  consistency_non_compliant:
-    'La meilleure journée dépasse 50 % du profit positif total — répartissez le profit sur d’autres journées.',
-  open_position_blocks_payout: 'Une position est ouverte — fermez-la avant de demander un payout.',
-  pending_order_blocks_payout:
-    'Un ordre en attente est actif — annulez-le avant de demander un payout.',
-  kyc_not_verified: 'Vérification d’identité sandbox non complétée.',
-  payout_method_not_configured: 'Aucune méthode de payout sandbox configurée.',
-  invalid_requested_amount: 'Le montant demandé doit être positif.',
-  no_cap_for_account_size: 'Aucun plafond de payout n’est publié pour cette taille de compte.',
-};
-
-export const UNKNOWN_PAYOUT_REJECTION_DETAIL = 'Le serveur a refusé cette demande de payout.';
-
-export function payoutRejectionDetailFor(code: string | null | undefined): string {
-  return PAYOUT_REJECTION_DETAIL[code ?? ''] ?? UNKNOWN_PAYOUT_REJECTION_DETAIL;
-}
+// Payout rejection copy now lives in `apps/web/lib/payout-copy.ts`: since W2
+// the Payout Center is on `/payouts`, outside this route group, and both
+// surfaces must read the same table.
+export {
+  PAYOUT_REJECTION_DETAIL,
+  UNKNOWN_PAYOUT_REJECTION_DETAIL,
+  payoutRejectionDetailFor,
+} from '../../../lib/payout-copy';

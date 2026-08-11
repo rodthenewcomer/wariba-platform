@@ -48,9 +48,34 @@ async function login(page: import('@playwright/test').Page, email: string, passw
  */
 const DESKTOP_TICKET_BREAKPOINT = 1024;
 
+/**
+ * Opens the dock and selects a tab.
+ *
+ * W2 §27 made the dock a BottomSheet on mobile so the chart keeps the
+ * viewport — and, more importantly, so the mobile and desktop dock
+ * presentations are never concurrently active (see use-viewport.ts for the
+ * SSR/hydration caveat).
+ * Its tabs therefore do not exist until the sheet is opened. Desktop keeps
+ * the dock inline, where the tab is already present.
+ */
+async function openDockTab(page: import('@playwright/test').Page, name: RegExp) {
+  const width = page.viewportSize()?.width ?? DESKTOP_TICKET_BREAKPOINT;
+  if (width < DESKTOP_TICKET_BREAKPOINT) {
+    await page.getByTestId('mobile-dock-trigger').click();
+  }
+  await page.getByRole('tab', { name }).click();
+}
+
 async function openTrade(page: import('@playwright/test').Page) {
   await page.goto('/trade');
-  await expect(page.getByText('Connecté')).toBeVisible({ timeout: 30_000 });
+  // W2 §25 compressed the phone status bar, so the word "Connecté" is visible
+  // only from `sm` upward. The chip exposes its state as data, which is a
+  // better anchor anyway: it does not depend on French copy or breakpoint.
+  await expect(page.getByTestId('workstation-connection')).toHaveAttribute(
+    'data-connection',
+    'open',
+    { timeout: 30_000 },
+  );
 
   const width = page.viewportSize()?.width ?? DESKTOP_TICKET_BREAKPOINT;
   if (width >= DESKTOP_TICKET_BREAKPOINT) {
@@ -162,11 +187,13 @@ test.describe('WariX order lifecycle', { tag: ['@trade'] }, () => {
       // are closed. The positions table cell is unambiguous.
       await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toBeVisible();
 
-      // Order status/reason lives in "Ordres" — "Historique" is the
+      // Order status/reason lives under Orders → Récents; Trades is the
       // closed-position PnL/eligibility ledger (only positions that have been
       // closed appear there), so a still-open market order never shows up
-      // there.
-      await page.getByRole('tab', { name: 'Ordres' }).click();
+      // there. W2 §18 folded the two order tabs into one destination with two
+      // views over the same two distinct server collections.
+      await page.getByRole('tab', { name: /^Orders/ }).click();
+      await page.getByRole('button', { name: 'Récents' }).click();
       await expect(page.getByRole('cell', { name: 'Ouverture' })).toBeVisible();
       // Not getByText: PendingOrderConfirm's always-mounted GTC disclaimer
       // ("...exécuté par le serveur...") is a case-insensitive substring
@@ -175,10 +202,10 @@ test.describe('WariX order lifecycle', { tag: ['@trade'] }, () => {
       // "Exécuté" text still satisfies exactly.
       await expect(page.getByText('Exécuté', { exact: true })).toBeVisible();
 
-      await page.getByRole('tab', { name: 'Positions' }).click();
+      await page.getByRole('tab', { name: /^Positions/ }).click();
       await page.getByRole('button', { name: 'Fermer EURUSD · Achat' }).click();
       await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toHaveCount(0);
-      await page.getByRole('tab', { name: 'Historique' }).click();
+      await page.getByRole('tab', { name: /^Trades/ }).click();
       const history = page.getByRole('tabpanel');
       await expect(history.getByRole('cell', { name: 'EURUSD' })).toBeVisible();
       await expect(history.getByRole('cell', { name: '0.1000' })).toBeVisible();
@@ -206,10 +233,11 @@ test.describe('WariX order lifecycle', { tag: ['@trade'] }, () => {
       await expect(page.getByText('Ordre refusé').first()).toBeVisible();
       await expect(page.getByText('exposure_limit_exceeded').first()).toBeVisible();
 
-      // Order status/reason lives in "Ordres" — "Historique" is the
+      // Order status/reason lives under Orders → Récents; Trades is the
       // closed-position PnL/eligibility ledger and never shows rejections
       // (a rejected order never produces a fill to close).
-      await page.getByRole('tab', { name: 'Ordres' }).click();
+      await page.getByRole('tab', { name: /^Orders/ }).click();
+      await page.getByRole('button', { name: 'Récents' }).click();
       // Scoped to the active tabpanel: the rejection reason also appears in
       // OrderTicket's own Alert (which stays mounted regardless of which tab
       // is active), so an unscoped match would be ambiguous here too.
@@ -366,7 +394,7 @@ test.describe('WariX mobile', { tag: ['@trade', '@mobile'] }, () => {
     // cancel event.
     await page.keyboard.press('Escape');
     await expect(sheet).not.toBeVisible();
-    await page.getByRole('tab', { name: 'Positions' }).click();
+    await openDockTab(page, /^Positions/);
     await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toBeVisible();
   });
 });
@@ -630,8 +658,10 @@ test.describe('WariX mobile chart context menu', { tag: ['@trade', '@mobile'] },
     await ticketSheet.getByRole('button', { name: 'Buy' }).click();
     await page.keyboard.press('Escape');
     await expect(ticketSheet).not.toBeVisible();
-    await page.getByRole('tab', { name: 'Positions' }).click();
+    await openDockTab(page, /^Positions/);
     await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toBeVisible();
+    // Close the dock sheet again so the chart is reachable for the long press.
+    await page.keyboard.press('Escape');
 
     const sheet = await openTouchChartMenu(page);
     await expect(sheet.getByRole('menuitem', { name: 'Ajouter un Stop Loss' })).toBeVisible();
@@ -679,7 +709,7 @@ test.describe('WariX partial close', { tag: ['@trade'] }, () => {
       // The position stays open at half its original size — never fully closed.
       await expect(page.getByText(/0\.05/).first()).toBeVisible();
 
-      await page.getByRole('tab', { name: 'Historique' }).click();
+      await page.getByRole('tab', { name: /^Trades/ }).click();
       await expect(page.getByRole('cell', { name: '0.0500' })).toBeVisible();
     },
   );

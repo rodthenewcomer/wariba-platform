@@ -37,24 +37,37 @@ const RISK_TONE: Record<string, string> = {
  */
 function Metric({
   label,
+  shortLabel,
   value,
+  shortValue,
   tone,
   className,
 }: {
   label: string;
+  /** Phone-width label. The full label stays in the accessible name. */
+  shortLabel?: string | undefined;
   value: string;
+  /** Phone-width value — usually the same figure without its ` USD` suffix. */
+  shortValue?: string | undefined;
   tone?: string | undefined;
   className?: string | undefined;
 }) {
   return (
     <div className={`flex shrink-0 items-baseline gap-1.5 ${className ?? ''}`}>
       <dt className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
-        {label}
+        <span className="sr-only">{label}</span>
+        <span aria-hidden="true" className="sm:hidden">
+          {shortLabel ?? label}
+        </span>
+        <span aria-hidden="true" className="hidden sm:inline">
+          {label}
+        </span>
       </dt>
       <dd
         className={`wariba-data text-[length:var(--wariba-font-size-data-xs)] font-medium ${tone ?? 'text-[color:var(--wariba-theme-text)]'}`}
       >
-        {value}
+        <span className="sm:hidden">{shortValue ?? value}</span>
+        <span className="hidden sm:inline">{value}</span>
       </dd>
     </div>
   );
@@ -127,10 +140,17 @@ export const WorkstationStatusBar = memo(function WorkstationStatusBar({
           resort. Nothing is clipped and no figure is hidden without being
           reachable through "Détail des règles". */}
       <dl data-testid="workstation-metrics" className="flex shrink-0 items-center gap-3">
-        <Metric label="Equity" value={equityFormatted} />
+        <Metric
+          label="Equity"
+          shortLabel="Eq"
+          value={equityFormatted}
+          shortValue={equityFormatted.replace(' USD', '')}
+        />
         <Metric
           label="DLL restant"
+          shortLabel="DLL"
           value={risk ? `${risk.dailyLoss.remaining} USD` : '—'}
+          shortValue={risk ? risk.dailyLoss.remaining : '—'}
           tone={tone}
         />
         <Metric
@@ -168,11 +188,35 @@ export const WorkstationStatusBar = memo(function WorkstationStatusBar({
       ) : null}
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        {risk ? <TradeRiskDetail risk={risk} /> : null}
+        {risk ? (
+          <TradeRiskDetail
+            risk={risk}
+            triggerLabel={
+              <>
+                <span className="hidden sm:inline">Risque</span>
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  className="h-4 w-4 sm:hidden"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                >
+                  <path d="M12 3 4 6.5v5c0 4.5 3.4 8 8 9.5 4.6-1.5 8-5 8-9.5v-5z" />
+                  <path d="M12 9v4" />
+                  <path d="M12 16h.01" />
+                </svg>
+              </>
+            }
+            triggerClassName="rounded-[var(--wariba-radius-sm)] px-1.5 py-1 text-[length:var(--wariba-font-size-label-sm)] font-medium text-[color:var(--wariba-text-secondary)] underline decoration-dotted underline-offset-2 hover:text-[color:var(--wariba-theme-text)]"
+          />
+        ) : null}
 
         <span
           role="status"
+          aria-label={connectionLabel}
           data-testid="workstation-connection"
+          data-connection={connectionOk ? 'open' : isResyncing ? 'resyncing' : 'closed'}
           className="flex items-center gap-1.5 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]"
         >
           <span
@@ -183,11 +227,30 @@ export const WorkstationStatusBar = memo(function WorkstationStatusBar({
                 : 'bg-[color:var(--wariba-status-warning-text)]'
             }`}
           />
-          {connectionLabel}
+          <span className="hidden sm:inline">{connectionLabel}</span>
         </span>
 
-        <Button variant="ghost" size="sm" onClick={onOpenNotifications}>
-          Notifications
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onOpenNotifications}
+          aria-label="Notifications"
+          data-testid="workstation-notifications"
+        >
+          <span aria-hidden="true" className="hidden sm:inline">
+            Notifications
+          </span>
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            className="h-4 w-4 sm:hidden"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+          >
+            <path d="M18 8a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7" />
+            <path d="M13.7 20a2 2 0 0 1-3.4 0" />
+          </svg>
           {unreadCount > 0 && (
             <Badge variant="danger" className="ml-1.5">
               {unreadCount}

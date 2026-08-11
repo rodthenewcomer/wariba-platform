@@ -7,6 +7,7 @@ export interface WorkstationAccountOption {
   id: string;
   href: string;
   programLabel: string;
+  programShortLabel: string;
   phaseLabel: string;
   nominalFormatted: string;
   publicId: string;
@@ -69,7 +70,12 @@ export const WorkstationAccountSwitcher = memo(function WorkstationAccountSwitch
       <span className="hidden text-[length:var(--wariba-font-size-label-sm)] font-semibold text-[color:var(--wariba-theme-text)] sm:inline">
         {active.programLabel}
       </span>
-      <span className="wariba-data shrink-0 text-[length:var(--wariba-font-size-data-xs)] text-[color:var(--wariba-text-secondary)]">
+      {/* Phone widths carry the program code; the canonical public id returns
+          from `sm` upward and is always in the accessible name. */}
+      <span className="shrink-0 text-[length:var(--wariba-font-size-label-sm)] font-semibold text-[color:var(--wariba-theme-text)] sm:hidden">
+        {active.programShortLabel}
+      </span>
+      <span className="wariba-data hidden shrink-0 text-[length:var(--wariba-font-size-data-xs)] text-[color:var(--wariba-text-secondary)] sm:inline">
         {active.publicId}
       </span>
       <span className="wariba-data hidden shrink-0 text-[length:var(--wariba-font-size-data-xs)] text-[color:var(--wariba-text-secondary)] sm:inline">

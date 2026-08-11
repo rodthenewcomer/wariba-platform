@@ -193,6 +193,7 @@ describe('symbolSpecsMessageSchema — Prompt 07', () => {
   it('accepts a well-formed symbol spec', () => {
     const result = symbolSpecSchema.safeParse({
       symbol: 'EURUSD',
+      assetClass: 'forex_major',
       pricePrecision: 5,
       contractSize: '100000',
       minimumQuantity: '0.01',
@@ -209,6 +210,7 @@ describe('symbolSpecsMessageSchema — Prompt 07', () => {
       specs: [
         {
           symbol: 'XAUUSD',
+          assetClass: 'metal',
           pricePrecision: 2,
           contractSize: '100',
           minimumQuantity: '0.01',
@@ -220,6 +222,28 @@ describe('symbolSpecsMessageSchema — Prompt 07', () => {
       ],
     });
     expect(result.success).toBe(true);
+  });
+
+  it('requires assetClass and constrains it to the database’s own union (W2)', () => {
+    const base = {
+      symbol: 'EURUSD',
+      pricePrecision: 5,
+      contractSize: '100000',
+      minimumQuantity: '0.01',
+      maximumQuantity: '10',
+      quantityStep: '0.01',
+      leverage: 100,
+      commissionPerLot: '3.5000',
+    };
+    // Presentation metadata, but still a contract: the Market Navigator groups
+    // instruments by it, so a spec without one is not a valid spec.
+    expect(symbolSpecSchema.safeParse(base).success).toBe(false);
+    // The union mirrors app.symbol_specs.asset_class — adding a class is a
+    // deliberate change, not something a seed can smuggle in.
+    expect(symbolSpecSchema.safeParse({ ...base, assetClass: 'energy' }).success).toBe(false);
+    for (const assetClass of ['forex_major', 'metal', 'index_cfd_simulated']) {
+      expect(symbolSpecSchema.safeParse({ ...base, assetClass }).success).toBe(true);
+    }
   });
 });
 

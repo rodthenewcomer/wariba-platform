@@ -8,6 +8,7 @@ import {
   type SymbolSimConfig,
   type FcsSymbolConfig,
 } from '@wariba/adapters';
+import type { AssetClass } from '@wariba/contracts';
 import type { RealtimeConfig } from './config';
 
 export interface LoadedSymbolSpec {
@@ -19,6 +20,10 @@ export interface LoadedSymbolSpec {
   minimumQuantity: string;
   maximumQuantity: string;
   quantityStep: string;
+  // W2 — presentation metadata for the Market Navigator's categories. Carried
+  // here only so the one query that already reads this table can hand it to
+  // the client; no execution, pricing or risk path reads it.
+  assetClass: AssetClass;
   // Both kept here (not pre-resolved) because this map is loaded once and
   // shared across every connection/account — resolving to a single number
   // is a per-account decision made where the account's program is known
@@ -58,6 +63,7 @@ export async function loadSymbolSpecs(db: Db): Promise<Record<TradableSymbol, Lo
     .selectFrom('app.symbol_specs')
     .select([
       'app.symbol_specs.symbol',
+      'app.symbol_specs.asset_class',
       'app.symbol_specs.price_precision',
       'app.symbol_specs.spread_points',
       'app.symbol_specs.stale_threshold_ms',
@@ -91,6 +97,7 @@ export async function loadSymbolSpecs(db: Db): Promise<Record<TradableSymbol, Lo
       quantityStep: spec.quantity_step,
       leverageOne: spec.leverage_one,
       leveragePerformance: spec.leverage_performance,
+      assetClass: spec.asset_class,
     };
   }
   return result;
