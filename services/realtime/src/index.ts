@@ -1,6 +1,6 @@
 import Fastify from 'fastify';
 import websocketPlugin from '@fastify/websocket';
-import { createDbClient } from '@wariba/database';
+import { createDbClient, type TradableSymbol } from '@wariba/database';
 import { createLogger, createCorrelationId } from '@wariba/observability';
 import { loadRealtimeConfig } from './config';
 import { checkHealth } from './health';
@@ -10,6 +10,7 @@ import { registerWebSocketRoute } from './websocket';
 import { RealtimeLeadershipCoordinator } from './leadership';
 import { RealtimeOperationalMetrics } from './metrics';
 import { OperationalAlertMonitor } from './alert-monitor';
+import { MemoryMarketHistoryStore } from './market-history-store';
 
 const config = loadRealtimeConfig();
 const logger = createLogger({ service: 'realtime', minLevel: config.LOG_LEVEL });
@@ -60,6 +61,21 @@ async function start(): Promise<void> {
     metrics: metrics.snapshot(),
   }));
 
+  /**
+   * W3 §6/§11 — exactly one history store for this process, created here at
+   * startup so its `sourceEpoch` is this process's lifetime. Not per
+   * connection, not per account. It is handed to the WebSocket route as both
+   * the single accepted-tick observer and the read port.
+   */
+  const history = new MemoryMarketHistoryStore({
+    pricePrecision: Object.fromEntries(
+      (Object.keys(symbolSpecs) as TradableSymbol[]).map((symbol) => [
+        symbol,
+        symbolSpecs[symbol].pricePrecision,
+      ]),
+    ) as Record<TradableSymbol, number>,
+  });
+
   await app.register(websocketPlugin);
   registerWebSocketRoute(app, {
     db,
@@ -70,6 +86,7 @@ async function start(): Promise<void> {
     registry: new ConnectionRegistry(),
     leadership,
     metrics,
+    history,
   });
 
   app.addHook('onClose', async () => {

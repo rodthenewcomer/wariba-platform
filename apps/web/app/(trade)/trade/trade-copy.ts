@@ -109,3 +109,22 @@ export {
   UNKNOWN_PAYOUT_REJECTION_DETAIL,
   payoutRejectionDetailFor,
 } from '../../../lib/payout-copy';
+
+/**
+ * Chart-local history status copy — W3 §52-§55.
+ *
+ * Deliberately not a workstation-level banner: history is a property of the
+ * chart, not of the connection or the account, and W2 already has the one
+ * global banner it needs. Each message says exactly what is true and nothing
+ * more.
+ *
+ * `error` is the one that matters most. A history failure is not a stale
+ * market, not a closed market and not a locked account — the tick stream and
+ * every execution control are unaffected — so the copy says so rather than
+ * letting the trader infer that trading is down.
+ */
+export const HISTORY_STATUS_MESSAGE: Record<'loading' | 'empty' | 'error', string> = {
+  loading: 'Historique…',
+  empty: 'Historique en cours de constitution.',
+  error: 'Historique indisponible. Le flux temps réel continue.',
+};

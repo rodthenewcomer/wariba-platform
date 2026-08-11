@@ -38,6 +38,49 @@ export {
 } from './market';
 
 export {
+  CANDLE_TIMEFRAMES,
+  candleTimeframeSchema,
+  marketCandleSchema,
+  bucketStartSeconds,
+  bucketStartForTimestamp,
+  createCandleAggregator,
+  midPrice,
+  timeframeSeconds,
+  type CandleAggregator,
+  type CandleObservation,
+  type CandleTimeframe,
+  type CandleUpdate,
+  type MarketCandle,
+} from './market-candles';
+
+export {
+  INITIAL_HISTORY_CANDLE_LIMIT,
+  MAX_HISTORY_CANDLE_LIMIT,
+  historySourceSchema,
+  historyPriceBasisSchema,
+  marketHistoryRequestSchema,
+  marketHistoryRequestFrameSchema,
+  marketHistoryResultSchema,
+  marketHistoryErrorCodeSchema,
+  marketHistoryErrorMessageSchema,
+  replayAfterSequence,
+  validateHistoryWindow,
+  mergeFinalizedCandles,
+  type HistoryMergeResult,
+  type HistoryPriceBasis,
+  type HistorySource,
+  type HistoryValidation,
+  type MarketHistoryErrorCode,
+  type MarketHistoryErrorMessage,
+  type MarketHistoryPort,
+  type MarketHistoryQuery,
+  type MarketHistoryRequest,
+  type MarketHistoryRequestFrame,
+  type MarketHistoryResult,
+  type MarketHistoryWindow,
+} from './market-history';
+
+export {
   orderTypeSchema,
   sideSchema,
   tradeOrderStatusSchema,

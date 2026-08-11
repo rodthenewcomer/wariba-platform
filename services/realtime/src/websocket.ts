@@ -11,7 +11,7 @@ import {
   type Db,
   type TradableSymbol,
 } from '@wariba/database';
-import type { MarketDataProvider } from '@wariba/adapters';
+import type { MarketDataProvider, MarketTick } from '@wariba/adapters';
 import {
   subscribeMessageSchema,
   unsubscribeMessageSchema,
@@ -29,6 +29,8 @@ import {
   alertIdMessageSchema,
   markNotificationsReadMessageSchema,
   requestPayoutMessageSchema,
+  marketHistoryRequestFrameSchema,
+  marketHistoryRequestSchema,
   buildEnvelope,
   accountStateChannel,
   accountOrdersChannel,
@@ -42,6 +44,8 @@ import {
   type AlertResultMessage,
   type PayoutResultMessage,
   type SymbolSpec,
+  type MarketHistoryErrorCode,
+  type MarketHistoryPort,
 } from '@wariba/contracts';
 import type { Logger } from '@wariba/observability';
 import type { RealtimeConfig } from './config';
@@ -71,7 +75,7 @@ import {
 } from './order-handler';
 import { handleRequestPayout } from './payout-handler';
 import type { RealtimeLeadershipCoordinator } from './leadership';
-import { MarketTickGate } from './tick-gate';
+import { MarketTickGate, type TickGateDecision } from './tick-gate';
 import type { RealtimeOperationalMetrics } from './metrics';
 
 const clientMessageSchema = z.discriminatedUnion('type', [
@@ -111,12 +115,110 @@ const clientMessageSchema = z.discriminatedUnion('type', [
     notifications: markNotificationsReadMessageSchema,
   }),
   z.object({ type: z.literal('request_payout'), payout: requestPayoutMessageSchema }),
+  // W3 §26/§27 — read-only history over the connection the client already
+  // has. The frame schema is deliberately loose (see its doc comment in
+  // contracts): a request that fails strict validation still has to be
+  // answerable *with its requestId*, or the browser's history controller
+  // cannot fail the generation that is waiting.
+  z.object({ type: z.literal('market_history_request'), history: marketHistoryRequestFrameSchema }),
 ]);
+
+/**
+ * THE single accepted-tick admission boundary — W3 §4/§5/§61.
+ *
+ * Gate the tick, observe it into history **once**, then fan it out to every
+ * subscribed socket. Exported (rather than left as a closure inside
+ * `registerWebSocketRoute`) so that the property W3 §61 requires can be tested
+ * directly: one accepted tick with N connected clients must produce exactly one
+ * history observation and N sends.
+ *
+ * Why the observation belongs here and nowhere lower down: this function is
+ * invoked once per tick the provider emits, because `market.subscribe` is
+ * called exactly once for the whole process. `registry.broadcast` is what
+ * multiplies one tick into N frames. Aggregating history inside that fan-out —
+ * or inside a per-connection subscribe handler, or per account subscriber —
+ * would fold one market tick into the candle N times the moment two traders
+ * connect, and every high, low and close would be counted per viewer.
+ *
+ * `accepted` specifically, not merely "not rejected": the broadcast below also
+ * carries `not_open` ticks so a chart can still show a stale market's last
+ * price, but a stale or closed tick is not market history and must never open
+ * or extend a candle.
+ *
+ * Failure containment (§5): history is display data, so a throwing observer is
+ * logged and swallowed *here*. The client fan-out below it and everything the
+ * caller does afterwards — queued reductions, SL/TP protection, pending-order
+ * triggers, alert evaluation — run identically whether the observation
+ * succeeded or threw. It is deliberately synchronous, before the broadcast, and
+ * outside any transaction execution depends on.
+ *
+ * Returns the gate decision so the caller can keep its own early-return.
+ */
+export function admitAndFanOutTick(
+  deps: {
+    tickGate: MarketTickGate;
+    history: { observeAcceptedTick(tick: MarketTick): void };
+    registry: ConnectionRegistry;
+    logger: Logger;
+    metrics: RealtimeOperationalMetrics;
+  },
+  tick: MarketTick,
+): TickGateDecision {
+  const { tickGate, history, registry, logger, metrics } = deps;
+
+  const decision = tickGate.evaluate(tick);
+  metrics.tick(decision);
+  if (decision === 'duplicate' || decision === 'out_of_order') {
+    logger.warn('realtime.market_tick_rejected', {
+      symbol: tick.symbol,
+      sequence: tick.sequence,
+      reason: decision,
+    });
+    return decision;
+  }
+
+  if (decision === 'accepted') {
+    try {
+      history.observeAcceptedTick(tick);
+    } catch (error: unknown) {
+      logger.error('realtime.market_history_observe_failed', {
+        symbol: tick.symbol,
+        sequence: tick.sequence,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  registry.broadcast(
+    marketSymbolChannel(tick.symbol),
+    buildEnvelope({
+      type: 'market.tick',
+      sequence: tick.sequence,
+      correlationId: tick.symbol,
+      payload: tick,
+    }),
+  );
+
+  return decision;
+}
 
 const HEARTBEAT_INTERVAL_MS = 15_000;
 const HEARTBEAT_TIMEOUT_MS = 45_000;
 const RATE_LIMIT_MAX_MESSAGES = 30;
 const RATE_LIMIT_WINDOW_MS = 10_000;
+/**
+ * W3 §29 — a second, narrower budget just for history reads.
+ *
+ * Per-connection message processing is already serialized (`processingChain`),
+ * so history requests can never run concurrently on one socket, and a memory
+ * read is cheap. What this bounds is a client looping history requests and
+ * spending the shared 30-message budget that order handling, account snapshots
+ * and subscribes also draw on. Six reads per 10 s is far above any legitimate
+ * pattern — hydrate, switch symbol, switch timeframe, page left — and well
+ * under the shared limit.
+ */
+const HISTORY_RATE_LIMIT_MAX_REQUESTS = 6;
+const HISTORY_RATE_LIMIT_WINDOW_MS = 10_000;
 
 export function registerWebSocketRoute(
   app: FastifyInstance,
@@ -129,9 +231,15 @@ export function registerWebSocketRoute(
     registry: ConnectionRegistry;
     leadership: RealtimeLeadershipCoordinator;
     metrics: RealtimeOperationalMetrics;
+    /**
+     * W3 §4/§6 — the process's single history observer and read port. One
+     * instance for the whole process, not one per connection: a market price is
+     * market data, not account-private data.
+     */
+    history: MarketHistoryPort & { observeAcceptedTick(tick: MarketTick): void };
   },
 ): void {
-  const { db, market, symbolSpecs, config, logger, registry, leadership, metrics } = deps;
+  const { db, market, symbolSpecs, config, logger, registry, leadership, metrics, history } = deps;
 
   app.get('/ws', { websocket: true }, (socket, request) => {
     // @fastify/websocket's own README: event handlers must attach
@@ -169,7 +277,7 @@ export function registerWebSocketRoute(
         .then(async () => {
           const startedAt = performance.now();
           await processMessage(
-            { db, market, symbolSpecs, registry, logger, metrics },
+            { db, market, symbolSpecs, registry, logger, metrics, history },
             cid,
             uid,
             raw,
@@ -259,25 +367,7 @@ export function registerWebSocketRoute(
   // Broadcast every market tick to its channel's subscribers.
   const tickGate = new MarketTickGate();
   market.subscribe(Object.keys(symbolSpecs) as TradableSymbol[], (tick) => {
-    const tickDecision = tickGate.evaluate(tick);
-    metrics.tick(tickDecision);
-    if (tickDecision === 'duplicate' || tickDecision === 'out_of_order') {
-      logger.warn('realtime.market_tick_rejected', {
-        symbol: tick.symbol,
-        sequence: tick.sequence,
-        reason: tickDecision,
-      });
-      return;
-    }
-    registry.broadcast(
-      marketSymbolChannel(tick.symbol),
-      buildEnvelope({
-        type: 'market.tick',
-        sequence: tick.sequence,
-        correlationId: tick.symbol,
-        payload: tick,
-      }),
-    );
+    const tickDecision = admitAndFanOutTick({ tickGate, history, registry, logger, metrics }, tick);
     if (tickDecision !== 'accepted') return;
     const fencingToken = leadership.currentToken();
     if (!fencingToken) return;
@@ -521,6 +611,123 @@ interface MessageDeps {
   registry: ConnectionRegistry;
   logger: Logger;
   metrics: RealtimeOperationalMetrics;
+  history: MarketHistoryPort;
+}
+
+function sendHistoryError(
+  registry: ConnectionRegistry,
+  connectionId: string,
+  requestId: string,
+  code: MarketHistoryErrorCode,
+  message: string,
+): void {
+  registry.send(
+    connectionId,
+    buildEnvelope({
+      type: 'market_history_error',
+      sequence: 0,
+      correlationId: requestId,
+      payload: { requestId, code, message },
+    }),
+  );
+}
+
+/**
+ * W3 §26-§29 — the authenticated, bounded, read-only history request.
+ *
+ * Three things this deliberately does not do. It never reaches a provider: the
+ * browser cannot name a source, a URL or a date range, only a symbol, a
+ * timeframe, a count and a cursor (§27). It never writes: `MarketHistoryPort`
+ * has no write method, and nothing here can influence a price, a trigger or an
+ * account (§58). And it never fails silently: every rejection carries the
+ * client's own `requestId` so the chart's waiting generation can fail cleanly
+ * instead of hanging in `loading` (§34/§55).
+ */
+export async function handleMarketHistoryRequest(
+  deps: Pick<MessageDeps, 'symbolSpecs' | 'registry' | 'logger' | 'history'>,
+  connectionId: string,
+  frame: { requestId: string },
+): Promise<void> {
+  const { symbolSpecs, registry, logger, history } = deps;
+  const { requestId } = frame;
+
+  if (
+    !registry.checkHistoryRateLimit(
+      connectionId,
+      HISTORY_RATE_LIMIT_MAX_REQUESTS,
+      HISTORY_RATE_LIMIT_WINDOW_MS,
+    )
+  ) {
+    sendHistoryError(
+      registry,
+      connectionId,
+      requestId,
+      'rate_limited',
+      'Trop de requêtes d’historique — patientez un instant.',
+    );
+    return;
+  }
+
+  const parsed = marketHistoryRequestSchema.safeParse(frame);
+  if (!parsed.success) {
+    sendHistoryError(
+      registry,
+      connectionId,
+      requestId,
+      'invalid_request',
+      'Requête d’historique invalide.',
+    );
+    return;
+  }
+  const request = parsed.data;
+
+  // W3 §28 — market history is global, so there is no foreign-account data to
+  // leak here. What the account still governs is *capability*: a connection may
+  // only ask for an instrument in the spec set it was actually served, so an
+  // unavailable or future instrument stays unavailable.
+  if (!(request.symbol in symbolSpecs)) {
+    sendHistoryError(
+      registry,
+      connectionId,
+      requestId,
+      'unknown_symbol',
+      'Instrument indisponible.',
+    );
+    return;
+  }
+
+  try {
+    const window = await history.getCandles({
+      symbol: request.symbol,
+      timeframe: request.timeframe,
+      limit: request.limit,
+      ...(request.before === undefined ? {} : { before: request.before }),
+    });
+    registry.send(
+      connectionId,
+      buildEnvelope({
+        type: 'market_history_result',
+        sequence: 0,
+        correlationId: requestId,
+        payload: {
+          requestId,
+          symbol: request.symbol,
+          timeframe: request.timeframe,
+          ...window,
+        },
+      }),
+    );
+  } catch (error: unknown) {
+    // A history read failing is a display problem, never a trading one — the
+    // tick stream, the execution path and this connection all continue (§56).
+    logger.error('ws.market_history_read_failed', {
+      connectionId,
+      symbol: request.symbol,
+      timeframe: request.timeframe,
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
+    sendHistoryError(registry, connectionId, requestId, 'unavailable', 'Historique indisponible.');
+  }
 }
 
 async function processMessage(
@@ -529,7 +736,7 @@ async function processMessage(
   userId: string,
   raw: Buffer,
 ): Promise<void> {
-  const { db, market, symbolSpecs, registry, metrics } = deps;
+  const { db, market, symbolSpecs, registry, logger, metrics, history } = deps;
 
   metrics.commandReceived();
 
@@ -614,6 +821,15 @@ async function processMessage(
     for (const channel of msg.channels) {
       registry.unsubscribe(connectionId, channel);
     }
+    return;
+  }
+
+  if (msg.type === 'market_history_request') {
+    await handleMarketHistoryRequest(
+      { symbolSpecs, registry, logger, history },
+      connectionId,
+      msg.history,
+    );
     return;
   }
 

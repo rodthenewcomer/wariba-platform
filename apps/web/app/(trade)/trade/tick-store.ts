@@ -14,16 +14,36 @@ export interface TickStore {
   getTick(symbol: TradableSymbol): MarketTick | null;
   subscribe(symbol: TradableSymbol, listener: () => void): () => void;
   subscribeAny(listener: () => void): () => void;
+  /**
+   * W3 §5/§6 — every accepted tick, delivered exactly once, with the tick
+   * itself.
+   *
+   * The React-facing `subscribe` above exists to trigger a re-render, and
+   * `useSyncExternalStore` then reads the *latest* snapshot. That is correct
+   * for showing a price, and wrong for building a candle: two accepted ticks
+   * in one React batch produce one render, and the first tick's contribution
+   * to high/low disappears. W3 Phase A measured exactly that defect.
+   *
+   * Candle aggregation therefore consumes this event stream instead. It is
+   * deliberately imperative and React-free — no context, no global store —
+   * so W1/W2 render ownership is untouched: a tick that reaches this listener
+   * reaches no component at all.
+   */
+  subscribeTickEvents(symbol: TradableSymbol, listener: (tick: MarketTick) => void): () => void;
 }
 
 export function createTickStore(): TickStore {
   const ticks = new Map<TradableSymbol, MarketTick>();
   const symbolListeners = new Map<TradableSymbol, Set<() => void>>();
   const anyListeners = new Set<() => void>();
+  const tickEventListeners = new Map<TradableSymbol, Set<(tick: MarketTick) => void>>();
 
   return {
     update(tick) {
       ticks.set(tick.symbol, tick);
+      // Event listeners first, and with the tick itself: they must observe
+      // every accepted tick regardless of how React later coalesces renders.
+      for (const listener of tickEventListeners.get(tick.symbol) ?? []) listener(tick);
       for (const listener of symbolListeners.get(tick.symbol) ?? []) listener();
       for (const listener of anyListeners) listener();
     },
@@ -40,6 +60,18 @@ export function createTickStore(): TickStore {
     subscribeAny(listener) {
       anyListeners.add(listener);
       return () => anyListeners.delete(listener);
+    },
+    subscribeTickEvents(symbol, listener) {
+      let set = tickEventListeners.get(symbol);
+      if (!set) {
+        set = new Set();
+        tickEventListeners.set(symbol, set);
+      }
+      set.add(listener);
+      return () => {
+        set.delete(listener);
+        if (set.size === 0) tickEventListeners.delete(symbol);
+      };
     },
   };
 }

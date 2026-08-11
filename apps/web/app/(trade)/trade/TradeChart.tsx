@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   createChart,
   CrosshairMode,
@@ -11,14 +11,17 @@ import {
   type Time,
   type UTCTimestamp,
 } from 'lightweight-charts';
-import type {
-  MarketTick,
-  PositionDTO,
-  SymbolSpec,
-  TradableSymbol,
-  PendingOrderDTO,
-  PendingOrderType,
-  PriceAlertDTO,
+import {
+  CANDLE_TIMEFRAMES,
+  type CandleTimeframe,
+  type MarketCandle,
+  type MarketTick,
+  type PositionDTO,
+  type SymbolSpec,
+  type TradableSymbol,
+  type PendingOrderDTO,
+  type PendingOrderType,
+  type PriceAlertDTO,
 } from '@wariba/contracts';
 import {
   computeRealizedPnl,
@@ -40,6 +43,13 @@ import {
 } from './ChartPositionOverlay';
 import { PendingOrderLine, AlertLine } from './ChartPendingOverlay';
 import { ChartContextMenuPopover, ChartContextMenuContent } from './ChartContextMenu';
+import {
+  createChartHistoryController,
+  type ChartHistorySeriesSink,
+  type ChartHistoryTransport,
+} from './chart-history';
+import type { TickStore } from './tick-store';
+import { HISTORY_STATUS_MESSAGE } from './trade-copy';
 
 export interface FillMarker {
   id: string;
@@ -65,6 +75,15 @@ export interface PendingOrderAction {
 
 export interface TradeChartProps {
   symbol: TradableSymbol;
+  /**
+   * W3 §32 — the imperative accepted-tick source the candle series is driven
+   * from. The `tick` prop below is the *rendered* latest price (bid/ask lines,
+   * overlays, the context menu); it cannot build a candle, because two accepted
+   * ticks in one React batch produce one render and the first tick's high/low
+   * would be lost. Both are needed and they are not interchangeable.
+   */
+  store: TickStore;
+  historyTransport: ChartHistoryTransport;
   tick: MarketTick | null;
   positions: PositionDTO[];
   fills: FillMarker[];
@@ -98,19 +117,23 @@ export interface TradeChartProps {
   onCreateAlertHere: (thresholdPrice: string) => void;
 }
 
-interface Candle {
-  time: UTCTimestamp;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
+/**
+ * W3 §43 — the number-conversion boundary, and the only one.
+ *
+ * Canonical candles are decimal strings from the server's aggregator all the way
+ * to this function; lightweight-charts wants `number`, so the conversion happens
+ * here at the renderer's doorstep and nowhere earlier. No float ever becomes
+ * canonical history state.
+ */
+function toRendererCandle(candle: MarketCandle) {
+  return {
+    time: candle.startTime as UTCTimestamp,
+    open: Number(candle.open),
+    high: Number(candle.high),
+    low: Number(candle.low),
+    close: Number(candle.close),
+  };
 }
-
-const TIMEFRAMES = [
-  { label: '5s', seconds: 5 },
-  { label: '30s', seconds: 30 },
-  { label: '1m', seconds: 60 },
-] as const;
 
 /**
  * Emergency fallback for the frame before the container has been measured
@@ -123,10 +146,6 @@ const CHART_FALLBACK_HEIGHT = 240;
 function readToken(element: HTMLElement, name: string, fallback: string): string {
   const value = getComputedStyle(element).getPropertyValue(name).trim();
   return value || fallback;
-}
-
-function bucketStart(unixSeconds: number, timeframeSeconds: number): UTCTimestamp {
-  return (Math.floor(unixSeconds / timeframeSeconds) * timeframeSeconds) as UTCTimestamp;
 }
 
 interface ChartColors {
@@ -175,20 +194,31 @@ interface OrderDragSession {
  * server-side on drop (`onCommitLevel`) — see the component doc comment on
  * DragSession below for the click-vs-drag disambiguation.
  *
- * DATA-003 (same constraint PriceChart.tsx documented): no tick history is
- * persisted or fetched anywhere in this system — candles are built purely
- * from ticks received while this component is mounted, starting empty on
- * every mount and every symbol/timeframe change. This is why timeframes are
- * limited to a few short live-aggregatable windows rather than the usual
- * 1m/5m/1h/1d menu — a genuine, documented limitation (Prompt 07's own
- * "sélection timeframe (limitée et documentée)"), not an oversight.
+ * W3 — candles are no longer session-local. They are hydrated from history the
+ * realtime process genuinely observed from its own accepted-tick stream
+ * (`chart-history.ts`, `MarketHistoryPort`), then continued live from the tick
+ * store's imperative event stream. Two consequences worth stating here, because
+ * this comment previously asserted the opposite:
+ *
+ * - a mount or reload no longer starts empty, and no longer loses the current
+ *   bucket's true open — the server sends its in-progress bucket as a seed;
+ * - DATA-003 still holds. No tick tape and no candle table exist anywhere:
+ *   history lives in the realtime process's bounded memory, so depth is bounded
+ *   by that process's uptime and nothing survives its restart. That is a real,
+ *   documented product limitation, not an oversight.
+ *
+ * Timeframes stay limited to 5s/30s/1m for the same reason (Prompt 07's own
+ * "sélection timeframe (limitée et documentée)"): longer intervals would need
+ * more depth than process uptime provides.
  *
  * Fill markers (§22.6 "historique d'exécution") are restored from
- * AccountSnapshot.recentFills and updated from order_result. Tick candles
- * remain session-local because DATA-003 does not persist market history.
+ * AccountSnapshot.recentFills and updated from order_result — a separate
+ * concern from market history, and unchanged by W3.
  */
 export function TradeChart({
   symbol,
+  store,
+  historyTransport,
   tick,
   positions,
   fills,
@@ -226,7 +256,6 @@ export function TradeChart({
   const pendingOrderLinesRef = useRef<IPriceLine[]>([]);
   const alertLinesRef = useRef<IPriceLine[]>([]);
   const orderPreviewLineRef = useRef<IPriceLine | null>(null);
-  const candlesRef = useRef<Map<number, Candle>>(new Map());
   // lightweight-charts renders to canvas and never resolves CSS custom
   // properties itself — a raw 'var(...)' string crashes it (the same class
   // of bug fixed in PriceChart.tsx earlier in Prompt 07). Every color used
@@ -241,7 +270,7 @@ export function TradeChart({
     preview: '#9AA3B1',
     axis: '#3A4251',
   });
-  const [timeframeSeconds, setTimeframeSeconds] = useState<number>(TIMEFRAMES[0].seconds);
+  const [timeframe, setTimeframe] = useState<CandleTimeframe>(CANDLE_TIMEFRAMES[0]);
   const [chartVersion, setChartVersion] = useState(0);
   const [drag, setDrag] = useState<DragSession | null>(null);
   const dragRef = useRef<DragSession | null>(null);
@@ -391,36 +420,68 @@ export function TradeChart({
     };
   }, []);
 
-  // Symbol or timeframe change: no historical data to re-derive from
-  // (DATA-003), so start the candle buffer over rather than show a
-  // misleading mix of two symbols'/timeframes' bars.
+  /**
+   * W3 §41/§42 — the renderer boundary the history controller writes through.
+   *
+   * Stable for the component's lifetime and reads `seriesRef`/`chartRef` at call
+   * time, so it survives chart re-creation without the controller knowing. One
+   * `setData` per hydration, one `update` per accepted tick — never a whole
+   * series per tick.
+   */
+  const sink = useMemo<ChartHistorySeriesSink>(
+    () => ({
+      setData: (candles) => seriesRef.current?.setData(candles.map(toRendererCandle)),
+      update: (candle) => seriesRef.current?.update(toRendererCandle(candle)),
+      fitContent: () => chartRef.current?.timeScale().fitContent(),
+    }),
+    [],
+  );
+
+  /**
+   * W3 §30 — the chart's history state machine, created once.
+   *
+   * `store` and `historyTransport` are both created once per session
+   * (`useState` initialisers in useTradeSession), so capturing them in this
+   * initialiser is safe; if the session is torn down, this component unmounts
+   * with it.
+   */
+  const [history] = useState(() =>
+    createChartHistoryController({ transport: historyTransport, ticks: store, sink }),
+  );
+  useEffect(() => () => history.dispose(), [history]);
+
+  const historyState = useSyncExternalStore(
+    useCallback((onChange: () => void) => history.subscribe(onChange), [history]),
+    () => history.snapshot(),
+    () => history.snapshot(),
+  );
+
+  /**
+   * W3 §86 — hydration waits for the symbol's spec, because mid must be rounded
+   * at the instrument's own precision before it can be compared with the
+   * server's. Until then the chart is honestly `idle`, not wrongly `empty`.
+   */
+  const pricePrecision = spec?.pricePrecision ?? null;
   useEffect(() => {
-    candlesRef.current = new Map();
-    seriesRef.current?.setData([]);
+    if (pricePrecision === null) return;
+    history.start({ symbol, timeframe, pricePrecision });
+  }, [history, symbol, timeframe, pricePrecision]);
+
+  // Symbol or timeframe change: drop the interaction state that belonged to the
+  // previous instrument/interval. The candle series itself is the history
+  // controller's business (it clears and rehydrates on identity change), and the
+  // markers are restored by their own effect below.
+  useEffect(() => {
     seriesRef.current?.setMarkers([]);
     setDrag(null);
     setOrderDrag(null);
     setContextMenu(null);
-  }, [symbol, timeframeSeconds]);
+  }, [symbol, timeframe]);
 
-  // New tick for the selected symbol: update or start the current bucket's candle.
+  // New tick for the selected symbol: bid/ask price lines only. Candle
+  // aggregation deliberately does NOT happen here — see the `store` prop.
   useEffect(() => {
     if (!tick || !seriesRef.current) return;
-    const mid = (Number(tick.bid) + Number(tick.ask)) / 2;
-    const unixSeconds = Math.floor(new Date(tick.timestamp).getTime() / 1000);
-    const time = bucketStart(unixSeconds, timeframeSeconds);
-    const existing = candlesRef.current.get(time);
-    const candle: Candle = existing
-      ? {
-          time,
-          open: existing.open,
-          high: Math.max(existing.high, mid),
-          low: Math.min(existing.low, mid),
-          close: mid,
-        }
-      : { time, open: mid, high: mid, low: mid, close: mid };
-    candlesRef.current.set(time, candle);
-    seriesRef.current.update(candle);
 
     // Bid/ask price lines (§23.2 "prix bid/ask distincts") — replaced each
     // tick rather than moved, createPriceLine has no update-in-place API.
@@ -443,7 +504,7 @@ export function TradeChart({
       title: 'Ask',
     });
     setChartVersion((v) => v + 1);
-  }, [tick, timeframeSeconds]);
+  }, [tick]);
 
   // Position + SL/TP native lines for the selected symbol — rebuilt
   // whenever the open-position list changes (a fill, a close, an SL/TP
@@ -934,6 +995,17 @@ export function TradeChart({
 
   const closeContextMenu = () => setContextMenu(null);
 
+  // Read at render time rather than mirrored into state: this component already
+  // re-renders on every accepted tick (the `tick` prop), so the count is fresh
+  // without a second subscription, and no extra render is caused by history.
+  const historySeries = history.series();
+  const historyCandleCount = historySeries.finalized.length;
+  const historyNewestBucket = historySeries.finalized.at(-1)?.startTime ?? '';
+  const historyMessage =
+    historyState.status === 'idle' || historyState.status === 'ready'
+      ? null
+      : HISTORY_STATUS_MESSAGE[historyState.status];
+
   return (
     // W1 §9 — min-h-0 at every ownership boundary: without it a flex child
     // refuses to shrink below its content, and the chart column would push
@@ -941,18 +1013,19 @@ export function TradeChart({
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       <div className="flex shrink-0 items-center justify-between">
         <div className="flex gap-1">
-          {TIMEFRAMES.map((tf) => (
+          {CANDLE_TIMEFRAMES.map((tf) => (
             <button
-              key={tf.seconds}
+              key={tf}
               type="button"
-              onClick={() => setTimeframeSeconds(tf.seconds)}
+              onClick={() => setTimeframe(tf)}
+              aria-pressed={tf === timeframe}
               className={`rounded-[var(--wariba-radius-sm)] px-2 py-1 text-[length:var(--wariba-font-size-label-sm)] ${
-                tf.seconds === timeframeSeconds
+                tf === timeframe
                   ? 'bg-[color:var(--wariba-surface-selected)] text-[color:var(--wariba-theme-text)]'
                   : 'text-[color:var(--wariba-text-secondary)]'
               }`}
             >
-              {tf.label}
+              {tf}
             </button>
           ))}
         </div>
@@ -976,6 +1049,36 @@ export function TradeChart({
           onPointerUpCapture={clearLongPressTimer}
           onPointerCancelCapture={clearLongPressTimer}
         />
+        {/* W3 §52-§55 — chart-local, subtle, and never covering the price or an
+            execution control: pointer-events-none so it cannot intercept a
+            crosshair, a drag or a long press. One restrained polite status
+            region for the whole history lifecycle, so a transition is announced
+            once and individual candles never are (§75).
+
+            The data-* attributes are W3 §86's deterministic evidence anchors.
+            The epoch is the opaque process-memory generation already carried in
+            the response (it holds no infrastructure detail), and it is what
+            makes "the same process memory survived this browser reload"
+            provable rather than asserted; the newest finalized bucket pins
+            *which* observed history is on screen. */}
+        <div
+          data-testid="chart-history-status"
+          data-history-status={historyState.status}
+          data-history-candles={historyCandleCount}
+          data-history-epoch={historyState.sourceEpoch ?? ''}
+          data-history-newest={historyNewestBucket}
+          className="pointer-events-none absolute left-2 top-2 z-10"
+        >
+          {historyMessage && (
+            <span
+              role="status"
+              aria-live="polite"
+              className="rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-surface-raised)]/85 px-2 py-1 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]"
+            >
+              {historyMessage}
+            </span>
+          )}
+        </div>
         {overlay &&
           positions.map((position) => {
             const y = overlay.badgeY.get(`badge:${position.id}`);

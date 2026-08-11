@@ -32,6 +32,10 @@ import type { ModifyPendingOrderParams } from './ModifyPendingOrderDialog';
 import type { CreateAlertParams } from './NotificationCenter';
 import type { OrderRejectionDetail } from './OrderTicket';
 import { createTickStore, type TickStore } from './tick-store';
+import {
+  createChartHistoryTransportHub,
+  type ChartHistoryTransportHub,
+} from './chart-history-transport';
 import type { FillMarker } from './TradeChart';
 import { ORDER_TYPE_LABEL } from './trade-labels';
 import { rejectionDetailFor, rejectionFor } from './trade-copy';
@@ -112,6 +116,12 @@ export interface TradeCommands {
 
 export interface TradeSession {
   tickStore: TickStore;
+  /**
+   * W3 §26/§30 — the chart's history port. Handed down to the chart data layer
+   * rather than read here: this hook owns transport and authoritative account
+   * state, and deliberately knows nothing about candles.
+   */
+  historyTransport: ChartHistoryTransportHub;
   connectionState: RealtimeConnectionState;
   connectionOk: boolean;
   isResyncing: boolean;
@@ -174,6 +184,10 @@ export function useTradeSession({
   // Ticks live outside React state — see tick-store.ts's doc comment. A
   // stable, lazily-created store instance for this connection's lifetime.
   const [tickStore] = useState(() => createTickStore());
+  // Created once for the session and reused across reconnects — see the hub's
+  // own doc comment. Not React state in any meaningful sense: nothing reads it
+  // during render, so a history response never re-renders anything here.
+  const [historyTransport] = useState(() => createChartHistoryTransportHub());
   const [connectionState, setConnectionState] = useState<RealtimeConnectionState>('connecting');
   const [snapshot, setSnapshot] = useState<AccountSnapshot | null>(null);
   const [symbolSpecs, setSymbolSpecs] = useState<Partial<Record<TradableSymbol, SymbolSpec>>>({});
@@ -235,7 +249,12 @@ export function useTradeSession({
     clientRef.current = client;
 
     const offState = client.onStateChange(setConnectionState);
+    const detachHistory = historyTransport.attach(client);
     const offMessage = client.onMessage((envelope) => {
+      // W3 §26 — history results are routed straight to the chart's controller
+      // and never enter this hook's state. Checked first so a history frame
+      // costs nothing but a type comparison in the account-state path.
+      if (historyTransport.deliver(envelope)) return;
       if (envelope.type === 'account.snapshot') {
         const nextSnapshot = envelope.payload as AccountSnapshot;
         setSnapshot(nextSnapshot);
@@ -495,9 +514,10 @@ export function useTradeSession({
     return () => {
       offState();
       offMessage();
+      detachHistory();
       client.close();
     };
-  }, [accountId, userId, wsUrl, tickStore, flashRejectedOrderAction]);
+  }, [accountId, userId, wsUrl, tickStore, historyTransport, flashRejectedOrderAction]);
 
   // Settles (success or rejection) the same instant `pending` itself does.
   // pendingRiskAction / pendingOrderAction drive the PENDING_SERVER marker on
@@ -701,6 +721,7 @@ export function useTradeSession({
 
   return {
     tickStore,
+    historyTransport,
     connectionState,
     connectionOk: connectionState === 'open',
     isResyncing: connectionState === 'resyncing',
