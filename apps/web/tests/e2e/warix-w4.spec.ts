@@ -222,6 +222,49 @@ test.describe('WariX Execution Center', { tag: ['@trade', '@warix-w4'] }, () => 
     await expect(page.getByLabel('Quantité (lots)')).toHaveValue('0.25');
   });
 
+  test('keeps the two actions on screen even in the panel’s tallest state', async ({
+    page,
+    tradeAccount,
+  }) => {
+    test.skip(
+      (page.viewportSize()?.width ?? DESKTOP_BREAKPOINT) < DESKTOP_BREAKPOINT,
+      'the mobile sheet has its own scroll container and its own height budget',
+    );
+    // W4 §36 — the defect this milestone exists to fix. The pre-W4 panel was
+    // three full-width Alert cards over an OrderTicket card over a Guardian
+    // card, and on a 320px column a single notice pushed Buy/Sell off the
+    // bottom: the trader had to scroll a trading panel to reach the trade.
+    // Only the fields between the header and the actions scroll, so this holds
+    // however tall those sections grow.
+    await signIn(page, tradeAccount.email, tradeAccount.password);
+    await openExecutionCenter(page);
+
+    // The tallest state the panel has: a trigger price, both protection
+    // fields with their two-column per-side preview, the impact section
+    // populated, and a server rejection notice pinned above all of it.
+    await page.getByRole('radio', { name: 'Limit' }).click();
+    const bid = Number(await page.getByTestId('execution-bid').textContent());
+    await page.getByTestId('trigger-price-input').fill((bid - 0.005).toFixed(5));
+    await page.getByTestId('stop-loss-input').fill((bid - 0.008).toFixed(5));
+    await page.getByTestId('take-profit-input').fill((bid + 0.005).toFixed(5));
+    await expect(page.getByTestId('protection-preview')).toBeVisible();
+
+    await page.getByRole('radio', { name: 'Market' }).click();
+    await page.getByLabel('Quantité (lots)').fill('1.00');
+    await page.getByTestId('execution-submit-buy').click();
+    await expect(page.getByTestId('execution-rejection')).toBeVisible();
+
+    const viewportHeight = page.viewportSize()?.height ?? 0;
+    for (const testId of ['execution-submit-buy', 'execution-submit-sell']) {
+      const box = await page.getByTestId(testId).boundingBox();
+      expect(box, testId).not.toBeNull();
+      expect((box?.y ?? 0) + (box?.height ?? 0), `${testId} bottom edge`).toBeLessThanOrEqual(
+        viewportHeight,
+      );
+      await expect(page.getByTestId(testId)).toBeInViewport({ ratio: 1 });
+    }
+  });
+
   test('a rejection keeps its reason, action and code, and survives the ticks that follow', async ({
     page,
     tradeAccount,

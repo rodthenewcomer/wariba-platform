@@ -141,60 +141,77 @@ export const ExecutionPanel = memo(function ExecutionPanel({
   return (
     <div
       data-testid="execution-center"
-      className="flex min-h-0 flex-col overflow-y-auto bg-[color:var(--wariba-component-workstation-surface-raised)]"
+      className="flex min-h-0 flex-1 flex-col bg-[color:var(--wariba-component-workstation-surface-raised)]"
     >
-      <ExecutionMarketHeader
-        symbol={symbol}
-        spec={spec}
-        tick={tick}
-        accountPublicId={accountPublicId}
-      />
+      {/* The three quotes and the reason the trader cannot act: pinned, because
+          neither is useful if it has scrolled away from the button. */}
+      <div className="shrink-0">
+        <ExecutionMarketHeader
+          symbol={symbol}
+          spec={spec}
+          tick={tick}
+          accountPublicId={accountPublicId}
+        />
+        <ExecutionStatus gate={gate} rejection={rejection} risk={risk} />
+      </div>
 
-      <ExecutionStatus gate={gate} rejection={rejection} risk={risk} />
+      {/*
+       * Only the *fields* scroll.
+       *
+       * The panel used to scroll as one block, which put the Buy/Sell actions
+       * below the fold on a 900px-tall screen as soon as the protection
+       * preview or a notice was showing — the pre-W4 defect W4 §36 exists to
+       * fix, reintroduced by a different mechanism. With the header and the
+       * actions pinned and this region owning the overflow, the two things
+       * that spend money are on screen at every viewport and in every state,
+       * whatever the sections between them grow to.
+       */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <ExecutionSection title="Type" testId="execution-order-type">
+          <OrderTypeSelector value={draft.orderKind} onChange={draftStore.setOrderKind} />
+          {draft.orderKind !== 'market' ? (
+            <TriggerPriceControl
+              orderKind={draft.orderKind}
+              spec={spec}
+              tick={tick}
+              value={draft.triggerPrice}
+              onChange={draftStore.setTriggerPrice}
+              error={triggerPriceError}
+            />
+          ) : null}
+        </ExecutionSection>
 
-      <ExecutionSection title="Type" testId="execution-order-type">
-        <OrderTypeSelector value={draft.orderKind} onChange={draftStore.setOrderKind} />
-        {draft.orderKind !== 'market' ? (
-          <TriggerPriceControl
-            orderKind={draft.orderKind}
+        <ExecutionSection title="Quantité" testId="execution-quantity">
+          <QuantityControl
             spec={spec}
-            tick={tick}
-            value={draft.triggerPrice}
-            onChange={draftStore.setTriggerPrice}
-            error={triggerPriceError}
+            value={draft.quantity}
+            onChange={draftStore.setQuantity}
+            error={quantityError}
           />
-        ) : null}
-      </ExecutionSection>
+        </ExecutionSection>
 
-      <ExecutionSection title="Quantité" testId="execution-quantity">
-        <QuantityControl
-          spec={spec}
-          value={draft.quantity}
-          onChange={draftStore.setQuantity}
-          error={quantityError}
-        />
-      </ExecutionSection>
+        <ExecutionSection title="Protection" testId="execution-protection">
+          <ProtectionSection
+            spec={spec}
+            stopLoss={draft.stopLoss}
+            onStopLossChange={draftStore.setStopLoss}
+            stopLossError={stopLossError}
+            takeProfit={draft.takeProfit}
+            onTakeProfitChange={draftStore.setTakeProfit}
+            takeProfitError={takeProfitError}
+            preview={protectionPreview}
+          />
+        </ExecutionSection>
 
-      <ExecutionSection title="Protection" testId="execution-protection">
-        <ProtectionSection
-          spec={spec}
-          stopLoss={draft.stopLoss}
-          onStopLossChange={draftStore.setStopLoss}
-          stopLossError={stopLossError}
-          takeProfit={draft.takeProfit}
-          onTakeProfitChange={draftStore.setTakeProfit}
-          takeProfitError={takeProfitError}
-          preview={protectionPreview}
-        />
-      </ExecutionSection>
+        <ExecutionSection title="Impact" testId="execution-impact">
+          <TradeImpactPanel impact={impact} />
+        </ExecutionSection>
+      </div>
 
-      <ExecutionSection title="Impact" testId="execution-impact">
-        <TradeImpactPanel impact={impact} />
-      </ExecutionSection>
-
-      {/* Last, and never scrolled past: the panel scrolls, this stays at its
-          end so the two actions are the terminus of the reading order. */}
-      <div className="mt-auto border-t border-[color:var(--wariba-component-workstation-seam)] pt-1">
+      {/* Explicitly opaque, not merely last in the flow: the fields above
+          scroll *under* this bar, and a transparent one would let a
+          half-scrolled input show through the buttons. */}
+      <div className="shrink-0 border-t border-[color:var(--wariba-component-workstation-seam)] bg-[color:var(--wariba-component-workstation-surface-raised)] pt-1">
         <ExecutionActions
           orderKind={draft.orderKind}
           referencePrice={referencePrice}
