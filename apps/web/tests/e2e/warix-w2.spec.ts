@@ -255,6 +255,20 @@ test.describe('WariX W2 mobile', { tag: ['@trade', '@mobile'] }, () => {
     for (const width of MOBILE_WIDTHS) {
       await page.setViewportSize({ width, height: 844 });
       await openWorkstation(page);
+      // Measure the bar *loaded*. Before the first account snapshot every
+      // figure is an em dash and the risk trigger is not mounted — a bar
+      // ~80px narrower than the one a trader actually sees, and narrow
+      // enough to fit 320px while the real one overflowed it. Waiting for a
+      // real figure and the risk trigger is what makes this gate measure the
+      // widest state the bar ever reaches rather than its emptiest.
+      await expect(page.getByTestId('workstation-metrics')).toContainText(/\d/, {
+        timeout: 30_000,
+      });
+      await expect(
+        page
+          .getByTestId('workstation-status-bar')
+          .getByRole('button', { name: 'Détail des règles de risque' }),
+      ).toBeVisible({ timeout: 30_000 });
 
       const measured = await page.evaluate(() => {
         const bar = document.querySelector('[data-testid="workstation-status-bar"]');
