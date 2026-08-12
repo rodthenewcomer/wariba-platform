@@ -619,7 +619,7 @@ test.describe(
             };
           }),
       );
-      console.info('WX1_UNDERSIZED_MOBILE_TARGETS', JSON.stringify(undersizedMobileTargets));
+      console.warn('WX1_UNDERSIZED_MOBILE_TARGETS', JSON.stringify(undersizedMobileTargets));
       (manifest.states as Record<string, unknown>).thirdPartyAttributionTouchTarget =
         undersizedMobileTargets.find((target) => target.href?.includes('tradingview.com')) ?? null;
       expect(
