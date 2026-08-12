@@ -292,14 +292,44 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
       note: 'drawings require a plot and a price scale, not a warmed 100-period average',
     };
 
+    /**
+     * Anchors snap to a **loaded candle time** (§47), so on a young process's 3m
+     * chart — a dozen bars occupying the left third of the plot — a click at 70%
+     * of the width snaps back to the newest bar and the drawing renders cramped.
+     * That is the model behaving correctly, not a defect, but it is poor
+     * evidence. The anchor fractions therefore follow where the candles actually
+     * are, which the chart already reports.
+     */
+    const sparse = (await candleCount()) < 40;
+    const near = sparse ? 0.1 : 0.25;
+    const far = sparse ? 0.3 : 0.7;
+
     await selectTool('Ligne de tendance');
-    await drawTwoPoints({ x: 0.25, y: 0.65 }, { x: 0.7, y: 0.35 });
+    await drawTwoPoints({ x: near, y: 0.65 }, { x: far, y: 0.35 });
     await selectTool('Ligne horizontale');
     const box = await plotBox();
     await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.45);
     await expect(chart()).toHaveAttribute('data-drawing-count', '2');
     await shot('1440x900-03-eurusd-3m-trend-and-horizontal');
 
+    /**
+     * §115/§77 — the same two records, read on a different interval. Drawings
+     * are symbol-scoped and never timeframe-scoped, so switching to 15s must
+     * show the same two drawings at the same time/price anchors, not duplicates
+     * and not nothing.
+     */
+    await selectTimeframe('15s');
+    await expect(chart()).toHaveAttribute('data-drawing-count', '2');
+    manifest.timeframeSharing = {
+      drawnOn: '3m',
+      readOn: '15s',
+      drawingCount: await chart().getAttribute('data-drawing-count'),
+      note: 'same records, no duplication — drawings are symbol-scoped, never timeframe-scoped',
+    };
+    await shot('1440x900-03b-eurusd-15s-same-drawings-other-timeframe');
+
+    // Fibonacci and the rectangle go on the denser interval, where the tool is
+    // actually legible for a reviewer.
     await selectTool('Fibonacci');
     await drawTwoPoints({ x: 0.3, y: 0.25 }, { x: 0.62, y: 0.75 });
     await selectTool('Rectangle');
