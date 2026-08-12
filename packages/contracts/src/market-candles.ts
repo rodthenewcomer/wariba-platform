@@ -19,19 +19,51 @@ import { z } from 'zod';
  * Nothing here participates in execution. Candles are display data (W3 §42).
  */
 
-/** The timeframes the UI actually offers today. W3 adds none (§12/§48). */
-export const CANDLE_TIMEFRAMES = ['5s', '30s', '1m'] as const;
+/**
+ * The timeframes the UI actually offers. W3 shipped 5s/30s/1m; W5 §7 adds 15s
+ * and 3m, and nothing else.
+ *
+ * Ordered shortest-first because that is the order the toolbar reads in, and
+ * every consumer — the server's aggregator loop, the toolbar, the preference
+ * parser, the tests — iterates *this* array rather than repeating the list.
+ * Adding a sixth interval is therefore a one-line change here plus the duration
+ * below, which is the whole point of the canonical type (W5 §9).
+ *
+ * Not extended past 3m on purpose: history depth is bounded by the realtime
+ * process's uptime (W3 DATA-003), so a 1h chart would spend most of its width
+ * showing an honest absence of data. Tick charts (1000T/5000T) are excluded for
+ * a different reason — the feed publishes quote updates, not exchange trade
+ * events, and equating the two would be a fabricated market semantic
+ * (W5 §8, `TICK_CHARTS_READY = false`).
+ */
+export const CANDLE_TIMEFRAMES = ['5s', '15s', '30s', '1m', '3m'] as const;
 export type CandleTimeframe = (typeof CANDLE_TIMEFRAMES)[number];
 export const candleTimeframeSchema = z.enum(CANDLE_TIMEFRAMES);
 
+/**
+ * W5 §15 — the shipped default, stated rather than positional.
+ *
+ * It was `CANDLE_TIMEFRAMES[0]` in W4, which happened to be `5s`. Naming it
+ * means inserting an interval at the front of the list can no longer silently
+ * change what every trader sees on open.
+ */
+export const DEFAULT_CANDLE_TIMEFRAME: CandleTimeframe = '5s';
+
 const TIMEFRAME_SECONDS: Record<CandleTimeframe, number> = {
   '5s': 5,
+  '15s': 15,
   '30s': 30,
   '1m': 60,
+  '3m': 180,
 };
 
 export function timeframeSeconds(timeframe: CandleTimeframe): number {
   return TIMEFRAME_SECONDS[timeframe];
+}
+
+/** Narrows unvalidated input (a stored preference, a query string) to a supported interval. */
+export function isCandleTimeframe(value: unknown): value is CandleTimeframe {
+  return typeof value === 'string' && (CANDLE_TIMEFRAMES as readonly string[]).includes(value);
 }
 
 /**

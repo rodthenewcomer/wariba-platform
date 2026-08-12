@@ -39,11 +39,13 @@ export {
 
 export {
   CANDLE_TIMEFRAMES,
+  DEFAULT_CANDLE_TIMEFRAME,
   candleTimeframeSchema,
   marketCandleSchema,
   bucketStartSeconds,
   bucketStartForTimestamp,
   createCandleAggregator,
+  isCandleTimeframe,
   midPrice,
   timeframeSeconds,
   type CandleAggregator,

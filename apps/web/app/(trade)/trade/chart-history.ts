@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  DEFAULT_CANDLE_TIMEFRAME,
   INITIAL_HISTORY_CANDLE_LIMIT,
   createCandleAggregator,
   mergeFinalizedCandles,
@@ -49,6 +50,26 @@ export const CLIENT_HISTORY_HYDRATION_TICK_BUFFER_MAX = 500;
 /** How many times a merge conflict may force a controlled rehydrate before giving up (§66). */
 const MAX_CONFLICT_REHYDRATES = 1;
 
+/**
+ * W5 §18 — how close to the oldest loaded bar a pan must get before the next
+ * older page is requested.
+ *
+ * Expressed in *bars remaining to the left of the viewport*, not pixels and not
+ * scroll events: the same number behaves identically at every zoom level and on
+ * every screen, which a pixel threshold does not. 50 is roughly one screen of
+ * lead at a typical zoom, so the page lands before the trader reaches the edge
+ * rather than after they have stared at empty space.
+ */
+export const HISTORY_BACKFILL_TRIGGER_BARS = 50;
+
+/**
+ * W5 §17 — how many older candles one backfill page asks for.
+ *
+ * Same as the initial hydration limit so a page-left is one screenful of the
+ * same size the chart opened with, and well under `MAX_HISTORY_CANDLE_LIMIT`.
+ */
+export const HISTORY_BACKFILL_PAGE_LIMIT = INITIAL_HISTORY_CANDLE_LIMIT;
+
 export interface ChartHistoryTransport {
   request(request: MarketHistoryRequest): void;
   onResult(listener: (result: MarketHistoryResult) => void): () => void;
@@ -69,6 +90,17 @@ export interface ChartHistorySeriesSink {
   update(candle: MarketCandle): void;
   /** Once per symbol/timeframe hydration, never per tick (§44). */
   fitContent(): void;
+  /**
+   * W5 §21 — an older page landed: rewrite the series **and hold the viewport**.
+   *
+   * Separate from `setData` precisely because the renderer must do something
+   * extra here and must *not* do the obvious thing. Calling `fitContent()` after
+   * a prepend would yank a trader who deliberately panned back three hours to
+   * the live edge, and re-zoom the whole window; instead the renderer shifts its
+   * logical range by `prependedCount` so the bar under the cursor stays under
+   * the cursor. One write, whatever the page size (§75).
+   */
+  prepend(candles: readonly MarketCandle[], prependedCount: number): void;
 }
 
 export interface ChartHistorySnapshot {
@@ -77,6 +109,16 @@ export interface ChartHistorySnapshot {
   sourceEpoch: string | null;
   /** Only set when `status === 'error'`; for logs and tests, not for the trader. */
   errorReason: string | null;
+  /**
+   * W5 §23 — whether an older page still exists **in this process's memory**.
+   *
+   * Not a claim about the market. `false` means the oldest retained candle is on
+   * screen, which is why the UI copy is "début de l'historique disponible" and
+   * never "all market history loaded".
+   */
+  hasMoreOlder: boolean;
+  /** True while an older page is in flight — the chart may say so, quietly. */
+  backfilling: boolean;
 }
 
 export interface ChartHistoryTickSource {
@@ -94,6 +136,16 @@ export interface ChartHistoryController {
   stop(): void;
   snapshot(): ChartHistorySnapshot;
   subscribe(listener: () => void): () => void;
+  /**
+   * W5 §18/§19 — the pan-left trigger.
+   *
+   * Called with the number of loaded bars still to the left of the viewport
+   * (lightweight-charts' leftmost visible logical index). Requests at most one
+   * older page and is safe to call on every visible-range event: it is the
+   * single place the threshold, the in-flight guard and `hasMore` are checked,
+   * so a trader dragging left produces one request, not one per frame.
+   */
+  maybeRequestOlder(barsToLeftEdge: number): void;
   /** Inspection seam for tests and the renderer adapter. */
   series(): { finalized: readonly MarketCandle[]; current: MarketCandle | null };
   dispose(): void;
@@ -106,6 +158,8 @@ export interface CreateChartHistoryControllerOptions {
   /** Injectable so tests get deterministic request ids. */
   newRequestId?: () => string;
   limit?: number;
+  /** Older-page size; defaults to `HISTORY_BACKFILL_PAGE_LIMIT`. */
+  backfillLimit?: number;
   bufferMax?: number;
 }
 
@@ -119,7 +173,30 @@ interface Hydration {
   buffer: MarketTick[];
 }
 
-const IDLE: ChartHistorySnapshot = { status: 'idle', sourceEpoch: null, errorReason: null };
+/**
+ * W5 §19 — the one older-page request that may be in flight.
+ *
+ * Keyed by generation as well as request id: a page requested for the 1m chart
+ * must not land on the 3m chart the trader switched to while it was in transit,
+ * and the generation is what W3 already uses to express exactly that.
+ */
+interface Backfill {
+  generation: number;
+  requestId: string;
+  symbol: TradableSymbol;
+  timeframe: CandleTimeframe;
+  /** The epoch the page was requested against — see `onOlderPage` (§22). */
+  sourceEpoch: string;
+  before: number;
+}
+
+const IDLE: ChartHistorySnapshot = {
+  status: 'idle',
+  sourceEpoch: null,
+  errorReason: null,
+  hasMoreOlder: false,
+  backfilling: false,
+};
 
 export function createChartHistoryController(
   options: CreateChartHistoryControllerOptions,
@@ -127,6 +204,7 @@ export function createChartHistoryController(
   const { transport, ticks, sink } = options;
   const newRequestId = options.newRequestId ?? (() => crypto.randomUUID());
   const limit = options.limit ?? INITIAL_HISTORY_CANDLE_LIMIT;
+  const backfillLimit = options.backfillLimit ?? HISTORY_BACKFILL_PAGE_LIMIT;
   const bufferMax = options.bufferMax ?? CLIENT_HISTORY_HYDRATION_TICK_BUFFER_MAX;
 
   const listeners = new Set<() => void>();
@@ -146,16 +224,23 @@ export function createChartHistoryController(
   let hydration: Hydration | null = null;
   let detachTicks: (() => void) | null = null;
 
-  let aggregator = createCandleAggregator('1m');
+  let aggregator = createCandleAggregator(DEFAULT_CANDLE_TIMEFRAME);
   let finalized: MarketCandle[] = [];
   let hydratedEpoch: string | null = null;
   let conflictRehydrates = 0;
+
+  /** W5 §19/§23 — pagination state, reset with the series it describes. */
+  let backfill: Backfill | null = null;
+  let hasMoreOlder = false;
+  let oldestCursor: number | null = null;
 
   function emit(next: ChartHistorySnapshot): void {
     if (
       next.status === snapshot.status &&
       next.sourceEpoch === snapshot.sourceEpoch &&
-      next.errorReason === snapshot.errorReason
+      next.errorReason === snapshot.errorReason &&
+      next.hasMoreOlder === snapshot.hasMoreOlder &&
+      next.backfilling === snapshot.backfilling
     ) {
       // Identity-stable when nothing changed: this snapshot is read through
       // useSyncExternalStore, so a new object every tick would re-render the
@@ -166,6 +251,17 @@ export function createChartHistoryController(
     for (const listener of listeners) listener();
   }
 
+  /** Every status transition, with the pagination state read from one place. */
+  function publish(status: ChartHistoryStatus, errorReason: string | null = null): void {
+    emit({
+      status,
+      sourceEpoch: hydratedEpoch,
+      errorReason,
+      hasMoreOlder,
+      backfilling: backfill !== null,
+    });
+  }
+
   function identityKey(): string {
     return identity === null ? '' : `${identity.symbol}:${identity.timeframe}`;
   }
@@ -174,6 +270,11 @@ export function createChartHistoryController(
     finalized = [];
     aggregator.reset();
     hydratedEpoch = null;
+    // An in-flight older page describes a series that no longer exists. Dropping
+    // the handle is what makes its late response unmatched, hence ignored (§22).
+    backfill = null;
+    hasMoreOlder = false;
+    oldestCursor = null;
   }
 
   /**
@@ -207,7 +308,7 @@ export function createChartHistoryController(
       onTick(current.generation, tick);
     });
 
-    emit({ status: 'loading', sourceEpoch: hydratedEpoch, errorReason: null });
+    publish('loading');
 
     transport.request({
       requestId: current.requestId,
@@ -252,7 +353,7 @@ export function createChartHistoryController(
       if (snapshot.status === 'empty') {
         // Locally observed history is still observed history: once a bucket has
         // genuinely closed there is history to show, so stop saying there is none.
-        emit({ status: 'ready', sourceEpoch: hydratedEpoch, errorReason: null });
+        publish('ready');
       }
     }
     sink.update(update.current);
@@ -260,10 +361,120 @@ export function createChartHistoryController(
 
   function failHydration(reason: string): void {
     hydration = null;
-    emit({ status: 'error', sourceEpoch: hydratedEpoch, errorReason: reason });
+    publish('error', reason);
+  }
+
+  /**
+   * W5 §18/§19 — request the next older page, at most one at a time.
+   *
+   * Every precondition is checked here and nowhere else, so the call site can be
+   * a raw visible-range event handler firing dozens of times a second during a
+   * drag and still produce exactly one request per page (§96). There is no
+   * timer and no polling: a page is fetched because the trader panned, or not
+   * at all.
+   */
+  function maybeRequestOlder(barsToLeftEdge: number): void {
+    if (identity === null) return;
+    // Hydration owns the series until it lands; paginating underneath it would
+    // race the very merge that establishes what "oldest" means.
+    if (hydration !== null) return;
+    if (backfill !== null) return;
+    if (!hasMoreOlder || oldestCursor === null || hydratedEpoch === null) return;
+    if (!Number.isFinite(barsToLeftEdge) || barsToLeftEdge > HISTORY_BACKFILL_TRIGGER_BARS) return;
+
+    const requestId = newRequestId();
+    backfill = {
+      generation,
+      requestId,
+      symbol: identity.symbol,
+      timeframe: identity.timeframe,
+      sourceEpoch: hydratedEpoch,
+      before: oldestCursor,
+    };
+    publish(snapshot.status);
+    transport.request({
+      requestId,
+      symbol: identity.symbol,
+      timeframe: identity.timeframe,
+      limit: backfillLimit,
+      before: oldestCursor,
+    });
+  }
+
+  /**
+   * W5 §20/§21/§22 — merge one older page and hold the viewport.
+   *
+   * Three ways a response is dropped rather than merged, all silent: it belongs
+   * to a superseded generation, it belongs to a different symbol/timeframe, or
+   * it was produced by a *different memory generation* than the series on
+   * screen. The last one is the W3 §35 rule applied to pagination — a page from
+   * the process that died is not older history for the process that replaced
+   * it, and splicing it in would present one process's observations as another's.
+   */
+  function onOlderPage(result: MarketHistoryResult, request: Backfill): void {
+    backfill = null;
+
+    if (request.generation !== generation) return;
+    if (identity === null) return;
+    if (result.symbol !== identity.symbol || result.timeframe !== identity.timeframe) return;
+    if (result.sourceEpoch !== hydratedEpoch || result.sourceEpoch !== request.sourceEpoch) return;
+
+    const validation = validateHistoryWindow(result, { limit: backfillLimit });
+    if (!validation.ok) {
+      // A malformed older page is not worth failing the whole chart over: what
+      // is on screen is still valid observed history. Pagination stops instead,
+      // which is the honest outcome — the trader keeps their series and simply
+      // cannot go further back.
+      hasMoreOlder = false;
+      publish(snapshot.status);
+      return;
+    }
+
+    const previousOldest = finalized[0]?.startTime ?? null;
+    const merge = mergeFinalizedCandles(finalized, result.candles);
+    if (merge.status === 'conflict') {
+      // Same bucket, different OHLC, same epoch (checked above) — an integrity
+      // fault. W3 §66's answer is a controlled rehydrate, and it applies
+      // unchanged here; the existing counter bounds it.
+      if (conflictRehydrates >= MAX_CONFLICT_REHYDRATES) {
+        failHydration(`conflicting candle at ${merge.startTime}`);
+        return;
+      }
+      conflictRehydrates += 1;
+      resetSeries();
+      sink.setData([]);
+      beginHydration(identity);
+      return;
+    }
+
+    finalized = merge.candles;
+    hasMoreOlder = result.hasMore;
+    oldestCursor = result.nextCursor ?? oldestCursor;
+
+    // Exactly the count the renderer must shift its logical range by: candles
+    // that landed *before* everything already on screen. Duplicates the merge
+    // deduplicated do not move anything and are not counted (§21/§95).
+    const prependedCount =
+      previousOldest === null
+        ? finalized.length
+        : finalized.findIndex((candle) => candle.startTime === previousOldest);
+
+    const currentCandle = aggregator.current();
+    sink.prepend(
+      currentCandle === null ? finalized : [...finalized, currentCandle],
+      Math.max(0, prependedCount),
+    );
+    publish(finalized.length === 0 ? 'empty' : 'ready');
   }
 
   function onResult(result: MarketHistoryResult): void {
+    // W5 §19 — an older page is answered on the same channel as a hydration, so
+    // it is routed by its own request id before the hydration branch runs.
+    if (backfill !== null && result.requestId === backfill.requestId) {
+      onOlderPage(result, backfill);
+      return;
+    }
+
     const current = hydration;
     // W3 §34/§45/§46/§65 — an obsolete generation's response is dropped in
     // silence: no setData, no error, no viewport move, no buffer clear, no
@@ -307,6 +518,12 @@ export function createChartHistoryController(
 
     finalized = merge.candles;
     hydratedEpoch = result.sourceEpoch;
+    // W5 §17 — the pagination contract W3 defined, now actually consumed. The
+    // cursor is the oldest candle *the series holds*, not the oldest this
+    // response carried, so a reconnect that merged older local candles back in
+    // still pages from the true left edge.
+    hasMoreOlder = result.hasMore;
+    oldestCursor = finalized[0]?.startTime ?? result.nextCursor;
 
     // W3 §17/§38 — install the authoritative current bucket so the next tick
     // extends it. Without this the bar's true open, and any pre-mount high or
@@ -334,14 +551,18 @@ export function createChartHistoryController(
 
     for (const tick of replay) applyTick(tick, current.pricePrecision);
 
-    emit({
-      status: finalized.length === 0 ? 'empty' : 'ready',
-      sourceEpoch: hydratedEpoch,
-      errorReason: null,
-    });
+    publish(finalized.length === 0 ? 'empty' : 'ready');
   }
 
   function onError(error: MarketHistoryErrorMessage): void {
+    // W5 §19 — a failed older page must not fail the chart. The series on screen
+    // is untouched and still correct; pagination simply stops for this window,
+    // and the next pan re-arms it only if the server said there is more.
+    if (backfill !== null && error.requestId === backfill.requestId) {
+      backfill = null;
+      publish(snapshot.status);
+      return;
+    }
     if (hydration === null || error.requestId !== hydration.requestId) return;
     failHydration(error.code);
   }
@@ -384,6 +605,7 @@ export function createChartHistoryController(
       resetSeries();
       emit(IDLE);
     },
+    maybeRequestOlder,
     snapshot: () => snapshot,
     subscribe(listener) {
       listeners.add(listener);

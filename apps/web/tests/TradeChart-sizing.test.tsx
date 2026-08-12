@@ -17,38 +17,34 @@ import { createTickStore } from '../app/(trade)/trade/tick-store';
  * refresh the overlay geometry that depends on the price scale's pixel height?
  */
 
+/**
+ * W5 — the renderer double is shared with the other chart tests (see
+ * `tests/support/lightweight-charts-double.ts`), wrapped here so this file can
+ * still capture the *creation options* and the ResizeObserver callback, which
+ * are the two inputs this milestone's geometry defect lived in.
+ */
+const chartDouble = await vi.hoisted(async () => {
+  const { createLightweightChartsDouble } = await import('./support/lightweight-charts-double');
+  return createLightweightChartsDouble();
+});
+
 const applyOptions = vi.fn();
-const priceToCoordinate = vi.fn((price: number) => price);
-let createChartOptions: Record<string, unknown> | null = null;
+const captured: { options: Record<string, unknown> | null } = { options: null };
 let resizeCallback: (() => void) | null = null;
 
-vi.mock('lightweight-charts', () => {
-  const series = {
-    update: vi.fn(),
-    setData: vi.fn(),
-    setMarkers: vi.fn(),
-    createPriceLine: vi.fn(() => ({})),
-    removePriceLine: vi.fn(),
-    priceToCoordinate,
-    coordinateToPrice: vi.fn(() => 1.1),
-  };
-  return {
-    CrosshairMode: { Normal: 0 },
-    createChart: vi.fn((_container: HTMLElement, options: Record<string, unknown>) => {
-      createChartOptions = options;
-      return {
-        applyOptions,
-        addCandlestickSeries: () => series,
-        timeScale: () => ({
-          subscribeVisibleLogicalRangeChange: vi.fn(),
-          unsubscribeVisibleLogicalRangeChange: vi.fn(),
-          timeToCoordinate: vi.fn(() => 10),
-        }),
-        remove: vi.fn(),
-      };
-    }),
-  };
-});
+vi.mock('lightweight-charts', () => ({
+  ...chartDouble.module,
+  createChart: vi.fn((container: HTMLElement, options: Record<string, unknown>) => {
+    captured.options = options;
+    const chart = (chartDouble.module.createChart as (c: HTMLElement) => Record<string, unknown>)(
+      container,
+    );
+    return { ...chart, applyOptions };
+  }),
+}));
+
+/** The candlestick series' priceToCoordinate, reused by the overlay assertions. */
+const { seriesPriceToCoordinate: priceToCoordinate } = chartDouble.spies;
 
 const { TradeChart } = await import('../app/(trade)/trade/TradeChart');
 
@@ -86,6 +82,7 @@ function renderChart() {
   return render(
     <TradeChart
       symbol={'EURUSD' as TradableSymbol}
+      accountId="acc-test"
       store={createTickStore()}
       historyTransport={NO_HISTORY_TRANSPORT}
       tick={null}
@@ -122,7 +119,7 @@ describe('TradeChart sizing', () => {
   beforeEach(() => {
     applyOptions.mockClear();
     priceToCoordinate.mockClear();
-    createChartOptions = null;
+    captured.options = null;
     resizeCallback = null;
     vi.stubGlobal(
       'ResizeObserver',
@@ -149,7 +146,7 @@ describe('TradeChart sizing', () => {
     renderChart();
     expect(applyOptions).toHaveBeenCalledWith({ width: 1184, height: 728 });
     // No creation literal survives as the effective geometry.
-    expect(createChartOptions?.height).not.toBe(360);
+    expect(captured.options?.height).not.toBe(360);
   });
 
   it('applies width AND height on every container resize', () => {
@@ -203,6 +200,6 @@ describe('TradeChart sizing', () => {
     expect(applyOptions).not.toHaveBeenCalled();
     // The pre-measurement fallback keeps the chart renderable, and is small
     // enough that it can never be mistaken for a real desktop height.
-    expect(createChartOptions?.height).toBe(240);
+    expect(captured.options?.height).toBe(240);
   });
 });

@@ -63,10 +63,19 @@ async function waitForCandles(page: Page, minimum: number, timeout = 90_000): Pr
   return Number((await page.locator(HISTORY_STATUS).getAttribute('data-history-candles')) ?? '0');
 }
 
+/**
+ * W5 §86 changed the timeframe control from a row of toggle buttons to a real
+ * `radiogroup` with roving tab focus, because five intervals in a row of
+ * `aria-pressed` buttons is not the WAI-ARIA pattern for a single-choice
+ * control. The selector moves with it: `role="radio"` + `aria-checked`. The
+ * *behaviour* under test — selecting an interval hydrates that interval — is
+ * unchanged, which is why this is a harness correction and not a weakened
+ * assertion.
+ */
 async function selectTimeframe(page: Page, timeframe: '5s' | '30s' | '1m'): Promise<void> {
-  await page.getByRole('button', { name: timeframe, exact: true }).click();
-  await expect(page.getByRole('button', { name: timeframe, exact: true })).toHaveAttribute(
-    'aria-pressed',
+  await page.getByRole('radio', { name: timeframe, exact: true }).click();
+  await expect(page.getByRole('radio', { name: timeframe, exact: true })).toHaveAttribute(
+    'aria-checked',
     'true',
   );
 }
@@ -184,9 +193,14 @@ test.describe('WariX W3 market history', { tag: ['@trade'] }, () => {
       }
     }
 
-    // No timeframe controls beyond the three W3 supports.
-    await expect(page.getByRole('button', { name: '15m', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: '1h', exact: true })).toHaveCount(0);
+    // The offered set, read off the control itself rather than probed one
+    // absent label at a time. W5 added 15s and 3m (UX-WARIX-006); nothing
+    // longer exists, because history depth is bounded by process uptime.
+    const intervals = page.getByRole('radiogroup', { name: 'Intervalle du graphique' });
+    await expect(intervals.getByRole('radio')).toHaveText(['5s', '15s', '30s', '1m', '3m']);
+    for (const unsupported of ['5m', '15m', '1h', '4h', '1D', '1000T']) {
+      await expect(page.getByRole('radio', { name: unsupported, exact: true })).toHaveCount(0);
+    }
   });
 
   test('history failure leaves the live feed and execution controls untouched', async ({
