@@ -11,6 +11,7 @@ import type {
   TradableSymbol,
 } from '@wariba/contracts';
 import { createTickStore, type TickStore } from '../app/(trade)/trade/tick-store';
+import { stubContainerBox, stubResizeObserver } from './support/lightweight-charts-double';
 
 /**
  * W3 §56/§57/§58/§73 — history is display data, and this proves it at the one
@@ -25,53 +26,20 @@ import { createTickStore, type TickStore } from '../app/(trade)/trade/tick-store
  * server, not here.
  */
 
-const seriesUpdate = vi.fn();
-const seriesSetData = vi.fn();
-const seriesApplyOptions = vi.fn();
-const fitContent = vi.fn();
-
-vi.mock('lightweight-charts', () => {
-  const series = {
-    update: seriesUpdate,
-    setData: seriesSetData,
-    // Visual closure §6 — the chart applies the instrument's own price format
-    // through this, so the fake series has to offer it like the real one does.
-    applyOptions: seriesApplyOptions,
-    setMarkers: vi.fn(),
-    createPriceLine: vi.fn(() => ({})),
-    removePriceLine: vi.fn(),
-    priceToCoordinate: vi.fn((price: number) => price),
-    coordinateToPrice: vi.fn(() => 1.1),
-  };
-  return {
-    CrosshairMode: { Normal: 0 },
-    createChart: vi.fn(() => ({
-      applyOptions: vi.fn(),
-      addCandlestickSeries: () => series,
-      timeScale: () => ({
-        subscribeVisibleLogicalRangeChange: vi.fn(),
-        unsubscribeVisibleLogicalRangeChange: vi.fn(),
-        timeToCoordinate: vi.fn(() => 10),
-        fitContent,
-      }),
-      remove: vi.fn(),
-    })),
-  };
+/**
+ * W5 — the renderer double moved to `tests/support` when the chart gained line
+ * series, a crosshair subscription and logical-range control. One shared fake
+ * keeps every chart test exercising the same renderer surface.
+ */
+const chartDouble = await vi.hoisted(async () => {
+  const { createLightweightChartsDouble } = await import('./support/lightweight-charts-double');
+  return createLightweightChartsDouble();
 });
+const { seriesUpdate, seriesSetData, seriesApplyOptions, fitContent } = chartDouble.spies;
+
+vi.mock('lightweight-charts', () => chartDouble.module);
 
 const { TradeChart } = await import('../app/(trade)/trade/TradeChart');
-
-function stubContainerBox(width: number, height: number): void {
-  for (const [name, value] of [
-    ['clientWidth', width],
-    ['clientHeight', height],
-  ] as const) {
-    Object.defineProperty(HTMLElement.prototype, name, {
-      configurable: true,
-      get: () => value,
-    });
-  }
-}
 
 const SPEC: SymbolSpec = {
   symbol: 'EURUSD' as TradableSymbol,
@@ -158,6 +126,7 @@ function renderChart(): Harness {
   render(
     <TradeChart
       symbol={'EURUSD' as TradableSymbol}
+      accountId="acc-1"
       store={store}
       historyTransport={{
         request: (request) => requests.push(request),
@@ -222,19 +191,9 @@ function sweepingHistory(requestId: string): MarketHistoryResult {
 }
 
 beforeEach(() => {
-  seriesUpdate.mockClear();
-  seriesSetData.mockClear();
-  fitContent.mockClear();
+  chartDouble.spies.reset();
   stubContainerBox(1200, 600);
-  // jsdom has no ResizeObserver; the chart's geometry ownership is W1's concern
-  // and is covered by TradeChart-sizing.test.tsx, so an inert stub is enough here.
-  vi.stubGlobal(
-    'ResizeObserver',
-    class {
-      observe() {}
-      disconnect() {}
-    },
-  );
+  stubResizeObserver();
 });
 
 afterEach(() => {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CANDLE_TIMEFRAMES, bucketStartSeconds } from '@wariba/contracts';
 import type { MarketTick, TradableSymbol } from '@wariba/contracts';
 import {
   MemoryMarketHistoryStore,
@@ -64,19 +65,38 @@ function pageBefore(cursor: number | null): { before?: number } {
   return cursor === null ? {} : { before: cursor };
 }
 
-describe('MemoryMarketHistoryStore — one tick, three aggregators (W3 §8)', () => {
-  it('feeds 5s, 30s and 1m from a single accepted tick', async () => {
+describe('MemoryMarketHistoryStore — one tick, five aggregators (W3 §8 / W5 §10)', () => {
+  it('feeds 5s, 15s, 30s, 1m and 3m from a single accepted tick', async () => {
     const store = makeStore();
     store.observeAcceptedTick(midTick(0, '1.08450', 1));
-    // A later bucket in all three timeframes at once.
-    store.observeAcceptedTick(midTick(60, '1.08460', 2));
+    // A later bucket in all five timeframes at once (3m is the longest, so 180s).
+    store.observeAcceptedTick(midTick(180, '1.08460', 2));
 
-    for (const timeframe of ['5s', '30s', '1m'] as const) {
+    for (const timeframe of CANDLE_TIMEFRAMES) {
       const window = await store.getCandles({ symbol: 'EURUSD', timeframe, limit: 10 });
       expect(window.candles, timeframe).toHaveLength(1);
       expect(window.candles.at(0)?.startTime, timeframe).toBe(0);
       expect(window.candles.at(0)?.close, timeframe).toBe('1.08450');
     }
+  });
+
+  it('aggregates the W5 intervals from observed ticks only, never from reconstruction', async () => {
+    // W5 §12 — the store has observed one minute of ticks. A 3m chart must show
+    // the one in-progress bucket it genuinely has, not a fabricated back-fill of
+    // the 3m buckets that elapsed before the process started.
+    const store = makeStore();
+    for (let second = 0; second <= 59; second += 1) {
+      store.observeAcceptedTick(midTick(second, '1.08450', second + 1));
+    }
+
+    const fifteen = await store.getCandles({ symbol: 'EURUSD', timeframe: '15s', limit: 100 });
+    expect(fifteen.candles.map((candle) => candle.startTime)).toEqual([0, 15, 30]);
+    expect(fifteen.currentCandle?.startTime).toBe(45);
+
+    const three = await store.getCandles({ symbol: 'EURUSD', timeframe: '3m', limit: 100 });
+    expect(three.candles).toHaveLength(0);
+    expect(three.currentCandle?.startTime).toBe(0);
+    expect(three.hasMore).toBe(false);
   });
 
   it('computes mid with decimal arithmetic at the symbol precision', async () => {
@@ -391,7 +411,9 @@ describe('MemoryMarketHistoryStore — defensive boundaries', () => {
         tick({ seconds: 0, bid: '1999.99', ask: '2000.01', symbol: 'XAUUSD', sequence: 1 }),
       ),
     ).not.toThrow();
-    expect(store.stats().keys).toBe(3);
+    // One key per (observed symbol, timeframe); derived so adding an interval
+    // cannot make this assertion quietly wrong (W5 §10).
+    expect(store.stats().keys).toBe(CANDLE_TIMEFRAMES.length);
   });
 
   it('ignores an unparseable timestamp without throwing', () => {
@@ -417,7 +439,15 @@ describe('MemoryMarketHistoryStore — defensive boundaries', () => {
     store.observeAcceptedTick(midTick(0, '1.09999', 1));
 
     const window = await store.getCandles({ symbol: 'EURUSD', timeframe: '1m', limit: 10 });
-    expect(store.stats().staleObservations).toBe(3);
+    // One stale observation per interval whose bucket genuinely moved between
+    // the two ticks. At 60 s that is every interval except 3m, which both ticks
+    // share — derived rather than hard-coded so a sixth interval cannot make
+    // this pass for the wrong reason.
+    const expectedStale = CANDLE_TIMEFRAMES.filter(
+      (tf) => bucketStartSeconds(60_000, tf) > bucketStartSeconds(0, tf),
+    ).length;
+    expect(expectedStale).toBe(4);
+    expect(store.stats().staleObservations).toBe(expectedStale);
     expect(window.currentCandle?.high).toBe('1.08450');
   });
 

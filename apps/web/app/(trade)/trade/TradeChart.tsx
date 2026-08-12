@@ -12,8 +12,6 @@ import {
   type UTCTimestamp,
 } from 'lightweight-charts';
 import {
-  CANDLE_TIMEFRAMES,
-  type CandleTimeframe,
   type MarketCandle,
   type MarketTick,
   type PositionDTO,
@@ -51,6 +49,14 @@ import {
 } from './chart-history';
 import type { TickStore } from './tick-store';
 import { HISTORY_STATUS_MESSAGE } from './trade-copy';
+import { ChartToolbar, IndicatorOptions, ToolOptions } from './ChartToolbar';
+import { ChartLegend } from './ChartLegend';
+import { ChartDrawingLayer } from './ChartDrawingLayer';
+import { toRendererCandle } from './chart-renderer-adapters';
+import { drawingTypeLabel } from './chart-drawing-model';
+import { toolLabel } from './chart-tool-mode';
+import { legendCandle, useChartAnalysis } from './use-chart-analysis';
+import { useIsDesktop } from './use-viewport';
 
 export interface FillMarker {
   id: string;
@@ -76,6 +82,12 @@ export interface PendingOrderAction {
 
 export interface TradeChartProps {
   symbol: TradableSymbol;
+  /**
+   * W5 §79 — the scope key for browser-local chart-analysis preferences and
+   * drawings. Nothing financial is keyed by it; it exists so an evaluation
+   * account's annotations do not appear on a funded account's chart.
+   */
+  accountId: string;
   /**
    * W3 §32 — the imperative accepted-tick source the candle series is driven
    * from. The `tick` prop below is the *rendered* latest price (bid/ask lines,
@@ -116,24 +128,6 @@ export interface TradeChartProps {
   onDeleteAlert: (alertId: string) => void;
   onPendingOrderRequest: (params: { orderType: PendingOrderType; triggerPrice: string }) => void;
   onCreateAlertHere: (thresholdPrice: string) => void;
-}
-
-/**
- * W3 §43 — the number-conversion boundary, and the only one.
- *
- * Canonical candles are decimal strings from the server's aggregator all the way
- * to this function; lightweight-charts wants `number`, so the conversion happens
- * here at the renderer's doorstep and nowhere earlier. No float ever becomes
- * canonical history state.
- */
-function toRendererCandle(candle: MarketCandle) {
-  return {
-    time: candle.startTime as UTCTimestamp,
-    open: Number(candle.open),
-    high: Number(candle.high),
-    low: Number(candle.low),
-    close: Number(candle.close),
-  };
 }
 
 /**
@@ -218,6 +212,7 @@ interface OrderDragSession {
  */
 export function TradeChart({
   symbol,
+  accountId,
   store,
   historyTransport,
   tick,
@@ -271,8 +266,9 @@ export function TradeChart({
     preview: '#9AA3B1',
     axis: '#3A4251',
   });
-  const [timeframe, setTimeframe] = useState<CandleTimeframe>(CANDLE_TIMEFRAMES[0]);
   const [chartVersion, setChartVersion] = useState(0);
+  /** W5 §65 — the candle under the crosshair, held imperatively (see the subscription below). */
+  const [hoveredCandle, setHoveredCandle] = useState<MarketCandle | null>(null);
   const [drag, setDrag] = useState<DragSession | null>(null);
   const dragRef = useRef<DragSession | null>(null);
   useEffect(() => {
@@ -303,6 +299,20 @@ export function TradeChart({
   const isStale = tick?.marketStatus === 'stale';
   const isDisconnected = connectionState !== 'open';
   const draggingDisabled = isStale || isDisconnected || commandPending;
+  const isDesktop = useIsDesktop();
+  const [chartToolsOpen, setChartToolsOpen] = useState(false);
+
+  /**
+   * W5 — the chart-analysis layer, reached through a ref.
+   *
+   * The chart-creation effect below runs once on mount and must hand the live
+   * `IChartApi` to the indicator engine; the history sink must notify that same
+   * engine on every series write. Both are created before `useChartAnalysis` can
+   * run (it needs the history controller, which needs the sink), so they read
+   * the analysis through this ref rather than closing over a value that did not
+   * exist yet. Assigned at the end of every render, before any effect fires.
+   */
+  const analysisRef = useRef<ReturnType<typeof useChartAnalysis> | null>(null);
 
   // Chart instance — created once, torn down on unmount. Theme tokens are
   // read once at creation (WariX is always-dark, not user-togglable, so no
@@ -359,6 +369,42 @@ export function TradeChart({
     });
     chartRef.current = chart;
     seriesRef.current = series;
+    // W5 §123 — the indicator engine's series live and die with this chart.
+    analysisRef.current?.attachRenderer(chart);
+
+    /**
+     * W5 §65 — the OHLC legend, driven imperatively.
+     *
+     * lightweight-charts' own crosshair subscription, not a React mouse handler
+     * over the canvas: the latter would re-render this component on every pixel
+     * of pointer movement, which §64 explicitly forbids. `setHoveredCandle` only
+     * fires when the *bar* under the crosshair changes, so a slow sweep across
+     * one wide bar costs nothing.
+     */
+    let hoveredTime: number | null = null;
+    const onCrosshair = (param: { time?: Time; seriesData: Map<unknown, unknown> }) => {
+      const time = typeof param.time === 'number' ? param.time : null;
+      if (time === hoveredTime) return;
+      hoveredTime = time;
+      if (time === null) {
+        setHoveredCandle(null);
+        return;
+      }
+      const bar = param.seriesData.get(series) as
+        { open: number; high: number; low: number; close: number } | undefined;
+      setHoveredCandle(
+        bar === undefined
+          ? null
+          : {
+              startTime: time,
+              open: String(bar.open),
+              high: String(bar.high),
+              low: String(bar.low),
+              close: String(bar.close),
+            },
+      );
+    };
+    chart.subscribeCrosshairMove(onCrosshair);
 
     // Overlay positions depend on the price scale's visible range, which
     // can change on pan/zoom without any prop of this component changing —
@@ -403,11 +449,27 @@ export function TradeChart({
     const observer = new ResizeObserver(measure);
     observer.observe(container);
 
-    chart.timeScale().subscribeVisibleLogicalRangeChange(bumpChartVersion);
+    /**
+     * W5 §18 — the pan-left backfill trigger, and the overlay refresh, on one
+     * subscription.
+     *
+     * `range.from` is the leftmost visible logical bar index, so a negative or
+     * small value means the trader has reached the oldest loaded candle. The
+     * controller owns every guard (threshold, single-inflight, `hasMore`,
+     * generation), so calling it on each event is safe and produces exactly one
+     * request per page (§19/§96). No timer, no polling.
+     */
+    const onVisibleRangeChange = (range: { from: number; to: number } | null) => {
+      bumpChartVersion();
+      if (range !== null) historyRef.current?.maybeRequestOlder(range.from);
+    };
+    chart.timeScale().subscribeVisibleLogicalRangeChange(onVisibleRangeChange);
 
     return () => {
       observer.disconnect();
-      chart.timeScale().unsubscribeVisibleLogicalRangeChange(bumpChartVersion);
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(onVisibleRangeChange);
+      chart.unsubscribeCrosshairMove(onCrosshair);
+      analysisRef.current?.detachRenderer();
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
@@ -431,9 +493,45 @@ export function TradeChart({
    */
   const sink = useMemo<ChartHistorySeriesSink>(
     () => ({
-      setData: (candles) => seriesRef.current?.setData(candles.map(toRendererCandle)),
-      update: (candle) => seriesRef.current?.update(toRendererCandle(candle)),
+      setData: (candles) => {
+        seriesRef.current?.setData(candles.map(toRendererCandle));
+        analysisRef.current?.onSeriesReplaced();
+      },
+      update: (candle) => {
+        seriesRef.current?.update(toRendererCandle(candle));
+        analysisRef.current?.onSeriesLiveUpdate();
+      },
       fitContent: () => chartRef.current?.timeScale().fitContent(),
+      /**
+       * W5 §21 — the viewport-preserving prepend, and the reason it is the
+       * renderer's job rather than the controller's.
+       *
+       * lightweight-charts indexes its time scale by *bar position*, so
+       * prepending N older bars moves every bar the trader is looking at N
+       * places to the right. Reading the logical range before the write and
+       * re-applying it shifted by exactly N puts the same candle back under the
+       * same pixel. `fitContent()` is deliberately not called: a trader who
+       * panned back two hours to look at something did not ask to be returned
+       * to the live edge (§21/§75).
+       *
+       * The indicator rebuild happens between the two, inside the same frame, so
+       * the lines and the candles are never briefly out of step. Every indicator
+       * point sits on a real candle time (see `INDICATOR_GAP_VISUAL_POLICY`), so
+       * no analytical series can add a bar slot and invalidate the shift.
+       */
+      prepend: (candles, prependedCount) => {
+        const chart = chartRef.current;
+        const timeScale = chart?.timeScale();
+        const before = timeScale?.getVisibleLogicalRange() ?? null;
+        seriesRef.current?.setData(candles.map(toRendererCandle));
+        analysisRef.current?.onSeriesReplaced();
+        if (timeScale && before && prependedCount > 0) {
+          timeScale.setVisibleLogicalRange({
+            from: before.from + prependedCount,
+            to: before.to + prependedCount,
+          });
+        }
+      },
     }),
     [],
   );
@@ -450,6 +548,22 @@ export function TradeChart({
     createChartHistoryController({ transport: historyTransport, ticks: store, sink }),
   );
   useEffect(() => () => history.dispose(), [history]);
+  // Read by the chart-creation effect's visible-range handler, which is
+  // registered once and must not capture a stale controller.
+  const historyRef = useRef(history);
+  historyRef.current = history;
+
+  const analysis = useChartAnalysis({
+    accountId,
+    symbol,
+    pricePrecision: spec?.pricePrecision ?? null,
+    history,
+    chartRef,
+    seriesRef,
+    containerRef,
+    chartVersion,
+  });
+  analysisRef.current = analysis;
 
   const historyState = useSyncExternalStore(
     useCallback((onChange: () => void) => history.subscribe(onChange), [history]),
@@ -465,8 +579,12 @@ export function TradeChart({
   const pricePrecision = spec?.pricePrecision ?? null;
   useEffect(() => {
     if (pricePrecision === null) return;
-    history.start({ symbol, timeframe, pricePrecision });
-  }, [history, symbol, timeframe, pricePrecision]);
+    // W5 §16 — and for the trader's stored interval, which arrives from browser
+    // storage after mount. Hydrating at the default first would send one history
+    // request that is discarded a frame later.
+    if (!analysis.preferencesLoaded) return;
+    history.start({ symbol, timeframe: analysis.timeframe, pricePrecision });
+  }, [history, symbol, analysis.timeframe, analysis.preferencesLoaded, pricePrecision]);
 
   /**
    * Visual closure §6 — teach the renderer this instrument's own precision.
@@ -497,7 +615,7 @@ export function TradeChart({
     setDrag(null);
     setOrderDrag(null);
     setContextMenu(null);
-  }, [symbol, timeframe]);
+  }, [symbol, analysis.timeframe]);
 
   // New tick for the selected symbol: bid/ask price lines only. Candle
   // aggregation deliberately does NOT happen here — see the `store` prop.
@@ -827,6 +945,12 @@ export function TradeChart({
   };
 
   const handleContextMenuEvent = (event: React.MouseEvent) => {
+    // W5 §58 — while a drawing tool is held, a right-click belongs to the tool's
+    // mode, not to the trade menu. One gesture, one meaning.
+    if (analysis.drawingModeActive) {
+      event.preventDefault();
+      return;
+    }
     event.preventDefault();
     const price = priceAtClientY(event.clientY);
     if (!price) return;
@@ -840,7 +964,26 @@ export function TradeChart({
     longPressStartRef.current = null;
   };
 
+  /**
+   * W5 §57/§58/§60 — one pointer-down, one owner.
+   *
+   * The drawing layer is offered the gesture first *and only reaches here at
+   * all* when the pointer missed every trading overlay: position badges, SL/TP
+   * handles, pending-order lines and alert lines are sibling elements painted
+   * above this container, so a press on one of them never becomes a container
+   * event. That is §57's priority, enforced by the DOM rather than by a
+   * hand-maintained hit-test ordering.
+   *
+   * When the drawing layer does consume the gesture — a tool is active, or a
+   * drawing was grabbed — the long-press timer is not armed, so a touch cannot
+   * open the trade context menu *and* draw at the same time (§60/§117).
+   */
   const handleContainerPointerDown = (event: React.PointerEvent) => {
+    const consumed = analysis.handlePointerDown(event);
+    if (consumed) {
+      clearLongPressTimer();
+      return;
+    }
     if (event.pointerType !== 'touch') return;
     if ((event.target as HTMLElement).closest('button')) return;
     longPressStartRef.current = { x: event.clientX, y: event.clientY };
@@ -854,11 +997,17 @@ export function TradeChart({
   };
 
   const handleContainerPointerMove = (event: React.PointerEvent) => {
+    analysis.handlePointerMove(event);
     const start = longPressStartRef.current;
     if (!start || event.pointerType !== 'touch') return;
     if (Math.abs(event.clientX - start.x) > 10 || Math.abs(event.clientY - start.y) > 10) {
       clearLongPressTimer();
     }
+  };
+
+  const handleContainerPointerUp = (event: React.PointerEvent) => {
+    analysis.handlePointerUp(event);
+    clearLongPressTimer();
   };
 
   const referencePriceFor = (position: PositionDTO): string | null => {
@@ -1032,27 +1181,40 @@ export function TradeChart({
     // refuses to shrink below its content, and the chart column would push
     // the workstation grid past the viewport instead of taking what is left.
     <div className="flex min-h-0 flex-1 flex-col gap-2">
-      <div className="flex shrink-0 items-center justify-between">
-        <div className="flex gap-1">
-          {CANDLE_TIMEFRAMES.map((tf) => (
+      {/* W5 §61/§62 — one compact analytical strip. Timeframes are always
+          directly reachable; on a phone the indicator and drawing controls
+          collapse into a single "Outils" sheet so the strip cannot push the
+          document sideways at 320 px (§66/§67). */}
+      <div className="flex min-w-0 shrink-0 items-center justify-between gap-2">
+        <ChartToolbar
+          timeframe={analysis.timeframe}
+          onSelectTimeframe={analysis.selectTimeframe}
+          indicators={analysis.indicators}
+          onToggleIndicator={analysis.toggleIndicator}
+          tool={analysis.tool}
+          onSelectTool={analysis.selectTool}
+          onResetView={() => chartRef.current?.timeScale().fitContent()}
+          compact={!isDesktop}
+        />
+        <div className="flex shrink-0 items-center gap-2">
+          {!isDesktop && (
             <button
-              key={tf}
               type="button"
-              onClick={() => setTimeframe(tf)}
-              aria-pressed={tf === timeframe}
-              className={`rounded-[var(--wariba-radius-sm)] px-2 py-1 text-[length:var(--wariba-font-size-label-sm)] ${
-                tf === timeframe
+              data-testid="chart-tools-sheet-trigger"
+              onClick={() => setChartToolsOpen(true)}
+              className={`rounded-[var(--wariba-radius-sm)] px-2 py-1 text-[length:var(--wariba-font-size-label-sm)] font-medium ${
+                analysis.drawingModeActive
                   ? 'bg-[color:var(--wariba-surface-selected)] text-[color:var(--wariba-theme-text)]'
                   : 'text-[color:var(--wariba-text-secondary)]'
               }`}
             >
-              {tf}
+              Outils
             </button>
-          ))}
+          )}
+          <span className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]">
+            UTC
+          </span>
         </div>
-        <span className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]">
-          UTC
-        </span>
       </div>
       {/* The overlays below are absolutely positioned against this box, and
           the chart container fills it exactly (inset-0), so every
@@ -1070,11 +1232,32 @@ export function TradeChart({
           // input that decides it, and `chart-price-format.test.ts` proves that
           // input produces the right label. Together the chain is complete.
           data-price-precision={pricePrecision ?? undefined}
+          // W5 §131 — the active tool, exposed for evidence and tests. It is
+          // chart-local state and appears nowhere in a global context.
+          data-chart-tool={analysis.tool}
+          data-drawing-count={analysis.projected.length}
+          data-history-has-more-older={String(historyState.hasMoreOlder)}
           onContextMenuCapture={handleContextMenuEvent}
           onPointerDownCapture={handleContainerPointerDown}
           onPointerMoveCapture={handleContainerPointerMove}
-          onPointerUpCapture={clearLongPressTimer}
-          onPointerCancelCapture={clearLongPressTimer}
+          onPointerUpCapture={handleContainerPointerUp}
+          onPointerCancelCapture={handleContainerPointerUp}
+        />
+        {/* W5 §45 — the analytical drawing layer sits *below* every trading
+            overlay in DOM order and never takes a pointer event, so a Fibonacci
+            grid can neither cover an open position's badge nor swallow the drag
+            that moves a stop loss (§57/§110/§127). */}
+        <ChartDrawingLayer
+          projected={analysis.projected}
+          selectedId={analysis.selectedId}
+          draft={analysis.projectedDraft}
+          width={containerRef.current?.clientWidth ?? 0}
+          height={containerRef.current?.clientHeight ?? 0}
+        />
+        <ChartLegend
+          candle={legendCandle(history, hoveredCandle)}
+          pricePrecision={pricePrecision}
+          indicators={analysis.legend}
         />
         {/* W3 §52-§55 — chart-local, subtle, and never covering the price or an
             execution control: pointer-events-none so it cannot intercept a
@@ -1094,7 +1277,10 @@ export function TradeChart({
           data-history-candles={historyCandleCount}
           data-history-epoch={historyState.sourceEpoch ?? ''}
           data-history-newest={historyNewestBucket}
-          className="pointer-events-none absolute left-2 top-2 z-10"
+          // W5 §135 — moved to the bottom edge now that the OHLC/indicator
+          // legend owns the top-left corner, so a history error and the legend
+          // never stack into a block that hides the chart on a 390 px screen.
+          className="pointer-events-none absolute bottom-2 left-2 z-10"
         >
           {historyMessage && (
             <span
@@ -1276,6 +1462,63 @@ export function TradeChart({
             );
           })}
         {dragPreviewCard && <DragPreviewPanel {...dragPreviewCard} />}
+        {/* W5 §68 — while a tool is held, say so subtly and give the trader an
+            explicit way out. Escape does the same thing from the keyboard
+            (§89/§112); this is the touch equivalent, because a phone has none. */}
+        {analysis.drawingModeActive && (
+          <div
+            data-testid="chart-active-tool"
+            className="absolute right-2 top-2 z-20 flex items-center gap-2 rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-component-workstation-surface-raised)]/95 px-2 py-1 text-[length:var(--wariba-font-size-label-sm)]"
+          >
+            <span className="text-[color:var(--wariba-text-secondary)]">
+              {toolLabel(analysis.tool)}
+            </span>
+            <button
+              type="button"
+              onClick={() => analysis.selectTool('select')}
+              className="font-medium text-[color:var(--wariba-theme-text)] underline underline-offset-2"
+            >
+              Annuler
+            </button>
+          </div>
+        )}
+        {/* W5 §52/§69 — the selected drawing's own actions. Deliberately no Buy,
+            no Sell and no order control anywhere near it: a drawing UI must not
+            be one mis-tap away from submitting a trade. Deleting here removes a
+            drawing and nothing else — drawing ids and trading overlay ids are
+            separate namespaces (§113). */}
+        {analysis.selectedDrawing && (
+          <div
+            data-testid="chart-drawing-actions"
+            className="absolute bottom-2 right-2 z-20 flex items-center gap-1 rounded-[var(--wariba-radius-sm)] border border-[color:var(--wariba-component-workstation-seam)] bg-[color:var(--wariba-component-workstation-surface-raised)]/95 px-1.5 py-1 text-[length:var(--wariba-font-size-label-sm)]"
+          >
+            <span className="px-1 text-[color:var(--wariba-text-tertiary)]">
+              {drawingTypeLabel(analysis.selectedDrawing.type)}
+            </span>
+            <button
+              type="button"
+              onClick={analysis.cycleSelectedColor}
+              className="rounded-[var(--wariba-radius-sm)] px-1.5 py-0.5 text-[color:var(--wariba-text-secondary)] hover:text-[color:var(--wariba-theme-text)]"
+            >
+              Style
+            </button>
+            <button
+              type="button"
+              data-testid="chart-drawing-delete"
+              onClick={analysis.deleteSelected}
+              className="rounded-[var(--wariba-radius-sm)] px-1.5 py-0.5 text-[color:var(--wariba-status-danger-text,#C94D4D)] hover:underline"
+            >
+              Supprimer
+            </button>
+            <button
+              type="button"
+              onClick={analysis.clearSelection}
+              className="rounded-[var(--wariba-radius-sm)] px-1.5 py-0.5 text-[color:var(--wariba-text-secondary)] hover:text-[color:var(--wariba-theme-text)]"
+            >
+              Terminé
+            </button>
+          </div>
+        )}
         {contextMenu && !contextMenu.isTouchOrigin && (
           <ChartContextMenuPopover
             x={contextMenu.x}
@@ -1385,6 +1628,46 @@ export function TradeChart({
               onCreateAlertHere(contextMenu.price);
             }}
           />
+        )}
+      </BottomSheet>
+      {/* W5 §66/§68/§70 — one combined chart-tools sheet, not three panels
+          stacked under the chart. Choosing a drawing tool closes it and hands
+          the chart to that tool; toggling an indicator leaves it open, because
+          a trader comparing two moving averages should not have to reopen the
+          sheet between them. Nothing in here can submit a trade. */}
+      <BottomSheet
+        open={chartToolsOpen}
+        onClose={() => setChartToolsOpen(false)}
+        title="Outils du graphique"
+      >
+        {/* Rendered only while open. `BottomSheet` is a `<dialog>`, so its
+            children stay mounted otherwise — which would put a second, hidden
+            copy of every indicator checkbox and tool button in the accessibility
+            tree alongside the desktop popover's. */}
+        {chartToolsOpen && (
+          <div className="flex flex-col gap-4 pb-2" data-testid="chart-tools-sheet">
+            <section className="flex flex-col gap-1.5">
+              <h3 className="text-[length:var(--wariba-font-size-label-sm)] font-medium text-[color:var(--wariba-text-tertiary)]">
+                Indicateurs
+              </h3>
+              <IndicatorOptions
+                indicators={analysis.indicators}
+                onToggle={analysis.toggleIndicator}
+              />
+            </section>
+            <section className="flex flex-col gap-1.5">
+              <h3 className="text-[length:var(--wariba-font-size-label-sm)] font-medium text-[color:var(--wariba-text-tertiary)]">
+                Dessin
+              </h3>
+              <ToolOptions
+                tool={analysis.tool}
+                onSelect={(next) => {
+                  analysis.selectTool(next);
+                  setChartToolsOpen(false);
+                }}
+              />
+            </section>
+          </div>
         )}
       </BottomSheet>
     </div>

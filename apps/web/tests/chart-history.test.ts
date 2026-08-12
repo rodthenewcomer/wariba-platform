@@ -72,6 +72,8 @@ interface SinkLog {
   setData: MarketCandle[][];
   update: MarketCandle[];
   fitContentCalls: number;
+  /** W5 §21 — one entry per older-page prepend, with the shift the renderer was told to apply. */
+  prepend: { candles: MarketCandle[]; prependedCount: number }[];
 }
 
 function fakeSink(log: SinkLog) {
@@ -81,6 +83,8 @@ function fakeSink(log: SinkLog) {
     fitContent: () => {
       log.fitContentCalls += 1;
     },
+    prepend: (candles: readonly MarketCandle[], prependedCount: number) =>
+      log.prepend.push({ candles: [...candles], prependedCount }),
   };
 }
 
@@ -144,7 +148,7 @@ let requestCounter: number;
 function build(options: { bufferMax?: number } = {}): void {
   store = createTickStore();
   transport = fakeTransport();
-  log = { setData: [], update: [], fitContentCalls: 0 };
+  log = { setData: [], update: [], fitContentCalls: 0, prepend: [] };
   requestCounter = 0;
   controller = createChartHistoryController({
     transport,
@@ -1059,5 +1063,232 @@ describe('lifecycle', () => {
     controller.dispose();
     transport.deliver(result({ requestId, candles: [candle(0)] }));
     expect(controller.series().finalized).toEqual([]);
+  });
+});
+
+/**
+ * W5 B3 — automatic pan-left backfill (§17-§23, §95-§97).
+ *
+ * The properties under test are the ones a browser cannot show you: that
+ * dragging left for a second produces one request rather than sixty, that the
+ * renderer is told exactly how far to shift so the candle under the cursor stays
+ * put, and that a page requested from a process that has since restarted cannot
+ * be spliced onto the process that replaced it.
+ */
+describe('older-history backfill (W5 §17-§23)', () => {
+  /** Hydrates 1m EURUSD with `count` finalized candles ending at `newestStart`. */
+  function hydrate(params: { count: number; newestStart: number; hasMore: boolean }): void {
+    const candles = Array.from({ length: params.count }, (_, index) =>
+      candle(params.newestStart - (params.count - 1 - index) * 60),
+    );
+    startEurusd1m();
+    transport.deliver(
+      result({
+        requestId: transport.lastRequestId(),
+        candles,
+        hasMore: params.hasMore,
+        nextCursor: candles[0]?.startTime ?? null,
+      }),
+    );
+  }
+
+  it('requests one older page when the pan reaches the left edge', () => {
+    hydrate({ count: 10, newestStart: 600, hasMore: true });
+    const before = transport.requests.length;
+
+    controller.maybeRequestOlder(3);
+
+    expect(transport.requests).toHaveLength(before + 1);
+    const request = transport.requests.at(-1);
+    // Exclusive cursor = the oldest candle the chart holds (600 - 9 × 60).
+    expect(request?.before).toBe(60);
+    expect(request?.timeframe).toBe('1m');
+    expect(request?.symbol).toBe('EURUSD');
+  });
+
+  it('does not request while the viewport is still far from the oldest bar', () => {
+    hydrate({ count: 10, newestStart: 600, hasMore: true });
+    const before = transport.requests.length;
+    controller.maybeRequestOlder(500);
+    expect(transport.requests).toHaveLength(before);
+  });
+
+  it('stops at the retention floor rather than asking past it (§23)', () => {
+    hydrate({ count: 10, newestStart: 600, hasMore: false });
+    const before = transport.requests.length;
+
+    controller.maybeRequestOlder(0);
+
+    expect(transport.requests).toHaveLength(before);
+    expect(controller.snapshot().hasMoreOlder).toBe(false);
+  });
+
+  it('allows exactly one request in flight however hard the trader drags (§19/§96)', () => {
+    hydrate({ count: 10, newestStart: 600, hasMore: true });
+    const before = transport.requests.length;
+
+    for (let attempt = 0; attempt < 40; attempt += 1) controller.maybeRequestOlder(2);
+
+    expect(transport.requests).toHaveLength(before + 1);
+    expect(controller.snapshot().backfilling).toBe(true);
+
+    // Once the page lands, the next threshold crossing may fetch the next page.
+    transport.deliver(
+      result({
+        requestId: transport.lastRequestId(),
+        candles: [candle(-120), candle(-60)],
+        hasMore: true,
+        nextCursor: -120,
+        historyThrough: 0,
+      }),
+    );
+    expect(controller.snapshot().backfilling).toBe(false);
+
+    controller.maybeRequestOlder(2);
+    expect(transport.requests).toHaveLength(before + 2);
+    expect(transport.requests.at(-1)?.before).toBe(-120);
+  });
+
+  it('prepends without duplicating a candle both pages contain (§20/§95)', () => {
+    hydrate({ count: 3, newestStart: 120, hasMore: true });
+    controller.maybeRequestOlder(1);
+    transport.deliver(
+      result({
+        requestId: transport.lastRequestId(),
+        // -60 is new; 0 is a candle the chart already holds, unchanged.
+        candles: [candle(-60), candle(0)],
+        hasMore: true,
+        nextCursor: -60,
+        historyThrough: 60,
+      }),
+    );
+
+    expect(controller.series().finalized.map((entry) => entry.startTime)).toEqual([
+      -60, 0, 60, 120,
+    ]);
+  });
+
+  it('tells the renderer exactly how many bars to shift by (§21)', () => {
+    hydrate({ count: 3, newestStart: 120, hasMore: true });
+    controller.maybeRequestOlder(1);
+    transport.deliver(
+      result({
+        requestId: transport.lastRequestId(),
+        candles: [candle(-180), candle(-120), candle(-60), candle(0)],
+        hasMore: true,
+        nextCursor: -180,
+        historyThrough: 60,
+      }),
+    );
+
+    const prepend = log.prepend.at(-1);
+    // Three genuinely older bars; the fourth (`0`) deduplicated and shifts nothing.
+    expect(prepend?.prependedCount).toBe(3);
+    expect(prepend?.candles.map((entry) => entry.startTime)).toEqual([-180, -120, -60, 0, 60, 120]);
+  });
+
+  it('never refits the viewport on a prepend (§21)', () => {
+    hydrate({ count: 3, newestStart: 120, hasMore: true });
+    const fits = log.fitContentCalls;
+
+    controller.maybeRequestOlder(1);
+    transport.deliver(
+      result({
+        requestId: transport.lastRequestId(),
+        candles: [candle(-60)],
+        hasMore: true,
+        nextCursor: -60,
+        historyThrough: 0,
+      }),
+    );
+
+    expect(log.fitContentCalls).toBe(fits);
+    // One prepend, not one setData per incoming candle (§75).
+    expect(log.prepend).toHaveLength(1);
+  });
+
+  it('ignores an older page produced by a different source epoch (§22/§97)', () => {
+    hydrate({ count: 3, newestStart: 120, hasMore: true });
+    controller.maybeRequestOlder(1);
+    const staleRequestId = transport.lastRequestId();
+
+    // The realtime process restarts and the chart rehydrates onto epoch B.
+    transport.reopenSocket();
+    transport.deliver(
+      result({
+        requestId: transport.lastRequestId(),
+        sourceEpoch: 'epoch-b',
+        candles: [candle(600)],
+        historyThrough: 660,
+        nextCursor: 600,
+      }),
+    );
+    const afterReset = controller.series().finalized.map((entry) => entry.startTime);
+
+    // Epoch A's older page finally arrives.
+    transport.deliver(
+      result({
+        requestId: staleRequestId,
+        sourceEpoch: 'epoch-a',
+        candles: [candle(-60), candle(-120)].sort((a, b) => a.startTime - b.startTime),
+        hasMore: true,
+        nextCursor: -120,
+        historyThrough: 0,
+      }),
+    );
+
+    expect(controller.series().finalized.map((entry) => entry.startTime)).toEqual(afterReset);
+    expect(controller.snapshot().sourceEpoch).toBe('epoch-b');
+  });
+
+  it('ignores an older page for a timeframe the trader has already left (§19)', () => {
+    hydrate({ count: 3, newestStart: 120, hasMore: true });
+    controller.maybeRequestOlder(1);
+    const staleRequestId = transport.lastRequestId();
+
+    controller.start({ symbol: 'EURUSD', timeframe: '3m', pricePrecision: PRECISION });
+    transport.deliver(
+      result({
+        requestId: transport.lastRequestId(),
+        timeframe: '3m',
+        candles: [candle(0), candle(180)],
+        historyThrough: 360,
+        nextCursor: 0,
+      }),
+    );
+    const after3m = controller.series().finalized.map((entry) => entry.startTime);
+
+    transport.deliver(
+      result({
+        requestId: staleRequestId,
+        candles: [candle(-60)],
+        nextCursor: -60,
+        historyThrough: 0,
+      }),
+    );
+
+    expect(controller.series().finalized.map((entry) => entry.startTime)).toEqual(after3m);
+  });
+
+  it('keeps the chart intact when an older page fails (§19)', () => {
+    hydrate({ count: 3, newestStart: 120, hasMore: true });
+    controller.maybeRequestOlder(1);
+
+    transport.deliverError({
+      requestId: transport.lastRequestId(),
+      code: 'unavailable',
+      message: 'Historique indisponible.',
+    });
+
+    expect(controller.snapshot().status).toBe('ready');
+    expect(controller.series().finalized).toHaveLength(3);
+    expect(controller.snapshot().backfilling).toBe(false);
+  });
+
+  it('does not paginate while a hydration is still in flight', () => {
+    startEurusd1m();
+    const before = transport.requests.length;
+    controller.maybeRequestOlder(0);
+    expect(transport.requests).toHaveLength(before);
   });
 });

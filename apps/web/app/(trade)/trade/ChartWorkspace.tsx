@@ -54,6 +54,8 @@ export interface ChartWorkspaceActions {
 
 export interface ChartWorkspaceProps {
   store: TickStore;
+  /** W5 §79 — scope key for the chart's browser-local analysis preferences and drawings. */
+  accountId: string;
   /** W3 §30 — the chart data layer's history port, passed straight through to TradeChart. */
   historyTransport: ChartHistoryTransport;
   symbol: TradableSymbol;
@@ -86,6 +88,7 @@ export interface ChartWorkspaceProps {
  */
 export const ChartWorkspace = memo(function ChartWorkspace({
   store,
+  accountId,
   historyTransport,
   symbol,
   spec,
@@ -140,6 +143,7 @@ export const ChartWorkspace = memo(function ChartWorkspace({
 
       <TradeChart
         symbol={symbol}
+        accountId={accountId}
         store={store}
         historyTransport={historyTransport}
         tick={tick}

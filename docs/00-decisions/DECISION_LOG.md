@@ -462,6 +462,11 @@ Révision:
 | UX-WARIX-005 | `LOCKED` | Les préférences de disposition du poste de travail (largeur/repli du navigateur, hauteur/repli du dock, favoris) sont **locales au navigateur**, versionnées, et échouent en fermé vers les valeurs par défaut. Elles ne contiennent aucun état financier et ne sont consultées par aucune commande. | Jalon W2. Une préférence de disposition peut déplacer un bord de panneau ; elle ne peut jamais changer ce que le serveur affirme, ni rendre un symbole négociable. Un payload corrompu, tronqué ou d'une autre version rend les valeurs par défaut plutôt qu'une disposition partiellement appliquée, et chaque dimension est bornée à l'entrée comme à la sortie. Non synchronisées entre appareils — une table de préférences serveur serait nécessaire, hors périmètre W2. |
 | UX-PAYOUT-001 | `LOCKED` | Le Payout Center a pour domicile canonique la route `/payouts`. Il n'existe qu'**une** implémentation de `requestPayout` et **une** lecture de `payout_result` (`apps/web/lib/payout-session.ts`), partagées par WariX et par `/payouts`. | Jalon W2 §16. Audit : la route `/payouts` était un placeholder annonçant « arrive avec Prompt 08 » alors que le Payout Center fonctionnel vivait dans le dock d'exécution de WariX. Retirer l'onglet sans relocaliser aurait supprimé une capacité livrée. La sémantique du payout n'a pas été reconstruite : seul le transport diffère, `/payouts` s'abonnant uniquement aux canaux `account.state` et `account.orders` (aucun canal marché, aucun tick). L'onglet du dock n'a été retiré qu'après une exécution de parité verte couvrant buffer, Performance Days, consistance, blocages position/ordre, KYC, méthode, cycle, plafond, répartition, soumission, passage en revue et historique. |
 | ARCH-HA-004 | `LOCKED` | Le bail de leadership est initialisé à l'epoch Unix, jamais à `-infinity`. | Un timestamptz infini ne se décode pas en `Date` côté pilote : la première élection sur une base fraîchement migrée échouait, donc le service realtime ne pouvait pas prendre le leadership sur un déploiement neuf. La lecture coerce aussi défensivement — un bail illisible se lit comme expiré (repli vers standby), jamais comme détenu. |
+| UX-WARIX-006 | `LOCKED` | L'ensemble des intervalles du graphique WariX est **5s / 15s / 30s / 1m / 3m**, défini par un unique tableau canonique (`CANDLE_TIMEFRAMES`) dont dérivent l'agrégateur serveur, la barre d'outils, l'analyseur de préférences et les tests. Aucun graphique en ticks (1000T/5000T) tant qu'une sémantique d'événement de marché n'est pas prouvée. | Jalon W5. Des intervalles plus longs dépasseraient ce que la profondeur d'historique — bornée par la durée de vie du processus realtime (DATA-003) — peut honnêtement remplir. Le flux publie des **mises à jour de cotation**, pas des transactions d'échange : étiqueter une barre de 1 000 cotations « 1000T » fabriquerait une sémantique de marché que le système ne possède pas. `TICK_CHARTS_READY = false`. Le défaut expédié (`5s`) est désormais nommé (`DEFAULT_CANDLE_TIMEFRAME`) plutôt que déduit de la position dans la liste : insérer un intervalle en tête ne peut plus changer silencieusement le graphique d'ouverture de chaque trader. |
+| UX-WARIX-007 | `LOCKED` | Le rechargement automatique d'historique vers la gauche **active le contrat de pagination W3** existant : une seule requête en vol par (symbole, intervalle, génération), fusion déterministe, et **compensation de la plage logique** par le nombre exact de bougies préfixées. `fitContent()` n'est jamais appelé après un préfixage. | Jalon W5. Le protocole existait déjà (`before`/`hasMore`/`nextCursor`) sans consommateur ; W5 ajoute un déclencheur et des garde-fous, pas un second chemin d'historique. Lightweight Charts indexe son échelle temporelle par **position de barre**, donc préfixer N barres décale de N tout ce que le trader regarde : la plage logique est relue avant l'écriture et réappliquée décalée de N. Rajuster la vue annulerait le geste même qui a demandé les données. Une page produite par un `sourceEpoch` différent est ignorée, jamais épissée (règle W3 §35 appliquée à la pagination). |
+| UX-WARIX-008 | `LOCKED` | Les moyennes mobiles du graphique sont des **données d'analyse visuelles et non autoritatives** : calculées en `number` dans la couche graphique de `apps/web`, jamais dans `@wariba/domain`, et inaccessibles depuis le risque, les ordres, les alertes, les SL/TP et le payout. Sémantique documentée : SMA = moyenne des N dernières clôtures **observées** ; EMA = α = 2/(N+1), amorcée par la SMA des N premières clôtures observées. | Jalon W5. Déplacer ces analytiques dans le domaine de trading pour emprunter ses aides `Decimal` aurait placé une préoccupation d'affichage derrière la même frontière que l'arithmétique d'exécution — précisément le couplage interdit. Les bibliothèques de graphiques divergent sur l'amorçage de l'EMA : un défaut non documenté ferait diverger deux graphiques du même marché, donc les valeurs attendues sont écrites à la main dans les assertions. Un indicateur qui n'a pas assez de bougies observées ne dessine rien — aucun préchauffage fabriqué. |
+| UX-WARIX-009 | `LOCKED` | Le modèle de dessin du graphique est **indépendant du moteur de rendu** : ancres `(temps epoch, prix décimal)`, aucun import de Lightweight Charts hors d'un unique fichier d'adaptation. Les dessins sont **locaux au navigateur, versionnés, portés par compte et par symbole**, jamais par intervalle. Aucune table, aucune synchronisation serveur, aucune migration. | Jalon W5, concrétisation de la couture `ChartEngineAdapter` d'ARCH-028. Encoder les analyses d'un trader en primitives de bibliothèque aurait rendu ce changement de moteur impossible sans perdre son travail ; les tests du modèle s'exécutent sans moteur de graphique, ce qui le prouve. Un niveau reste un niveau qu'on le lise en 1m ou en 3m : rien dans la forme stockée ne mentionne d'intervalle, donc aucune clé ne permet de le dupliquer. La portée par compte évite qu'une analyse de compte d'évaluation apparaisse sur un compte financé. Aucun outil de texte libre en W5 : la surface XSS stockée est supprimée plutôt qu'assainie. |
+| UX-WARIX-010 | `LOCKED` | En mode Sélection, les **overlays de trading conservent la priorité d'interaction** sur les dessins analytiques, appliquée par la structure du DOM et non par une arithmétique de `z-index`. Quand un outil de dessin est actif, le geste appartient exclusivement à cet outil. | Jalon W5. Les overlays de trading (badge de position, poignées SL/TP, ligne d'ordre en attente, ligne d'alerte) sont des éléments frères peints **au-dessus** du conteneur du graphique : un pointeur qui atteint ce conteneur a donc manqué tous les contrôles de trading, par construction. La couche SVG de dessin ne reçoit **jamais** d'événement de pointeur ; le test de collision s'exécute sur la géométrie projetée. L'intérieur d'un rectangle ne capte rien — un remplissage cliquable serait un panneau invisible au-dessus du réticule et des contrôles. Un dessin ne peut jamais devenir un ordre, une alerte, un SL ou un TP. |
 
 ---
 
@@ -703,6 +708,33 @@ trading manuel ni à la règle d'éligibilité de profit à 60 secondes (TRD-033
 ---
 
 # 26. Historique des versions
+
+## v1.24 — 2026-08-12
+
+WariX Workstation 2026 — jalon W5 (Chart Intelligence). Le graphique central
+passe d'une surface d'affichage de prix à un instrument d'analyse : cinq
+intervalles (5s/15s/30s/1m/3m), quatre moyennes mobiles par défaut
+(EMA 20, SMA 20/50/100), cinq outils de dessin (ligne horizontale, ligne de
+tendance, demi-droite, rectangle, Fibonacci) et le rechargement automatique de
+l'historique ancien lors d'un panoramique vers la gauche, avec préservation de
+la position visuelle. Décisions ajoutées : UX-WARIX-006 à UX-WARIX-010.
+
+Deux résultats méritent d'être notés. Le service realtime n'a changé **que par
+des commentaires** : `MemoryMarketHistoryStore` itérait déjà `CANDLE_TIMEFRAMES`,
+donc les deux nouveaux intervalles sont observés par construction, une seule fois
+par tick accepté (W3-D2 intact). Et la rétention (2 000 bougies par couple
+symbole/intervalle) a été **recalculée** plutôt qu'héritée : 25 clés au lieu de
+15, soit ≈ 15 MB au lieu de ≈ 9 MB en occupation pleine — conservée, car la
+réduire pour retrouver 9 MB coûterait la profondeur de pagination que ce jalon
+livre.
+
+Aucune migration, aucun changement de mathématiques de trading, de risque ou de
+payout, aucun changement de sémantique d'exécution temps réel, et Lightweight
+Charts reste le moteur de rendu — ARCH-028 gagne au contraire sa couture
+concrète, un unique fichier d'adaptation étant le seul import de la bibliothèque
+dans le périmètre W5. `CUSTOM_INDICATOR_PERIOD_READY = false`,
+`TICK_CHARTS_READY = false`, `VWAP_READY = false`, `W6_STARTED = false`. Voir
+`docs/04-ux/WARIX_Workstation_2026_W5_Chart_Intelligence.md`.
 
 ## v1.23 — 2026-08-10
 

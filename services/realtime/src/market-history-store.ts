@@ -35,23 +35,25 @@ import {
  * (§13/§59).
  */
 
-/** W3 §15 — retention per (symbol, timeframe) key.
+/** W3 §15 / W5 §11 — retention per (symbol, timeframe) key.
  *
  * Sized from the read side rather than picked round: 5× `INITIAL_HISTORY_CANDLE_LIMIT`
  * (400), so a trader can page left five full pages at any timeframe and W5's
  * indicators have warm-up headroom, while a single request's ceiling
  * (`MAX_HISTORY_CANDLE_LIMIT` = 1000) can never drain a whole window.
  *
- * Cost at full occupancy — the figure that matters for a small realtime box:
- * 5 symbols × 3 timeframes = 15 keys × 2000 = **30,000 stored candles**. Each
- * entry is one wrapper object, one candle object, four short decimal strings
- * and three numbers ≈ 250-300 B in V8, so **≈ 9 MB** worst case, reached only
- * after hours of uptime. Doubling retention to 5000 would buy ~7 h of 5s
- * history (of little value on a 5-second chart) for ~22 MB, so it is not worth
- * it. See the W3 document's memory section.
+ * **W5 recalculation.** Adding 15s and 3m takes the key count from 15 to 25, so
+ * the number is re-derived rather than inherited: 5 symbols × 5 timeframes = 25
+ * keys × 2000 = **50,000 stored candles**. Each entry is one wrapper object, one
+ * candle object, four short decimal strings and three numbers ≈ 250-300 B in
+ * V8, so **≈ 15 MB** worst case (was ≈ 9 MB at three timeframes), reached only
+ * after hours of uptime on a process that already holds the whole tick fan-out.
+ * That is still clearly safe on a small realtime box, so retention is kept at
+ * 2000 rather than reduced — the alternative (cutting to 1200 to hold the old
+ * 9 MB) would cost the pan-left depth W5 §17 exists to deliver, for ~6 MB.
  *
  * What that retention actually spans at the mock provider's 1 tick/s:
- * 5s ≈ 2.8 h, 30s ≈ 16.7 h, 1m ≈ 33 h of observation.
+ * 5s ≈ 2.8 h, 15s ≈ 8.3 h, 30s ≈ 16.7 h, 1m ≈ 33 h, 3m ≈ 100 h of observation.
  */
 export const SERVER_HISTORY_RETENTION_PER_SYMBOL_TIMEFRAME = 2000;
 
@@ -135,7 +137,14 @@ export class MemoryMarketHistoryStore implements MarketHistoryPort, MarketHistor
   }
 
   /**
-   * W3 §8 — one accepted tick, one mid, three aggregators.
+   * W3 §8 / W5 §10 — one accepted tick, one mid, one aggregator per interval.
+   *
+   * The loop iterates `CANDLE_TIMEFRAMES`, so W5's two new intervals are
+   * observed by construction rather than by a second code path: still exactly
+   * **one** observation per accepted tick (W3-D2), now fanned into five
+   * aggregators instead of three. There is no per-client aggregation and no
+   * reconstruction of the new intervals from past data the process never
+   * observed (W5 §12).
    *
    * There is no raw tick tape: keeping every tick would be unbounded storage
    * for data nothing reads. And there is no OHLC arithmetic here — the bucket
