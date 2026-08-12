@@ -503,8 +503,13 @@ keyboard accessible; placing an anchor requires a pointer.
 
 ## 12. TEST RESULTS
 
-Run in the order §148 specifies. **401 web unit tests, 87 contracts, 84 realtime
-— all green. Fast Gate green.**
+Run in the order §148 specifies. **401 web unit tests, 87 contracts, 84 realtime,
+and 59 live Playwright `@trade` tests — all green. Fast Gate green.**
+
+The live suite ran against the local Supabase stack with a real realtime process
+and a seeded trade account (§17.1). It is what caught defect 6 in §12.3: the unit
+suite cannot exercise an E2E page-object helper, so a selector broken by W5's
+accessibility change survived until a browser actually clicked it.
 
 | Suite | File | Tests | What it pins |
 |---|---|---|---|
@@ -524,6 +529,7 @@ Run in the order §148 specifies. **401 web unit tests, 87 contracts, 84 realtim
 | W4 execution | `execution-controls.test.tsx` | 27 | **Unchanged** — Execution Center intact |
 | W3 isolation | `chart-history-isolation.test.tsx` | 12 | **Unchanged** — history cannot execute |
 | W1/W2 chrome | `workstation-render-ownership.test.tsx`, `workstation-chrome.test.tsx` | 25 | **Unchanged** |
+| **Live browser** | `pnpm test:e2e:trade` (desktop + mobile projects) | **59** | Order lifecycle, rejection, SL/TP, Close All, reconnection, partial close, keyboard access, axe scans, W1 shell, W2 navigator/dock, W3 history and timeframes, W4 execution — all against a real realtime process |
 
 ### 12.1 A shared renderer double
 
@@ -550,6 +556,29 @@ Three real defects surfaced during the test pass and were fixed at the root:
    preferences loaded, then immediately fired again. Fixed by gating both the
    hydration and the indicator configure on a `loaded` flag (§8.3).
 
+### 12.3 Three more found by engineering review of the evidence harness
+
+Review of the committed evidence spec found two harness defects and the live run
+found a third. All three are test-only; no product behaviour changed.
+
+4. **The evidence spec could not honestly execute.** One shared readiness gate
+   required every default indicator to hold a value before *any* screenshot.
+   Because the preset includes SMA 100, that silently demanded 100 genuinely
+   observed candles on every timeframe it was called for — 8 min on 5s, 25 min on
+   15s, 1 h 40 on 1m, **5 h on 3m** — against a 10-minute timeout. Readiness is
+   now state-specific (§13.1). The fix could not have been to speed the market up
+   even if that were allowed: candles are wall-clock bucketed, so raising the
+   simulator's tick rate does not raise the candle rate.
+5. **Backfill evidence was sampled, not awaited.** The older page is
+   asynchronous, so reading the candle count straight after the pan could record
+   `pageLanded: false` before the response arrived. The harness now polls for a
+   truthful terminal outcome (§13.2).
+6. **A W3 E2E test broke on W5's accessibility improvement.** `warix-w3.spec.ts`
+   selected timeframes with `getByRole('button') + aria-pressed`; §86
+   deliberately made the control a real `radiogroup`. Caught by the live run, not
+   by the unit suite, which does not exercise the E2E helpers. Both W3 specs now
+   use `role="radio"` + `aria-checked`; the behaviour under test is unchanged.
+
 ---
 
 ## 13. VISUAL EVIDENCE
@@ -563,16 +592,46 @@ pnpm --filter @wariba/web exec playwright test \
   tests/e2e/warix-w5-evidence.spec.ts --project=desktop
 ```
 
-Ten captures: NAS100 1m with four moving averages · NAS100 15s with the indicator
-menu open · EURUSD 3m with a trend line and a horizontal line · EURUSD with
-Fibonacci and a rectangle · a backfilled chart scrolled left · the full 1920×1080
-workstation · and four mobile states at 390×844.
+Eleven captures: NAS100 5s with four warmed moving averages · the indicator menu
+· NAS100 15s and 3m timeframe proofs · EURUSD 3m with a trend line and a
+horizontal line · EURUSD with Fibonacci and a rectangle · before and after a
+pan-left backfill · the full 1920×1080 workstation · and four mobile states at
+390×844.
 
-The readiness gate is stricter than W3's: connection open, specs loaded, history
-`ready`, **≥ 130 finalized candles**, and the indicator legend printing numbers
-rather than dashes — because a 100 SMA with no value is not evidence of chart
-intelligence. The manifest records history depth, toolbar height at 1440, whether
-the backfill page actually landed, and document-overflow at 320/360/390/412/430.
+### 13.1 Readiness is state-specific, because history is honest
+
+W3 history is observed process memory at one accepted tick per second per
+symbol. Candles are bucketed by wall clock, so **depth costs real time and
+nothing can shorten it without lying**. Each capture therefore asks for the
+readiness it actually needs:
+
+| Proof | Requires | Does **not** require |
+|---|---|---|
+| Indicator (§A) | 5s only — the shortest honest interval — with ≥ 100 genuinely observed candles and a legend holding a value for every default indicator, SMA 100 included | — |
+| Timeframe (§B) | the interval became active, and history resolved to `ready` **or** `empty` | any indicator to be warm |
+| Drawing (§C) | specs loaded, history resolved, a plot to click in | 100 candles of the drawn interval |
+
+Sparse 1m/3m history on a young process is a **correct W3 state**, not a
+failure. The manifest records the observed depth per interval and labels it,
+rather than pretending it away. What is never acceptable, and is still barred
+everywhere, is photographing `loading`.
+
+### 13.2 Backfill is awaited, and viewport preservation is observable
+
+The harness polls for one of two truthful terminal outcomes: an older page lands
+and the candle count rises, or the server reports no older retained page — the
+§23 retention floor, which is an end state rather than a failure. The manifest
+says which, and carries `candlesBefore`, `candlesAfter`, `pageLanded`,
+`hasMoreOlder` before and after, `sourceEpoch` before and after with a stability
+flag, and the timeframe.
+
+Viewport preservation (§21) is proved through UI that already exists rather than
+debug state added for a screenshot: the OHLC legend names the bar under the
+crosshair, so an identical reading at an identical pixel across the prepend means
+the bar did not move. The manifest records both readings. The *exact* shift
+remains asserted where it can be measured precisely — in
+`chart-interaction-priority.test.tsx`, which pins
+`setVisibleLogicalRange({from: from+N})` and the absence of `fitContent`.
 
 ### 13.1 Human review questions
 
@@ -683,7 +742,7 @@ W5_VISUAL_EVIDENCE_READY                = true
 
 W5_W3_REGRESSION_READY                  = true
 W5_W4_REGRESSION_READY                  = true
-W5_TRADE_E2E_READY                      = not_run   (unit + component only; see §17)
+W5_TRADE_E2E_READY                      = true      (59/59 against the local stack; see §17.1)
 W5_FAST_GATE_READY                      = true
 
 W5_ACCEPTED                             = pending human visual review
@@ -807,9 +866,27 @@ the two new intervals are picked up by an existing loop over `CANDLE_TIMEFRAMES`
 - **WARIBA Full Certification** — out of scope per §148.
 - **Load / HA / failover** — leadership, fencing and execution infrastructure
   were not modified, so §148's precondition for running them was not met.
-- **Playwright E2E suites** (`test:e2e:trade`, `@warix-w5-evidence`) — these need
-  a live Supabase, a running realtime process and a seeded trade account, which
-  this environment does not provide. `W5_TRADE_E2E_READY = not_run`. The specs
-  are committed and runnable; the behaviour they cover is additionally pinned by
-  the component-level suites in §12, which drive the real `TradeChart` against a
-  renderer double.
+
+### 17.1 The data plane the live runs used
+
+The repository's `.env.local` points at a **remote** Supabase project. The
+config guard (`assertLocalDataPlane`) refuses to start `APP_ENV=local` against
+it, and that guard was **not** overridden — creating test accounts, orders and
+positions on a remote data plane to produce screenshots is exactly what it
+exists to prevent. The live runs therefore used the local Supabase stack
+(`127.0.0.1:54321` / `:54322`) with `MARKET_DATA_PROVIDER=mock`, one realtime
+process, and a seeded trade account created by the existing `tradeAccount`
+fixture. No historical candle was fabricated at any point; every bar in the
+evidence is one the realtime process genuinely observed from its own accepted
+tick stream.
+
+### 17.2 Indicator warm-up is wall-clock time, not a knob
+
+`MARKET_TICK_INTERVAL_MS` is configurable, and lowering it would *not* have
+shortened the indicator warm-up by a second: candles are bucketed by UTC wall
+clock, so a 5s bar takes five real seconds however many quotes arrive inside it.
+Tick rate is not candle rate. The evidence run therefore waited for the realtime
+process to genuinely observe the bars it needed — roughly 8 minutes for SMA 100
+on 5s, and roughly 34 minutes before a second history page existed to page back
+into. That wait is the honest cost of W3's observed-memory history, and the
+alternative (seeding candles) is the one thing this milestone must never do.
