@@ -103,22 +103,33 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
      */
     const HISTORY_RATE_LIMIT_MAX = 6;
     const HISTORY_RATE_LIMIT_WINDOW_MS = 10_000;
+    /**
+     * A hydration costs **two** requests, not one: the live-edge page, then the
+     * automatic older page that `fitContent()` triggers whenever the server has
+     * more (see §15's known limitation). An earlier version of this pacer
+     * charged one, which was survivable only while the process was young enough
+     * that most intervals fitted in a single page — and started tripping the
+     * limit as soon as it had genuinely observed more history.
+     */
+    const REQUESTS_PER_HYDRATION = 2;
     const requestTimestamps: number[] = [];
     const paceHistoryRequest = async (): Promise<void> => {
-      const now = Date.now();
-      while (
-        requestTimestamps.length > 0 &&
-        now - requestTimestamps[0]! > HISTORY_RATE_LIMIT_WINDOW_MS
-      ) {
-        requestTimestamps.shift();
+      for (let charge = 0; charge < REQUESTS_PER_HYDRATION; charge += 1) {
+        const now = Date.now();
+        while (
+          requestTimestamps.length > 0 &&
+          now - requestTimestamps[0]! > HISTORY_RATE_LIMIT_WINDOW_MS
+        ) {
+          requestTimestamps.shift();
+        }
+        if (requestTimestamps.length >= HISTORY_RATE_LIMIT_MAX - 1) {
+          const oldest = requestTimestamps[0]!;
+          const waitMs = HISTORY_RATE_LIMIT_WINDOW_MS - (now - oldest) + 250;
+          if (waitMs > 0) await page.waitForTimeout(waitMs);
+          requestTimestamps.shift();
+        }
+        requestTimestamps.push(Date.now());
       }
-      if (requestTimestamps.length >= HISTORY_RATE_LIMIT_MAX - 1) {
-        const oldest = requestTimestamps[0]!;
-        const waitMs = HISTORY_RATE_LIMIT_WINDOW_MS - (now - oldest) + 250;
-        if (waitMs > 0) await page.waitForTimeout(waitMs);
-        requestTimestamps.shift();
-      }
-      requestTimestamps.push(Date.now());
     };
 
     const openWorkstation = async (): Promise<void> => {
