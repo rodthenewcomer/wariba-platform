@@ -26,14 +26,14 @@ const SIDE_COPY: Record<ExecutionSide, { verb: string; accessible: string; quote
 
 /** The only saturated colours in the panel — see the note on the component below. */
 const SIDE_TONE: Record<ExecutionSide, string> = {
-  sell: 'bg-[color:var(--wariba-status-danger-strong)] hover:enabled:bg-[color:var(--wariba-status-danger-text)]',
-  buy: 'bg-[color:var(--wariba-status-success-strong)] hover:enabled:bg-[color:var(--wariba-status-success-text)]',
+  sell: 'bg-[color:var(--wariba-component-workstation-trading-sell)] hover:enabled:brightness-110',
+  buy: 'bg-[color:var(--wariba-component-workstation-trading-buy)] hover:enabled:brightness-110',
 };
 
 /** The de-emphasised form: side identity kept in the border, fill dropped. */
 const SIDE_OUTLINE: Record<ExecutionSide, string> = {
-  sell: 'bg-transparent ring-1 ring-inset ring-[color:var(--wariba-status-danger-border)]',
-  buy: 'bg-transparent ring-1 ring-inset ring-[color:var(--wariba-status-success-border)]',
+  sell: 'bg-transparent ring-1 ring-inset ring-[color:var(--wariba-component-workstation-trading-sell)]',
+  buy: 'bg-transparent ring-1 ring-inset ring-[color:var(--wariba-component-workstation-trading-buy)]',
 };
 
 const DASH = '—';
@@ -107,17 +107,14 @@ export function ExecutionActions({
                 onClick={() => onSubmit(side)}
                 className={[
                   'flex min-h-12 flex-col items-center justify-center gap-0.5',
-                  'rounded-[var(--wariba-radius-sm)] px-2 py-2 transition-colors',
-                  // `--wariba-action-destructive-text`, not `-primary-text`:
-                  // the primary one is #0B0D12 under a dark theme (correct on
-                  // the bright cobalt primary button, 3.1:1 and failing on
-                  // these saturated surfaces). The destructive token is the
-                  // one already paired with #A73C3C and is #FFFFFF in every
-                  // theme — 6.3:1 on the Sell red, 5.8:1 on the Buy green.
+                  'rounded-[var(--wariba-radius-sm)] px-2 py-2 transition-[background-color,filter,transform] duration-[var(--wariba-component-workstation-motion-interaction)] active:translate-y-px',
+                  // Ink, not white: WX1's brighter Emerald/Coral fills carry
+                  // sufficient contrast with the workstation canvas tone,
+                  // while white falls below AA on both semantic actions.
                   sideUnavailable
                     ? 'text-[color:var(--wariba-text-secondary)]'
-                    : 'text-[color:var(--wariba-action-destructive-text)]',
-                  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]',
+                    : 'text-[color:var(--wariba-component-workstation-surface-canvas)]',
+                  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]',
                   // Visual closure §10 — a *strong* disabled state, which means
                   // legible as well as inert. The generic disabled pair
                   // (`--wariba-text-disabled` on `--wariba-border-disabled`) is

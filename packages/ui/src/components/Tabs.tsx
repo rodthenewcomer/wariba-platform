@@ -94,7 +94,7 @@ export function Tab({ value, children }: { value: string; children: ReactNode })
       tabIndex={selected ? 0 : -1}
       onClick={() => setValue(value)}
       className={cx(
-        'border-b-2 px-[var(--wariba-space-3)] py-[var(--wariba-space-2)]',
+        'min-h-11 border-b-2 px-[var(--wariba-space-3)] py-[var(--wariba-space-2)] lg:min-h-0',
         'text-[length:var(--wariba-font-size-label-md)] font-semibold transition-colors',
         selected
           ? 'border-[color:var(--wariba-action-primary)] text-[color:var(--wariba-text-primary)]'

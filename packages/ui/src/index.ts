@@ -20,6 +20,7 @@ export * from './primitives/Icon';
 export * from './primitives/Divider';
 export * from './primitives/VisuallyHidden';
 export * from './icons/nav-icons';
+export * from './icons/workstation-icons';
 
 // Fundamental components — Design System §47.2 / Prompt 02 scope
 // button-styles first and explicitly: it's a plain function with no 'use client',
@@ -48,6 +49,7 @@ export * from './components/PricingCard';
 export * from './components/FeatureCard';
 export * from './components/StatTile';
 export * from './components/Accordion';
+export * from './components/Workstation';
 
 // Layouts — Design System §26 / Prompt 02 scope
 export * from './layouts/PublicHeader';

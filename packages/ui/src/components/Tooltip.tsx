@@ -14,7 +14,7 @@ export interface TooltipProps {
   label: string;
   /** A single focusable element (button, link) — receives aria-describedby. */
   children: ReactElement<{ 'aria-describedby'?: string }>;
-  side?: 'top' | 'bottom';
+  side?: 'top' | 'bottom' | 'right';
 }
 
 /**
@@ -44,7 +44,11 @@ export function Tooltip({ label, children, side = 'top' }: TooltipProps) {
             'pointer-events-none absolute left-1/2 z-[var(--wariba-z-popover)] w-max max-w-xs -translate-x-1/2',
             'rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-background-inverse)] px-[var(--wariba-space-2)] py-1',
             'text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-inverse)] shadow-[var(--wariba-shadow-sm)]',
-            side === 'top' ? 'bottom-full mb-2' : 'top-full mt-2',
+            side === 'top'
+              ? 'bottom-full mb-2'
+              : side === 'right'
+                ? 'left-full top-1/2 ml-2 -translate-x-0 -translate-y-1/2'
+                : 'top-full mt-2',
           )}
         >
           {label}

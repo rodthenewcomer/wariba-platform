@@ -27,7 +27,7 @@ export function ExecutionSection({ title, action, children, testId }: ExecutionS
   return (
     <section
       {...(testId ? { 'data-testid': testId } : {})}
-      className="flex flex-col gap-1.5 border-t border-[color:var(--wariba-component-workstation-seam)] px-3 py-2 first:border-t-0"
+      className="flex flex-col gap-1 border-t border-[color:var(--wariba-component-workstation-border-hairline)] px-3 py-1.5 first:border-t-0"
     >
       {/*
        * Visual closure §4 — the label is a locator, not a headline.

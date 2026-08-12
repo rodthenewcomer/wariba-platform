@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useId, useMemo, useState, type ReactNode } from 'react';
-import { Text } from '@wariba/ui';
+import { Text, WariXFavoriteIcon, WariXSearchIcon } from '@wariba/ui';
 import type { SymbolSpec, TradableSymbol } from '@wariba/contracts';
 import {
   groupAvailableSymbols,
@@ -54,24 +54,24 @@ const MarketRow = memo(function MarketRow({
 
   return (
     <div
-      className={`flex items-stretch rounded-[var(--wariba-radius-sm)] ${
+      className={`relative flex min-h-11 items-stretch rounded-[var(--wariba-radius-sm)] lg:h-9 lg:min-h-9 ${
         selected
-          ? 'bg-[color:var(--wariba-surface-selected)]'
-          : 'hover:bg-[color:var(--wariba-surface-selected)]'
+          ? 'bg-[color:var(--wariba-component-workstation-surface-control-active)] before:absolute before:bottom-1 before:left-0 before:top-1 before:z-10 before:w-0.5 before:rounded-r before:bg-[color:var(--wariba-component-workstation-interaction-selected)]'
+          : 'hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)]'
       }`}
     >
       <button
         type="button"
         onClick={() => onSelect(symbol)}
         aria-current={selected ? 'true' : undefined}
-        className="flex min-h-[var(--wariba-size-touch-target-minimum)] min-w-0 flex-1 flex-col justify-center gap-0.5 rounded-l-[var(--wariba-radius-sm)] px-2 py-1.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--wariba-border-focus)]"
+        className="flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-0.5 rounded-l-[var(--wariba-radius-sm)] px-2 py-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:min-h-9"
       >
         <span className="flex items-center justify-between gap-2">
           <span
             className={`text-[length:var(--wariba-font-size-body-sm)] font-medium ${
               selected
-                ? 'text-[color:var(--wariba-theme-action)]'
-                : 'text-[color:var(--wariba-theme-text)]'
+                ? 'font-bold text-[color:var(--wariba-component-workstation-interaction-selected)]'
+                : 'text-[color:var(--wariba-component-workstation-text-primary)]'
             }`}
           >
             {symbol}
@@ -79,8 +79,8 @@ const MarketRow = memo(function MarketRow({
           <span
             className={`text-[length:var(--wariba-font-size-label-sm)] ${
               isStale
-                ? 'text-[color:var(--wariba-status-warning-text)]'
-                : 'text-[color:var(--wariba-text-secondary)]'
+                ? 'text-[color:var(--wariba-component-workstation-trading-warning)]'
+                : 'text-[color:var(--wariba-component-workstation-text-tertiary)]'
             }`}
           >
             {tick ? MARKET_STATUS_LABEL[tick.marketStatus] : 'Indisponible'}
@@ -96,10 +96,10 @@ const MarketRow = memo(function MarketRow({
               choice that costs legibility on the one value in the row that
               matters. The *spread* stays at 11px: it is secondary, and holding
               it a step below keeps the row's own hierarchy. */}
-          <span className="wariba-data text-[length:var(--wariba-font-size-data-sm)] tabular-nums text-[color:var(--wariba-text-secondary)]">
+          <span className="wariba-data text-[length:var(--wariba-font-size-data-sm)] font-medium tabular-nums text-[color:var(--wariba-component-workstation-text-secondary)]">
             {tick ? `${tick.bid} / ${tick.ask}` : '— / —'}
           </span>
-          <span className="wariba-data text-[length:var(--wariba-font-size-data-xs)] tabular-nums text-[color:var(--wariba-text-tertiary)]">
+          <span className="wariba-data text-[length:var(--wariba-font-size-data-xs)] tabular-nums text-[color:var(--wariba-component-workstation-text-tertiary)]">
             {spread ?? '—'}
           </span>
         </span>
@@ -110,22 +110,13 @@ const MarketRow = memo(function MarketRow({
         onClick={() => onToggleFavorite(symbol)}
         aria-pressed={favorite}
         aria-label={favorite ? `Retirer ${symbol} des favoris` : `Ajouter ${symbol} aux favoris`}
-        className={`flex w-8 shrink-0 items-center justify-center rounded-r-[var(--wariba-radius-sm)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--wariba-border-focus)] ${
+        className={`flex min-h-11 w-8 shrink-0 items-center justify-center rounded-r-[var(--wariba-radius-sm)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:min-h-9 ${
           favorite
-            ? 'text-[color:var(--wariba-theme-signature-accent,var(--wariba-status-warning-text))]'
-            : 'text-[color:var(--wariba-text-tertiary)] hover:text-[color:var(--wariba-text-secondary)]'
+            ? 'text-[color:var(--wariba-color-copper-400)]'
+            : 'text-[color:var(--wariba-component-workstation-text-tertiary)] hover:text-[color:var(--wariba-component-workstation-text-secondary)]'
         }`}
       >
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 24 24"
-          className="h-3.5 w-3.5"
-          fill={favorite ? 'currentColor' : 'none'}
-          stroke="currentColor"
-          strokeWidth="1.75"
-        >
-          <path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z" />
-        </svg>
+        <WariXFavoriteIcon filled={favorite} />
       </button>
     </div>
   );
@@ -206,17 +197,18 @@ export const MarketNavigator = memo(function MarketNavigator({
 
   return (
     <div data-testid="market-navigator" className="flex min-h-0 min-w-0 flex-col overflow-hidden">
-      <div className="flex shrink-0 items-center justify-between gap-2 px-2 pt-2">
-        <Text variant="label-sm" color="tertiary">
+      <div className="flex h-8 shrink-0 items-center justify-between gap-2 border-b border-[color:var(--wariba-component-workstation-border-hairline)] px-2">
+        <h2 className="text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase leading-[var(--wariba-line-height-label-sm)] tracking-[0.08em] text-[color:var(--wariba-component-workstation-text-tertiary)]">
           Marchés
-        </Text>
+        </h2>
         {headerAction}
       </div>
 
-      <div className="shrink-0 px-2 py-2">
+      <div className="relative h-11 shrink-0 border-b border-[color:var(--wariba-component-workstation-border-hairline)] px-2">
         <label htmlFor={searchId} className="sr-only">
           Rechercher un instrument
         </label>
+        <WariXSearchIcon className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[color:var(--wariba-component-workstation-text-tertiary)]" />
         <input
           id={searchId}
           type="search"
@@ -224,11 +216,11 @@ export const MarketNavigator = memo(function MarketNavigator({
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Rechercher…"
           data-testid="market-search"
-          className="w-full rounded-[var(--wariba-radius-sm)] border border-[color:var(--wariba-component-workstation-seam)] bg-[color:var(--wariba-component-workstation-surface-sunken)] px-2 py-1.5 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-theme-text)] placeholder:text-[color:var(--wariba-text-tertiary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--wariba-border-focus)]"
+          className="h-full w-full border-0 bg-transparent py-0 pl-8 pr-2 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-component-workstation-text-primary)] placeholder:text-[color:var(--wariba-component-workstation-text-tertiary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]"
         />
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-1 pb-2">
+      <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-1 py-1.5">
         {/* Favorites is a quick-access projection, not a reclassification: an
             instrument shown here is still listed under its real category. */}
         {visible.favoriteMatches.length > 0 && (

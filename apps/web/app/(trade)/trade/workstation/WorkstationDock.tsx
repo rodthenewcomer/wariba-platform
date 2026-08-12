@@ -1,7 +1,15 @@
 'use client';
 
 import { memo, type ReactNode } from 'react';
-import { Tab, TabList, TabPanel, Tabs } from '@wariba/ui';
+import {
+  CompactEmptyState,
+  Tab,
+  TabList,
+  TabPanel,
+  Tabs,
+  WariXChevronDownIcon,
+  WariXChevronUpIcon,
+} from '@wariba/ui';
 import type { AccountSnapshot, SymbolSpec, TradableSymbol } from '@wariba/contracts';
 import { PositionsTabPanel } from '../PositionsTabPanel';
 import type { TickStore } from '../tick-store';
@@ -20,6 +28,8 @@ export interface WorkstationDockProps {
   tab: DockTab;
   onTabChange: (tab: DockTab) => void;
   collapsed: boolean;
+  /** True when the active panel has no row-level content. Desktop then occupies exactly 48px. */
+  empty?: boolean;
   onToggleCollapsed: () => void;
   pending: boolean;
   onClosePosition: (positionId: string) => void;
@@ -61,6 +71,7 @@ export const WorkstationDock = memo(function WorkstationDock({
   tab,
   onTabChange,
   collapsed,
+  empty = false,
   onToggleCollapsed,
   pending,
   onClosePosition,
@@ -104,7 +115,8 @@ export const WorkstationDock = memo(function WorkstationDock({
       // name names the whole surface, not its narrowest member.
       aria-label="Dock de trading"
       data-testid="workstation-dock"
-      className="flex min-h-0 min-w-0 flex-col border-t border-[color:var(--wariba-component-workstation-seam)] bg-[color:var(--wariba-component-workstation-surface-raised)] lg:flex-1"
+      data-empty={empty ? 'true' : 'false'}
+      className="flex min-h-0 min-w-0 flex-col border-t border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] lg:flex-1"
     >
       {resizeHandle}
 
@@ -113,7 +125,7 @@ export const WorkstationDock = memo(function WorkstationDock({
         onValueChange={(next) => onTabChange(next as DockTab)}
         className="flex min-h-0 min-w-0 flex-col"
       >
-        <div className="flex shrink-0 items-center gap-2 pr-1">
+        <div className="flex min-h-10 shrink-0 items-center gap-2 pr-1">
           {/* The tab strip is the one element allowed to be wider than the
               viewport, and only inside this box — never the document. */}
           <div
@@ -129,24 +141,22 @@ export const WorkstationDock = memo(function WorkstationDock({
             </TabList>
           </div>
 
+          {!collapsed && empty ? (
+            <CompactEmptyState
+              title="Aucune activité"
+              className="hidden max-w-52 shrink truncate border-l border-[color:var(--wariba-component-workstation-border-hairline)] lg:flex"
+            />
+          ) : null}
+
           <button
             type="button"
             onClick={onToggleCollapsed}
             aria-expanded={!collapsed}
             aria-label={collapsed ? 'Déplier le dock' : 'Replier le dock'}
             data-testid="workstation-dock-collapse"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--wariba-radius-sm)] text-[color:var(--wariba-text-secondary)] hover:bg-[color:var(--wariba-surface-selected)] hover:text-[color:var(--wariba-theme-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--wariba-radius-sm)] text-[color:var(--wariba-component-workstation-text-secondary)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:h-7 lg:w-7"
           >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              className={`h-4 w-4 transition-transform ${collapsed ? '' : 'rotate-180'}`}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="m6 15 6-6 6 6" />
-            </svg>
+            {collapsed ? <WariXChevronUpIcon /> : <WariXChevronDownIcon />}
           </button>
         </div>
 
@@ -154,7 +164,9 @@ export const WorkstationDock = memo(function WorkstationDock({
             which surface is active and how many positions are open — while the
             body's vertical space returns to the chart. */}
         {collapsed ? null : (
-          <div className="min-h-0 min-w-0 flex-1 overflow-auto p-[var(--wariba-component-workstation-panel-padding)]">
+          <div
+            className={`min-h-0 min-w-0 flex-1 overflow-auto p-[var(--wariba-component-workstation-panel-padding)] ${empty ? 'lg:hidden' : ''}`}
+          >
             <TabPanel value="positions">
               <PositionsTabPanel
                 store={store}

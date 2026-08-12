@@ -27,15 +27,17 @@ export const WORKSTATION_PREFERENCES_KEY = 'wariba.workstation.layout';
 const VERSION = 1;
 
 export const NAVIGATOR_WIDTH_MIN = 220;
-export const NAVIGATOR_WIDTH_MAX = 360;
-export const NAVIGATOR_WIDTH_DEFAULT = 280;
+export const NAVIGATOR_WIDTH_MAX = 320;
+export const NAVIGATOR_WIDTH_DEFAULT = 244;
 
-export const DOCK_HEIGHT_MIN = 140;
+export const DOCK_HEIGHT_MIN = 112;
 /** Hard ceiling; the shell additionally clamps to 55dvh so a short viewport cannot be swallowed. */
 export const DOCK_HEIGHT_MAX = 560;
 export const DOCK_HEIGHT_DEFAULT = 220;
 /** Header-only dock (W2 §22). */
 export const DOCK_COLLAPSED_HEIGHT = 40;
+/** WX1 authoritative empty presentation; it never overwrites the populated preference. */
+export const DOCK_EMPTY_HEIGHT = 48;
 
 export interface WorkstationPreferences {
   navigatorWidth: number;

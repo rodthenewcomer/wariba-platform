@@ -1,7 +1,14 @@
 'use client';
 
 import { memo, type ReactNode } from 'react';
-import { AccountsIcon, HubIcon, MoreIcon, PayoutsIcon, TradeIcon } from '@wariba/ui';
+import {
+  Tooltip,
+  WariXAccountsIcon,
+  WariXHubIcon,
+  WariXMoreIcon,
+  WariXPayoutsIcon,
+  WariXTradeIcon,
+} from '@wariba/ui';
 
 interface RailItem {
   href: string;
@@ -20,11 +27,11 @@ interface RailItem {
  * is the trader's, and `(control)` has its own shell.
  */
 const RAIL_ITEMS: readonly RailItem[] = [
-  { href: '/trade', label: 'Trade', icon: <TradeIcon size="sm" /> },
-  { href: '/hub', label: 'Hub', icon: <HubIcon size="sm" /> },
-  { href: '/comptes', label: 'Comptes', icon: <AccountsIcon size="sm" /> },
-  { href: '/payouts', label: 'Payouts', icon: <PayoutsIcon size="sm" /> },
-  { href: '/plus', label: 'Plus', icon: <MoreIcon size="sm" /> },
+  { href: '/trade', label: 'Trade', icon: <WariXTradeIcon size="nav" /> },
+  { href: '/hub', label: 'Hub', icon: <WariXHubIcon size="nav" /> },
+  { href: '/comptes', label: 'Comptes', icon: <WariXAccountsIcon size="nav" /> },
+  { href: '/payouts', label: 'Payouts', icon: <WariXPayoutsIcon size="nav" /> },
+  { href: '/plus', label: 'Plus', icon: <WariXMoreIcon size="nav" /> },
 ];
 
 export interface NavRailProps {
@@ -46,12 +53,12 @@ export const NavRail = memo(function NavRail({ currentPath }: NavRailProps) {
     <nav
       aria-label="Navigation WariX"
       data-testid="workstation-nav-rail"
-      className="flex h-full w-[var(--wariba-component-workstation-rail-width)] shrink-0 flex-col items-center gap-1 border-r border-[color:var(--wariba-component-workstation-seam)] bg-[color:var(--wariba-component-workstation-surface-raised)] py-2"
+      className="flex h-full w-[var(--wariba-component-workstation-rail-width)] shrink-0 flex-col items-center gap-1 border-r border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] py-2"
     >
       <span
         aria-hidden="true"
         title="WARIBA WariX"
-        className="mb-2 flex h-8 w-8 items-center justify-center rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-theme-action)] text-[length:var(--wariba-font-size-label-sm)] font-bold text-[color:var(--wariba-color-white)]"
+        className="mb-2 flex h-8 w-8 items-center justify-center rounded-[var(--wariba-radius-sm)] border border-[color:var(--wariba-color-copper-500)] bg-[color:var(--wariba-component-workstation-surface-control)] text-[length:var(--wariba-font-size-label-sm)] font-extrabold text-[color:var(--wariba-color-copper-400)]"
       >
         W
       </span>
@@ -60,20 +67,20 @@ export const NavRail = memo(function NavRail({ currentPath }: NavRailProps) {
       {RAIL_ITEMS.map((item) => {
         const active = currentPath === item.href || currentPath.startsWith(`${item.href}/`);
         return (
-          <a
-            key={item.href}
-            href={item.href}
-            title={item.label}
-            aria-label={item.label}
-            aria-current={active ? 'page' : undefined}
-            className={`flex h-10 w-10 items-center justify-center rounded-[var(--wariba-radius-sm)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)] ${
-              active
-                ? 'bg-[color:var(--wariba-surface-selected)] text-[color:var(--wariba-theme-action)]'
-                : 'text-[color:var(--wariba-text-secondary)] hover:bg-[color:var(--wariba-surface-selected)] hover:text-[color:var(--wariba-theme-text)]'
-            }`}
-          >
-            {item.icon}
-          </a>
+          <Tooltip key={item.href} label={item.label} side="right">
+            <a
+              href={item.href}
+              aria-label={item.label}
+              aria-current={active ? 'page' : undefined}
+              className={`relative flex h-10 w-10 items-center justify-center rounded-[var(--wariba-radius-sm)] transition-[background-color,color,transform] duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-px ${
+                active
+                  ? 'bg-[color:var(--wariba-component-workstation-surface-control-active)] text-[color:var(--wariba-component-workstation-interaction-selected)] before:absolute before:bottom-2 before:left-[-8px] before:top-2 before:w-0.5 before:rounded-r before:bg-[color:var(--wariba-component-workstation-interaction-selected)]'
+                  : 'text-[color:var(--wariba-component-workstation-text-secondary)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)]'
+              }`}
+            >
+              {item.icon}
+            </a>
+          </Tooltip>
         );
       })}
     </nav>

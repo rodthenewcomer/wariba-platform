@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback } from 'react';
 import { BottomSheet } from '@wariba/ui';
 import type { SymbolSpec, TradableSymbol } from '@wariba/contracts';
 import { MarketNavigator } from '../MarketNavigator';
@@ -13,6 +13,8 @@ export interface MobileMarketBarProps {
   favorites: readonly TradableSymbol[];
   onSelectSymbol: (symbol: TradableSymbol) => void;
   onToggleFavorite: (symbol: TradableSymbol) => void;
+  open: boolean;
+  onOpenChange(open: boolean): void;
 }
 
 /**
@@ -39,52 +41,61 @@ export const MobileMarketBar = memo(function MobileMarketBar({
   favorites,
   onSelectSymbol,
   onToggleFavorite,
+  open,
+  onOpenChange,
 }: MobileMarketBarProps) {
-  const [open, setOpen] = useState(false);
   const tick = useTick(store, selectedSymbol);
 
   const select = useCallback(
     (symbol: TradableSymbol) => {
       onSelectSymbol(symbol);
-      setOpen(false);
+      onOpenChange(false);
     },
-    [onSelectSymbol],
+    [onOpenChange, onSelectSymbol],
   );
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        data-testid="mobile-market-trigger"
-        className="flex min-h-[var(--wariba-size-touch-target-minimum)] w-full items-center justify-between gap-2 border-b border-[color:var(--wariba-component-workstation-seam)] bg-[color:var(--wariba-component-workstation-surface-raised)] px-3 py-1.5 text-left"
+      <div
+        data-testid="mobile-market-context"
+        className="flex h-[var(--wariba-component-workstation-mobile-market-height)] w-full items-center justify-between gap-2 border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-module)] px-2"
       >
         <span className="flex items-center gap-2">
-          <span className="wariba-data text-[length:var(--wariba-font-size-data-sm)] font-semibold text-[color:var(--wariba-theme-text)]">
+          <span className="wariba-data text-[12px] font-bold text-[color:var(--wariba-component-workstation-text-primary)]">
             {selectedSymbol}
           </span>
-          <span className="wariba-data text-[length:var(--wariba-font-size-data-xs)] text-[color:var(--wariba-text-secondary)]">
-            {tick ? `${tick.bid} / ${tick.ask}` : '— / —'}
+          <span className="wariba-data text-[11px] tabular-nums text-[color:var(--wariba-component-workstation-text-secondary)]">
+            <span className="text-[color:var(--wariba-component-workstation-trading-live-bid)]">
+              {tick?.bid ?? '—'}
+            </span>
+            {' / '}
+            <span className="text-[color:var(--wariba-component-workstation-trading-live-ask)]">
+              {tick?.ask ?? '—'}
+            </span>
           </span>
         </span>
-        <span className="flex items-center gap-1 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]">
-          Marchés
-          <svg
+        <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-[color:var(--wariba-component-workstation-text-tertiary)]">
+          <span
             aria-hidden="true"
-            viewBox="0 0 24 24"
-            className="h-3 w-3"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="m6 9 6 6 6-6" />
-          </svg>
+            className={`h-1.5 w-1.5 rounded-full ${
+              tick?.marketStatus === 'open'
+                ? 'bg-[color:var(--wariba-component-workstation-trading-buy)]'
+                : tick?.marketStatus === 'stale'
+                  ? 'bg-[color:var(--wariba-component-workstation-trading-warning)]'
+                  : 'bg-[color:var(--wariba-component-workstation-text-tertiary)]'
+            }`}
+          />
+          {tick?.marketStatus === 'open'
+            ? 'Ouvert'
+            : tick?.marketStatus === 'stale'
+              ? 'Périmé'
+              : tick?.marketStatus === 'closed'
+                ? 'Fermé'
+                : 'Indisponible'}
         </span>
-      </button>
+      </div>
 
-      <BottomSheet open={open} onClose={() => setOpen(false)} title="Marchés">
+      <BottomSheet open={open} onClose={() => onOpenChange(false)} title="Marchés">
         {/* The same navigator as desktop — same catalogue, same categories,
             same favorites, same search. There is no second mobile market
             list to keep in step (W2 §26). */}

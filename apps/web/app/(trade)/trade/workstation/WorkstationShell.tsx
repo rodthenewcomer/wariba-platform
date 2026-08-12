@@ -75,12 +75,13 @@ export const WorkstationShell = memo(function WorkstationShell({
   dock,
 }: WorkstationShellProps) {
   return (
-    <div
+    <main
       data-testid="workstation-shell"
+      aria-labelledby="warix-workstation-title"
       className={[
         'flex min-h-dvh w-full min-w-0 max-w-full flex-col overflow-x-hidden',
         'bg-[color:var(--wariba-component-workstation-surface-sunken)]',
-        'lg:grid lg:h-dvh lg:min-h-0 lg:overflow-hidden',
+        'lg:grid lg:h-dvh lg:min-h-0 lg:overflow-hidden lg:transition-[grid-template-rows] lg:duration-[var(--wariba-component-workstation-motion-interaction)] motion-reduce:transition-none',
         // W0 §9's breakpoint table, as tokens rather than magic numbers. The
         // 1024–1279 band keeps the full navigator: collapsing it to icons is
         // W2's job, and a half-built collapse would be worse than none.
@@ -110,6 +111,9 @@ export const WorkstationShell = memo(function WorkstationShell({
         }`,
       }}
     >
+      <h1 id="warix-workstation-title" className="sr-only">
+        WariX — Poste de travail de trading simulé
+      </h1>
       <div className="hidden lg:[grid-area:1/1/3/2] lg:block">{rail}</div>
 
       <div className="min-w-0 shrink-0 lg:[grid-area:1/2/2/5]">{statusBar}</div>
@@ -120,7 +124,10 @@ export const WorkstationShell = memo(function WorkstationShell({
           hold a per-symbol tick subscription, and an invisible panel has no
           business paying for them. */}
       {navigatorCollapsed ? null : (
-        <div className="hidden min-h-0 min-w-0 lg:[grid-area:2/2/3/3] lg:flex lg:flex-row">
+        <div
+          data-testid="market-navigator-track"
+          className="hidden min-h-0 min-w-0 border-r border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-module)] lg:[grid-area:2/2/3/3] lg:flex lg:flex-row"
+        >
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{navigator}</div>
           {navigatorResizeHandle}
         </div>
@@ -136,7 +143,10 @@ export const WorkstationShell = memo(function WorkstationShell({
        * roughly 55–60dvh on a 390×844 phone — without inventing a single
        * candle: the same observed history simply gets a taller box.
        */}
-      <div className="flex min-h-[52dvh] min-w-0 flex-1 flex-col lg:min-h-0 lg:[grid-area:2/3/3/4]">
+      <div
+        data-testid="chart-track"
+        className="flex min-h-[52dvh] min-w-0 flex-1 flex-col lg:min-h-0 lg:[grid-area:2/3/3/4]"
+      >
         {navigatorCollapsed ? (
           <div className="hidden shrink-0 lg:block">{navigatorRestore}</div>
         ) : null}
@@ -147,13 +157,16 @@ export const WorkstationShell = memo(function WorkstationShell({
           it the full width rather than insetting it on the page background. */}
       <div className="min-w-0 shrink-0 lg:hidden">{mobileExecutionAction}</div>
 
-      <div className="hidden min-h-0 min-w-0 border-l border-[color:var(--wariba-component-workstation-seam)] p-[var(--wariba-component-workstation-panel-padding)] lg:[grid-area:2/4/3/5] lg:flex lg:flex-col">
+      <div
+        data-testid="execution-track"
+        className="hidden min-h-0 min-w-0 border-l border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-module)] lg:[grid-area:2/4/3/5] lg:flex lg:flex-col"
+      >
         {execution}
       </div>
 
       <div className="flex max-h-[38dvh] min-h-0 min-w-0 flex-col lg:max-h-none lg:[grid-area:3/1/4/5]">
         {dock}
       </div>
-    </div>
+    </main>
   );
 });

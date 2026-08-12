@@ -10,6 +10,7 @@ import {
   DataTableHead,
   DataTableHeaderCell,
   DataTableRow,
+  MobileStructuredRow,
 } from '@wariba/ui';
 import type { AccountSnapshot } from '@wariba/contracts';
 import { rejectionDetailFor } from '../../trade-copy';
@@ -58,7 +59,7 @@ export const OrdersPanel = memo(function OrdersPanel({
       type="button"
       onClick={() => setView(id)}
       aria-pressed={view === id}
-      className={`rounded-[var(--wariba-radius-sm)] px-2 py-1 text-[length:var(--wariba-font-size-label-sm)] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)] ${
+      className={`min-h-11 rounded-[var(--wariba-radius-sm)] px-2 py-1 text-[length:var(--wariba-font-size-label-sm)] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:min-h-8 ${
         view === id
           ? 'bg-[color:var(--wariba-surface-selected)] text-[color:var(--wariba-theme-text)]'
           : 'text-[color:var(--wariba-text-secondary)] hover:text-[color:var(--wariba-theme-text)]'
@@ -81,97 +82,169 @@ export const OrdersPanel = memo(function OrdersPanel({
       </div>
 
       {view === 'pending' ? (
-        <DataTable>
-          <DataTableHead>
-            <DataTableRow>
-              <DataTableHeaderCell>Type</DataTableHeaderCell>
-              <DataTableHeaderCell>Symbole</DataTableHeaderCell>
-              <DataTableHeaderCell align="right">Quantité</DataTableHeaderCell>
-              <DataTableHeaderCell align="right">Déclenchement</DataTableHeaderCell>
-              <DataTableHeaderCell align="right">Actions</DataTableHeaderCell>
-            </DataTableRow>
-          </DataTableHead>
-          <DataTableBody>
+        <>
+          <div className="lg:hidden">
             {pendingOrders.length === 0 ? (
-              <DataTableRow>
-                <DataTableCell
-                  colSpan={5}
-                  className="text-center text-[color:var(--wariba-text-secondary)]"
-                >
-                  Aucun ordre en attente.
-                </DataTableCell>
-              </DataTableRow>
+              <p className="px-2 py-3 text-center text-[12px] text-[color:var(--wariba-component-workstation-text-secondary)]">
+                Aucun ordre en attente.
+              </p>
             ) : (
               pendingOrders.map((order) => (
-                <DataTableRow key={order.id}>
-                  <DataTableCell>{PENDING_ORDER_TYPE_LABEL[order.orderType]}</DataTableCell>
-                  <DataTableCell>{order.symbol}</DataTableCell>
-                  <DataTableCell numeric>{order.quantity}</DataTableCell>
-                  <DataTableCell numeric>{order.triggerPrice}</DataTableCell>
-                  <DataTableCell align="right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onManagePendingOrder(order.id)}
-                      disabled={pending}
-                    >
-                      Gérer
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onCancelPendingOrder(order.id)}
-                      disabled={pending}
-                      className="text-[color:var(--wariba-status-danger-text)]"
-                    >
-                      Annuler
-                    </Button>
-                  </DataTableCell>
-                </DataTableRow>
+                <MobileStructuredRow
+                  key={order.id}
+                  primary={`${order.symbol} · ${PENDING_ORDER_TYPE_LABEL[order.orderType]}`}
+                  secondary={`Quantité ${order.quantity}`}
+                  trailing={order.triggerPrice}
+                  details="Statut · En attente"
+                  action={
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="min-h-11"
+                        onClick={() => onManagePendingOrder(order.id)}
+                        disabled={pending}
+                      >
+                        Gérer
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="min-h-11 text-[color:var(--wariba-component-workstation-trading-rejection)]"
+                        onClick={() => onCancelPendingOrder(order.id)}
+                        disabled={pending}
+                      >
+                        Annuler
+                      </Button>
+                    </div>
+                  }
+                />
               ))
             )}
-          </DataTableBody>
-        </DataTable>
+          </div>
+          <div className="hidden lg:block">
+            <DataTable>
+              <DataTableHead>
+                <DataTableRow>
+                  <DataTableHeaderCell>Type</DataTableHeaderCell>
+                  <DataTableHeaderCell>Symbole</DataTableHeaderCell>
+                  <DataTableHeaderCell align="right">Quantité</DataTableHeaderCell>
+                  <DataTableHeaderCell align="right">Déclenchement</DataTableHeaderCell>
+                  <DataTableHeaderCell align="right">Actions</DataTableHeaderCell>
+                </DataTableRow>
+              </DataTableHead>
+              <DataTableBody>
+                {pendingOrders.length === 0 ? (
+                  <DataTableRow>
+                    <DataTableCell
+                      colSpan={5}
+                      className="text-center text-[color:var(--wariba-text-secondary)]"
+                    >
+                      Aucun ordre en attente.
+                    </DataTableCell>
+                  </DataTableRow>
+                ) : (
+                  pendingOrders.map((order) => (
+                    <DataTableRow key={order.id}>
+                      <DataTableCell>{PENDING_ORDER_TYPE_LABEL[order.orderType]}</DataTableCell>
+                      <DataTableCell>{order.symbol}</DataTableCell>
+                      <DataTableCell numeric>{order.quantity}</DataTableCell>
+                      <DataTableCell numeric>{order.triggerPrice}</DataTableCell>
+                      <DataTableCell align="right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onManagePendingOrder(order.id)}
+                          disabled={pending}
+                        >
+                          Gérer
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onCancelPendingOrder(order.id)}
+                          disabled={pending}
+                          className="text-[color:var(--wariba-status-danger-text)]"
+                        >
+                          Annuler
+                        </Button>
+                      </DataTableCell>
+                    </DataTableRow>
+                  ))
+                )}
+              </DataTableBody>
+            </DataTable>
+          </div>
+        </>
       ) : (
-        <DataTable>
-          <DataTableHead>
-            <DataTableRow>
-              <DataTableHeaderCell>Type</DataTableHeaderCell>
-              <DataTableHeaderCell>Symbole</DataTableHeaderCell>
-              <DataTableHeaderCell align="right">Statut</DataTableHeaderCell>
-              <DataTableHeaderCell>Raison</DataTableHeaderCell>
-            </DataTableRow>
-          </DataTableHead>
-          <DataTableBody>
+        <>
+          <div className="lg:hidden">
             {recentOrders.length === 0 ? (
-              <DataTableRow>
-                <DataTableCell
-                  colSpan={4}
-                  className="text-center text-[color:var(--wariba-text-secondary)]"
-                >
-                  Aucun ordre.
-                </DataTableCell>
-              </DataTableRow>
+              <p className="px-2 py-3 text-center text-[12px] text-[color:var(--wariba-component-workstation-text-secondary)]">
+                Aucun ordre.
+              </p>
             ) : (
               recentOrders.map((order) => (
-                <DataTableRow key={order.id}>
-                  <DataTableCell>{ORDER_TYPE_LABEL[order.orderType]}</DataTableCell>
-                  <DataTableCell>{order.symbol ?? '—'}</DataTableCell>
-                  <DataTableCell align="right">
+                <MobileStructuredRow
+                  key={order.id}
+                  primary={order.symbol ?? '—'}
+                  secondary={ORDER_TYPE_LABEL[order.orderType]}
+                  trailing={
                     <Badge variant={ORDER_STATUS_BADGE_VARIANT[order.status]}>
                       {ORDER_STATUS_LABEL[order.status]}
                     </Badge>
-                  </DataTableCell>
-                  <DataTableCell className="text-[color:var(--wariba-text-secondary)]">
-                    {order.status === 'rejected'
+                  }
+                  details={
+                    order.status === 'rejected'
                       ? rejectionDetailFor(order.rejectionCode).reason
-                      : '—'}
-                  </DataTableCell>
-                </DataTableRow>
+                      : 'Exécution traitée par le serveur'
+                  }
+                />
               ))
             )}
-          </DataTableBody>
-        </DataTable>
+          </div>
+          <div className="hidden lg:block">
+            <DataTable>
+              <DataTableHead>
+                <DataTableRow>
+                  <DataTableHeaderCell>Type</DataTableHeaderCell>
+                  <DataTableHeaderCell>Symbole</DataTableHeaderCell>
+                  <DataTableHeaderCell align="right">Statut</DataTableHeaderCell>
+                  <DataTableHeaderCell>Raison</DataTableHeaderCell>
+                </DataTableRow>
+              </DataTableHead>
+              <DataTableBody>
+                {recentOrders.length === 0 ? (
+                  <DataTableRow>
+                    <DataTableCell
+                      colSpan={4}
+                      className="text-center text-[color:var(--wariba-text-secondary)]"
+                    >
+                      Aucun ordre.
+                    </DataTableCell>
+                  </DataTableRow>
+                ) : (
+                  recentOrders.map((order) => (
+                    <DataTableRow key={order.id}>
+                      <DataTableCell>{ORDER_TYPE_LABEL[order.orderType]}</DataTableCell>
+                      <DataTableCell>{order.symbol ?? '—'}</DataTableCell>
+                      <DataTableCell align="right">
+                        <Badge variant={ORDER_STATUS_BADGE_VARIANT[order.status]}>
+                          {ORDER_STATUS_LABEL[order.status]}
+                        </Badge>
+                      </DataTableCell>
+                      <DataTableCell className="text-[color:var(--wariba-text-secondary)]">
+                        {order.status === 'rejected'
+                          ? rejectionDetailFor(order.rejectionCode).reason
+                          : '—'}
+                      </DataTableCell>
+                    </DataTableRow>
+                  ))
+                )}
+              </DataTableBody>
+            </DataTable>
+          </div>
+        </>
       )}
     </div>
   );

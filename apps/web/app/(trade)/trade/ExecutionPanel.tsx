@@ -144,7 +144,7 @@ export const ExecutionPanel = memo(function ExecutionPanel({
   return (
     <div
       data-testid="execution-center"
-      className="flex min-h-0 flex-1 flex-col bg-[color:var(--wariba-component-workstation-surface-raised)]"
+      className="flex min-h-0 flex-1 flex-col bg-[color:var(--wariba-component-workstation-surface-module)]"
     >
       {/* The three quotes and the reason the trader cannot act: pinned, because
           neither is useful if it has scrolled away from the button. */}
@@ -223,7 +223,7 @@ export const ExecutionPanel = memo(function ExecutionPanel({
       {/* Explicitly opaque, not merely last in the flow: the fields above
           scroll *under* this bar, and a transparent one would let a
           half-scrolled input show through the buttons. */}
-      <div className="shrink-0 bg-[color:var(--wariba-component-workstation-surface-raised)]">
+      <div className="shrink-0 border-t border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] shadow-[0_-8px_16px_rgba(0,0,0,0.12)]">
         {/* §9 — margin and both loss budgets stay with the actions, whatever
             the Impact section above happens to be scrolled to. */}
         <ExecutionImpactSummary impact={impact} />

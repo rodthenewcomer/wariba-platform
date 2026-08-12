@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { memo, useMemo } from 'react';
-import { Text } from '@wariba/ui';
+import { ModuleHeader } from '@wariba/ui';
 import type {
   AccountSnapshot,
   PendingOrderDTO,
@@ -69,6 +69,7 @@ export interface ChartWorkspaceProps {
   rejectedOrderAction: PendingOrderAction | null;
   commandPending: boolean;
   actions: ChartWorkspaceActions;
+  onOpenMobileMarkets(): void;
 }
 
 /**
@@ -101,6 +102,7 @@ export const ChartWorkspace = memo(function ChartWorkspace({
   rejectedOrderAction,
   commandPending,
   actions,
+  onOpenMobileMarkets,
 }: ChartWorkspaceProps) {
   const tick = useTick(store, symbol);
 
@@ -121,25 +123,50 @@ export const ChartWorkspace = memo(function ChartWorkspace({
   return (
     <section
       aria-label={`Espace de travail ${symbol}`}
-      className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 p-[var(--wariba-component-workstation-panel-padding)]"
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-module)] lg:border-y"
     >
-      <div className="flex shrink-0 items-center gap-2 text-[length:var(--wariba-font-size-label-sm)]">
-        <Text as="span" variant="label-sm" color="tertiary">
-          Marché
-        </Text>
-        <span className="wariba-data font-semibold text-[color:var(--wariba-theme-text)]">
-          {symbol}
-        </span>
-        <span
-          className={`font-medium ${
-            tick?.marketStatus === 'stale'
-              ? 'text-[color:var(--wariba-status-warning-text)]'
-              : 'text-[color:var(--wariba-text-secondary)]'
-          }`}
-        >
-          {tick ? MARKET_STATUS_LABEL[tick.marketStatus] : '—'}
-        </span>
-      </div>
+      <ModuleHeader
+        title={symbol}
+        testId="chart-context-header"
+        className="hidden lg:flex"
+        status={
+          <span
+            className={`inline-flex items-center gap-1 font-medium ${
+              tick?.marketStatus === 'stale'
+                ? 'text-[color:var(--wariba-component-workstation-trading-warning)]'
+                : 'text-[color:var(--wariba-component-workstation-text-secondary)]'
+            }`}
+          >
+            <span
+              aria-hidden="true"
+              className={`h-1.5 w-1.5 rounded-full ${
+                tick?.marketStatus === 'open'
+                  ? 'bg-[color:var(--wariba-component-workstation-trading-buy)]'
+                  : 'bg-current'
+              }`}
+            />
+            {tick ? MARKET_STATUS_LABEL[tick.marketStatus] : 'Indisponible'}
+          </span>
+        }
+        actions={
+          tick ? (
+            <div className="wariba-data flex items-center gap-2 text-[11px] tabular-nums">
+              <span className="text-[color:var(--wariba-component-workstation-text-tertiary)]">
+                BID{' '}
+                <strong className="text-[color:var(--wariba-component-workstation-trading-live-bid)]">
+                  {tick.bid}
+                </strong>
+              </span>
+              <span className="text-[color:var(--wariba-component-workstation-text-tertiary)]">
+                ASK{' '}
+                <strong className="text-[color:var(--wariba-component-workstation-trading-live-ask)]">
+                  {tick.ask}
+                </strong>
+              </span>
+            </div>
+          ) : null
+        }
+      />
 
       <TradeChart
         symbol={symbol}
@@ -172,6 +199,7 @@ export const ChartWorkspace = memo(function ChartWorkspace({
         onDeleteAlert={actions.onDeleteAlert}
         onPendingOrderRequest={actions.onPendingOrderRequest}
         onCreateAlertHere={actions.onCreateAlertHere}
+        onOpenMobileMarkets={onOpenMobileMarkets}
       />
     </section>
   );

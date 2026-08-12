@@ -28,7 +28,7 @@ describe('WariXPositionsTable', () => {
         emptyLabel="Aucune position ouverte."
       />,
     );
-    expect(screen.getByText('Aucune position ouverte.')).toBeInTheDocument();
+    expect(screen.getAllByText('Aucune position ouverte.')).toHaveLength(2);
   });
 
   it('renders one row per position with symbol, side, size, entry/current price, SL/TP, and live PnL', () => {
@@ -46,7 +46,7 @@ describe('WariXPositionsTable', () => {
     expect(screen.getByText('0.10')).toBeInTheDocument();
     expect(screen.getByText('1.08300')).toBeInTheDocument();
     expect(screen.getByText('1.08450')).toBeInTheDocument();
-    expect(screen.getByText('+15.00 USD')).toBeInTheDocument();
+    expect(screen.getAllByText('+15.00 USD')).toHaveLength(2);
   });
 
   it('gives a losing position the danger tone and a winning one the success tone', () => {
@@ -62,7 +62,11 @@ describe('WariXPositionsTable', () => {
         emptyLabel="Aucune position ouverte."
       />,
     );
-    expect(screen.getByText('-8.00 USD').className).toContain('status-danger-text');
+    expect(
+      screen
+        .getAllByText('-8.00 USD')
+        .every((element) => element.className.includes('status-danger-text')),
+    ).toBe(true);
   });
 
   it('calls onClose with the position id when Fermer is clicked', async () => {

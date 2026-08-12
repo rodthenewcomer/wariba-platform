@@ -44,22 +44,19 @@ export function ExecutionImpactSummary({ impact }: ExecutionImpactSummaryProps) 
   } as const;
 
   return (
-    <dl
-      data-testid="execution-impact-summary"
-      className="grid grid-cols-3 gap-x-2 border-t border-[color:var(--wariba-component-workstation-seam)] px-3 py-1.5"
-    >
+    <dl data-testid="execution-impact-summary" className="grid grid-cols-3 gap-x-2 px-3 py-1.5">
       {COLUMNS.map((column) => (
         <div key={column.key} className="flex min-w-0 flex-col gap-0.5">
           <dt
             title={column.title}
-            className="text-[length:var(--wariba-font-size-data-xs)] uppercase tracking-[0.08em] text-[color:var(--wariba-text-tertiary)]"
+            className="text-[length:var(--wariba-font-size-data-xs)] uppercase tracking-[0.08em] text-[color:var(--wariba-component-workstation-text-tertiary)]"
           >
             {column.label}
             <span className="sr-only"> — {column.title}, en dollars</span>
           </dt>
           <dd
             data-testid={`execution-impact-summary-${column.key}`}
-            className="wariba-data truncate text-[length:var(--wariba-font-size-data-sm)] font-medium tabular-nums text-[color:var(--wariba-text-primary)]"
+            className="wariba-data truncate text-[length:var(--wariba-font-size-data-sm)] font-semibold tabular-nums text-[color:var(--wariba-component-workstation-text-primary)]"
           >
             {value[column.key]}
           </dd>

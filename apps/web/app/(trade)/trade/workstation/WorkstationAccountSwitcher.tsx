@@ -90,7 +90,7 @@ export const WorkstationAccountSwitcher = memo(function WorkstationAccountSwitch
     return (
       <div
         data-testid="workstation-account-identity"
-        className="flex shrink-0 items-center rounded-[var(--wariba-radius-sm)] px-2 py-1"
+        className="flex min-h-11 shrink-0 items-center rounded-[var(--wariba-radius-sm)] px-1.5 py-1 lg:min-h-0 lg:px-2"
       >
         <span className="sr-only">
           Compte {active.programLabel} {active.phaseLabel} {active.publicId}, {active.statusLabel}
@@ -107,7 +107,7 @@ export const WorkstationAccountSwitcher = memo(function WorkstationAccountSwitch
     >
       <summary
         aria-label={`Compte actif : ${active.programLabel} ${active.publicId}. Changer de compte`}
-        className="flex shrink-0 cursor-pointer list-none items-center gap-1.5 rounded-[var(--wariba-radius-sm)] px-2 py-1 hover:bg-[color:var(--wariba-surface-selected)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)] [&::-webkit-details-marker]:hidden"
+        className="flex min-h-11 shrink-0 cursor-pointer list-none items-center gap-1.5 rounded-[var(--wariba-radius-sm)] px-1.5 py-1 hover:bg-[color:var(--wariba-surface-selected)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)] lg:min-h-0 lg:px-2 [&::-webkit-details-marker]:hidden"
       >
         {summary}
         <svg
@@ -133,7 +133,7 @@ export const WorkstationAccountSwitcher = memo(function WorkstationAccountSwitch
               key={account.id}
               href={account.href}
               aria-current={isActive ? 'page' : undefined}
-              className={`flex flex-col gap-0.5 rounded-[var(--wariba-radius-sm)] px-2 py-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)] ${
+              className={`flex min-h-11 flex-col justify-center gap-0.5 rounded-[var(--wariba-radius-sm)] px-2 py-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)] ${
                 isActive
                   ? 'bg-[color:var(--wariba-surface-selected)]'
                   : 'hover:bg-[color:var(--wariba-surface-selected)]'

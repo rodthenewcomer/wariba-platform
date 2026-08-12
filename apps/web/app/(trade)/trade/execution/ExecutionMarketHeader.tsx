@@ -1,5 +1,6 @@
 'use client';
 
+import { ModuleHeader } from '@wariba/ui';
 import type { MarketTick, SymbolSpec, TradableSymbol } from '@wariba/contracts';
 import { MARKET_STATUS_LABEL, MARKET_STATUS_SHORT_LABEL } from './execution-gating';
 
@@ -49,41 +50,40 @@ export function ExecutionMarketHeader({
   const quotesAreLive = status === 'open';
 
   return (
-    <header className="flex flex-col gap-2 px-3 pb-2.5 pt-1" data-testid="execution-market-header">
+    <div className="flex flex-col" data-testid="execution-market-header">
       {/* §4 step 1 — instrument and live status, read before anything else. */}
-      <div className="flex items-baseline justify-between gap-2">
-        <div className="flex items-baseline gap-2">
-          <span className="text-[length:var(--wariba-font-size-heading-sm)] font-semibold leading-none text-[color:var(--wariba-text-primary)]">
-            {symbol}
-          </span>
-          {/* The account is context, not a headline: it belongs on this row so
-              a trader can confirm which account they are about to commit, and
-              nowhere near the size of the instrument or the quotes. */}
+      <ModuleHeader
+        eyebrow="Exécution"
+        title={symbol}
+        status={
           <span
-            className="wariba-data text-[length:var(--wariba-font-size-data-xs)] text-[color:var(--wariba-text-tertiary)]"
+            className="flex items-center gap-1.5 font-medium uppercase tracking-[0.06em] text-[color:var(--wariba-component-workstation-text-secondary)]"
+            data-testid="execution-market-status"
+            data-market-status={status ?? 'unavailable'}
+          >
+            <span
+              aria-hidden="true"
+              className={`h-1.5 w-1.5 rounded-full ${
+                status
+                  ? STATUS_DOT[status]
+                  : 'bg-[color:var(--wariba-component-workstation-text-tertiary)]'
+              }`}
+            />
+            {status ? MARKET_STATUS_SHORT_LABEL[status] : 'Indisponible'}
+            <span className="sr-only">
+              {status ? MARKET_STATUS_LABEL[status] : 'Cotation indisponible'}
+            </span>
+          </span>
+        }
+        actions={
+          <span
+            className="wariba-data text-[length:var(--wariba-font-size-data-xs)] text-[color:var(--wariba-component-workstation-text-tertiary)]"
             title="Compte"
           >
             {accountPublicId}
           </span>
-        </div>
-        <span
-          className="flex items-center gap-1.5 text-[length:var(--wariba-font-size-data-xs)] font-medium uppercase tracking-[0.06em] text-[color:var(--wariba-text-secondary)]"
-          data-testid="execution-market-status"
-          data-market-status={status ?? 'unavailable'}
-        >
-          <span
-            aria-hidden="true"
-            className={`h-1.5 w-1.5 rounded-full ${
-              status ? STATUS_DOT[status] : 'bg-[color:var(--wariba-text-tertiary)]'
-            }`}
-          />
-          {status ? MARKET_STATUS_SHORT_LABEL[status] : 'Indisponible'}
-          {/* The dot is decoration; this is the state a screen reader hears. */}
-          <span className="sr-only">
-            {status ? MARKET_STATUS_LABEL[status] : 'Cotation indisponible'}
-          </span>
-        </span>
-      </div>
+        }
+      />
 
       {/*
        * Visual closure §5 — the quotes are the largest thing on the panel.
@@ -98,7 +98,7 @@ export function ExecutionMarketHeader({
        * The digits shown are the server's own strings at the instrument's
        * precision — nothing here rounds or reformats.
        */}
-      <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-1.5">
+      <div className="grid min-h-[68px] grid-cols-[1fr_auto_1fr] items-center gap-1.5 border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-control)] px-3 py-2">
         <div className="flex flex-col gap-0.5">
           <span className="text-[length:var(--wariba-font-size-data-xs)] uppercase tracking-[0.08em] text-[color:var(--wariba-text-tertiary)]">
             Vente · Bid
@@ -107,8 +107,8 @@ export function ExecutionMarketHeader({
             data-testid="execution-bid"
             className={`wariba-data text-[length:var(--wariba-font-size-data-lg)] font-semibold leading-none tabular-nums ${
               quotesAreLive
-                ? 'text-[color:var(--wariba-text-primary)]'
-                : 'text-[color:var(--wariba-text-tertiary)]'
+                ? 'text-[color:var(--wariba-component-workstation-trading-live-bid)]'
+                : 'text-[color:var(--wariba-component-workstation-text-tertiary)]'
             }`}
           >
             {tick?.bid ?? DASH}
@@ -132,8 +132,8 @@ export function ExecutionMarketHeader({
             data-testid="execution-ask"
             className={`wariba-data text-[length:var(--wariba-font-size-data-lg)] font-semibold leading-none tabular-nums ${
               quotesAreLive
-                ? 'text-[color:var(--wariba-text-primary)]'
-                : 'text-[color:var(--wariba-text-tertiary)]'
+                ? 'text-[color:var(--wariba-component-workstation-trading-live-ask)]'
+                : 'text-[color:var(--wariba-component-workstation-text-tertiary)]'
             }`}
           >
             {tick?.ask ?? DASH}
@@ -142,12 +142,12 @@ export function ExecutionMarketHeader({
       </div>
 
       {tick && !quotesAreLive ? (
-        <p className="text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-status-warning-text)]">
+        <p className="px-3 py-1.5 text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-component-workstation-trading-warning)]">
           {status === 'stale'
             ? 'Dernier prix connu — le flux n’est plus à jour.'
             : 'Dernier prix connu — marché fermé.'}
         </p>
       ) : null}
-    </header>
+    </div>
   );
 }

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { CANDLE_TIMEFRAMES } from '@wariba/contracts';
 import { ChartToolbar, IndicatorOptions, ToolOptions } from '../app/(trade)/trade/ChartToolbar';
 import { ChartLegend } from '../app/(trade)/trade/ChartLegend';
+import { DrawingToolRail } from '../app/(trade)/trade/DrawingToolRail';
 import {
   DEFAULT_CHART_INDICATORS,
   type ChartIndicator,
@@ -157,14 +158,16 @@ describe('drawing tools — W5 §88', () => {
   });
 });
 
-describe('toolbar density — W5 §61/§62/§63', () => {
-  it('keeps indicators and drawing tools behind compact popovers', async () => {
-    const user = userEvent.setup();
+describe('toolbar density — W5 §61/§62/§63 + WX1 drawing rail', () => {
+  it('keeps indicators compact and moves exactly six drawings to the direct desktop rail', () => {
     renderToolbar();
-    // Not permanently occupying the strip: the tools only exist once opened.
     expect(screen.queryByRole('group', { name: 'Outils de dessin' })).not.toBeInTheDocument();
-    await user.click(screen.getByTestId('chart-tools-trigger'));
-    expect(screen.getByRole('group', { name: 'Outils de dessin' })).toBeInTheDocument();
+    expect(screen.getByTestId('chart-indicators-trigger')).toBeInTheDocument();
+    expect(screen.queryByTestId('chart-tools-trigger')).not.toBeInTheDocument();
+
+    render(<DrawingToolRail tool="select" onSelect={vi.fn()} />);
+    const rail = screen.getByRole('group', { name: 'Outils de dessin' });
+    expect(within(rail).getAllByRole('button')).toHaveLength(6);
   });
 
   it('drops the popovers on a compact viewport, keeping timeframes reachable (§67)', () => {

@@ -1,6 +1,7 @@
 'use client';
 
-import { memo, useEffect, useId, useRef, useState } from 'react';
+import { memo, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { ToolbarButton, WariXFitIcon, WariXIndicatorsIcon } from '@wariba/ui';
 import { CANDLE_TIMEFRAMES, type CandleTimeframe } from '@wariba/contracts';
 import { CHART_TOOLS, toolLabel, type ChartTool } from './chart-tool-mode';
 import {
@@ -9,13 +10,14 @@ import {
   MAX_ACTIVE_INDICATORS,
   type ChartIndicator,
 } from './chart-indicator-model';
+import { ChartToolIcon } from './ChartToolIcon';
 
 /**
  * The chart toolbar — W5 §14, §38, §61-§63, §86-§89.
  *
- * One compact analytical strip: timeframes reachable in a single click at every
- * supported width, and everything else behind a labelled popover so the drawing
- * tools cannot push the strip past the panel's width at 1366 or 1440 (§62).
+ * One compact analytical strip: canonical current timeframes stay reachable in
+ * one click, indicators use a labelled popover, and WX1's six drawings live in
+ * the separate desktop rail (or the single mobile Tools sheet).
  * Nothing here submits a trading command, and nothing here reads execution state.
  *
  * **Accessibility.** The timeframe control is a real radiogroup with roving tab
@@ -57,7 +59,7 @@ const TimeframeSelector = memo(function TimeframeSelector({
       role="radiogroup"
       aria-label="Intervalle du graphique"
       data-testid="chart-timeframes"
-      className="flex items-center gap-px rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-component-workstation-surface-raised)] p-px"
+      className="flex h-11 items-center gap-px rounded-[7px] bg-[color:var(--wariba-component-workstation-surface-control)] p-0 lg:h-8 lg:p-px"
       onKeyDown={(event) => {
         if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
           event.preventDefault();
@@ -81,10 +83,10 @@ const TimeframeSelector = memo(function TimeframeSelector({
             aria-checked={selected}
             tabIndex={selected ? 0 : -1}
             onClick={() => onSelect(option)}
-            className={`wariba-data min-w-[2.25rem] rounded-[calc(var(--wariba-radius-sm)-1px)] px-1.5 py-1 text-[length:var(--wariba-font-size-label-sm)] font-medium transition-colors ${
+            className={`wariba-data h-11 min-w-11 rounded-[6px] px-1.5 text-[length:var(--wariba-font-size-label-sm)] font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:h-[30px] lg:min-w-8 ${
               selected
-                ? 'bg-[color:var(--wariba-surface-selected)] text-[color:var(--wariba-theme-text)]'
-                : 'text-[color:var(--wariba-text-secondary)] hover:text-[color:var(--wariba-theme-text)]'
+                ? 'bg-[color:var(--wariba-component-workstation-surface-control-active)] text-[color:var(--wariba-component-workstation-text-primary)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-selected)]'
+                : 'text-[color:var(--wariba-component-workstation-text-secondary)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)]'
             }`}
           >
             {option}
@@ -98,12 +100,13 @@ const TimeframeSelector = memo(function TimeframeSelector({
 interface PopoverProps {
   label: string;
   testId: string;
+  icon: ReactNode;
   active?: boolean;
   children: (close: () => void) => React.ReactNode;
 }
 
 /** A small dismissible popover. Escape closes it, and the trigger regains focus (§89). */
-function ToolbarPopover({ label, testId, active = false, children }: PopoverProps) {
+function ToolbarPopover({ label, testId, icon, active = false, children }: PopoverProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -132,25 +135,21 @@ function ToolbarPopover({ label, testId, active = false, children }: PopoverProp
 
   return (
     <div ref={containerRef} className="relative">
-      <button
+      <ToolbarButton
         ref={triggerRef}
-        type="button"
+        label={label}
+        icon={icon}
+        showLabel
+        active={open || active}
         data-testid={testId}
         aria-expanded={open}
         aria-controls={open ? id : undefined}
         onClick={() => setOpen((value) => !value)}
-        className={`rounded-[var(--wariba-radius-sm)] px-2 py-1 text-[length:var(--wariba-font-size-label-sm)] font-medium transition-colors ${
-          open || active
-            ? 'bg-[color:var(--wariba-surface-selected)] text-[color:var(--wariba-theme-text)]'
-            : 'text-[color:var(--wariba-text-secondary)] hover:text-[color:var(--wariba-theme-text)]'
-        }`}
-      >
-        {label}
-      </button>
+      />
       {open && (
         <div
           id={id}
-          className="absolute left-0 top-full z-30 mt-1 w-[13.5rem] rounded-[var(--wariba-radius-md)] border border-[color:var(--wariba-component-workstation-seam)] bg-[color:var(--wariba-component-workstation-surface-raised)] p-2 shadow-lg"
+          className="absolute left-0 top-full z-[var(--wariba-z-popover)] mt-1 w-[13.5rem] rounded-[var(--wariba-radius-md)] border border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-popover)] p-2 shadow-lg motion-safe:animate-[wariba-fade-in_var(--wariba-component-workstation-motion-popover)_ease-out]"
         >
           {children(() => setOpen(false))}
         </div>
@@ -176,44 +175,37 @@ export const ChartToolbar = memo(function ChartToolbar({
   onSelectTimeframe,
   indicators,
   onToggleIndicator,
-  tool,
-  onSelectTool,
   onResetView,
   compact = false,
 }: ChartToolbarProps) {
   return (
     <div
       data-testid="chart-toolbar"
-      className="flex min-w-0 shrink-0 flex-wrap items-center gap-1.5"
+      className="flex h-11 min-w-0 shrink-0 items-center gap-1 lg:h-8"
     >
       <TimeframeSelector timeframe={timeframe} onSelect={onSelectTimeframe} />
       {!compact && (
         <>
-          <ToolbarPopover label="Indicateurs" testId="chart-indicators-trigger">
+          <span
+            aria-hidden="true"
+            className="mx-0.5 h-5 w-px bg-[color:var(--wariba-component-workstation-border-hairline)]"
+          />
+          <ToolbarPopover
+            label="Indicateurs"
+            testId="chart-indicators-trigger"
+            icon={<WariXIndicatorsIcon />}
+          >
             {() => <IndicatorOptions indicators={indicators} onToggle={onToggleIndicator} />}
-          </ToolbarPopover>
-          <ToolbarPopover label="Outils" testId="chart-tools-trigger" active={tool !== 'select'}>
-            {(close) => (
-              <ToolOptions
-                tool={tool}
-                onSelect={(next) => {
-                  onSelectTool(next);
-                  close();
-                }}
-              />
-            )}
           </ToolbarPopover>
           {/* §63 — fit only. It touches the time scale and nothing else: no
               drawing is deleted, no indicator is reset, no timeframe changes and
               no command is sent. */}
-          <button
-            type="button"
+          <ToolbarButton
+            label="Ajuster le graphique"
+            icon={<WariXFitIcon />}
             data-testid="chart-reset-view"
             onClick={onResetView}
-            className="rounded-[var(--wariba-radius-sm)] px-2 py-1 text-[length:var(--wariba-font-size-label-sm)] font-medium text-[color:var(--wariba-text-secondary)] transition-colors hover:text-[color:var(--wariba-theme-text)]"
-          >
-            Ajuster
-          </button>
+          />
         </>
       )}
     </div>
@@ -240,7 +232,7 @@ export const IndicatorOptions = memo(function IndicatorOptions({
         return (
           <label
             key={indicator.id}
-            className={`flex items-center gap-2 rounded-[var(--wariba-radius-sm)] px-1.5 py-1.5 text-[length:var(--wariba-font-size-label-sm)] ${
+            className={`flex min-h-11 items-center gap-2 rounded-[var(--wariba-radius-sm)] px-1.5 py-1.5 text-[length:var(--wariba-font-size-label-sm)] lg:min-h-8 ${
               blocked
                 ? 'opacity-50'
                 : 'cursor-pointer hover:bg-[color:var(--wariba-surface-selected)]'
@@ -283,7 +275,7 @@ export const ToolOptions = memo(function ToolOptions({ tool, onSelect }: ToolOpt
       role="group"
       aria-label="Outils de dessin"
       data-testid="chart-tool-options"
-      className="flex flex-col gap-0.5"
+      className="grid grid-cols-2 gap-1 sm:grid-cols-3"
     >
       {CHART_TOOLS.map((option) => (
         <button
@@ -292,13 +284,14 @@ export const ToolOptions = memo(function ToolOptions({ tool, onSelect }: ToolOpt
           aria-pressed={option === tool}
           data-testid={`chart-tool-${option}`}
           onClick={() => onSelect(option)}
-          className={`rounded-[var(--wariba-radius-sm)] px-1.5 py-1.5 text-left text-[length:var(--wariba-font-size-label-sm)] transition-colors ${
+          className={`flex min-h-11 items-center gap-2 rounded-[var(--wariba-radius-sm)] px-2 py-1.5 text-left text-[length:var(--wariba-font-size-label-sm)] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] ${
             option === tool
-              ? 'bg-[color:var(--wariba-surface-selected)] text-[color:var(--wariba-theme-text)]'
-              : 'text-[color:var(--wariba-text-secondary)] hover:bg-[color:var(--wariba-surface-selected)] hover:text-[color:var(--wariba-theme-text)]'
+              ? 'bg-[color:var(--wariba-component-workstation-surface-control-active)] text-[color:var(--wariba-component-workstation-interaction-selected)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-selected)]'
+              : 'text-[color:var(--wariba-component-workstation-text-secondary)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)]'
           }`}
         >
-          {toolLabel(option)}
+          <ChartToolIcon tool={option} size="mobile" />
+          <span>{toolLabel(option)}</span>
         </button>
       ))}
     </div>

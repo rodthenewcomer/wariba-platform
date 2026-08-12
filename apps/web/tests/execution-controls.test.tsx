@@ -301,7 +301,7 @@ describe('ExecutionActions', () => {
     // control that is still live.
     expect(buy.className).toContain('bg-transparent');
     expect(buy.className).not.toContain('opacity-');
-    expect(sell.className).toContain('var(--wariba-status-danger-strong)');
+    expect(sell.className).toContain('var(--wariba-component-workstation-trading-sell)');
 
     expect(screen.getByTestId('execution-side-unavailable-buy')).toHaveTextContent(
       'Non valide au cours actuel',

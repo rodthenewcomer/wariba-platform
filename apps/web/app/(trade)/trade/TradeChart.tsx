@@ -29,7 +29,16 @@ import {
   computeRiskRewardRatio,
   pendingOrderDistancePoints,
 } from '@wariba/domain';
-import { BottomSheet } from '@wariba/ui';
+import {
+  BottomSheet,
+  ToolbarButton,
+  WariXDeleteIcon,
+  WariXDoneIcon,
+  WariXFitIcon,
+  WariXIndicatorsIcon,
+  WariXPaletteIcon,
+  WariXSearchIcon,
+} from '@wariba/ui';
 import type { RealtimeConnectionState } from '../../../lib/realtime-client';
 import { resolveLabelCollisions } from './chart-overlay-geometry';
 import { chartPriceFormatFor } from './chart-price-format';
@@ -57,6 +66,7 @@ import { drawingTypeLabel } from './chart-drawing-model';
 import { toolLabel } from './chart-tool-mode';
 import { legendCandle, useChartAnalysis } from './use-chart-analysis';
 import { useIsDesktop } from './use-viewport';
+import { DrawingToolRail } from './DrawingToolRail';
 
 export interface FillMarker {
   id: string;
@@ -128,6 +138,7 @@ export interface TradeChartProps {
   onDeleteAlert: (alertId: string) => void;
   onPendingOrderRequest: (params: { orderType: PendingOrderType; triggerPrice: string }) => void;
   onCreateAlertHere: (thresholdPrice: string) => void;
+  onOpenMobileMarkets?: () => void;
 }
 
 /**
@@ -241,6 +252,7 @@ export function TradeChart({
   onDeleteAlert,
   onPendingOrderRequest,
   onCreateAlertHere,
+  onOpenMobileMarkets,
 }: TradeChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -1186,17 +1198,18 @@ export function TradeChart({
     historyState.status === 'idle' || historyState.status === 'ready'
       ? null
       : HISTORY_STATUS_MESSAGE[historyState.status];
+  const fitChart = useCallback(() => chartRef.current?.timeScale().fitContent(), []);
 
   return (
     // W1 §9 — min-h-0 at every ownership boundary: without it a flex child
     // refuses to shrink below its content, and the chart column would push
     // the workstation grid past the viewport instead of taking what is left.
-    <div className="flex min-h-0 flex-1 flex-col gap-2">
+    <div className="flex min-h-0 flex-1 flex-col bg-[color:var(--wariba-chart-background)]">
       {/* W5 §61/§62 — one compact analytical strip. Timeframes are always
           directly reachable; on a phone the indicator and drawing controls
           collapse into a single "Outils" sheet so the strip cannot push the
           document sideways at 320 px (§66/§67). */}
-      <div className="flex min-w-0 shrink-0 items-center justify-between gap-2">
+      <div className="flex h-11 min-w-0 shrink-0 items-center justify-between gap-0 border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-0 min-[360px]:gap-1 min-[360px]:px-1 lg:h-[var(--wariba-component-workstation-toolbar-height)]">
         <ChartToolbar
           timeframe={analysis.timeframe}
           onSelectTimeframe={analysis.selectTimeframe}
@@ -1204,90 +1217,100 @@ export function TradeChart({
           onToggleIndicator={analysis.toggleIndicator}
           tool={analysis.tool}
           onSelectTool={analysis.selectTool}
-          onResetView={() => chartRef.current?.timeScale().fitContent()}
+          onResetView={fitChart}
           compact={!isDesktop}
         />
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-0 min-[360px]:gap-1">
+          {!isDesktop && onOpenMobileMarkets ? (
+            <ToolbarButton
+              label="Marchés"
+              icon={<WariXSearchIcon size="mobile" />}
+              showLabel
+              labelClassName="hidden min-[430px]:inline"
+              accessibleDetail={`${symbol} ${tick ? `${tick.bid} / ${tick.ask}` : '— / —'}`}
+              data-testid="mobile-market-trigger"
+              aria-haspopup="dialog"
+              onClick={onOpenMobileMarkets}
+              className="h-11 min-w-11 px-1.5"
+            />
+          ) : null}
           {!isDesktop && (
-            <button
-              type="button"
+            <ToolbarButton
+              label="Outils"
+              icon={<WariXIndicatorsIcon size="mobile" />}
+              showLabel
+              labelClassName="hidden min-[430px]:inline"
+              active={analysis.drawingModeActive}
               data-testid="chart-tools-sheet-trigger"
               onClick={() => setChartToolsOpen(true)}
-              className={`rounded-[var(--wariba-radius-sm)] px-2 py-1 text-[length:var(--wariba-font-size-label-sm)] font-medium ${
-                analysis.drawingModeActive
-                  ? 'bg-[color:var(--wariba-surface-selected)] text-[color:var(--wariba-theme-text)]'
-                  : 'text-[color:var(--wariba-text-secondary)]'
-              }`}
-            >
-              Outils
-            </button>
+              className="h-11 min-w-11 px-1.5"
+            />
           )}
-          <span className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]">
-            UTC
-          </span>
         </div>
       </div>
       {/* The overlays below are absolutely positioned against this box, and
           the chart container fills it exactly (inset-0), so every
           priceToCoordinate/timeToCoordinate value stays measured from the
           same origin it was before the container started owning its height. */}
-      <div className="relative min-h-0 flex-1">
-        <div
-          ref={containerRef}
-          /**
-           * `isolate` is load-bearing, not decoration.
-           *
-           * lightweight-charts puts `z-index: 1` on its canvas. Because nothing
-           * between that canvas and this column created a stacking context, the
-           * `1` competed directly with every sibling overlay's `z-index: auto`
-           * — and won. The drawing layer was painting *underneath the chart*:
-           * the geometry was correct, the strokes were correct, and none of it
-           * was ever visible. Trading overlays were one CSS change away from the
-           * same fate.
-           *
-           * `isolation: isolate` makes this container a stacking context, so the
-           * library's z-index stays the library's business and painting order
-           * among the siblings below is decided by DOM order again — which is
-           * exactly what §57's hierarchy is written against: drawing layer
-           * first, trading overlays after, so operational controls stay on top.
-           */
-          className="absolute inset-0 isolate"
-          role="group"
-          aria-label={`Graphique ${symbol}`}
-          // Visual closure §6 — the precision the renderer was actually given.
-          // lightweight-charts draws its labels into a canvas, so no test can
-          // read "1.08504" back off the price scale; this exposes the one
-          // input that decides it, and `chart-price-format.test.ts` proves that
-          // input produces the right label. Together the chain is complete.
-          data-price-precision={pricePrecision ?? undefined}
-          // W5 §131 — the active tool, exposed for evidence and tests. It is
-          // chart-local state and appears nowhere in a global context.
-          data-chart-tool={analysis.tool}
-          data-drawing-count={analysis.projected.length}
-          data-history-has-more-older={String(historyState.hasMoreOlder)}
-          onContextMenuCapture={handleContextMenuEvent}
-          onPointerDownCapture={handleContainerPointerDown}
-          onPointerMoveCapture={handleContainerPointerMove}
-          onPointerUpCapture={handleContainerPointerUp}
-          onPointerCancelCapture={handleContainerPointerUp}
-        />
-        {/* W5 §45 — the analytical drawing layer sits *below* every trading
+      <div className="flex min-h-0 min-w-0 flex-1">
+        {isDesktop ? <DrawingToolRail tool={analysis.tool} onSelect={analysis.selectTool} /> : null}
+        <div className="relative min-h-0 min-w-0 flex-1">
+          <div
+            ref={containerRef}
+            /**
+             * `isolate` is load-bearing, not decoration.
+             *
+             * lightweight-charts puts `z-index: 1` on its canvas. Because nothing
+             * between that canvas and this column created a stacking context, the
+             * `1` competed directly with every sibling overlay's `z-index: auto`
+             * — and won. The drawing layer was painting *underneath the chart*:
+             * the geometry was correct, the strokes were correct, and none of it
+             * was ever visible. Trading overlays were one CSS change away from the
+             * same fate.
+             *
+             * `isolation: isolate` makes this container a stacking context, so the
+             * library's z-index stays the library's business and painting order
+             * among the siblings below is decided by DOM order again — which is
+             * exactly what §57's hierarchy is written against: drawing layer
+             * first, trading overlays after, so operational controls stay on top.
+             */
+            className="absolute inset-0 isolate"
+            role="group"
+            aria-label={`Graphique ${symbol}`}
+            // Visual closure §6 — the precision the renderer was actually given.
+            // lightweight-charts draws its labels into a canvas, so no test can
+            // read "1.08504" back off the price scale; this exposes the one
+            // input that decides it, and `chart-price-format.test.ts` proves that
+            // input produces the right label. Together the chain is complete.
+            data-price-precision={pricePrecision ?? undefined}
+            // W5 §131 — the active tool, exposed for evidence and tests. It is
+            // chart-local state and appears nowhere in a global context.
+            data-chart-tool={analysis.tool}
+            data-drawing-count={analysis.projected.length}
+            data-history-has-more-older={String(historyState.hasMoreOlder)}
+            onContextMenuCapture={handleContextMenuEvent}
+            onPointerDownCapture={handleContainerPointerDown}
+            onPointerMoveCapture={handleContainerPointerMove}
+            onPointerUpCapture={handleContainerPointerUp}
+            onPointerCancelCapture={handleContainerPointerUp}
+          />
+          {/* W5 §45 — the analytical drawing layer sits *below* every trading
             overlay in DOM order and never takes a pointer event, so a Fibonacci
             grid can neither cover an open position's badge nor swallow the drag
             that moves a stop loss (§57/§110/§127). */}
-        <ChartDrawingLayer
-          projected={analysis.projected}
-          selectedId={analysis.selectedId}
-          draft={analysis.projectedDraft}
-          width={plotSize.width}
-          height={plotSize.height}
-        />
-        <ChartLegend
-          candle={legendCandle(history, hoveredCandle)}
-          pricePrecision={pricePrecision}
-          indicators={analysis.legend}
-        />
-        {/* W3 §52-§55 — chart-local, subtle, and never covering the price or an
+          <ChartDrawingLayer
+            projected={analysis.projected}
+            selectedId={analysis.selectedId}
+            draft={analysis.projectedDraft}
+            width={plotSize.width}
+            height={plotSize.height}
+          />
+          <ChartLegend
+            candle={legendCandle(history, hoveredCandle)}
+            pricePrecision={pricePrecision}
+            indicators={analysis.legend}
+          />
+          {/* W3 §52-§55 — chart-local, subtle, and never covering the price or an
             execution control: pointer-events-none so it cannot intercept a
             crosshair, a drag or a long press. One restrained polite status
             region for the whole history lifecycle, so a transition is announced
@@ -1299,312 +1322,325 @@ export function TradeChart({
             makes "the same process memory survived this browser reload"
             provable rather than asserted; the newest finalized bucket pins
             *which* observed history is on screen. */}
-        <div
-          data-testid="chart-history-status"
-          data-history-status={historyState.status}
-          data-history-candles={historyCandleCount}
-          data-history-epoch={historyState.sourceEpoch ?? ''}
-          data-history-newest={historyNewestBucket}
-          // W5 §135 — moved to the bottom edge now that the OHLC/indicator
-          // legend owns the top-left corner, so a history error and the legend
-          // never stack into a block that hides the chart on a 390 px screen.
-          className="pointer-events-none absolute bottom-2 left-2 z-10"
-        >
-          {historyMessage && (
-            <span
-              role="status"
-              aria-live="polite"
-              className="rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-surface-raised)]/85 px-2 py-1 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]"
-            >
-              {historyMessage}
-            </span>
-          )}
-        </div>
-        {overlay &&
-          positions.map((position) => {
-            const y = overlay.badgeY.get(`badge:${position.id}`);
-            if (y === undefined) return null;
-            const reference = referencePriceFor(position);
-            const pnl = reference
-              ? computeRealizedPnl({
-                  openPrice: position.averageOpenPrice,
-                  closePrice: reference,
-                  quantity: position.openQuantity,
-                  contractSize: spec?.contractSize ?? '1',
-                  positionSide: position.side,
-                })
-              : null;
-            const sign = pnl !== null && Number(pnl) >= 0 ? '+' : '';
-            return (
-              <PositionBadge
-                key={position.id}
-                y={y}
-                label={`${position.side === 'buy' ? 'ACHAT' : 'VENTE'} ${position.openQuantity} ${position.symbol}`}
-                priceFormatted={position.averageOpenPrice}
-                pnlFormatted={pnl !== null ? `${sign}${pnl} USD` : '—'}
-                pnlTone={
-                  pnl === null
-                    ? 'neutral'
-                    : Number(pnl) > 0
-                      ? 'positive'
-                      : Number(pnl) < 0
-                        ? 'negative'
-                        : 'neutral'
+          <div
+            data-testid="chart-history-status"
+            data-history-status={historyState.status}
+            data-history-candles={historyCandleCount}
+            data-history-epoch={historyState.sourceEpoch ?? ''}
+            data-history-newest={historyNewestBucket}
+            // W5 §135 — moved to the bottom edge now that the OHLC/indicator
+            // legend owns the top-left corner, so a history error and the legend
+            // never stack into a block that hides the chart on a 390 px screen.
+            className="pointer-events-none absolute bottom-2 left-2 z-10"
+          >
+            {historyMessage && (
+              <span
+                role="status"
+                aria-live="polite"
+                className="rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-surface-raised)]/85 px-2 py-1 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]"
+              >
+                {historyMessage}
+              </span>
+            )}
+          </div>
+          {overlay &&
+            positions.map((position) => {
+              const y = overlay.badgeY.get(`badge:${position.id}`);
+              if (y === undefined) return null;
+              const reference = referencePriceFor(position);
+              const pnl = reference
+                ? computeRealizedPnl({
+                    openPrice: position.averageOpenPrice,
+                    closePrice: reference,
+                    quantity: position.openQuantity,
+                    contractSize: spec?.contractSize ?? '1',
+                    positionSide: position.side,
+                  })
+                : null;
+              const sign = pnl !== null && Number(pnl) >= 0 ? '+' : '';
+              return (
+                <PositionBadge
+                  key={position.id}
+                  y={y}
+                  label={`${position.side === 'buy' ? 'ACHAT' : 'VENTE'} ${position.openQuantity} ${position.symbol}`}
+                  priceFormatted={position.averageOpenPrice}
+                  pnlFormatted={pnl !== null ? `${sign}${pnl} USD` : '—'}
+                  pnlTone={
+                    pnl === null
+                      ? 'neutral'
+                      : Number(pnl) > 0
+                        ? 'positive'
+                        : Number(pnl) < 0
+                          ? 'negative'
+                          : 'neutral'
+                  }
+                  syncState={draggingDisabled ? 'stale_disabled' : 'confirmed'}
+                  syncLabel={overlayLabel}
+                  onManage={() => onOpenManage(position.id)}
+                  onClose={() => onClosePosition(position.id)}
+                  closeDisabled={commandPending}
+                  showCloseButton
+                />
+              );
+            })}
+          {overlay &&
+            positions.map((position) => {
+              const reference = referencePriceFor(position);
+              const chips: React.ReactNode[] = [];
+              (['stop_loss', 'take_profit'] as const).forEach((field) => {
+                const value = field === 'stop_loss' ? position.stopLoss : position.takeProfit;
+                const levelKey = field === 'stop_loss' ? `sl:${position.id}` : `tp:${position.id}`;
+                if (value) {
+                  const y = overlay.levelY.get(levelKey);
+                  if (y === undefined || !spec || !reference) return;
+                  const preview = computeLevelPnlPreview({
+                    levelPrice: value,
+                    referencePrice: reference,
+                    positionSide: position.side,
+                    quantity: position.openQuantity,
+                    contractSize: spec.contractSize,
+                    pricePrecision: spec.pricePrecision,
+                    accountEquity,
+                  });
+                  const sign = Number(preview.estimatedPnl) >= 0 ? '+' : '';
+                  chips.push(
+                    <LevelHandle
+                      key={levelKey}
+                      y={y}
+                      kind={field}
+                      priceFormatted={value}
+                      pnlFormatted={`${sign}${preview.estimatedPnl} USD`}
+                      syncState={syncStateFor(position.id, field)}
+                      disabled={draggingDisabled}
+                      onPointerDown={startDrag(position.id, field, value)}
+                      onActivate={() => onOpenManage(position.id)}
+                      onRemove={() =>
+                        onCommitLevel({ positionId: position.id, field, value: null })
+                      }
+                      onKeyboardAdjust={(direction) => {
+                        if (!spec) return;
+                        const point = Number(`1e-${spec.pricePrecision}`);
+                        const next = roundPriceToTick({
+                          price: String(Number(value) + direction * point),
+                          pricePrecision: spec.pricePrecision,
+                        });
+                        onCommitLevel({ positionId: position.id, field, value: next });
+                      }}
+                    />,
+                  );
+                } else if (reference) {
+                  const badgeY = overlay.badgeY.get(`badge:${position.id}`);
+                  const y =
+                    badgeY !== undefined
+                      ? badgeY + 24 * (field === 'stop_loss' ? 1 : 2)
+                      : undefined;
+                  if (y === undefined) return;
+                  chips.push(
+                    <LevelChip
+                      key={`chip:${field}:${position.id}`}
+                      y={y}
+                      kind={field}
+                      disabled={draggingDisabled}
+                      disabledReason={
+                        isStale
+                          ? 'Prix obsolète — indisponible tant que le marché n’est pas à jour.'
+                          : null
+                      }
+                      onPointerDown={startDrag(position.id, field, reference)}
+                      onActivate={() => onOpenManage(position.id)}
+                    />,
+                  );
                 }
-                syncState={draggingDisabled ? 'stale_disabled' : 'confirmed'}
-                syncLabel={overlayLabel}
-                onManage={() => onOpenManage(position.id)}
-                onClose={() => onClosePosition(position.id)}
-                closeDisabled={commandPending}
-                showCloseButton
-              />
-            );
-          })}
-        {overlay &&
-          positions.map((position) => {
-            const reference = referencePriceFor(position);
-            const chips: React.ReactNode[] = [];
-            (['stop_loss', 'take_profit'] as const).forEach((field) => {
-              const value = field === 'stop_loss' ? position.stopLoss : position.takeProfit;
-              const levelKey = field === 'stop_loss' ? `sl:${position.id}` : `tp:${position.id}`;
-              if (value) {
-                const y = overlay.levelY.get(levelKey);
-                if (y === undefined || !spec || !reference) return;
-                const preview = computeLevelPnlPreview({
-                  levelPrice: value,
-                  referencePrice: reference,
-                  positionSide: position.side,
-                  quantity: position.openQuantity,
-                  contractSize: spec.contractSize,
-                  pricePrecision: spec.pricePrecision,
-                  accountEquity,
-                });
-                const sign = Number(preview.estimatedPnl) >= 0 ? '+' : '';
-                chips.push(
-                  <LevelHandle
-                    key={levelKey}
-                    y={y}
-                    kind={field}
-                    priceFormatted={value}
-                    pnlFormatted={`${sign}${preview.estimatedPnl} USD`}
-                    syncState={syncStateFor(position.id, field)}
-                    disabled={draggingDisabled}
-                    onPointerDown={startDrag(position.id, field, value)}
-                    onActivate={() => onOpenManage(position.id)}
-                    onRemove={() => onCommitLevel({ positionId: position.id, field, value: null })}
-                    onKeyboardAdjust={(direction) => {
-                      if (!spec) return;
-                      const point = Number(`1e-${spec.pricePrecision}`);
-                      const next = roundPriceToTick({
-                        price: String(Number(value) + direction * point),
-                        pricePrecision: spec.pricePrecision,
-                      });
-                      onCommitLevel({ positionId: position.id, field, value: next });
-                    }}
-                  />,
-                );
-              } else if (reference) {
-                const badgeY = overlay.badgeY.get(`badge:${position.id}`);
-                const y =
-                  badgeY !== undefined ? badgeY + 24 * (field === 'stop_loss' ? 1 : 2) : undefined;
-                if (y === undefined) return;
-                chips.push(
-                  <LevelChip
-                    key={`chip:${field}:${position.id}`}
-                    y={y}
-                    kind={field}
-                    disabled={draggingDisabled}
-                    disabledReason={
-                      isStale
-                        ? 'Prix obsolète — indisponible tant que le marché n’est pas à jour.'
-                        : null
-                    }
-                    onPointerDown={startDrag(position.id, field, reference)}
-                    onActivate={() => onOpenManage(position.id)}
-                  />,
-                );
-              }
-            });
-            return chips;
-          })}
-        {pendingOverlay &&
-          spec &&
-          tick &&
-          pendingOrders.map((order) => {
-            const y = pendingOverlay.get(`pending:${order.id}`);
-            if (y === undefined) return null;
-            const mid = ((Number(tick.bid) + Number(tick.ask)) / 2).toFixed(spec.pricePrecision);
-            return (
-              <PendingOrderLine
-                key={order.id}
-                y={y}
-                orderType={order.orderType}
-                quantityFormatted={order.quantity}
-                priceFormatted={order.triggerPrice}
-                distancePointsFormatted={pendingOrderDistancePoints({
-                  triggerPrice: order.triggerPrice,
-                  referencePrice: mid,
-                  pricePrecision: spec.pricePrecision,
-                })}
-                syncState={orderSyncStateFor('pending_order', order.id)}
-                disabled={draggingDisabled}
-                onPointerDown={startOrderDrag('pending_order', order.id, order.triggerPrice)}
-                onActivate={() => onOpenManagePendingOrder(order.id)}
-                onRemove={() => onCancelPendingOrder(order.id)}
-                onKeyboardAdjust={(direction) => {
-                  const point = Number(`1e-${spec.pricePrecision}`);
-                  const next = roundPriceToTick({
-                    price: String(Number(order.triggerPrice) + direction * point),
+              });
+              return chips;
+            })}
+          {pendingOverlay &&
+            spec &&
+            tick &&
+            pendingOrders.map((order) => {
+              const y = pendingOverlay.get(`pending:${order.id}`);
+              if (y === undefined) return null;
+              const mid = ((Number(tick.bid) + Number(tick.ask)) / 2).toFixed(spec.pricePrecision);
+              return (
+                <PendingOrderLine
+                  key={order.id}
+                  y={y}
+                  orderType={order.orderType}
+                  quantityFormatted={order.quantity}
+                  priceFormatted={order.triggerPrice}
+                  distancePointsFormatted={pendingOrderDistancePoints({
+                    triggerPrice: order.triggerPrice,
+                    referencePrice: mid,
                     pricePrecision: spec.pricePrecision,
-                  });
-                  onModifyPendingOrderTrigger({ pendingOrderId: order.id, triggerPrice: next });
-                }}
-              />
-            );
-          })}
-        {pendingOverlay &&
-          spec &&
-          alerts.map((alert) => {
-            const y = pendingOverlay.get(`alert:${alert.id}`);
-            if (y === undefined) return null;
-            return (
-              <AlertLine
-                key={alert.id}
-                y={y}
-                direction={alert.direction}
-                priceFormatted={alert.thresholdPrice}
-                syncState={orderSyncStateFor('alert', alert.id)}
-                disabled={draggingDisabled}
-                onPointerDown={startOrderDrag('alert', alert.id, alert.thresholdPrice)}
-                onActivate={() => onOpenManageAlert(alert.id)}
-                onRemove={() => onDeleteAlert(alert.id)}
-                onKeyboardAdjust={(direction) => {
-                  const point = Number(`1e-${spec.pricePrecision}`);
-                  const next = roundPriceToTick({
-                    price: String(Number(alert.thresholdPrice) + direction * point),
-                    pricePrecision: spec.pricePrecision,
-                  });
-                  onModifyAlertThreshold({ alertId: alert.id, thresholdPrice: next });
-                }}
-              />
-            );
-          })}
-        {dragPreviewCard && <DragPreviewPanel {...dragPreviewCard} />}
-        {/* W5 §68 — while a tool is held, say so subtly and give the trader an
+                  })}
+                  syncState={orderSyncStateFor('pending_order', order.id)}
+                  disabled={draggingDisabled}
+                  onPointerDown={startOrderDrag('pending_order', order.id, order.triggerPrice)}
+                  onActivate={() => onOpenManagePendingOrder(order.id)}
+                  onRemove={() => onCancelPendingOrder(order.id)}
+                  onKeyboardAdjust={(direction) => {
+                    const point = Number(`1e-${spec.pricePrecision}`);
+                    const next = roundPriceToTick({
+                      price: String(Number(order.triggerPrice) + direction * point),
+                      pricePrecision: spec.pricePrecision,
+                    });
+                    onModifyPendingOrderTrigger({ pendingOrderId: order.id, triggerPrice: next });
+                  }}
+                />
+              );
+            })}
+          {pendingOverlay &&
+            spec &&
+            alerts.map((alert) => {
+              const y = pendingOverlay.get(`alert:${alert.id}`);
+              if (y === undefined) return null;
+              return (
+                <AlertLine
+                  key={alert.id}
+                  y={y}
+                  direction={alert.direction}
+                  priceFormatted={alert.thresholdPrice}
+                  syncState={orderSyncStateFor('alert', alert.id)}
+                  disabled={draggingDisabled}
+                  onPointerDown={startOrderDrag('alert', alert.id, alert.thresholdPrice)}
+                  onActivate={() => onOpenManageAlert(alert.id)}
+                  onRemove={() => onDeleteAlert(alert.id)}
+                  onKeyboardAdjust={(direction) => {
+                    const point = Number(`1e-${spec.pricePrecision}`);
+                    const next = roundPriceToTick({
+                      price: String(Number(alert.thresholdPrice) + direction * point),
+                      pricePrecision: spec.pricePrecision,
+                    });
+                    onModifyAlertThreshold({ alertId: alert.id, thresholdPrice: next });
+                  }}
+                />
+              );
+            })}
+          {dragPreviewCard && <DragPreviewPanel {...dragPreviewCard} />}
+          {/* W5 §68 — while a tool is held, say so subtly and give the trader an
             explicit way out. Escape does the same thing from the keyboard
             (§89/§112); this is the touch equivalent, because a phone has none. */}
-        {analysis.drawingModeActive && (
-          <div
-            data-testid="chart-active-tool"
-            className="absolute right-2 top-2 z-20 flex items-center gap-2 rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-component-workstation-surface-raised)]/95 px-2 py-1 text-[length:var(--wariba-font-size-label-sm)]"
-          >
-            <span className="text-[color:var(--wariba-text-secondary)]">
-              {toolLabel(analysis.tool)}
-            </span>
-            <button
-              type="button"
-              onClick={() => analysis.selectTool('select')}
-              className="font-medium text-[color:var(--wariba-theme-text)] underline underline-offset-2"
+          {analysis.drawingModeActive && (
+            <div
+              data-testid="chart-active-tool"
+              className="absolute right-2 top-2 z-20 flex items-center gap-2 rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-component-workstation-surface-raised)]/95 px-2 py-1 text-[length:var(--wariba-font-size-label-sm)]"
             >
-              Annuler
-            </button>
-          </div>
-        )}
-        {/* W5 §52/§69 — the selected drawing's own actions. Deliberately no Buy,
+              <span className="text-[color:var(--wariba-text-secondary)]">
+                {toolLabel(analysis.tool)}
+              </span>
+              <button
+                type="button"
+                onClick={() => analysis.selectTool('select')}
+                className="min-h-11 px-2 font-medium text-[color:var(--wariba-theme-text)] underline underline-offset-2 lg:min-h-0 lg:px-0"
+              >
+                Annuler
+              </button>
+            </div>
+          )}
+          {/* W5 §52/§69 — the selected drawing's own actions. Deliberately no Buy,
             no Sell and no order control anywhere near it: a drawing UI must not
             be one mis-tap away from submitting a trade. Deleting here removes a
             drawing and nothing else — drawing ids and trading overlay ids are
             separate namespaces (§113). */}
-        {analysis.selectedDrawing && (
-          <div
-            data-testid="chart-drawing-actions"
-            className="absolute bottom-2 right-2 z-20 flex items-center gap-1 rounded-[var(--wariba-radius-sm)] border border-[color:var(--wariba-component-workstation-seam)] bg-[color:var(--wariba-component-workstation-surface-raised)]/95 px-1.5 py-1 text-[length:var(--wariba-font-size-label-sm)]"
-          >
-            <span className="px-1 text-[color:var(--wariba-text-tertiary)]">
-              {drawingTypeLabel(analysis.selectedDrawing.type)}
-            </span>
-            <button
-              type="button"
-              onClick={analysis.cycleSelectedColor}
-              className="rounded-[var(--wariba-radius-sm)] px-1.5 py-0.5 text-[color:var(--wariba-text-secondary)] hover:text-[color:var(--wariba-theme-text)]"
+          {analysis.selectedDrawing && (
+            <div
+              data-testid="chart-drawing-actions"
+              className="absolute bottom-2 right-2 z-20 flex items-center gap-1 rounded-[var(--wariba-radius-sm)] border border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-popover)]/95 p-1 text-[length:var(--wariba-font-size-label-sm)] shadow-[var(--wariba-shadow-sm)]"
             >
-              Style
-            </button>
-            <button
-              type="button"
-              data-testid="chart-drawing-delete"
-              onClick={analysis.deleteSelected}
-              className="rounded-[var(--wariba-radius-sm)] px-1.5 py-0.5 text-[color:var(--wariba-status-danger-text,#C94D4D)] hover:underline"
-            >
-              Supprimer
-            </button>
-            <button
-              type="button"
-              onClick={analysis.clearSelection}
-              className="rounded-[var(--wariba-radius-sm)] px-1.5 py-0.5 text-[color:var(--wariba-text-secondary)] hover:text-[color:var(--wariba-theme-text)]"
-            >
-              Terminé
-            </button>
-          </div>
-        )}
-        {contextMenu && !contextMenu.isTouchOrigin && (
-          <ChartContextMenuPopover
-            x={contextMenu.x}
-            y={contextMenu.y}
-            onDismiss={closeContextMenu}
-            clickedPriceFormatted={contextMenu.price}
-            position={currentPosition}
-            tick={tick}
-            disabled={draggingDisabled}
-            disabledReason={
-              isStale
-                ? 'Prix obsolète — actions indisponibles tant que le marché n’est pas à jour.'
-                : isDisconnected
-                  ? 'Connexion au serveur en cours…'
-                  : null
-            }
-            onMarketBuy={() => {
-              closeContextMenu();
-              onMarketOrderRequest('buy');
-            }}
-            onMarketSell={() => {
-              closeContextMenu();
-              onMarketOrderRequest('sell');
-            }}
-            onManageStopLoss={() => {
-              closeContextMenu();
-              if (currentPosition) onOpenManage(currentPosition.id);
-            }}
-            onManageTakeProfit={() => {
-              closeContextMenu();
-              if (currentPosition) onOpenManage(currentPosition.id);
-            }}
-            onPartialClose={() => {
-              closeContextMenu();
-              if (currentPosition) onOpenPartialClose(currentPosition.id);
-            }}
-            onClosePosition={() => {
-              closeContextMenu();
-              if (currentPosition) onClosePosition(currentPosition.id);
-            }}
-            onPendingOrderRequest={(orderType) => {
-              closeContextMenu();
-              onPendingOrderRequest({ orderType, triggerPrice: contextMenu.price });
-            }}
-            onCreateAlertHere={() => {
-              closeContextMenu();
-              onCreateAlertHere(contextMenu.price);
-            }}
-          />
-        )}
-        {overlayLabel && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[color:var(--wariba-chart-background)]/60">
-            <span className="rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-background-elevated)] px-3 py-1.5 text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-status-warning-text)]">
-              {overlayLabel}
-            </span>
-          </div>
-        )}
+              <span className="border-r border-[color:var(--wariba-component-workstation-border-hairline)] px-1.5 font-semibold text-[color:var(--wariba-component-workstation-text-secondary)]">
+                {drawingTypeLabel(analysis.selectedDrawing.type)}
+              </span>
+              <ToolbarButton
+                label="Style"
+                icon={<WariXPaletteIcon />}
+                showLabel
+                onClick={analysis.cycleSelectedColor}
+                className="h-11 px-1.5 lg:h-7"
+              />
+              <ToolbarButton
+                label="Supprimer"
+                icon={<WariXDeleteIcon />}
+                showLabel
+                data-testid="chart-drawing-delete"
+                onClick={analysis.deleteSelected}
+                className="h-11 px-1.5 text-[color:var(--wariba-component-workstation-trading-rejection)] lg:h-7"
+              />
+              <ToolbarButton
+                label="Terminé"
+                icon={<WariXDoneIcon />}
+                onClick={analysis.clearSelection}
+                className="h-11 min-w-11 px-1 lg:h-7 lg:min-w-7"
+              />
+            </div>
+          )}
+          {contextMenu && !contextMenu.isTouchOrigin && (
+            <ChartContextMenuPopover
+              x={contextMenu.x}
+              y={contextMenu.y}
+              onDismiss={closeContextMenu}
+              clickedPriceFormatted={contextMenu.price}
+              position={currentPosition}
+              tick={tick}
+              disabled={draggingDisabled}
+              disabledReason={
+                isStale
+                  ? 'Prix obsolète — actions indisponibles tant que le marché n’est pas à jour.'
+                  : isDisconnected
+                    ? 'Connexion au serveur en cours…'
+                    : null
+              }
+              onMarketBuy={() => {
+                closeContextMenu();
+                onMarketOrderRequest('buy');
+              }}
+              onMarketSell={() => {
+                closeContextMenu();
+                onMarketOrderRequest('sell');
+              }}
+              onManageStopLoss={() => {
+                closeContextMenu();
+                if (currentPosition) onOpenManage(currentPosition.id);
+              }}
+              onManageTakeProfit={() => {
+                closeContextMenu();
+                if (currentPosition) onOpenManage(currentPosition.id);
+              }}
+              onPartialClose={() => {
+                closeContextMenu();
+                if (currentPosition) onOpenPartialClose(currentPosition.id);
+              }}
+              onClosePosition={() => {
+                closeContextMenu();
+                if (currentPosition) onClosePosition(currentPosition.id);
+              }}
+              onPendingOrderRequest={(orderType) => {
+                closeContextMenu();
+                onPendingOrderRequest({ orderType, triggerPrice: contextMenu.price });
+              }}
+              onCreateAlertHere={() => {
+                closeContextMenu();
+                onCreateAlertHere(contextMenu.price);
+              }}
+            />
+          )}
+          {overlayLabel && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[color:var(--wariba-chart-background)]/60">
+              <span className="rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-background-elevated)] px-3 py-1.5 text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-status-warning-text)]">
+                {overlayLabel}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
+      <footer className="hidden h-6 shrink-0 items-center justify-between border-t border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-module)] px-2 text-[10px] font-medium text-[color:var(--wariba-component-workstation-text-tertiary)] lg:flex">
+        <span className="wariba-data">UTC · {analysis.timeframe}</span>
+        <span className="wariba-data tabular-nums">
+          {historyCandleCount} bougies ·{' '}
+          {historyState.status === 'ready'
+            ? 'Historique en mémoire'
+            : (historyMessage ?? 'En attente')}
+        </span>
+      </footer>
       <BottomSheet
         open={Boolean(contextMenu?.isTouchOrigin)}
         onClose={closeContextMenu}
@@ -1693,6 +1729,21 @@ export function TradeChart({
                   analysis.selectTool(next);
                   setChartToolsOpen(false);
                 }}
+              />
+            </section>
+            <section className="flex flex-col gap-1.5">
+              <h3 className="text-[length:var(--wariba-font-size-label-sm)] font-medium uppercase tracking-[0.08em] text-[color:var(--wariba-component-workstation-text-tertiary)]">
+                Vue
+              </h3>
+              <ToolbarButton
+                label="Ajuster la vue"
+                icon={<WariXFitIcon size="mobile" />}
+                showLabel
+                onClick={() => {
+                  fitChart();
+                  setChartToolsOpen(false);
+                }}
+                className="min-h-11 self-start"
               />
             </section>
           </div>

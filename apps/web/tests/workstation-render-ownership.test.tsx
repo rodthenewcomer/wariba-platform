@@ -374,6 +374,14 @@ describe('workstation render ownership', () => {
     expect(countOf('execution') - before.execution).toBe(0);
     expect(countOf('statusBar') - before.statusBar).toBe(0);
     expect(countOf('navigator') - before.navigator).toBe(0);
+    // eslint-disable-next-line no-console
+    console.log(
+      `UNSELECTED_RENDER_OWNERSHIP N_UNSELECTED_SYMBOL_TICKS=${N_TICKS} ` +
+        `CHART_WORKSPACE_EXTRA_RENDERS=${countOf('chartWorkspace') - before.chartWorkspace} ` +
+        `EXECUTION_EXTRA_RENDERS=${countOf('execution') - before.execution} ` +
+        `STATUS_BAR_EXTRA_RENDERS=${countOf('statusBar') - before.statusBar} ` +
+        `MARKET_NAVIGATOR_CHROME_EXTRA_RENDERS=${countOf('navigator') - before.navigator}`,
+    );
   });
 
   it('does not re-render anything above the Execution Center while the ticket is edited', async () => {

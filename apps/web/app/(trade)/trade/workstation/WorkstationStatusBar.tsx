@@ -1,7 +1,14 @@
 'use client';
 
 import { memo } from 'react';
-import { Badge, Button } from '@wariba/ui';
+import {
+  Badge,
+  Button,
+  MetricReadout,
+  WariXNotificationsIcon,
+  WariXRiskIcon,
+  type MetricTone,
+} from '@wariba/ui';
 import type { AccountRisk } from '@wariba/contracts';
 import { TradeRiskDetail } from '../TradeRiskDetail';
 import { deriveRiskRibbonStatus } from '../risk-status';
@@ -22,13 +29,13 @@ export interface WorkstationStatusBarProps {
   onOpenNotifications: () => void;
 }
 
-const RISK_TONE: Record<string, string> = {
-  normal: 'text-[color:var(--wariba-text-primary)]',
-  attention: 'text-[color:var(--wariba-status-warning-text)]',
-  'near-limit': 'text-[color:var(--wariba-status-warning-text)]',
-  'soft-lock': 'text-[color:var(--wariba-status-danger-text)]',
-  'hard-breach': 'text-[color:var(--wariba-status-danger-text)]',
-  stale: 'text-[color:var(--wariba-text-tertiary)]',
+const RISK_TONE: Record<string, MetricTone> = {
+  normal: 'default',
+  attention: 'warning',
+  'near-limit': 'warning',
+  'soft-lock': 'danger',
+  'hard-breach': 'danger',
+  stale: 'default',
 };
 
 /**
@@ -40,7 +47,7 @@ function Metric({
   shortLabel,
   value,
   shortValue,
-  tone,
+  tone = 'default',
   className,
 }: {
   label: string;
@@ -49,42 +56,20 @@ function Metric({
   value: string;
   /** Phone-width value — usually the same figure without its ` USD` suffix. */
   shortValue?: string | undefined;
-  tone?: string | undefined;
+  tone?: MetricTone | undefined;
   className?: string | undefined;
 }) {
   return (
-    <div className={`flex shrink-0 items-baseline gap-1.5 ${className ?? ''}`}>
-      <dt className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
-        <span className="sr-only">{label}</span>
-        <span aria-hidden="true" className="sm:hidden">
-          {shortLabel ?? label}
-        </span>
-        <span aria-hidden="true" className="hidden sm:inline">
-          {label}
-        </span>
-      </dt>
-      {/*
-       * Visual closure §13 — equity, balance and the two loss budgets read at
-       * `data-sm` (12px) rather than `data-xs` (11px), with tabular figures.
-       * These are the numbers a trader checks before every order; the *label*
-       * beside them stays where it was, so the row gets more legible without
-       * getting taller.
-       *
-       * From `sm` up only, and that is not a hedge. W2 §25 gives this bar a
-       * hard density budget on a phone — the document must never scroll
-       * sideways — and 12px spent it: the metrics group grew to 159px and the
-       * bar overflowed a 360px viewport by 4px, which the repo's own mobile
-       * overflow gate caught. The legibility complaint §13 raises is a desktop
-       * one; the phone keeps 11px, and the same `sm:` boundary already decides
-       * short vs long labels on this row.
-       */}
-      <dd
-        className={`wariba-data text-[length:var(--wariba-font-size-data-xs)] font-medium tabular-nums sm:text-[length:var(--wariba-font-size-data-sm)] ${tone ?? 'text-[color:var(--wariba-theme-text)]'}`}
-      >
-        <span className="sm:hidden">{shortValue ?? value}</span>
-        <span className="hidden sm:inline">{value}</span>
-      </dd>
-    </div>
+    <MetricReadout
+      label={label}
+      value={value}
+      tone={tone}
+      compact
+      valueClassName="max-sm:text-[11px]"
+      {...(shortLabel === undefined ? {} : { shortLabel })}
+      {...(shortValue === undefined ? {} : { shortValue })}
+      {...(className === undefined ? {} : { className })}
+    />
   );
 }
 
@@ -138,13 +123,13 @@ export const WorkstationStatusBar = memo(function WorkstationStatusBar({
   return (
     <header
       data-testid="workstation-status-bar"
-      className="flex h-[var(--wariba-component-workstation-statusbar-height)] min-w-0 shrink-0 items-center gap-3 overflow-x-auto overflow-y-hidden border-b border-[color:var(--wariba-component-workstation-seam)] bg-[color:var(--wariba-component-workstation-surface-raised)] px-2"
+      className="relative z-30 flex h-[var(--wariba-component-workstation-statusbar-mobile-height)] min-w-0 shrink-0 items-center gap-1.5 overflow-visible border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-1 lg:h-[var(--wariba-component-workstation-statusbar-height)] lg:gap-2 lg:px-2"
     >
       <WorkstationAccountSwitcher accounts={accounts} activeAccountId={activeAccountId} />
 
       <span
         aria-hidden="true"
-        className="h-5 w-px shrink-0 bg-[color:var(--wariba-component-workstation-seam)]"
+        className="h-5 w-px shrink-0 bg-[color:var(--wariba-component-workstation-border-hairline)]"
       />
 
       {/* `shrink-0`, not `min-w-0`: a squeezed metric list does not truncate
@@ -164,7 +149,7 @@ export const WorkstationStatusBar = memo(function WorkstationStatusBar({
           `sm` only the first metric fits, so only the first one is shown;
           the daily-loss figure returns at `sm` and is reachable at every
           width through "Détail des règles" → "Restant avant blocage". */}
-      <dl data-testid="workstation-metrics" className="flex shrink-0 items-center gap-3">
+      <dl data-testid="workstation-metrics" className="flex shrink-0 items-center gap-2 xl:gap-3">
         <Metric
           label="Equity"
           shortLabel="Eq"
@@ -198,11 +183,7 @@ export const WorkstationStatusBar = memo(function WorkstationStatusBar({
               ? '—'
               : `${(Number(risk.bestDay.ratio) * 100).toFixed(0)} %`
           }
-          tone={
-            risk && !risk.bestDay.compliant
-              ? 'text-[color:var(--wariba-status-warning-text)]'
-              : undefined
-          }
+          tone={risk && !risk.bestDay.compliant ? 'warning' : undefined}
           className="hidden 3xl:flex"
         />
       </dl>
@@ -220,21 +201,10 @@ export const WorkstationStatusBar = memo(function WorkstationStatusBar({
             triggerLabel={
               <>
                 <span className="hidden sm:inline">Risque</span>
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 24 24"
-                  className="h-4 w-4 sm:hidden"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                >
-                  <path d="M12 3 4 6.5v5c0 4.5 3.4 8 8 9.5 4.6-1.5 8-5 8-9.5v-5z" />
-                  <path d="M12 9v4" />
-                  <path d="M12 16h.01" />
-                </svg>
+                <WariXRiskIcon className="sm:hidden" />
               </>
             }
-            triggerClassName="rounded-[var(--wariba-radius-sm)] px-1.5 py-1 text-[length:var(--wariba-font-size-label-sm)] font-medium text-[color:var(--wariba-text-secondary)] underline decoration-dotted underline-offset-2 hover:text-[color:var(--wariba-theme-text)]"
+            triggerClassName="flex min-h-11 min-w-11 items-center justify-center rounded-[var(--wariba-radius-sm)] px-1.5 py-1 text-[length:var(--wariba-font-size-label-sm)] font-medium text-[color:var(--wariba-text-secondary)] underline decoration-dotted underline-offset-2 hover:text-[color:var(--wariba-theme-text)] lg:min-h-0 lg:min-w-0"
           />
         ) : null}
 
@@ -262,21 +232,12 @@ export const WorkstationStatusBar = memo(function WorkstationStatusBar({
           onClick={onOpenNotifications}
           aria-label="Notifications"
           data-testid="workstation-notifications"
+          className="min-h-11 min-w-11 lg:min-h-0 lg:min-w-0"
         >
           <span aria-hidden="true" className="hidden sm:inline">
             Notifications
           </span>
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            className="h-4 w-4 sm:hidden"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.75"
-          >
-            <path d="M18 8a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7" />
-            <path d="M13.7 20a2 2 0 0 1-3.4 0" />
-          </svg>
+          <WariXNotificationsIcon className="sm:hidden" />
           {unreadCount > 0 && (
             <Badge variant="danger" className="ml-1.5">
               {unreadCount}

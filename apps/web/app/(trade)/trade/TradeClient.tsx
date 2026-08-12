@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { BottomSheet } from '@wariba/ui';
+import { BottomSheet, WariXCollapseLeftIcon, WariXExpandLeftIcon } from '@wariba/ui';
 import type { PendingOrderType, TradableSymbol } from '@wariba/contracts';
 import { useOneClickTrading } from '../../../lib/one-click-trading';
 import { ChartWorkspace, type ChartWorkspaceActions } from './ChartWorkspace';
@@ -22,6 +22,7 @@ import type { WorkstationAccountOption } from './workstation/WorkstationAccountS
 import {
   DOCK_HEIGHT_MAX,
   DOCK_HEIGHT_MIN,
+  DOCK_EMPTY_HEIGHT,
   NAVIGATOR_WIDTH_MAX,
   NAVIGATOR_WIDTH_MIN,
   useWorkstationPreferences,
@@ -123,6 +124,7 @@ export function TradeClient({
   // use-viewport.ts for the SSR/hydration caveat on "one tree".
   const isDesktop = useIsDesktop();
   const [mobileDockOpen, setMobileDockOpen] = useState(false);
+  const [mobileMarketOpen, setMobileMarketOpen] = useState(false);
   const {
     preferences,
     setNavigatorWidth,
@@ -324,6 +326,17 @@ export function TradeClient({
   );
 
   const openPositionCount = snapshot?.openPositions.length ?? 0;
+  const dockHasContent =
+    tab === 'positions'
+      ? openPositionCount > 0
+      : tab === 'orders'
+        ? (snapshot?.pendingOrders.length ?? 0) > 0 || (snapshot?.recentOrders.length ?? 0) > 0
+        : tab === 'trades'
+          ? (snapshot?.recentFills ?? []).some((fill) => fill.fillType === 'close')
+          : tab === 'alerts'
+            ? session.alerts.length > 0 || session.notifications.length > 0
+            : true;
+  const effectiveDockHeight = dockHasContent ? preferences.dockHeight : DOCK_EMPTY_HEIGHT;
 
   const workstationDock = (
     <WorkstationDock
@@ -333,6 +346,7 @@ export function TradeClient({
       tab={tab}
       onTabChange={setTab}
       collapsed={preferences.dockCollapsed}
+      empty={!dockHasContent}
       onToggleCollapsed={() => setDockCollapsed(!preferences.dockCollapsed)}
       pending={session.pending}
       onClosePosition={commands.closePosition}
@@ -357,7 +371,7 @@ export function TradeClient({
       }}
       resizeHandle={
         // The dock is only resizable where it is a grid track.
-        isDesktop && !preferences.dockCollapsed ? (
+        isDesktop && !preferences.dockCollapsed && dockHasContent ? (
           <ResizeSeparator
             orientation="horizontal"
             label="Hauteur du dock"
@@ -401,7 +415,7 @@ export function TradeClient({
       <WorkstationShell
         navigatorWidth={preferences.navigatorWidth}
         navigatorCollapsed={preferences.navigatorCollapsed}
-        dockHeight={preferences.dockHeight}
+        dockHeight={effectiveDockHeight}
         dockCollapsed={preferences.dockCollapsed}
         navigatorResizeHandle={
           preferences.navigatorCollapsed ? null : (
@@ -425,16 +439,7 @@ export function TradeClient({
             data-testid="navigator-restore"
             className="m-1 flex items-center gap-1 rounded-[var(--wariba-radius-sm)] border border-[color:var(--wariba-component-workstation-seam)] px-2 py-1 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)] hover:bg-[color:var(--wariba-surface-selected)] hover:text-[color:var(--wariba-theme-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]"
           >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              className="h-3.5 w-3.5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="m9 18 6-6-6-6" />
-            </svg>
+            <WariXExpandLeftIcon />
             Marchés
           </button>
         }
@@ -460,6 +465,8 @@ export function TradeClient({
             favorites={preferences.favorites}
             onSelectSymbol={selectSymbol}
             onToggleFavorite={toggleFavorite}
+            open={mobileMarketOpen}
+            onOpenChange={setMobileMarketOpen}
           />
         }
         navigator={
@@ -478,16 +485,7 @@ export function TradeClient({
                 data-testid="navigator-collapse"
                 className="flex h-6 w-6 items-center justify-center rounded-[var(--wariba-radius-sm)] text-[color:var(--wariba-text-secondary)] hover:bg-[color:var(--wariba-surface-selected)] hover:text-[color:var(--wariba-theme-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]"
               >
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 24 24"
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="m15 18-6-6 6-6" />
-                </svg>
+                <WariXCollapseLeftIcon />
               </button>
             }
           />
@@ -508,6 +506,7 @@ export function TradeClient({
             rejectedOrderAction={session.rejectedOrderAction}
             commandPending={session.pending}
             actions={chartActions}
+            onOpenMobileMarkets={() => setMobileMarketOpen(true)}
           />
         }
         mobileExecutionAction={
