@@ -1,0 +1,1243 @@
+{
+  "capturedAt": "2026-08-12T22:12:55.063Z",
+  "capturedCommit": "1680233ab6d471b4d55a091445e412adef626340",
+  "source": "WX1 production build; live mock realtime; process-memory history; no fabricated market, financial or risk data",
+  "baseline": {
+    "viewport1366": {
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "statusBar": {
+        "x": 56,
+        "y": 0,
+        "width": 1310,
+        "height": 48
+      },
+      "navRail": {
+        "x": 0,
+        "y": 0,
+        "width": 56,
+        "height": 548
+      },
+      "navigator": {
+        "x": 56,
+        "y": 48,
+        "width": 276,
+        "height": 500
+      },
+      "chart": {
+        "x": 344,
+        "y": 130,
+        "width": 678,
+        "height": 410
+      },
+      "chartCanvas": {
+        "x": 344,
+        "y": 130,
+        "width": 610,
+        "height": 382
+      },
+      "chartToolbar": {
+        "x": 344,
+        "y": 88,
+        "width": 390,
+        "height": 34
+      },
+      "execution": {
+        "x": 1039,
+        "y": 56,
+        "width": 319,
+        "height": 484
+      },
+      "dock": {
+        "x": 0,
+        "y": 548,
+        "width": 1366,
+        "height": 220
+      },
+      "mobileMarketBar": null,
+      "mobileActionRail": null,
+      "preChartChromeHeight": 130,
+      "chartViewportAreaSharePercent": 26.5,
+      "chartViewportWidthSharePercent": 49.63,
+      "chartViewportHeightSharePercent": 53.39,
+      "document": {
+        "scrollWidth": 1366,
+        "clientWidth": 1366,
+        "scrollHeight": 768,
+        "clientHeight": 768
+      }
+    },
+    "viewport390": {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "statusBar": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 48
+      },
+      "navRail": null,
+      "navigator": null,
+      "chart": {
+        "x": 8,
+        "y": 174,
+        "width": 374,
+        "height": 601
+      },
+      "chartCanvas": {
+        "x": 8,
+        "y": 174,
+        "width": 306,
+        "height": 572
+      },
+      "chartToolbar": {
+        "x": 8,
+        "y": 132,
+        "width": 186,
+        "height": 34
+      },
+      "execution": null,
+      "dock": null,
+      "mobileMarketBar": {
+        "x": 0,
+        "y": 48,
+        "width": 390,
+        "height": 44
+      },
+      "mobileActionRail": {
+        "x": 0,
+        "y": 783,
+        "width": 390,
+        "height": 61
+      },
+      "preChartChromeHeight": 174,
+      "chartViewportAreaSharePercent": 68.29,
+      "chartViewportWidthSharePercent": 95.9,
+      "chartViewportHeightSharePercent": 71.21,
+      "document": {
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "scrollHeight": 844,
+        "clientHeight": 844
+      }
+    },
+    "chartShareOfCenterWorkspace1366Percent": 42.44,
+    "chartShareOfCenterWorkspace390Percent": 78.41
+  },
+  "desktop": {
+    "1024x768": {
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "globalInstrumentation": {
+        "x": 56,
+        "y": 0,
+        "width": 968,
+        "height": 44
+      },
+      "productRail": {
+        "x": 0,
+        "y": 0,
+        "width": 56,
+        "height": 720
+      },
+      "navigator": {
+        "x": 56,
+        "y": 44,
+        "width": 244,
+        "height": 676
+      },
+      "drawingRail": {
+        "x": 300,
+        "y": 113,
+        "width": 36,
+        "height": 582
+      },
+      "chartModule": {
+        "x": 300,
+        "y": 44,
+        "width": 404,
+        "height": 676
+      },
+      "chartPlot": {
+        "x": 336,
+        "y": 113,
+        "width": 368,
+        "height": 582
+      },
+      "chartCanvas": {
+        "x": 336,
+        "y": 113,
+        "width": 300,
+        "height": 554
+      },
+      "execution": {
+        "x": 704,
+        "y": 44,
+        "width": 320,
+        "height": 676
+      },
+      "dock": {
+        "x": 0,
+        "y": 720,
+        "width": 1024,
+        "height": 48,
+        "state": "true"
+      },
+      "mobileMarketContext": null,
+      "mobileActionRail": null,
+      "centerWorkspace": {
+        "x": 56,
+        "y": 44,
+        "width": 968,
+        "height": 676
+      },
+      "preChartChromeHeight": 113,
+      "chartViewportAreaSharePercent": 27.23,
+      "chartShareOfCenterWorkspacePercent": 32.73,
+      "document": {
+        "scrollWidth": 1024,
+        "clientWidth": 1024,
+        "horizontalOverflow": 0
+      },
+      "minimumTouchTarget": null,
+      "visibleExecutionTrees": 1,
+      "visibleToolTrees": 1
+    },
+    "1366x768": {
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "globalInstrumentation": {
+        "x": 56,
+        "y": 0,
+        "width": 1310,
+        "height": 44
+      },
+      "productRail": {
+        "x": 0,
+        "y": 0,
+        "width": 56,
+        "height": 720
+      },
+      "navigator": {
+        "x": 56,
+        "y": 44,
+        "width": 244,
+        "height": 676
+      },
+      "drawingRail": {
+        "x": 300,
+        "y": 113,
+        "width": 36,
+        "height": 582
+      },
+      "chartModule": {
+        "x": 300,
+        "y": 44,
+        "width": 746,
+        "height": 676
+      },
+      "chartPlot": {
+        "x": 336,
+        "y": 113,
+        "width": 710,
+        "height": 582
+      },
+      "chartCanvas": {
+        "x": 336,
+        "y": 113,
+        "width": 642,
+        "height": 554
+      },
+      "execution": {
+        "x": 1046,
+        "y": 44,
+        "width": 320,
+        "height": 676
+      },
+      "dock": {
+        "x": 0,
+        "y": 720,
+        "width": 1366,
+        "height": 48,
+        "state": "true"
+      },
+      "mobileMarketContext": null,
+      "mobileActionRail": null,
+      "centerWorkspace": {
+        "x": 56,
+        "y": 44,
+        "width": 1310,
+        "height": 676
+      },
+      "preChartChromeHeight": 113,
+      "chartViewportAreaSharePercent": 39.39,
+      "chartShareOfCenterWorkspacePercent": 46.66,
+      "document": {
+        "scrollWidth": 1366,
+        "clientWidth": 1366,
+        "horizontalOverflow": 0
+      },
+      "minimumTouchTarget": null,
+      "visibleExecutionTrees": 1,
+      "visibleToolTrees": 1
+    },
+    "1440x900": {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "globalInstrumentation": {
+        "x": 56,
+        "y": 0,
+        "width": 1384,
+        "height": 44
+      },
+      "productRail": {
+        "x": 0,
+        "y": 0,
+        "width": 56,
+        "height": 852
+      },
+      "navigator": {
+        "x": 56,
+        "y": 44,
+        "width": 244,
+        "height": 808
+      },
+      "drawingRail": {
+        "x": 300,
+        "y": 113,
+        "width": 36,
+        "height": 714
+      },
+      "chartModule": {
+        "x": 300,
+        "y": 44,
+        "width": 820,
+        "height": 808
+      },
+      "chartPlot": {
+        "x": 336,
+        "y": 113,
+        "width": 784,
+        "height": 714
+      },
+      "chartCanvas": {
+        "x": 336,
+        "y": 113,
+        "width": 716,
+        "height": 686
+      },
+      "execution": {
+        "x": 1120,
+        "y": 44,
+        "width": 320,
+        "height": 808
+      },
+      "dock": {
+        "x": 0,
+        "y": 852,
+        "width": 1440,
+        "height": 48,
+        "state": "true"
+      },
+      "mobileMarketContext": null,
+      "mobileActionRail": null,
+      "centerWorkspace": {
+        "x": 56,
+        "y": 44,
+        "width": 1384,
+        "height": 808
+      },
+      "preChartChromeHeight": 113,
+      "chartViewportAreaSharePercent": 43.19,
+      "chartShareOfCenterWorkspacePercent": 50.06,
+      "document": {
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "horizontalOverflow": 0
+      },
+      "minimumTouchTarget": null,
+      "visibleExecutionTrees": 1,
+      "visibleToolTrees": 1
+    },
+    "1536x864": {
+      "viewport": {
+        "width": 1536,
+        "height": 864
+      },
+      "globalInstrumentation": {
+        "x": 56,
+        "y": 0,
+        "width": 1480,
+        "height": 44
+      },
+      "productRail": {
+        "x": 0,
+        "y": 0,
+        "width": 56,
+        "height": 816
+      },
+      "navigator": {
+        "x": 56,
+        "y": 44,
+        "width": 244,
+        "height": 772
+      },
+      "drawingRail": {
+        "x": 300,
+        "y": 113,
+        "width": 36,
+        "height": 678
+      },
+      "chartModule": {
+        "x": 300,
+        "y": 44,
+        "width": 916,
+        "height": 772
+      },
+      "chartPlot": {
+        "x": 336,
+        "y": 113,
+        "width": 880,
+        "height": 678
+      },
+      "chartCanvas": {
+        "x": 336,
+        "y": 113,
+        "width": 812,
+        "height": 650
+      },
+      "execution": {
+        "x": 1216,
+        "y": 44,
+        "width": 320,
+        "height": 772
+      },
+      "dock": {
+        "x": 0,
+        "y": 816,
+        "width": 1536,
+        "height": 48,
+        "state": "true"
+      },
+      "mobileMarketContext": null,
+      "mobileActionRail": null,
+      "centerWorkspace": {
+        "x": 56,
+        "y": 44,
+        "width": 1480,
+        "height": 772
+      },
+      "preChartChromeHeight": 113,
+      "chartViewportAreaSharePercent": 44.96,
+      "chartShareOfCenterWorkspacePercent": 52.22,
+      "document": {
+        "scrollWidth": 1536,
+        "clientWidth": 1536,
+        "horizontalOverflow": 0
+      },
+      "minimumTouchTarget": null,
+      "visibleExecutionTrees": 1,
+      "visibleToolTrees": 1
+    },
+    "1920x1080": {
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "globalInstrumentation": {
+        "x": 56,
+        "y": 0,
+        "width": 1864,
+        "height": 44
+      },
+      "productRail": {
+        "x": 0,
+        "y": 0,
+        "width": 56,
+        "height": 1032
+      },
+      "navigator": {
+        "x": 56,
+        "y": 44,
+        "width": 244,
+        "height": 988
+      },
+      "drawingRail": {
+        "x": 300,
+        "y": 113,
+        "width": 36,
+        "height": 894
+      },
+      "chartModule": {
+        "x": 300,
+        "y": 44,
+        "width": 1300,
+        "height": 988
+      },
+      "chartPlot": {
+        "x": 336,
+        "y": 113,
+        "width": 1264,
+        "height": 894
+      },
+      "chartCanvas": {
+        "x": 336,
+        "y": 113,
+        "width": 1196,
+        "height": 866
+      },
+      "execution": {
+        "x": 1600,
+        "y": 44,
+        "width": 320,
+        "height": 988
+      },
+      "dock": {
+        "x": 0,
+        "y": 1032,
+        "width": 1920,
+        "height": 48,
+        "state": "true"
+      },
+      "mobileMarketContext": null,
+      "mobileActionRail": null,
+      "centerWorkspace": {
+        "x": 56,
+        "y": 44,
+        "width": 1864,
+        "height": 988
+      },
+      "preChartChromeHeight": 113,
+      "chartViewportAreaSharePercent": 54.5,
+      "chartShareOfCenterWorkspacePercent": 61.36,
+      "document": {
+        "scrollWidth": 1920,
+        "clientWidth": 1920,
+        "horizontalOverflow": 0
+      },
+      "minimumTouchTarget": null,
+      "visibleExecutionTrees": 1,
+      "visibleToolTrees": 1
+    },
+    "2560x1440": {
+      "viewport": {
+        "width": 2560,
+        "height": 1440
+      },
+      "globalInstrumentation": {
+        "x": 56,
+        "y": 0,
+        "width": 2504,
+        "height": 44
+      },
+      "productRail": {
+        "x": 0,
+        "y": 0,
+        "width": 56,
+        "height": 1392
+      },
+      "navigator": {
+        "x": 56,
+        "y": 44,
+        "width": 244,
+        "height": 1348
+      },
+      "drawingRail": {
+        "x": 300,
+        "y": 113,
+        "width": 36,
+        "height": 1254
+      },
+      "chartModule": {
+        "x": 300,
+        "y": 44,
+        "width": 1940,
+        "height": 1348
+      },
+      "chartPlot": {
+        "x": 336,
+        "y": 113,
+        "width": 1904,
+        "height": 1254
+      },
+      "chartCanvas": {
+        "x": 336,
+        "y": 113,
+        "width": 1836,
+        "height": 1226
+      },
+      "execution": {
+        "x": 2240,
+        "y": 44,
+        "width": 320,
+        "height": 1348
+      },
+      "dock": {
+        "x": 0,
+        "y": 1392,
+        "width": 2560,
+        "height": 48,
+        "state": "true"
+      },
+      "mobileMarketContext": null,
+      "mobileActionRail": null,
+      "centerWorkspace": {
+        "x": 56,
+        "y": 44,
+        "width": 2504,
+        "height": 1348
+      },
+      "preChartChromeHeight": 113,
+      "chartViewportAreaSharePercent": 64.77,
+      "chartShareOfCenterWorkspacePercent": 70.74,
+      "document": {
+        "scrollWidth": 2560,
+        "clientWidth": 2560,
+        "horizontalOverflow": 0
+      },
+      "minimumTouchTarget": null,
+      "visibleExecutionTrees": 1,
+      "visibleToolTrees": 1
+    }
+  },
+  "tablet": {
+    "768x1024": {
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "globalInstrumentation": {
+        "x": 0,
+        "y": 0,
+        "width": 768,
+        "height": 44
+      },
+      "productRail": null,
+      "navigator": null,
+      "drawingRail": null,
+      "chartModule": {
+        "x": 0,
+        "y": 72,
+        "width": 768,
+        "height": 891
+      },
+      "chartPlot": {
+        "x": 0,
+        "y": 116,
+        "width": 768,
+        "height": 846
+      },
+      "chartCanvas": {
+        "x": 0,
+        "y": 116,
+        "width": 700,
+        "height": 818
+      },
+      "execution": null,
+      "dock": null,
+      "mobileMarketContext": {
+        "x": 0,
+        "y": 44,
+        "width": 768,
+        "height": 28
+      },
+      "mobileActionRail": {
+        "x": 0,
+        "y": 963,
+        "width": 768,
+        "height": 61
+      },
+      "centerWorkspace": {
+        "x": 0,
+        "y": 44,
+        "width": 768,
+        "height": 919
+      },
+      "preChartChromeHeight": 116,
+      "chartViewportAreaSharePercent": 82.62,
+      "chartShareOfCenterWorkspacePercent": 92.06,
+      "document": {
+        "scrollWidth": 768,
+        "clientWidth": 768,
+        "horizontalOverflow": 0
+      },
+      "minimumTouchTarget": 44,
+      "visibleExecutionTrees": 0,
+      "visibleToolTrees": 0
+    }
+  },
+  "mobile": {
+    "320x844": {
+      "viewport": {
+        "width": 320,
+        "height": 844
+      },
+      "globalInstrumentation": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 44
+      },
+      "productRail": null,
+      "navigator": null,
+      "drawingRail": null,
+      "chartModule": {
+        "x": 0,
+        "y": 72,
+        "width": 320,
+        "height": 711
+      },
+      "chartPlot": {
+        "x": 0,
+        "y": 116,
+        "width": 320,
+        "height": 666
+      },
+      "chartCanvas": {
+        "x": 0,
+        "y": 116,
+        "width": 252,
+        "height": 638
+      },
+      "execution": null,
+      "dock": null,
+      "mobileMarketContext": {
+        "x": 0,
+        "y": 44,
+        "width": 320,
+        "height": 28
+      },
+      "mobileActionRail": {
+        "x": 0,
+        "y": 783,
+        "width": 320,
+        "height": 61
+      },
+      "centerWorkspace": {
+        "x": 0,
+        "y": 44,
+        "width": 320,
+        "height": 739
+      },
+      "preChartChromeHeight": 116,
+      "chartViewportAreaSharePercent": 78.91,
+      "chartShareOfCenterWorkspacePercent": 90.12,
+      "document": {
+        "scrollWidth": 320,
+        "clientWidth": 320,
+        "horizontalOverflow": 0
+      },
+      "minimumTouchTarget": 44,
+      "visibleExecutionTrees": 0,
+      "visibleToolTrees": 0
+    },
+    "360x800": {
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "globalInstrumentation": {
+        "x": 0,
+        "y": 0,
+        "width": 360,
+        "height": 44
+      },
+      "productRail": null,
+      "navigator": null,
+      "drawingRail": null,
+      "chartModule": {
+        "x": 0,
+        "y": 72,
+        "width": 360,
+        "height": 667
+      },
+      "chartPlot": {
+        "x": 0,
+        "y": 116,
+        "width": 360,
+        "height": 622
+      },
+      "chartCanvas": {
+        "x": 0,
+        "y": 116,
+        "width": 292,
+        "height": 594
+      },
+      "execution": null,
+      "dock": null,
+      "mobileMarketContext": {
+        "x": 0,
+        "y": 44,
+        "width": 360,
+        "height": 28
+      },
+      "mobileActionRail": {
+        "x": 0,
+        "y": 739,
+        "width": 360,
+        "height": 61
+      },
+      "centerWorkspace": {
+        "x": 0,
+        "y": 44,
+        "width": 360,
+        "height": 695
+      },
+      "preChartChromeHeight": 116,
+      "chartViewportAreaSharePercent": 77.75,
+      "chartShareOfCenterWorkspacePercent": 89.5,
+      "document": {
+        "scrollWidth": 360,
+        "clientWidth": 360,
+        "horizontalOverflow": 0
+      },
+      "minimumTouchTarget": 44,
+      "visibleExecutionTrees": 0,
+      "visibleToolTrees": 0
+    },
+    "375x812": {
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "globalInstrumentation": {
+        "x": 0,
+        "y": 0,
+        "width": 375,
+        "height": 44
+      },
+      "productRail": null,
+      "navigator": null,
+      "drawingRail": null,
+      "chartModule": {
+        "x": 0,
+        "y": 72,
+        "width": 375,
+        "height": 679
+      },
+      "chartPlot": {
+        "x": 0,
+        "y": 116,
+        "width": 375,
+        "height": 634
+      },
+      "chartCanvas": {
+        "x": 0,
+        "y": 116,
+        "width": 306,
+        "height": 606
+      },
+      "execution": null,
+      "dock": null,
+      "mobileMarketContext": {
+        "x": 0,
+        "y": 44,
+        "width": 375,
+        "height": 28
+      },
+      "mobileActionRail": {
+        "x": 0,
+        "y": 751,
+        "width": 375,
+        "height": 61
+      },
+      "centerWorkspace": {
+        "x": 0,
+        "y": 44,
+        "width": 375,
+        "height": 707
+      },
+      "preChartChromeHeight": 116,
+      "chartViewportAreaSharePercent": 78.08,
+      "chartShareOfCenterWorkspacePercent": 89.67,
+      "document": {
+        "scrollWidth": 375,
+        "clientWidth": 375,
+        "horizontalOverflow": 0
+      },
+      "minimumTouchTarget": 44,
+      "visibleExecutionTrees": 0,
+      "visibleToolTrees": 0
+    },
+    "390x844": {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "globalInstrumentation": {
+        "x": 0,
+        "y": 0,
+        "width": 390,
+        "height": 44
+      },
+      "productRail": null,
+      "navigator": null,
+      "drawingRail": null,
+      "chartModule": {
+        "x": 0,
+        "y": 72,
+        "width": 390,
+        "height": 711
+      },
+      "chartPlot": {
+        "x": 0,
+        "y": 116,
+        "width": 390,
+        "height": 666
+      },
+      "chartCanvas": {
+        "x": 0,
+        "y": 116,
+        "width": 322,
+        "height": 638
+      },
+      "execution": null,
+      "dock": null,
+      "mobileMarketContext": {
+        "x": 0,
+        "y": 44,
+        "width": 390,
+        "height": 28
+      },
+      "mobileActionRail": {
+        "x": 0,
+        "y": 783,
+        "width": 390,
+        "height": 61
+      },
+      "centerWorkspace": {
+        "x": 0,
+        "y": 44,
+        "width": 390,
+        "height": 739
+      },
+      "preChartChromeHeight": 116,
+      "chartViewportAreaSharePercent": 78.91,
+      "chartShareOfCenterWorkspacePercent": 90.12,
+      "document": {
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "horizontalOverflow": 0
+      },
+      "minimumTouchTarget": 44,
+      "visibleExecutionTrees": 0,
+      "visibleToolTrees": 0
+    },
+    "412x915": {
+      "viewport": {
+        "width": 412,
+        "height": 915
+      },
+      "globalInstrumentation": {
+        "x": 0,
+        "y": 0,
+        "width": 412,
+        "height": 44
+      },
+      "productRail": null,
+      "navigator": null,
+      "drawingRail": null,
+      "chartModule": {
+        "x": 0,
+        "y": 72,
+        "width": 412,
+        "height": 782
+      },
+      "chartPlot": {
+        "x": 0,
+        "y": 116,
+        "width": 412,
+        "height": 737
+      },
+      "chartCanvas": {
+        "x": 0,
+        "y": 116,
+        "width": 344,
+        "height": 708
+      },
+      "execution": null,
+      "dock": null,
+      "mobileMarketContext": {
+        "x": 0,
+        "y": 44,
+        "width": 412,
+        "height": 28
+      },
+      "mobileActionRail": {
+        "x": 0,
+        "y": 854,
+        "width": 412,
+        "height": 61
+      },
+      "centerWorkspace": {
+        "x": 0,
+        "y": 44,
+        "width": 412,
+        "height": 810
+      },
+      "preChartChromeHeight": 116,
+      "chartViewportAreaSharePercent": 80.55,
+      "chartShareOfCenterWorkspacePercent": 90.99,
+      "document": {
+        "scrollWidth": 412,
+        "clientWidth": 412,
+        "horizontalOverflow": 0
+      },
+      "minimumTouchTarget": 44,
+      "visibleExecutionTrees": 0,
+      "visibleToolTrees": 0
+    },
+    "430x932": {
+      "viewport": {
+        "width": 430,
+        "height": 932
+      },
+      "globalInstrumentation": {
+        "x": 0,
+        "y": 0,
+        "width": 430,
+        "height": 44
+      },
+      "productRail": null,
+      "navigator": null,
+      "drawingRail": null,
+      "chartModule": {
+        "x": 0,
+        "y": 72,
+        "width": 430,
+        "height": 799
+      },
+      "chartPlot": {
+        "x": 0,
+        "y": 116,
+        "width": 430,
+        "height": 754
+      },
+      "chartCanvas": {
+        "x": 0,
+        "y": 116,
+        "width": 362,
+        "height": 726
+      },
+      "execution": null,
+      "dock": null,
+      "mobileMarketContext": {
+        "x": 0,
+        "y": 44,
+        "width": 430,
+        "height": 28
+      },
+      "mobileActionRail": {
+        "x": 0,
+        "y": 871,
+        "width": 430,
+        "height": 61
+      },
+      "centerWorkspace": {
+        "x": 0,
+        "y": 44,
+        "width": 430,
+        "height": 827
+      },
+      "preChartChromeHeight": 116,
+      "chartViewportAreaSharePercent": 80.9,
+      "chartShareOfCenterWorkspacePercent": 91.17,
+      "document": {
+        "scrollWidth": 430,
+        "clientWidth": 430,
+        "horizontalOverflow": 0
+      },
+      "minimumTouchTarget": 44,
+      "visibleExecutionTrees": 0,
+      "visibleToolTrees": 0
+    }
+  },
+  "states": {
+    "serverRejection": "Ordre refuséCet ordre dépasserait votre exposition maximale autorisée sur ce groupe de symboles.Réduisez la taille ou fermez une position existante sur ce groupe.Code : exposure_limit_exceeded",
+    "populatedDock": {
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "globalInstrumentation": {
+        "x": 56,
+        "y": 0,
+        "width": 1310,
+        "height": 44
+      },
+      "productRail": {
+        "x": 0,
+        "y": 0,
+        "width": 56,
+        "height": 548
+      },
+      "navigator": {
+        "x": 56,
+        "y": 44,
+        "width": 244,
+        "height": 504
+      },
+      "drawingRail": {
+        "x": 300,
+        "y": 113,
+        "width": 36,
+        "height": 410
+      },
+      "chartModule": {
+        "x": 300,
+        "y": 44,
+        "width": 746,
+        "height": 504
+      },
+      "chartPlot": {
+        "x": 336,
+        "y": 113,
+        "width": 710,
+        "height": 410
+      },
+      "chartCanvas": {
+        "x": 336,
+        "y": 113,
+        "width": 642,
+        "height": 382
+      },
+      "execution": {
+        "x": 1046,
+        "y": 44,
+        "width": 320,
+        "height": 504
+      },
+      "dock": {
+        "x": 0,
+        "y": 548,
+        "width": 1366,
+        "height": 220,
+        "state": "false"
+      },
+      "mobileMarketContext": null,
+      "mobileActionRail": null,
+      "centerWorkspace": {
+        "x": 56,
+        "y": 44,
+        "width": 1310,
+        "height": 504
+      },
+      "preChartChromeHeight": 113,
+      "chartViewportAreaSharePercent": 27.75,
+      "chartShareOfCenterWorkspacePercent": 44.09,
+      "document": {
+        "scrollWidth": 1366,
+        "clientWidth": 1366,
+        "horizontalOverflow": 0
+      },
+      "minimumTouchTarget": null,
+      "visibleExecutionTrees": 1,
+      "visibleToolTrees": 1
+    },
+    "disconnected": "closed",
+    "thirdPartyAttributionTouchTarget": {
+      "tag": "A",
+      "text": "",
+      "ariaLabel": null,
+      "href": "https://www.tradingview.com/?utm_medium=lwc-link&utm_campaign=lwc-chart&utm_source=localhost/trade",
+      "width": 35,
+      "height": 19
+    }
+  },
+  "accessibility": [
+    {
+      "state": "desktop-default",
+      "violations": [],
+      "seriousOrCritical": 0
+    },
+    {
+      "state": "mobile-chart-first",
+      "violations": [],
+      "seriousOrCritical": 0
+    },
+    {
+      "state": "mobile-tools-sheet",
+      "violations": [],
+      "seriousOrCritical": 0
+    },
+    {
+      "state": "mobile-execution-sheet",
+      "violations": [],
+      "seriousOrCritical": 0
+    }
+  ],
+  "contrast": {
+    "warning": {
+      "foreground": "rgb(240, 200, 120)",
+      "background": "rgb(22, 26, 36)",
+      "ratio": 10.96
+    },
+    "buy": {
+      "foreground": "rgb(11, 13, 18)",
+      "background": "rgb(54, 179, 126)",
+      "ratio": 7.32
+    },
+    "sell": {
+      "foreground": "rgb(11, 13, 18)",
+      "background": "rgb(224, 90, 90)",
+      "ratio": 5.35
+    },
+    "rejection": {
+      "foreground": "rgb(245, 168, 168)",
+      "background": "rgb(42, 22, 22)",
+      "ratio": 9.02
+    },
+    "focus": {
+      "foreground": "rgb(192, 198, 208)",
+      "background": "rgb(22, 26, 36)",
+      "ratio": 10.13
+    },
+    "selectedTool": {
+      "foreground": "rgb(102, 132, 255)",
+      "background": "rgb(58, 66, 81)",
+      "ratio": 3.04
+    }
+  },
+  "dependencies": {
+    "baseUi": "NOT_ADOPTED_NATIVE_PRIMITIVES_RETAINED",
+    "shadcn": "NOT_INITIALIZED_REFERENCE_ONLY",
+    "motion": "CSS_ONLY_NO_MARKET_TICK_SUBSCRIPTION",
+    "lucide": "ADOPTED_VIA_WARIBA_UI_WRAPPERS_ONLY"
+  },
+  "renderOwnership": {
+    "selectedTicks": 25,
+    "workstationShell": 0,
+    "productRail": 0,
+    "globalStatus": 0,
+    "accountSwitcher": 0,
+    "dockChrome": 0,
+    "closedDialogs": 0,
+    "marketNavigatorChrome": 0,
+    "staticChartToolbar": 0,
+    "drawingRail": 0,
+    "chartWorkspace": 25,
+    "execution": 25,
+    "visiblePositionsPnl": 25,
+    "unselectedTicks": 25,
+    "unselectedChartWorkspace": 0,
+    "unselectedExecution": 0,
+    "unselectedStatus": 0,
+    "unselectedNavigatorChrome": 0,
+    "draftEdits": 5,
+    "drawingPointerMoves": 40,
+    "drawingChromeRenders": 0,
+    "drawingStorageWritesBeforePointerUp": 0,
+    "drawingStorageWritesOnPointerUp": 1,
+    "source": "workstation-render-ownership.test.tsx and chart-render-ownership.test.tsx, rerun in WX1 final validation"
+  }
+}
