@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { Input } from '@wariba/ui';
-import { deriveQuantityPresets, stepQuantity } from '@wariba/domain';
+import { deriveQuantityPresets, quantityDisplayScale, stepQuantity } from '@wariba/domain';
 import type { SymbolSpec } from '@wariba/contracts';
 
 export interface QuantityControlProps {
@@ -82,6 +82,22 @@ export function QuantityControl({ spec, value, onChange, error }: QuantityContro
     [spec],
   );
 
+  /** The instrument's bounds at their own meaningful scale — no column padding. */
+  const bounds = useMemo(() => {
+    if (!spec) return null;
+    const scale = quantityDisplayScale({
+      minimumQuantity: spec.minimumQuantity,
+      maximumQuantity: spec.maximumQuantity,
+      quantityStep: spec.quantityStep,
+    });
+    const at = (value: string): string => Number(value).toFixed(scale);
+    return {
+      step: at(spec.quantityStep),
+      minimum: at(spec.minimumQuantity),
+      maximum: at(spec.maximumQuantity),
+    };
+  }, [spec]);
+
   const step = (direction: 1 | -1): string | null => {
     if (!spec) return null;
     return stepQuantity({
@@ -151,12 +167,27 @@ export function QuantityControl({ spec, value, onChange, error }: QuantityContro
         </div>
       ) : null}
 
-      {/* Kept verbatim from the pre-W4 ticket: it is the one string that
-          proves the symbol specs have actually landed, and both the E2E
-          readiness gate and a trader reading the bounds depend on it. */}
+      {/*
+       * Visual closure §7 — the same three facts, at a tenth of the noise.
+       *
+       * "Pas 0.0100 · Min 0.0100 · Max 10.0000" was persistent body copy
+       * carrying the database's `numeric(14,4)` padding into the interface: four
+       * decimals on a two-decimal instrument, three labels, a full 14px line.
+       * Nothing is hidden — step, minimum and maximum are all still on screen,
+       * and the accessible title spells them out in words — but they are now
+       * metadata rather than a sentence.
+       *
+       * The padding is stripped with `quantityDisplayScale` (@wariba/domain),
+       * the same helper the stepper formats with, so the bounds shown and the
+       * values the steppers produce cannot print differently.
+       */}
       {spec ? (
-        <p className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-tertiary)]">
-          Pas {spec.quantityStep} · Min {spec.minimumQuantity} · Max {spec.maximumQuantity}
+        <p
+          data-testid="quantity-bounds"
+          title={`Pas de ${bounds?.step}, minimum ${bounds?.minimum}, maximum ${bounds?.maximum} lots`}
+          className="wariba-data text-[length:var(--wariba-font-size-data-xs)] text-[color:var(--wariba-text-tertiary)]"
+        >
+          Pas {bounds?.step} · {bounds?.minimum}–{bounds?.maximum}
         </p>
       ) : null}
     </div>

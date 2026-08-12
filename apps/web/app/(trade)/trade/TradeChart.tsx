@@ -34,6 +34,7 @@ import {
 import { BottomSheet } from '@wariba/ui';
 import type { RealtimeConnectionState } from '../../../lib/realtime-client';
 import { resolveLabelCollisions } from './chart-overlay-geometry';
+import { chartPriceFormatFor } from './chart-price-format';
 import {
   PositionBadge,
   LevelChip,
@@ -466,6 +467,26 @@ export function TradeChart({
     if (pricePrecision === null) return;
     history.start({ symbol, timeframe, pricePrecision });
   }, [history, symbol, timeframe, pricePrecision]);
+
+  /**
+   * Visual closure §6 — teach the renderer this instrument's own precision.
+   *
+   * Applied here rather than at `addCandlestickSeries` above because the chart
+   * is created once on mount, while the spec arrives asynchronously over the
+   * websocket and changes with the selected symbol. Creating the series with a
+   * format would have baked in whichever spec happened to be loaded first —
+   * which on a cold session is none at all.
+   *
+   * Every label lightweight-charts draws reads from this one option: the
+   * price-scale ticks, the crosshair label, and the Bid/Ask/position/SL/TP/
+   * pending-order/alert axis labels attached to each `createPriceLine`. The
+   * overlay's own text is unaffected — it prints the server's `priceFormatted`
+   * strings verbatim and always did.
+   */
+  useEffect(() => {
+    if (pricePrecision === null) return;
+    seriesRef.current?.applyOptions({ priceFormat: chartPriceFormatFor(pricePrecision) });
+  }, [pricePrecision]);
 
   // Symbol or timeframe change: drop the interaction state that belonged to the
   // previous instrument/interval. The candle series itself is the history
@@ -1043,6 +1064,12 @@ export function TradeChart({
           className="absolute inset-0"
           role="group"
           aria-label={`Graphique ${symbol}`}
+          // Visual closure §6 — the precision the renderer was actually given.
+          // lightweight-charts draws its labels into a canvas, so no test can
+          // read "1.08504" back off the price scale; this exposes the one
+          // input that decides it, and `chart-price-format.test.ts` proves that
+          // input produces the right label. Together the chain is complete.
+          data-price-precision={pricePrecision ?? undefined}
           onContextMenuCapture={handleContextMenuEvent}
           onPointerDownCapture={handleContainerPointerDown}
           onPointerMoveCapture={handleContainerPointerMove}

@@ -30,6 +30,12 @@ const SIDE_TONE: Record<ExecutionSide, string> = {
   buy: 'bg-[color:var(--wariba-status-success-strong)] hover:enabled:bg-[color:var(--wariba-status-success-text)]',
 };
 
+/** The de-emphasised form: side identity kept in the border, fill dropped. */
+const SIDE_OUTLINE: Record<ExecutionSide, string> = {
+  sell: 'bg-transparent ring-1 ring-inset ring-[color:var(--wariba-status-danger-border)]',
+  buy: 'bg-transparent ring-1 ring-inset ring-[color:var(--wariba-status-success-border)]',
+};
+
 const DASH = '—';
 
 /** Sell first: it sits under the Bid, which is the left-hand quote in the header. */
@@ -100,24 +106,50 @@ export function ExecutionActions({
                 aria-describedby={`${descriptionIdPrefix}-${side}`}
                 onClick={() => onSubmit(side)}
                 className={[
-                  'flex min-h-[var(--wariba-size-touch-target-minimum)] flex-col items-center justify-center',
-                  'rounded-[var(--wariba-radius-sm)] px-2 py-1.5 transition-colors',
+                  'flex min-h-12 flex-col items-center justify-center gap-0.5',
+                  'rounded-[var(--wariba-radius-sm)] px-2 py-2 transition-colors',
                   // `--wariba-action-destructive-text`, not `-primary-text`:
                   // the primary one is #0B0D12 under a dark theme (correct on
                   // the bright cobalt primary button, 3.1:1 and failing on
                   // these saturated surfaces). The destructive token is the
                   // one already paired with #A73C3C and is #FFFFFF in every
                   // theme — 6.3:1 on the Sell red, 5.8:1 on the Buy green.
-                  'text-[color:var(--wariba-action-destructive-text)]',
+                  sideUnavailable
+                    ? 'text-[color:var(--wariba-text-secondary)]'
+                    : 'text-[color:var(--wariba-action-destructive-text)]',
                   'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]',
-                  'disabled:bg-[color:var(--wariba-border-disabled)] disabled:text-[color:var(--wariba-text-disabled)]',
-                  SIDE_TONE[side],
+                  // Visual closure §10 — a *strong* disabled state, which means
+                  // legible as well as inert. The generic disabled pair
+                  // (`--wariba-text-disabled` on `--wariba-border-disabled`) is
+                  // 2.25:1 in the dark theme and the repo's own axe gates
+                  // caught it: this is the state a trader sees when they cannot
+                  // trade, i.e. exactly when they most need to read the button
+                  // and the reason beside it. Secondary text on the subtle
+                  // surface is 9.6:1, clearly not pressable, and clearly a
+                  // Sell/Buy button still.
+                  'disabled:bg-[color:var(--wariba-background-subtle)] disabled:text-[color:var(--wariba-text-secondary)]',
+                  'disabled:ring-1 disabled:ring-inset disabled:ring-[color:var(--wariba-border-disabled)]',
+                  /*
+                   * Visual closure §11 — the side the current quote does not
+                   * support drops its fill for an outline in its own side
+                   * colour, so the two actions stop being equally emphasised
+                   * while the side stays identifiable. It remains pressable:
+                   * this browser's quote is older than the one the server will
+                   * hold, and the server remains the authority.
+                   *
+                   * Deliberately **not** `opacity`. Element opacity composites
+                   * the label and its fill together over the panel, so a
+                   * 45%-faded Sell drops from 6.3:1 to roughly 2:1 — it would
+                   * have traded one accessibility failure for another, in a
+                   * control that is still live.
+                   */
+                  sideUnavailable ? SIDE_OUTLINE[side] : SIDE_TONE[side],
                 ].join(' ')}
               >
                 {/* The label stays put while a command is in flight — a
                     button whose text is replaced by a spinner changes width
                     mid-press and loses the one word that says what it does. */}
-                <span className="text-[length:var(--wariba-font-size-label-md)] font-semibold">
+                <span className="text-[length:var(--wariba-font-size-body-md)] font-semibold leading-none">
                   {label}
                 </span>
                 {/* Hidden from the name computation so the button is named
@@ -127,23 +159,29 @@ export function ExecutionActions({
                     drop it under the 4.5:1 minimum. */}
                 <span
                   aria-hidden="true"
-                  className="wariba-data text-[length:var(--wariba-font-size-data-xs)]"
+                  className="wariba-data text-[length:var(--wariba-font-size-data-xs)] leading-none tabular-nums"
                 >
-                  {price ?? DASH}
+                  {sideUnavailable ? 'hors marché' : (price ?? DASH)}
                 </span>
               </button>
 
               <span id={`${descriptionIdPrefix}-${side}`} className="sr-only">
                 {copy.accessible} {orderKind === 'market' ? copy.quoteLabel : 'au seuil'}
                 {price ? ` ${price}` : ''}
+                {sideUnavailable
+                  ? '. Ce seuil n’est pas valide de ce côté au prix actuel ; le serveur reste juge.'
+                  : ''}
               </span>
 
+              {/* §11 — the guidance names its own side and sits under it, rather
+                  than as one footer sentence a trader has to map back onto two
+                  buttons. */}
               {sideUnavailable ? (
                 <p
                   data-testid={`execution-side-unavailable-${side}`}
-                  className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-status-warning-text)]"
+                  className="text-[length:var(--wariba-font-size-data-xs)] leading-tight text-[color:var(--wariba-status-warning-text)]"
                 >
-                  Seuil non valide de ce côté au prix actuel.
+                  Non valide au cours actuel
                 </p>
               ) : null}
             </div>
@@ -151,15 +189,19 @@ export function ExecutionActions({
         })}
       </div>
 
-      {/* Kept verbatim from the pre-W4 ticket — it is the platform's standing
-          statement that no browser price is ever authoritative, and the GTC
-          sentence is the only duration WariX offers. */}
-      <p className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-tertiary)]">
-        Compte simulé. Exécution serveur uniquement — aucun prix client n&apos;est jamais
-        autoritaire.
-        {orderKind !== 'market'
-          ? ' Les ordres en attente sont GTC (valables jusqu’à annulation) — aucune autre durée n’est proposée.'
-          : ''}
+      {/*
+       * The platform's standing statement that no browser price is ever
+       * authoritative, and the GTC note that is the only duration WariX offers.
+       * Both facts are kept in full; visual closure §4 only asks that they stop
+       * competing with the controls, so they run at metadata size with the
+       * complete sentence available as the accessible title.
+       */}
+      <p
+        title="Compte simulé. L’exécution est faite par le serveur uniquement — aucun prix affiché dans le navigateur n’est jamais autoritaire."
+        className="text-[length:var(--wariba-font-size-data-xs)] leading-snug text-[color:var(--wariba-text-tertiary)]"
+      >
+        Compte simulé · exécution serveur — aucun prix client n&apos;est autoritaire.
+        {orderKind !== 'market' ? ' Ordres en attente GTC.' : ''}
       </p>
     </div>
   );

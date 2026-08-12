@@ -126,16 +126,26 @@ export const WorkstationShell = memo(function WorkstationShell({
         </div>
       )}
 
-      <div className="flex min-h-[40dvh] min-w-0 flex-1 flex-col lg:min-h-0 lg:[grid-area:2/3/3/4]">
+      {/*
+       * Visual closure §14 — the chart takes the height the phone actually has.
+       *
+       * `min-h-[40dvh]` only guaranteed a floor; with the status bar, market
+       * trigger and action rail all being `shrink-0`, the chart was left with
+       * whatever remained and rendered noticeably empty. `flex-1` plus a real
+       * minimum means it claims the space between the fixed rows instead —
+       * roughly 55–60dvh on a 390×844 phone — without inventing a single
+       * candle: the same observed history simply gets a taller box.
+       */}
+      <div className="flex min-h-[52dvh] min-w-0 flex-1 flex-col lg:min-h-0 lg:[grid-area:2/3/3/4]">
         {navigatorCollapsed ? (
           <div className="hidden shrink-0 lg:block">{navigatorRestore}</div>
         ) : null}
         {chart}
       </div>
 
-      <div className="min-w-0 shrink-0 px-[var(--wariba-component-workstation-panel-padding)] pb-2 lg:hidden">
-        {mobileExecutionAction}
-      </div>
+      {/* The rail owns its own seam and padding (§15/§16), so the shell gives
+          it the full width rather than insetting it on the page background. */}
+      <div className="min-w-0 shrink-0 lg:hidden">{mobileExecutionAction}</div>
 
       <div className="hidden min-h-0 min-w-0 border-l border-[color:var(--wariba-component-workstation-seam)] p-[var(--wariba-component-workstation-panel-padding)] lg:[grid-area:2/4/3/5] lg:flex lg:flex-col">
         {execution}

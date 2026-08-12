@@ -26,7 +26,11 @@ observable rather than aesthetic:
    as a separate widget, so nothing established that the quantity, the
    protection levels and the margin estimate all described one order.
 
-Three further defects were found while building and are recorded in §9.
+Further defects were found while building — four by the gates during W4 itself
+(§9), and seven more during the visual closure that followed human review: one
+real correctness bug in the chart (§10.1), four caught by gates (§10.8, §10.9),
+and two that only became visible in the captured screenshots (§10.10). All are
+recorded rather than quietly fixed.
 
 ---
 
@@ -322,8 +326,16 @@ reopen it, and the quantity and stop loss are still there.
 | `tests/workstation-render-ownership.test.tsx` | +3 | §4.8's numbers; single mount; symbol-change clearing through the real tree |
 | `tests/e2e/warix-w4.spec.ts` | 17 | Server acceptance, order book, rejection persistence, keyboard, axe, mobile |
 
-Web unit tests: 198 → 257. `@trade` E2E: 42 → 59, all green on desktop and
-mobile, including four full-page axe scans.
+Web unit tests: 198 → 257 at merge readiness, 270 after the visual closure.
+`@trade` E2E: 42 → 59, all green on desktop and mobile, including four full-page
+axe scans.
+
+The visual closure added `tests/chart-price-format.test.ts` (10, all five
+shipped instruments) and `packages/ui/tests/BottomSheet.test.tsx` (6, including
+the closed-dialog `display` contract), plus component coverage for the compact
+impact summary and per-side guidance, and two new E2E gates: chart precision
+follows the instrument, and the impact summary stays in the viewport with the
+actions.
 
 Two E2E assertions are worth naming because they test the *server*, not the
 panel: a quantity produced by three stepper presses (`0.13`) reaching the
@@ -362,18 +374,32 @@ The rejection is the one exception: it is genuinely provoked by asking for 1.00
 lot against the 0.60 forex exposure bucket, because a real server refusal with a
 real code is better evidence than a synthesised one.
 
-The manifest records two numbers a screenshot cannot answer:
+That breach route is installed **once, after every other capture**, because a
+`routeWebSocket` handler is not undone by `page.unrouteAll()`. The first version
+of this spec installed it mid-run, so every later capture silently inherited a
+breached account — which surfaced as a five-minute timeout clicking a Buy button
+that was correctly disabled. Ordering the run so the route never has to be
+removed is simpler than trying to remove it.
 
-```json
-"actionsWithinFirstScreen": {
-  "default":                    { "bottom": 672, "viewport": 900 },
-  "limitWithProtectionPreview": { "bottom": 672, "viewport": 900 },
-  "withServerRejectionNotice":  { "bottom": 672, "viewport": 900 }
-},
-"sideActionContrast": { "buy": 5.79, "sell": 6.05 }
-```
+The visual closure extended the capture set to what §20 of the review asked
+for — desktop 1366×768, 1440×900 and 1920×1080 in the default, Limit, blocked
+and refused states; mobile 390×844 in all four plus the chart-first screen with
+the sheet closed; and a 320-wide density smoke.
 
-Contrast is measured from the live DOM, not asserted from the token file.
+The manifest records what a screenshot cannot answer:
+
+| Key | What it settles |
+|---|---|
+| `actionsWithinFirstScreen` | Where the Sell/Buy row sits relative to the fold, in every state and at 1366 as well as 1440 |
+| `sideActionContrast` | Measured contrast of the two saturated actions while enabled |
+| `disabledActionContrast` | The same while blocked — the state a trader reads when they cannot act |
+| `mobileSheetSurface` | The colour the sheet actually paints, and its share of the viewport |
+| `mobileChartBox` | How much of a 390×844 phone the chart claims |
+| `documentOverflow` | `scrollWidth` vs `clientWidth` at all eight required viewports |
+| `executionCentersMountedOnMobile` | One mount point per presentation, never both |
+
+Every number is read from the live DOM, never asserted from the token file —
+which is how both contrast defects were found rather than argued about.
 
 ---
 
@@ -432,7 +458,314 @@ existed stays on the record.
 
 ---
 
-## 10. W4 FLAGS
+## 10. VISUAL CLOSURE — HUMAN REVIEW CORRECTIONS
+
+PR #24 was accepted functionally and architecturally, and **failed human visual
+review**. This section records the corrections. They are presentation and
+interaction only: no trading semantics, no database, realtime or domain
+financial rule, and no new business logic. Every W4 engineering property listed
+in §1–§9 is preserved — one Execution Center tree, the external
+`TicketDraftStore`, the Decimal-safe quantity helpers, the canonical impact
+helpers, Market/Limit/Stop, attached SL/TP, rejection behaviour, the entry
+gates, exactly-once submission, the mobile sheet architecture and render
+ownership.
+
+### 10.1 The one correctness defect: chart price precision (§6)
+
+Not a taste question. `TradeChart` never gave lightweight-charts a
+`priceFormat`, so the series kept the library default
+`{ precision: 2, minMove: 0.01 }` and **every label the renderer drew printed
+two decimals regardless of the instrument**. On EURUSD that meant the Bid and
+Ask axis lines both read `1.09` while the market was 1.08504 / 1.08514 — a
+10-pip presentation error on a 1-pip spread, and a spread rendered as zero.
+
+The fix is one option, applied from the instrument's own
+`SymbolSpec.pricePrecision` (`chart-price-format.ts`). It is applied in an
+effect rather than at `addCandlestickSeries`, because the chart is created once
+on mount while the spec arrives over the websocket and changes with the selected
+symbol — creating the series with a format would bake in whichever spec loaded
+first, which on a cold session is none.
+
+`minMove` matters as much as `precision`: lightweight-charts uses it to choose
+the price-scale tick spacing, so a correct precision with a stale `minMove`
+prints right numbers on wrong gridlines.
+
+**Nothing authoritative changed.** The overlay's own handles print the server's
+`priceFormatted` strings verbatim and always did; this module only tells the
+renderer how many decimals to draw.
+
+Regression tests cover all five shipped instruments against their live
+`app.symbol_specs.price_precision` values — EURUSD 5, GBPUSD 5, USDJPY 3,
+XAUUSD 2, NAS100 1 — and assert the **rendered label**, not the format object:
+an internally consistent format that still prints the wrong digit count would
+pass the weaker assertion. One case asserts the specific regression directly
+(under the default, EURUSD's bid and ask collapse onto the same label).
+
+Because the renderer draws into a canvas, no selector can read `1.08504` back
+off the price scale. The chart container therefore exposes
+`data-price-precision`, and the E2E asserts it is 5 for EURUSD and follows the
+instrument to 1 on NAS100. Unit test proves format → label; E2E proves spec →
+format. The chain is complete without pretending to read a canvas.
+
+### 10.2 The white mobile sheet (§2, §3, §16)
+
+A `<dialog>` takes `background-color: Canvas` from the UA stylesheet — white.
+Nothing overrode it, so the dark Execution Center rendered inside a white
+iOS-looking modal shell, and the title, painted with `--wariba-text-primary`
+(#F4F5F7 under a dark scheme), was white on white.
+
+Fixed at the **primitive**, not at the call site that exposed it: every
+trade-side sheet — markets, dock, partial close, chart menu, risk detail — had
+the same shell. `BottomSheet` now paints `--wariba-theme-surface` /
+`-text` / `-border`, which is what makes one fix correct in all three themes:
+the sheet takes the surface of whatever workspace it opens in, so `(trade)` is
+dark and `(control)` stays light. (Custom properties inherit through the DOM
+tree, not the visual layer, so a top-layer dialog still resolves the
+`data-wariba-theme` variables of the subtree it is written in.)
+
+Two new props, both opt-in so no other sheet changes: `size="tall"` opens the
+execution sheet to a fixed 90dvh working height instead of hugging its content,
+and `flush` hands the box to the panel so its seams run edge to edge and its own
+sticky footer becomes the sheet's footer.
+
+### 10.3 Hierarchy, and the fold (§4, §5, §9, §10, §17)
+
+The reading order was already right; the *weighting* was not. Section labels ran
+at `label-sm` in normal weight, one step from the values beneath them, so
+nothing won and the panel read as a form.
+
+- **Labels became locators.** `data-xs`, wider tracking, tertiary — unambiguous
+  when looked for, invisible when not.
+- **Quotes became the largest thing on the panel.** Bid and Ask moved from
+  `data-md` (16px) to `data-lg` (24px) with their labels at `data-xs` (11px). A
+  13px gap is what makes "1.08504" register before the word "Bid".
+- **The actions grew** and the invalid side is now de-saturated rather than
+  equally emphasised.
+- **Margin, DLL and MLL are always visible.** They sat inside the scrolling
+  region, so at 1440×900 a trader could have Sell and Buy in front of them with
+  all three scrolled out of sight. `ExecutionImpactSummary` renders
+  `impact.compact` — the *same* derivation, differing only in whether the unit
+  is glued on — in the pinned area between the fields and the actions.
+- **Notices are shorter, not smaller in content.** Title at body size and
+  semibold; explanation at `data-xs` with tight leading. A rejection carries its
+  reason, its suggested action and its code in the space the reason alone used
+  to take.
+
+### 10.4 Copy compaction, with nothing hidden (§7, §8)
+
+Two lines of persistent body copy were carrying database formatting into the
+interface:
+
+| Before | After |
+|---|---|
+| `Pas 0.0100 · Min 0.0100 · Max 10.0000` | `Pas 0.01 · 0.01–10.00` |
+| `Prix · 5 décimales — joints à l'ordre, pas envoyés séparément.` | `Prix · 5 déc. · joints à l'ordre` |
+
+The padding in the first is `numeric(14,4)` leaking through; it is stripped with
+`quantityDisplayScale` — the same helper the stepper formats with, so the bounds
+shown and the values the steppers produce cannot print differently. Both lines
+keep every fact, and both carry the full sentence as an accessible `title`.
+
+### 10.5 Side guidance that names its side (§11)
+
+Before: both buttons equally emphasised, one footer sentence a trader had to map
+back onto them. Now the side the current quote cannot create is de-saturated,
+labelled "Non valide au cours actuel" **under that side**, and shows "hors
+marché" in place of a price.
+
+It stays **pressable**, and that is deliberate: `creatableSidesFor` runs the
+exact rule the server re-runs under lock, but against *this browser's* last
+tick, which is by definition older than the quote the server will hold at
+command time. Disabling would turn a momentarily stale local quote into a hard
+block on a legitimate order. The description says so — "le serveur reste juge".
+
+The de-emphasis is an **outline, not opacity**, and the reason is worth keeping.
+Element opacity composites a button's label together with its own fill over the
+panel behind it, so a 45%-faded Sell drops from 6.3:1 to roughly 2:1 — it would
+have traded one accessibility failure for another, on a control that is still
+live. Dropping the fill for a 1px ring in the side's own colour de-emphasises
+just as clearly, keeps the side identifiable, and leaves the label on the panel
+surface at full contrast.
+
+### 10.6 Density and typography, measured (§12, §13)
+
+The execution column widened by 16px at the compact band and 8px at the default
+band (320→336, 340→348; `wide` was never cramped and is unchanged). The
+constraint that decides this is chart dominance, so it was measured rather than
+asserted:
+
+| Viewport | Chart before | Chart after |
+|---|---|---|
+| 1366×768 | 750px (54.9%) | 734px (53.7%) |
+| 1440×900 | 824px (57.2%) | 808px (56.1%) |
+| 1920×1080 | 1244px (64.8%) | 1236px (64.4%) |
+
+The chart remains by far the largest region at every width — more than twice the
+execution column. The change is one line in `docs/05-design/tokens.json`; the
+generated `tokens.css` is regenerated, never hand-edited.
+
+Typography was raised where a number is *read*, not globally: Market Navigator
+quotes and the status bar's equity/balance/DLL/MLL values moved from `data-xs`
+(11px) to `data-sm` (12px) with tabular figures. Their labels did not move, so
+the rows got more legible without getting taller. The spread stays a step below
+the quote it belongs to.
+
+**The status bar keeps 11px on a phone**, and that is a correction rather than a
+hedge. W2 §25 gives that row a hard density budget — the document must never
+scroll sideways — and 12px spent it: the metrics group grew to 159px and the bar
+overflowed a 360px viewport by 4px, which the repo's own mobile overflow gate
+caught. The legibility complaint §13 raises is a desktop one, and the same `sm:`
+boundary already decides short vs long labels on that row.
+
+### 10.7 Mobile framing (§14, §15)
+
+The chart had only a `min-h-[40dvh]` floor while every other row was
+`shrink-0`, so it took whatever remained and read as empty. It now claims the
+space between the fixed rows (`flex-1`, floor raised to 52dvh) — **no candle is
+invented**; the same observed history simply gets a taller box.
+
+The action pair became one seamed rail on the workstation surface: primary
+"Trader {symbol}", secondary "Activité" with its open-position count as a
+badge. Both still only open a sheet — nothing in the rail can submit an order.
+
+### 10.8 The defect this closure itself introduced, and caught
+
+Recorded because it is the most instructive thing in the whole closure.
+
+Giving `BottomSheet` a flex column — so the execution sheet could pin a header
+and a footer — meant adding `flex` to the `<dialog>`'s class list. A `<dialog>`
+is hidden by the UA rule `dialog:not([open]) { display: none }`, and **any**
+explicit `display` in a class beats it. Every *closed* sheet therefore became a
+full-width, invisible, page-covering click blocker.
+
+That is not a cosmetic slip. `TradeRiskDetail` mounts its sheet permanently and
+merely closes it, so one word made the workstation's quantity stepper
+unclickable: the E2E timed out with the closed risk sheet "intercepting pointer
+events" over the execution column.
+
+Fixed with `open:flex`, which gives the same layout only while the dialog is
+open, and locked down by a `packages/ui/tests/BottomSheet.test.tsx` case that
+asserts no unconditional `display` utility is present — the class contract
+rather than a computed style, because jsdom does not apply the UA stylesheet.
+
+Two things worth keeping from it: a shared primitive is exactly where a
+one-word change reaches furthest, and the failure surfaced as a *timeout on an
+unrelated control*, which is the signature this class of bug always has.
+
+### 10.9 A second contrast defect, in the state that matters most
+
+The side actions inherited the generic disabled pair —
+`--wariba-text-disabled` on `--wariba-border-disabled` — which measures
+**2.25:1** in the dark theme. The repo's own axe gates caught it once the
+buttons grew, and it is worth stating why it mattered rather than treating it
+as a lint failure: the disabled state is what a trader sees when they *cannot*
+trade, which is exactly when they most need to read the button and the reason
+printed beside it.
+
+`--wariba-text-secondary` on `--wariba-background-subtle`, with an inset ring
+in the old disabled border colour, is 9.6:1 — unmistakably inert, unmistakably
+still a Sell or Buy button, and legible. The evidence manifest records it as
+`disabledActionContrast`, measured from the live DOM in the blocked-entry
+capture rather than computed here.
+
+§10 asked for a "strong disabled state". Strong has to include readable.
+
+### 10.10 Two defects only the screenshots could catch
+
+Every other finding in this closure came from a gate. These two came from
+looking at the captured images, and are worth separating for that reason.
+
+**The margin was printed twice.** The 390×844 capture showed "Marge estimée
+216.99 USD" in the scrollable Impact section and "MARGE 216.99" in the pinned
+summary — four rows apart, both on screen at once on a 90dvh sheet. §9 asked for
+the headline figures to *move* next to the actions; rendering them in both
+places was the lazier reading. Duplication in a panel about money reads as two
+numbers that happen to agree rather than as one fact. The Impact section now
+keeps only what the summary cannot carry — concentration per bucket and the
+stale-price caveat — and `ExecutionStatLine` became dead code and was deleted.
+
+**An "IMPACT" heading stood over an empty box.** With no concentration bucket
+and a live price, the section rendered its label and nothing else. That is
+precisely the "widget that announces itself" the W4 redesign existed to remove,
+reintroduced by the fix above. The section is now rendered only when it has
+content, or when there is no impact at all and the panel owes the trader an
+explanation.
+
+Neither was reachable by assertion: both are about what a *complete* screen
+looks like, not about whether an element exists.
+
+### 10.11 The ten review questions
+
+Answered against the re-captured evidence in `test-results/warix-w4-review/`.
+Where the answer is a judgement rather than a measurement, it says so.
+
+1. **Does the mobile sheet visually belong to the workstation?**
+   Yes. The sheet paints `--wariba-theme-surface` end to end — backdrop
+   boundary, drag handle, title, body and sticky actions — so under `(trade)`
+   it is the dark workstation surface and the title is readable. Recorded in the
+   manifest as `mobileSheetSurface`, read from the live DOM rather than asserted
+   from the token file. The fix is in the shared primitive, so the markets,
+   dock, partial-close, chart-menu and risk-detail sheets all changed with it.
+
+2. **Are Buy/Sell visible without scrolling?**
+   Yes, and it is a gate, not a claim. Only the fields scroll; the header,
+   notices, impact summary and actions are pinned. `warix-w4.spec.ts` drives the
+   panel into its tallest state and asserts both buttons are fully in the
+   viewport, and the manifest records their bottom edge at every captured
+   viewport including 1366×768.
+
+3. **Are Bid/Ask immediately readable?**
+   Yes. They run at `data-lg` (24px) semibold with tabular figures against
+   `data-xs` (11px) labels — a 13px gap where there was 4px.
+
+4. **Are EURUSD chart price labels shown at full required precision?**
+   Yes — this was a real defect, not a preference. The series had no
+   `priceFormat`, so the renderer printed two decimals for every instrument and
+   EURUSD's Bid and Ask both read `1.09`. Now driven by
+   `SymbolSpec.pricePrecision`, with regression tests over all five shipped
+   instruments and an E2E assertion that the chart is configured for 5 on EURUSD
+   and follows the instrument to 1 on NAS100.
+
+5. **Can margin/DLL/MLL be seen without scrolling?**
+   Yes. `ExecutionImpactSummary` renders them in the pinned region between the
+   fields and the actions, from `impact.compact` — the same derivation as the
+   detailed rows, not a second one.
+
+6. **Does Limit/Stop side guidance make sense immediately?**
+   Yes. The unsupported side is de-saturated, shows "hors marché" in place of a
+   price and is labelled "Non valide au cours actuel" directly beneath itself.
+   The ambiguous footer is gone. It stays pressable on purpose — the browser's
+   quote is older than the server's, and the description says the server remains
+   the judge.
+
+7. **Does the panel still feel like a form, or now like an execution instrument?**
+   A judgement, and the honest answer is "much closer to an instrument, and the
+   reviewer should confirm it". What changed is measurable: section labels
+   dropped from 12px normal to 11px tracked tertiary, the quotes rose to 24px,
+   two full sentences of body copy became metadata lines, and the decision
+   figures moved next to the actions. What remains form-like is the SL/TP pair,
+   which are genuinely two text inputs.
+
+8. **Is 1440×900 comfortable at 100% browser zoom?**
+   Better, and measured rather than asserted: the execution column went 320→336
+   and the critical values (navigator quotes, status-bar equity/DLL/MLL) went
+   11px→12px. Comfort is the reviewer's call — the evidence set includes
+   1366×768, which is the tighter case.
+
+9. **Does chart remain dominant?**
+   Yes. 53.7% of the viewport at 1366, 56.1% at 1440, 64.4% at 1920 — still more
+   than twice the execution column at every width. Full before/after table in
+   §10.6.
+
+10. **Does mobile remain chart-first?**
+    Yes. The chart now claims the space between the fixed rows instead of a
+    40dvh floor, and the sheet is the only thing that covers it — opened
+    deliberately, to 90dvh, leaving the status context above visible. The
+    manifest records the chart's actual share of a 390×844 phone.
+
+---
+
+## 11. W4 FLAGS
 
 ```
 W4_EXECUTION_CENTER_READY     = true      W4_DECIMAL_QUANTITY_READY     = true
@@ -461,3 +794,36 @@ W4 gates nothing in W5 (indicators and drawings sit on the chart's own overlay
 boundary, which W3 established). It does supply the section primitive and the
 draft-store pattern that W6's Performance surface and W7's Personal Risk Guard
 will both reuse.
+
+### 11.1 Visual closure flags
+
+```
+W4_VISUAL_DARK_MOBILE_SHEET_READY      = true
+W4_VISUAL_EXECUTION_HIERARCHY_READY    = true
+W4_VISUAL_BID_ASK_READY                = true
+W4_CHART_PRICE_PRECISION_READY         = true
+W4_VISUAL_COMPACT_IMPACT_READY         = true
+W4_VISUAL_SELL_BUY_READY               = true
+W4_VISUAL_PENDING_SIDE_GUIDANCE_READY  = true
+W4_VISUAL_DESKTOP_DENSITY_READY        = true
+W4_VISUAL_MOBILE_DENSITY_READY         = true
+W4_VISUAL_TYPOGRAPHY_READY             = true
+W4_VISUAL_EVIDENCE_READY               = true
+W4_FAST_GATE_READY                     = true
+
+W4_ACCEPTED = true   (pending human review of the re-captured evidence)
+```
+
+Unchanged by this closure, and re-asserted:
+
+```
+DATABASE_SCHEMA_CHANGED              = false
+TRADING_DOMAIN_MATH_CHANGED          = false
+REALTIME_EXECUTION_SEMANTICS_CHANGED = false
+LIGHTWEIGHT_CHARTS_REPLACED          = false
+WORKSPACE_PRESETS_STARTED            = false
+W5_STARTED                           = false
+```
+
+No indicator, drawing, timeframe or history-backfill work was started. The
+chart change is a `priceFormat` option on the existing series and nothing else.

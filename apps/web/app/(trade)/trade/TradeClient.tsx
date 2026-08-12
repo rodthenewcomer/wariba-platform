@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { BottomSheet, Button } from '@wariba/ui';
+import { BottomSheet } from '@wariba/ui';
 import type { PendingOrderType, TradableSymbol } from '@wariba/contracts';
 import { useOneClickTrading } from '../../../lib/one-click-trading';
 import { ChartWorkspace, type ChartWorkspaceActions } from './ChartWorkspace';
@@ -510,22 +510,51 @@ export function TradeClient({
           />
         }
         mobileExecutionAction={
-          <div className="flex gap-2">
-            <Button variant="secondary" className="flex-1" onClick={() => setTicketOpen(true)}>
-              Trader {selectedSymbol}
-            </Button>
-            <Button
-              variant="ghost"
+          /*
+           * Visual closure §15 — an action rail, not two loose buttons.
+           *
+           * The pair sat on the page background with a gap between them, which
+           * is why it read as generic chrome rather than as part of the
+           * workstation. It is now one seamed bar on the workstation surface,
+           * with the primary action carrying the instrument it will trade and
+           * the secondary one carrying its own open-position count. Still two
+           * plain buttons underneath — no new navigation row, and nothing here
+           * can submit an order (both only open a sheet).
+           */
+          <div
+            data-testid="mobile-action-rail"
+            className="flex items-stretch gap-2 border-t border-[color:var(--wariba-component-workstation-seam)] bg-[color:var(--wariba-component-workstation-surface-raised)] px-2 py-2"
+          >
+            <button
+              type="button"
+              onClick={() => setTicketOpen(true)}
+              className="flex min-h-[var(--wariba-size-touch-target-minimum)] flex-1 items-center justify-center gap-1.5 rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-action-primary)] px-3 text-[color:var(--wariba-action-primary-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]"
+            >
+              <span className="text-[length:var(--wariba-font-size-label-md)] font-semibold">
+                Trader
+              </span>
+              <span className="wariba-data text-[length:var(--wariba-font-size-data-sm)] font-semibold">
+                {selectedSymbol}
+              </span>
+            </button>
+            <button
+              type="button"
               onClick={() => setMobileDockOpen(true)}
               data-testid="mobile-dock-trigger"
+              className="flex min-h-[var(--wariba-size-touch-target-minimum)] items-center justify-center gap-1.5 rounded-[var(--wariba-radius-sm)] border border-[color:var(--wariba-component-workstation-seam)] px-3 text-[color:var(--wariba-text-secondary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]"
             >
-              Activité
+              <span className="text-[length:var(--wariba-font-size-label-md)] font-medium">
+                Activité
+              </span>
               {openPositionCount > 0 ? (
-                <span className="wariba-data ml-1.5 text-[length:var(--wariba-font-size-data-xs)]">
+                <span
+                  aria-label={`${openPositionCount} position ouverte`}
+                  className="wariba-data min-w-5 rounded-full bg-[color:var(--wariba-surface-selected)] px-1.5 text-center text-[length:var(--wariba-font-size-data-xs)] font-semibold text-[color:var(--wariba-theme-text)]"
+                >
                   {openPositionCount}
                 </span>
               ) : null}
-            </Button>
+            </button>
           </div>
         }
         // W4 §69/§70 — the Execution Center exists exactly once in the
@@ -548,8 +577,10 @@ export function TradeClient({
         onClose={() => setMobileDockOpen(false)}
         title="Activité de trading"
       >
+        {/* The sheet now owns its own height ceiling and scrolling, so the
+            dock no longer needs a second, smaller one of its own. */}
         {!isDesktop && mobileDockOpen ? (
-          <div className="max-h-[70dvh] min-h-0 overflow-auto">{workstationDock}</div>
+          <div className="flex min-h-0 flex-col">{workstationDock}</div>
         ) : null}
       </BottomSheet>
 
@@ -562,6 +593,13 @@ export function TradeClient({
         open={!isDesktop && ticketOpen}
         onClose={() => setTicketOpen(false)}
         title={`Trader ${selectedSymbol}`}
+        // Visual closure §3 — a working height, not a content hug: the market
+        // header, order type, quantity and the sticky Sell/Buy footer must all
+        // be reachable without the sheet swallowing the status context above
+        // it. `flush` hands the box to the panel so its own seams run edge to
+        // edge and its own sticky footer is the sheet's footer.
+        size="tall"
+        flush
       >
         {!isDesktop && ticketOpen ? executionPanel : null}
       </BottomSheet>

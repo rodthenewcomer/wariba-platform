@@ -48,15 +48,13 @@ export function ProtectionSection({
   takeProfitError,
   preview,
 }: ProtectionSectionProps) {
-  const precisionHint = spec ? `Prix · ${spec.pricePrecision} décimales` : 'Prix';
-
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-1.5">
       <div className="grid grid-cols-2 gap-2">
         <div className="flex flex-col gap-1">
           <label
             htmlFor="execution-stop-loss"
-            className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]"
+            className="text-[length:var(--wariba-font-size-data-xs)] font-medium uppercase tracking-[0.06em] text-[color:var(--wariba-text-secondary)]"
           >
             Stop Loss
           </label>
@@ -78,7 +76,7 @@ export function ProtectionSection({
         <div className="flex flex-col gap-1">
           <label
             htmlFor="execution-take-profit"
-            className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]"
+            className="text-[length:var(--wariba-font-size-data-xs)] font-medium uppercase tracking-[0.06em] text-[color:var(--wariba-text-secondary)]"
           >
             Take Profit
           </label>
@@ -99,8 +97,26 @@ export function ProtectionSection({
         </div>
       </div>
 
-      <p className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-tertiary)]">
-        {precisionHint} — joints à l’ordre, pas envoyés séparément.
+      {/*
+       * Visual closure §8 — the same three facts on one compact line.
+       *
+       * "Prix · 5 décimales — joints à l'ordre, pas envoyés séparément." was a
+       * full sentence of persistent body copy under two fields that are already
+       * labelled and already placeholdered "Optionnel". The semantics it
+       * carries are not decoration and are therefore kept, not dropped: these
+       * are absolute *prices*, at the instrument's precision, and they ride on
+       * the same command as the order. They are now metadata sized, with the
+       * full sentence still available as the accessible title.
+       */}
+      <p
+        title={
+          spec
+            ? `Prix absolus à ${spec.pricePrecision} décimales, joints à l’ordre et jamais envoyés séparément.`
+            : 'Prix absolus, joints à l’ordre et jamais envoyés séparément.'
+        }
+        className="text-[length:var(--wariba-font-size-data-xs)] text-[color:var(--wariba-text-tertiary)]"
+      >
+        Prix{spec ? ` · ${spec.pricePrecision} déc.` : ''} · joints à l’ordre
       </p>
 
       {preview.sides ? (

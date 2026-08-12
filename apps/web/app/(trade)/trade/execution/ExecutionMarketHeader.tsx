@@ -50,11 +50,15 @@ export function ExecutionMarketHeader({
 
   return (
     <header className="flex flex-col gap-2 px-3 pb-2.5 pt-1" data-testid="execution-market-header">
+      {/* §4 step 1 — instrument and live status, read before anything else. */}
       <div className="flex items-baseline justify-between gap-2">
         <div className="flex items-baseline gap-2">
-          <span className="text-[length:var(--wariba-font-size-label-md)] font-semibold text-[color:var(--wariba-text-primary)]">
+          <span className="text-[length:var(--wariba-font-size-heading-sm)] font-semibold leading-none text-[color:var(--wariba-text-primary)]">
             {symbol}
           </span>
+          {/* The account is context, not a headline: it belongs on this row so
+              a trader can confirm which account they are about to commit, and
+              nowhere near the size of the instrument or the quotes. */}
           <span
             className="wariba-data text-[length:var(--wariba-font-size-data-xs)] text-[color:var(--wariba-text-tertiary)]"
             title="Compte"
@@ -63,7 +67,7 @@ export function ExecutionMarketHeader({
           </span>
         </div>
         <span
-          className="flex items-center gap-1.5 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]"
+          className="flex items-center gap-1.5 text-[length:var(--wariba-font-size-data-xs)] font-medium uppercase tracking-[0.06em] text-[color:var(--wariba-text-secondary)]"
           data-testid="execution-market-status"
           data-market-status={status ?? 'unavailable'}
         >
@@ -81,14 +85,27 @@ export function ExecutionMarketHeader({
         </span>
       </div>
 
-      <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
-        <div className="flex flex-col">
-          <span className="text-[length:var(--wariba-font-size-label-sm)] uppercase tracking-wide text-[color:var(--wariba-text-tertiary)]">
+      {/*
+       * Visual closure §5 — the quotes are the largest thing on the panel.
+       *
+       * They were `data-md` (16px) with `label-sm` (12px) labels above them, so
+       * a label and its price were within one step of each other and neither
+       * won. The price now runs at `data-lg` (24px) and the label drops to
+       * `data-xs` (11px): a 13px gap, which is what makes "1.08504" register
+       * before the word "Bid" does. Tabular figures throughout, so the digits
+       * do not shift column as the last decimal ticks.
+       *
+       * The digits shown are the server's own strings at the instrument's
+       * precision — nothing here rounds or reformats.
+       */}
+      <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-1.5">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[length:var(--wariba-font-size-data-xs)] uppercase tracking-[0.08em] text-[color:var(--wariba-text-tertiary)]">
             Vente · Bid
           </span>
           <span
             data-testid="execution-bid"
-            className={`wariba-data text-[length:var(--wariba-font-size-data-md)] font-semibold tabular-nums ${
+            className={`wariba-data text-[length:var(--wariba-font-size-data-lg)] font-semibold leading-none tabular-nums ${
               quotesAreLive
                 ? 'text-[color:var(--wariba-text-primary)]'
                 : 'text-[color:var(--wariba-text-tertiary)]'
@@ -98,22 +115,22 @@ export function ExecutionMarketHeader({
           </span>
         </div>
 
-        <div className="flex flex-col items-center pb-0.5">
-          <span className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
+        <div className="flex flex-col items-center gap-0.5 pb-0.5">
+          <span className="text-[length:var(--wariba-font-size-data-xs)] uppercase tracking-[0.08em] text-[color:var(--wariba-text-tertiary)]">
             Spread
           </span>
-          <span className="wariba-data text-[length:var(--wariba-font-size-data-xs)] text-[color:var(--wariba-text-secondary)]">
+          <span className="wariba-data text-[length:var(--wariba-font-size-data-sm)] tabular-nums text-[color:var(--wariba-text-secondary)]">
             {spread ?? DASH}
           </span>
         </div>
 
-        <div className="flex flex-col items-end">
-          <span className="text-[length:var(--wariba-font-size-label-sm)] uppercase tracking-wide text-[color:var(--wariba-text-tertiary)]">
+        <div className="flex flex-col items-end gap-0.5">
+          <span className="text-[length:var(--wariba-font-size-data-xs)] uppercase tracking-[0.08em] text-[color:var(--wariba-text-tertiary)]">
             Achat · Ask
           </span>
           <span
             data-testid="execution-ask"
-            className={`wariba-data text-[length:var(--wariba-font-size-data-md)] font-semibold tabular-nums ${
+            className={`wariba-data text-[length:var(--wariba-font-size-data-lg)] font-semibold leading-none tabular-nums ${
               quotesAreLive
                 ? 'text-[color:var(--wariba-text-primary)]'
                 : 'text-[color:var(--wariba-text-tertiary)]'

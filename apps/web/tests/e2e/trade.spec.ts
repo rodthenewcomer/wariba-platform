@@ -37,8 +37,8 @@ async function login(page: import('@playwright/test').Page, email: string, passw
  *
  * Both branches must also wait for the session to be genuinely *usable*, not
  * merely painted. The desktop branch already does that implicitly: its helper
- * string ("Pas 0.0100 · Min …") is rendered from the `symbol_specs` payload,
- * so it cannot appear before the specs land. The mobile branch had no
+ * element (`quantity-bounds`) is rendered from the `symbol_specs` payload, so
+ * it cannot appear before the specs land. The mobile branch had no
  * equivalent, and the chart context-menu tests depend on one — a long press
  * resolves its price through `series.coordinateToPrice`, which returns null
  * until the first tick has produced a candle and given the series a price
@@ -79,9 +79,7 @@ async function openTrade(page: import('@playwright/test').Page) {
 
   const width = page.viewportSize()?.width ?? DESKTOP_TICKET_BREAKPOINT;
   if (width >= DESKTOP_TICKET_BREAKPOINT) {
-    await expect(page.getByText('Pas 0.0100 · Min 0.0100 · Max 10.0000').first()).toBeVisible({
-      timeout: 30_000,
-    });
+    await expect(page.getByTestId('quantity-bounds')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('button', { name: 'Buy' }).first()).toBeEnabled();
     return;
   }
