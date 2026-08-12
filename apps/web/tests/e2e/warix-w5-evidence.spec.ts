@@ -389,17 +389,29 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
     // the honest "before" reading.
     let candlesBefore = await candleCount();
     let referenceBefore = await readReferenceBar();
-    let observedIncreaseDuringPan = false;
+    /**
+     * Whether the "before" reading can isolate the prepend.
+     *
+     * It only can when the page landed *after* the reading was taken and with no
+     * panning in between — otherwise the reading differs because the trader
+     * moved the chart, not because the prepend failed to compensate, and the
+     * comparison would report a false negative. The mirror risk is a false
+     * positive: if the page lands between reading the count and reading the
+     * legend, both samples are post-prepend and trivially equal. Both are closed
+     * by re-reading the count after the legend and demanding it is unchanged.
+     */
+    let cleanBeforeSample = false;
 
     for (let step = 0; step < 25; step += 1) {
       await panLeftOnce();
       const after = await candleCount();
       if (after > candlesBefore) {
-        observedIncreaseDuringPan = true;
+        cleanBeforeSample = false;
         break;
       }
       candlesBefore = after;
       referenceBefore = await readReferenceBar();
+      cleanBeforeSample = (await candleCount()) === candlesBefore;
       if ((await hasMoreOlder()) === 'false') break;
     }
 
@@ -408,7 +420,7 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
      * the server says nothing older is retained — §23's retention floor, which
      * is a truthful end state and not a failure.
      */
-    let pageLanded = observedIncreaseDuringPan;
+    let pageLanded = (await candleCount()) > candlesBefore;
     if (!pageLanded && (await hasMoreOlder()) === 'true') {
       await expect
         .poll(
@@ -446,10 +458,15 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
        */
       referenceBarBefore: referenceBefore,
       referenceBarAfter: referenceAfter,
-      viewportPreserved: pageLanded ? referenceBefore === referenceAfter : null,
-      viewportNote: pageLanded
-        ? 'same pixel, same bar → the prepend shifted the logical range, not the trader'
-        : 'no older page landed; retention floor reached, nothing to preserve',
+      viewportPreserved:
+        pageLanded && cleanBeforeSample ? referenceBefore === referenceAfter : null,
+      viewportNote: !pageLanded
+        ? 'no older page landed; retention floor reached, nothing to preserve'
+        : !cleanBeforeSample
+          ? 'the page landed inside a pan step, so a before/after reading would measure the pan rather than the prepend — indeterminate rather than guessed'
+          : referenceBefore === referenceAfter
+            ? 'same pixel, same bar across the prepend → the logical range shifted, the trader did not'
+            : 'the bar under the reference pixel changed across the prepend — investigate',
       exactPrependedCountNote:
         'the exact shift is asserted in chart-interaction-priority.test.tsx (setVisibleLogicalRange from+N, no fitContent); no production debug state was added here',
     };
