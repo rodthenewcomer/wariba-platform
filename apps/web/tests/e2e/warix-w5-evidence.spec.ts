@@ -374,6 +374,20 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
 
     const epochBefore = await sourceEpoch();
     const hasMoreBefore = await hasMoreOlder();
+    /**
+     * Recorded because the first evidence run surfaced it: hydration ends with
+     * `fitContent()` (W3 §44), which puts the entire loaded series in view, so
+     * the leftmost visible logical index is ~0 and the 50-bar backfill threshold
+     * is already crossed. One older page therefore loads with **no pan at all**.
+     *
+     * Not a correctness fault — the merge deduplicates, the viewport is
+     * compensated, single-inflight holds and the epoch is stable — but it is a
+     * behavioural deviation from §17/§18's "when the trader pans", and it costs
+     * one extra history request per hydration. Left exactly as it is: this pass
+     * is explicitly forbidden from changing production history behaviour. The
+     * numbers are surfaced here so a human can decide.
+     */
+    const candlesAtPanStart = await candleCount();
     await shot('1440x900-05a-before-pan-left');
 
     /** One pan-left gesture: drag the plot to the right, which moves back in time. */
@@ -442,6 +456,9 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
 
     manifest.backfill = {
       timeframe: INDICATOR_TIMEFRAME,
+      candlesAtPanStart,
+      automaticPageOnHydrationNote:
+        'hydration ends with fitContent(), so the whole series is visible and the 50-bar threshold is already crossed — one older page loads before any pan. Observed, not changed (see the spec comment).',
       candlesBefore,
       candlesAfter,
       pageLanded,
