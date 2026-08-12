@@ -5,29 +5,58 @@ import { expect, test } from './fixtures';
 /**
  * WariX Workstation 2026 — W5 human-review visual evidence.
  *
- * Captures the states a reviewer asked for in §146, and nothing else: no
- * product behaviour, no pixel assertions, and **not** part of any gate. Run
- * explicitly:
+ * Captures the states §146 asks for, and nothing else: no product behaviour, no
+ * pixel assertions, and **not** part of any gate. Run explicitly:
  *
  *   pnpm --filter @wariba/web exec playwright test \
  *     tests/e2e/warix-w5-evidence.spec.ts --project=desktop
  *
- * W5 §145's readiness rule is the one that matters here and it is stricter than
- * W3's. A screenshot is only evidence of chart intelligence if the chart is
- * genuinely intelligent at the moment it is taken: connection open, symbol specs
- * loaded, history `ready`, **enough finalized candles for a 100 SMA to have a
- * value**, and the indicator legend actually printing numbers rather than dashes.
- * A shot of one giant candle with four flat lines would misrepresent the
- * milestone, so `waitForAnalysis` refuses to return until all of that holds.
+ * ## Readiness is state-specific, because history is honest
  *
- * The manifest records what a screenshot cannot: how deep the observed history
- * was, whether the pan-left backfill actually fired, and by how many bars the
- * viewport was compensated — the number §21 exists to protect.
+ * The first version of this spec had one shared readiness gate that required
+ * every default indicator to hold a value before any screenshot. Since the
+ * preset includes SMA 100, that silently demanded **100 genuinely observed
+ * candles on every timeframe it was called for** — and W3's history is observed
+ * process memory at one tick per second, so:
+ *
+ *   5s → ~8 min · 15s → ~25 min · 30s → ~50 min · 1m → ~1 h 40 · 3m → ~5 h
+ *
+ * against a 10-minute test timeout. The spec could not honestly execute. The
+ * fix is *not* to fabricate candles, shorten the market's clock or hide missing
+ * indicator values — it is to ask each screenshot for the readiness it actually
+ * needs:
+ *
+ * - **Indicator proof** (§A) runs on one timeframe only, the shortest honest one
+ *   (5s), and waits for the realtime process to genuinely observe enough bars
+ *   for SMA 100 to have a value.
+ * - **Timeframe proof** (§B) asks only that the interval became active and the
+ *   chart honestly rendered whatever it has observed. Sparse 1m/3m history on a
+ *   young process is a correct W3 state, not a failure, and the manifest records
+ *   the depth rather than pretending it away.
+ * - **Drawing proof** (§C) needs geometry, not depth: specs loaded, history
+ *   resolved, a plot to click in.
+ *
+ * ## Backfill is waited for, not sampled
+ *
+ * The older-history page is asynchronous. Reading the candle count straight
+ * after the pan gesture can record `pageLanded: false` before the response has
+ * arrived. The harness now polls for one of two truthful terminal outcomes —
+ * a page lands, or the server reports no older retained page — and says which.
+ *
+ * Viewport preservation (§21) is proved through the UI that already exists: the
+ * OHLC legend reports the bar under the crosshair, so the same reading at the
+ * same pixel before and after a prepend means the bar did not move. No
+ * production debug state was added for a screenshot.
  */
 const OUT_DIR = 'test-results/warix-w5-review';
 
-/** 100 SMA needs 100 bars; ask for a little more so the line has visible length. */
-const MINIMUM_CANDLES_FOR_ANALYSIS = 130;
+/** §A — SMA 100's warm-up, on the shortest honest interval. 100 bars × 5s ≈ 8 min. */
+const INDICATOR_TIMEFRAME = '5s';
+const INDICATOR_MINIMUM_CANDLES = 100;
+/** Generous: this is genuine observation time, and the process may be cold. */
+const INDICATOR_WARMUP_TIMEOUT_MS = 900_000;
+/** A second page needs more than one initial page (400) retained. 400 × 5s ≈ 34 min. */
+const BACKFILL_TIMEOUT_MS = 300_000;
 
 async function signIn(page: Page, email: string, password: string): Promise<void> {
   await page.goto('/login');
@@ -42,13 +71,23 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
     page,
     tradeAccount,
   }) => {
-    test.setTimeout(600_000);
+    // Bounded by the two genuine waits above plus the captures themselves.
+    test.setTimeout(1_800_000);
     mkdirSync(OUT_DIR, { recursive: true });
 
     await signIn(page, tradeAccount.email, tradeAccount.password);
 
     const status = page.getByTestId('chart-history-status');
     const chart = (): Locator => page.getByRole('group', { name: /Graphique/ });
+
+    const candleCount = async (): Promise<number> =>
+      Number((await status.getAttribute('data-history-candles')) ?? '0');
+    const historyStatus = async (): Promise<string> =>
+      (await status.getAttribute('data-history-status')) ?? '';
+    const sourceEpoch = async (): Promise<string> =>
+      (await status.getAttribute('data-history-epoch')) ?? '';
+    const hasMoreOlder = async (): Promise<string> =>
+      (await chart().getAttribute('data-history-has-more-older')) ?? '';
 
     const openWorkstation = async (): Promise<void> => {
       await page.goto('/trade');
@@ -61,30 +100,46 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
     };
 
     /**
-     * §145 — the readiness gate. Returns the depth actually captured.
+     * The floor every capture shares: the chart resolved to a terminal state
+     * against an identified memory generation.
      *
-     * The last condition is the W5-specific one: the indicator legend must show
-     * a value for SMA 100, which is only true once 100 finalized candles have
-     * genuinely been observed. Waiting on candle count alone would let a shot
-     * through while the longest average was still an em dash.
+     * `ready` **or** `empty` — a young process that has observed no finalized
+     * bar of the selected interval yet is honestly `empty`, and §D says that is
+     * not a failure. What is never acceptable is photographing `loading`.
      */
-    const waitForAnalysis = async (minimum = MINIMUM_CANDLES_FOR_ANALYSIS): Promise<number> => {
+    const waitForResolvedHistory = async (): Promise<void> => {
       await expect(status).toHaveAttribute('data-history-epoch', /.+/, { timeout: 120_000 });
       await expect
-        .poll(async () => Number((await status.getAttribute('data-history-candles')) ?? '0'), {
-          timeout: 300_000,
-          message: `${minimum} finalized candles on screen`,
+        .poll(historyStatus, { timeout: 60_000, message: 'history resolves to a terminal state' })
+        .toMatch(/^(ready|empty)$/);
+    };
+
+    /**
+     * §A — the indicator proof's own gate, used for one timeframe only.
+     *
+     * Two conditions, both about genuinely observed data: enough finalized bars
+     * for the longest average, and a legend with no em dash left in it. The
+     * second is what actually proves SMA 100 is calculating rather than warming
+     * up, and it is deliberately *not* required anywhere else in this file.
+     */
+    const waitForIndicatorWarmup = async (): Promise<number> => {
+      await waitForResolvedHistory();
+      await expect
+        .poll(candleCount, {
+          timeout: INDICATOR_WARMUP_TIMEOUT_MS,
+          intervals: [5_000],
+          message: `${INDICATOR_MINIMUM_CANDLES} genuinely observed ${INDICATOR_TIMEFRAME} candles (process warm-up, not fabrication)`,
         })
-        .toBeGreaterThanOrEqual(minimum);
-      await expect(status).toHaveAttribute('data-history-status', 'ready');
+        .toBeGreaterThanOrEqual(INDICATOR_MINIMUM_CANDLES);
       await expect(page.getByTestId('chart-indicator-legend')).toBeVisible({ timeout: 30_000 });
       await expect
         .poll(async () => (await page.getByTestId('chart-indicator-legend').textContent()) ?? '', {
-          timeout: 60_000,
-          message: 'every default indicator has a value',
+          timeout: 120_000,
+          intervals: [2_000],
+          message: 'every default indicator, SMA 100 included, holds a value',
         })
         .not.toContain('—');
-      return Number((await status.getAttribute('data-history-candles')) ?? '0');
+      return candleCount();
     };
 
     const selectTimeframe = async (timeframe: string): Promise<void> => {
@@ -93,6 +148,7 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
         'aria-checked',
         'true',
       );
+      await waitForResolvedHistory();
     };
 
     const selectSymbol = async (symbol: string): Promise<void> => {
@@ -101,6 +157,7 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
         .first()
         .click();
       await expect(chart()).toHaveAccessibleName(new RegExp(symbol));
+      await waitForResolvedHistory();
     };
 
     const selectTool = async (name: string): Promise<void> => {
@@ -108,13 +165,18 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
       await page.getByRole('button', { name, exact: true }).click();
     };
 
+    const plotBox = async (): Promise<{ x: number; y: number; width: number; height: number }> => {
+      const box = await chart().boundingBox();
+      if (!box) throw new Error('chart has no bounding box');
+      return box;
+    };
+
     /** Two chart clicks at fractions of the plot box — enough for any two-anchor tool. */
     const drawTwoPoints = async (
       from: { x: number; y: number },
       to: { x: number; y: number },
     ): Promise<void> => {
-      const box = await chart().boundingBox();
-      if (!box) throw new Error('chart has no box');
+      const box = await plotBox();
       await page.mouse.click(box.x + box.width * from.x, box.y + box.height * from.y);
       await page.mouse.move(box.x + box.width * to.x, box.y + box.height * to.y);
       await page.mouse.click(box.x + box.width * to.x, box.y + box.height * to.y);
@@ -124,45 +186,74 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
       await page.screenshot({ path: `${OUT_DIR}/${name}.png`, fullPage: false });
     };
 
-    const manifest: Record<string, unknown> = {};
+    const documentOverflow = async (): Promise<boolean> =>
+      page.evaluate(
+        () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      );
 
-    // ---- 1440×900 — 1. NAS100 1m with the four default moving averages -----
+    const manifest: Record<string, unknown> = {
+      capturedAt: new Date().toISOString(),
+      historySource: 'observed process memory (W3) — no fabricated candles',
+    };
+
+    // =====================================================================
+    // §B — TIMEFRAME PROOF. Selection works, the interval becomes active, and
+    // whatever was genuinely observed is rendered. SMA 100 is NOT required.
+    // =====================================================================
     await page.setViewportSize({ width: 1440, height: 900 });
     await openWorkstation();
     await selectSymbol('NAS100');
-    await selectTimeframe('1m');
-    manifest.nas100_1m_candles = await waitForAnalysis();
-    manifest.indicatorLegend = await page.getByTestId('chart-indicator-legend').textContent();
-    await shot('1440x900-01-nas100-1m-four-moving-averages');
 
-    // Toolbar density is the §62 question, measured rather than eyeballed.
+    const timeframeProof: Record<string, unknown> = {};
+    for (const timeframe of ['5s', '15s', '30s', '1m', '3m']) {
+      await selectTimeframe(timeframe);
+      timeframeProof[timeframe] = {
+        active: await page
+          .getByRole('radio', { name: timeframe, exact: true })
+          .getAttribute('aria-checked'),
+        historyStatus: await historyStatus(),
+        observedCandles: await candleCount(),
+        // §D — sparse long-interval history on a young process is honest, and
+        // is recorded as such rather than read as a defect.
+        note:
+          (await candleCount()) < 100
+            ? 'sparse — fewer observed bars than a 100-period average needs; correct W3 state'
+            : 'sufficient for every default indicator',
+      };
+    }
+    manifest.timeframeProof = timeframeProof;
+
+    // The two intervals W5 adds, captured on their own.
+    await selectTimeframe('15s');
+    await shot('1440x900-02a-nas100-15s-timeframe-active');
+    await selectTimeframe('3m');
+    await shot('1440x900-02b-nas100-3m-timeframe-active');
+
+    // Toolbar density (§62), measured rather than eyeballed.
     const toolbarBox = await page.getByTestId('chart-toolbar').boundingBox();
     manifest.toolbarHeightAt1440 = toolbarBox ? Math.round(toolbarBox.height) : null;
-    manifest.documentOverflowAt1440 = await page.evaluate(
-      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
-    );
+    manifest.documentOverflowAt1440 = await documentOverflow();
 
-    // ---- 2. NAS100 15s with the indicator menu open ------------------------
-    await selectTimeframe('15s');
-    await waitForAnalysis(60);
-    await page.getByTestId('chart-indicators-trigger').click();
-    await expect(page.getByTestId('chart-indicator-options')).toBeVisible();
-    await shot('1440x900-02-nas100-15s-indicator-menu');
-    await page.keyboard.press('Escape');
-
-    // ---- 3. EURUSD 3m with a trend line and a horizontal line --------------
+    // =====================================================================
+    // §C — DRAWING PROOF. Needs geometry, not depth.
+    // =====================================================================
     await selectSymbol('EURUSD');
     await selectTimeframe('3m');
-    await waitForAnalysis(20);
+    manifest.drawingProof = {
+      timeframe: '3m',
+      historyStatus: await historyStatus(),
+      observedCandles: await candleCount(),
+      note: 'drawings require a plot and a price scale, not a warmed 100-period average',
+    };
+
     await selectTool('Ligne de tendance');
     await drawTwoPoints({ x: 0.25, y: 0.65 }, { x: 0.7, y: 0.35 });
     await selectTool('Ligne horizontale');
-    const plot = await chart().boundingBox();
-    if (plot) await page.mouse.click(plot.x + plot.width * 0.5, plot.y + plot.height * 0.45);
+    const box = await plotBox();
+    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.45);
     await expect(chart()).toHaveAttribute('data-drawing-count', '2');
     await shot('1440x900-03-eurusd-3m-trend-and-horizontal');
 
-    // ---- 4. EURUSD with a Fibonacci retracement and a rectangle ------------
     await selectTool('Fibonacci');
     await drawTwoPoints({ x: 0.3, y: 0.25 }, { x: 0.62, y: 0.75 });
     await selectTool('Rectangle');
@@ -171,47 +262,140 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
     await shot('1440x900-04-eurusd-fibonacci-and-rectangle');
     manifest.drawingsOnChart = await chart().getAttribute('data-drawing-count');
 
-    // ---- 5. A backfilled chart, scrolled left ------------------------------
-    // §21's real question: after older bars land, is the trader still looking at
-    // what they were looking at? The bar count before and after is recorded so a
-    // reviewer can confirm the page arrived, and the screenshot shows where the
-    // viewport ended up.
-    await selectTimeframe('5s');
-    const beforeBackfill = await waitForAnalysis(MINIMUM_CANDLES_FOR_ANALYSIS);
-    const box = await chart().boundingBox();
-    if (box) {
-      await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
-      // Drag right repeatedly — panning right moves the viewport back in time.
-      for (let pull = 0; pull < 12; pull += 1) {
-        await page.mouse.down();
-        await page.mouse.move(box.x + box.width * 0.92, box.y + box.height * 0.5, { steps: 12 });
-        await page.mouse.up();
-        await page.mouse.move(box.x + box.width * 0.15, box.y + box.height * 0.5);
-      }
-    }
-    const afterBackfill = Number((await status.getAttribute('data-history-candles')) ?? '0');
-    manifest.backfill = {
-      candlesBefore: beforeBackfill,
-      candlesAfter: afterBackfill,
-      pageLanded: afterBackfill > beforeBackfill,
-      hasMoreOlder: await chart().getAttribute('data-history-has-more-older'),
+    // =====================================================================
+    // §A — INDICATOR PROOF. One timeframe, genuinely warmed.
+    // =====================================================================
+    await selectSymbol('NAS100');
+    await selectTimeframe(INDICATOR_TIMEFRAME);
+    const indicatorCandles = await waitForIndicatorWarmup();
+    manifest.indicatorProof = {
+      timeframe: INDICATOR_TIMEFRAME,
+      observedCandles: indicatorCandles,
+      legend: await page.getByTestId('chart-indicator-legend').textContent(),
+      sourceEpoch: await sourceEpoch(),
     };
-    await shot('1440x900-05-backfilled-scrolled-left');
+    await shot('1440x900-01-nas100-5s-four-moving-averages');
 
-    // ---- 6. 1920×1080 — the whole workstation ------------------------------
+    await page.getByTestId('chart-indicators-trigger').click();
+    await expect(page.getByTestId('chart-indicator-options')).toBeVisible();
+    await shot('1440x900-02-nas100-indicator-menu');
+    await page.keyboard.press('Escape');
+
+    // =====================================================================
+    // BACKFILL — waited for, not sampled.
+    // =====================================================================
+    const plot = await plotBox();
+    /** A fixed pixel inside the plot; the OHLC legend reports the bar under it. */
+    const referenceX = plot.x + plot.width * 0.35;
+    const referenceY = plot.y + plot.height * 0.5;
+    const readReferenceBar = async (): Promise<string> => {
+      await page.mouse.move(referenceX, referenceY);
+      // The legend updates only when the bar under the crosshair changes, so a
+      // short settle is enough and no arbitrary sleep is load-bearing.
+      await expect(page.getByTestId('chart-ohlc-legend')).toBeVisible({ timeout: 10_000 });
+      return (await page.getByTestId('chart-ohlc-legend').textContent()) ?? '';
+    };
+
+    const epochBefore = await sourceEpoch();
+    const hasMoreBefore = await hasMoreOlder();
+    await shot('1440x900-05a-before-pan-left');
+
+    /** One pan-left gesture: drag the plot to the right, which moves back in time. */
+    const panLeftOnce = async (): Promise<void> => {
+      await page.mouse.move(plot.x + plot.width * 0.25, plot.y + plot.height * 0.5);
+      await page.mouse.down();
+      await page.mouse.move(plot.x + plot.width * 0.9, plot.y + plot.height * 0.5, { steps: 15 });
+      await page.mouse.up();
+    };
+
+    // Pan in steps until the count moves, sampling the reference bar after each
+    // settled step. The last sample taken while the count was still unchanged is
+    // the honest "before" reading.
+    let candlesBefore = await candleCount();
+    let referenceBefore = await readReferenceBar();
+    let observedIncreaseDuringPan = false;
+
+    for (let step = 0; step < 25; step += 1) {
+      await panLeftOnce();
+      const after = await candleCount();
+      if (after > candlesBefore) {
+        observedIncreaseDuringPan = true;
+        break;
+      }
+      candlesBefore = after;
+      referenceBefore = await readReferenceBar();
+      if ((await hasMoreOlder()) === 'false') break;
+    }
+
+    /**
+     * The terminal outcome. Either an older page lands and the count rises, or
+     * the server says nothing older is retained — §23's retention floor, which
+     * is a truthful end state and not a failure.
+     */
+    let pageLanded = observedIncreaseDuringPan;
+    if (!pageLanded && (await hasMoreOlder()) === 'true') {
+      await expect
+        .poll(
+          async () => (await candleCount()) > candlesBefore || (await hasMoreOlder()) === 'false',
+          {
+            timeout: BACKFILL_TIMEOUT_MS,
+            intervals: [500],
+            message: 'an older page lands, or the server reports no older retained page',
+          },
+        )
+        .toBe(true);
+      pageLanded = (await candleCount()) > candlesBefore;
+    }
+
+    const candlesAfter = await candleCount();
+    // Read at the same pixel, with the pointer never having left it between the
+    // prepend and this reading.
+    const referenceAfter = await readReferenceBar();
+
+    manifest.backfill = {
+      timeframe: INDICATOR_TIMEFRAME,
+      candlesBefore,
+      candlesAfter,
+      pageLanded,
+      hasMoreOlderBefore: hasMoreBefore,
+      hasMoreOlderAfter: await hasMoreOlder(),
+      sourceEpochBefore: epochBefore,
+      sourceEpochAfter: await sourceEpoch(),
+      sourceEpochStable: epochBefore === (await sourceEpoch()),
+      /**
+       * §21, proved through existing UI rather than added debug state: the OHLC
+       * legend names the bar under the crosshair, so an identical reading at an
+       * identical pixel means the prepend did not move it. `null` when no page
+       * landed, because there is then nothing to have preserved.
+       */
+      referenceBarBefore: referenceBefore,
+      referenceBarAfter: referenceAfter,
+      viewportPreserved: pageLanded ? referenceBefore === referenceAfter : null,
+      viewportNote: pageLanded
+        ? 'same pixel, same bar → the prepend shifted the logical range, not the trader'
+        : 'no older page landed; retention floor reached, nothing to preserve',
+      exactPrependedCountNote:
+        'the exact shift is asserted in chart-interaction-priority.test.tsx (setVisibleLogicalRange from+N, no fitContent); no production debug state was added here',
+    };
+    await shot('1440x900-05b-backfilled-scrolled-left');
+
+    // =====================================================================
+    // 1920×1080 — the whole workstation
+    // =====================================================================
     await page.setViewportSize({ width: 1920, height: 1080 });
     await openWorkstation();
-    await waitForAnalysis(60);
+    await waitForResolvedHistory();
+    await expect(page.getByTestId('execution-bid')).not.toHaveText('—', { timeout: 30_000 });
     await shot('1920x1080-06-workstation-chart-tools-and-execution-center');
 
-    // ---- 7-10. 390×844 mobile ---------------------------------------------
+    // =====================================================================
+    // 390×844 mobile
+    // =====================================================================
     await page.setViewportSize({ width: 390, height: 844 });
     await openWorkstation();
-    await waitForAnalysis(60);
+    await waitForResolvedHistory();
     await shot('390x844-07-chart-first-timeframe-strip');
-    manifest.documentOverflowAt390 = await page.evaluate(
-      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
-    );
+    manifest.documentOverflowAt390 = await documentOverflow();
 
     await page.getByTestId('chart-tools-sheet-trigger').click();
     await expect(page.getByTestId('chart-tools-sheet')).toBeVisible();
@@ -221,24 +405,20 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
     await expect(page.getByTestId('chart-active-tool')).toBeVisible();
     await shot('390x844-09-drawing-mode');
 
-    const mobilePlot = await chart().boundingBox();
-    if (mobilePlot) {
-      await page.mouse.click(
-        mobilePlot.x + mobilePlot.width * 0.5,
-        mobilePlot.y + mobilePlot.height * 0.5,
-      );
-    }
+    const mobilePlot = await plotBox();
+    await page.mouse.click(
+      mobilePlot.x + mobilePlot.width * 0.5,
+      mobilePlot.y + mobilePlot.height * 0.5,
+    );
     await expect(page.getByTestId('chart-drawing-actions')).toBeVisible();
     await shot('390x844-10-selected-drawing-actions');
 
-    // Every mobile viewport §67 names, checked for document overflow.
+    // Every mobile width §67 names.
     const overflow: Record<string, boolean> = {};
     for (const width of [320, 360, 390, 412, 430]) {
       await page.setViewportSize({ width, height: 844 });
-      await page.waitForTimeout(150);
-      overflow[String(width)] = await page.evaluate(
-        () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
-      );
+      await expect(page.getByTestId('chart-toolbar')).toBeVisible();
+      overflow[String(width)] = await documentOverflow();
     }
     manifest.mobileDocumentOverflow = overflow;
 

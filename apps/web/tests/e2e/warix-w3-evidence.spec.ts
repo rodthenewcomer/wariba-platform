@@ -114,10 +114,12 @@ test.describe('WariX W3 review evidence', { tag: ['@warix-w3-evidence'] }, () =>
       return Number((await status.getAttribute('data-history-candles')) ?? '0');
     };
 
+    // See the note on `selectTimeframe` in warix-w3.spec.ts: W5 §86 made this a
+    // real radiogroup, so the selector follows the semantics.
     const selectTimeframe = async (timeframe: '5s' | '30s' | '1m') => {
-      await page.getByRole('button', { name: timeframe, exact: true }).click();
-      await expect(page.getByRole('button', { name: timeframe, exact: true })).toHaveAttribute(
-        'aria-pressed',
+      await page.getByRole('radio', { name: timeframe, exact: true }).click();
+      await expect(page.getByRole('radio', { name: timeframe, exact: true })).toHaveAttribute(
+        'aria-checked',
         'true',
       );
     };
