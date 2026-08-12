@@ -27,45 +27,24 @@ export function ExecutionSection({ title, action, children, testId }: ExecutionS
   return (
     <section
       {...(testId ? { 'data-testid': testId } : {})}
-      className="flex flex-col gap-2 border-t border-[color:var(--wariba-component-workstation-seam)] px-3 py-2.5 first:border-t-0"
+      className="flex flex-col gap-1.5 border-t border-[color:var(--wariba-component-workstation-seam)] px-3 py-2 first:border-t-0"
     >
-      <div className="flex min-h-4 items-baseline justify-between gap-2">
-        <h3 className="text-[length:var(--wariba-font-size-label-sm)] uppercase tracking-wide text-[color:var(--wariba-text-tertiary)]">
+      {/*
+       * Visual closure §4 — the label is a locator, not a headline.
+       *
+       * At `label-sm` with normal weight these read as section titles competing
+       * with the values under them, which is what made the panel feel like a
+       * form. Dropped to `data-xs` with wider tracking: still unambiguous when
+       * you look for it, invisible when you are not — so the eye goes to the
+       * controls and the numbers instead.
+       */}
+      <div className="flex min-h-3 items-baseline justify-between gap-2">
+        <h3 className="text-[length:var(--wariba-font-size-data-xs)] font-medium uppercase tracking-[0.08em] text-[color:var(--wariba-text-tertiary)]">
           {title}
         </h3>
         {action}
       </div>
       {children}
     </section>
-  );
-}
-
-/** One label/value line, tabular figures on the value — the Trade Impact row shape. */
-export function ExecutionStatLine({
-  label,
-  value,
-  tone = 'default',
-}: {
-  label: string;
-  value: string;
-  tone?: 'default' | 'positive' | 'negative';
-}) {
-  const valueColor =
-    tone === 'positive'
-      ? 'text-[color:var(--wariba-status-success-text)]'
-      : tone === 'negative'
-        ? 'text-[color:var(--wariba-status-danger-text)]'
-        : 'text-[color:var(--wariba-text-primary)]';
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <span className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
-        {label}
-      </span>
-      <span
-        className={`wariba-data text-[length:var(--wariba-font-size-body-sm)] font-medium ${valueColor}`}
-      >
-        {value}
-      </span>
-    </div>
   );
 }

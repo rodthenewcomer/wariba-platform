@@ -53,9 +53,11 @@ async function openExecutionCenter(page: Page): Promise<void> {
   }
 
   await expect(page.getByTestId('execution-center')).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText('Pas 0.0100 · Min 0.0100 · Max 10.0000')).toBeVisible({
-    timeout: 30_000,
-  });
+  // Rendered from the `symbol_specs` payload, so it cannot appear before the
+  // specs land. Anchored on the test id rather than the copy: visual closure §7
+  // compacted the wording, and a readiness gate should not break every time a
+  // sentence is shortened.
+  await expect(page.getByTestId('quantity-bounds')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId('execution-bid')).not.toHaveText('—', { timeout: 30_000 });
 }
 
@@ -186,7 +188,10 @@ test.describe('WariX Execution Center', { tag: ['@trade', '@warix-w4'] }, () => 
     // below the bid, so neither side is creatable at this threshold.
     await page.getByTestId('trigger-price-input').fill(((bid + ask) / 2).toFixed(5));
 
-    await expect(page.getByTestId('trigger-price-no-side')).toBeVisible();
+    // Visual closure §11 — the guidance names its own side and sits under it,
+    // instead of one footer sentence a trader has to map onto two buttons.
+    await expect(page.getByTestId('execution-side-unavailable-buy')).toBeVisible();
+    await expect(page.getByTestId('execution-side-unavailable-sell')).toBeVisible();
     // Advisory, not a gate: the browser's quote is older than the one the
     // server will hold at command time, so the note explains rather than
     // blocks and the server stays the authority (W4 §20).
@@ -263,6 +268,40 @@ test.describe('WariX Execution Center', { tag: ['@trade', '@warix-w4'] }, () => 
       );
       await expect(page.getByTestId(testId)).toBeInViewport({ ratio: 1 });
     }
+
+    // Visual closure §9 — margin and both loss budgets stay with the actions,
+    // whatever the Impact section above is scrolled to.
+    await expect(page.getByTestId('execution-impact-summary')).toBeInViewport({ ratio: 1 });
+    await expect(page.getByTestId('execution-impact-summary-margin')).not.toBeEmpty();
+    await expect(page.getByTestId('execution-impact-summary-dll')).not.toBeEmpty();
+    await expect(page.getByTestId('execution-impact-summary-mll')).not.toBeEmpty();
+  });
+
+  test('renders chart price labels at the instrument’s own precision', async ({
+    page,
+    tradeAccount,
+  }) => {
+    // Visual closure §6. lightweight-charts draws its axis labels into a
+    // canvas, so no selector can read "1.08504" back off the price scale; what
+    // is asserted here is the one input that decides it, and
+    // `tests/chart-price-format.test.ts` proves that input produces the right
+    // label for all five shipped instruments.
+    await signIn(page, tradeAccount.email, tradeAccount.password);
+    await openExecutionCenter(page);
+
+    const chart = page.getByRole('group', { name: 'Graphique EURUSD' });
+    await expect(chart).toHaveAttribute('data-price-precision', '5');
+
+    // And it follows the instrument rather than sticking at whichever spec
+    // happened to load first.
+    await page
+      .getByTestId('market-navigator')
+      .getByRole('button', { name: /^NAS100/ })
+      .click();
+    await expect(page.getByRole('group', { name: 'Graphique NAS100' })).toHaveAttribute(
+      'data-price-precision',
+      '1',
+    );
   });
 
   test('a rejection keeps its reason, action and code, and survives the ticks that follow', async ({

@@ -4,6 +4,7 @@ import { memo } from 'react';
 import { quotedPrice } from '@wariba/domain';
 import type { AccountRisk, SymbolSpec, TradableSymbol } from '@wariba/contracts';
 import { ExecutionActions } from './execution/ExecutionActions';
+import { ExecutionImpactSummary } from './execution/ExecutionImpactSummary';
 import { ExecutionMarketHeader } from './execution/ExecutionMarketHeader';
 import { ExecutionSection } from './execution/ExecutionSection';
 import { ExecutionStatus } from './execution/ExecutionStatus';
@@ -109,6 +110,8 @@ export const ExecutionPanel = memo(function ExecutionPanel({
   const impactInput = { spec, tick, risk, equity, draft };
   const impact = deriveTradeImpact(impactInput);
   const protectionPreview = deriveProtectionPreview(impactInput);
+  /** Null impact still owes an explanation; a populated one only needs the section for its detail. */
+  const hasImpactDetail = impact === null || impact.concentration.length > 0 || impact.isPriceStale;
 
   /**
    * The price each action references: its own executable quote for a market
@@ -173,7 +176,6 @@ export const ExecutionPanel = memo(function ExecutionPanel({
             <TriggerPriceControl
               orderKind={draft.orderKind}
               spec={spec}
-              tick={tick}
               value={draft.triggerPrice}
               onChange={draftStore.setTriggerPrice}
               error={triggerPriceError}
@@ -203,15 +205,28 @@ export const ExecutionPanel = memo(function ExecutionPanel({
           />
         </ExecutionSection>
 
-        <ExecutionSection title="Impact" testId="execution-impact">
-          <TradeImpactPanel impact={impact} />
-        </ExecutionSection>
+        {/*
+         * The section exists only when it has something the pinned summary
+         * above the actions does not already carry — a concentration bucket,
+         * or the stale-price caveat — or when there is no impact at all and
+         * the panel owes the trader an explanation. Otherwise the heading
+         * would stand over an empty box, which is exactly the "widget that
+         * announces itself" the W4 redesign removed.
+         */}
+        {hasImpactDetail ? (
+          <ExecutionSection title="Impact" testId="execution-impact">
+            <TradeImpactPanel impact={impact} />
+          </ExecutionSection>
+        ) : null}
       </div>
 
       {/* Explicitly opaque, not merely last in the flow: the fields above
           scroll *under* this bar, and a transparent one would let a
           half-scrolled input show through the buttons. */}
-      <div className="shrink-0 border-t border-[color:var(--wariba-component-workstation-seam)] bg-[color:var(--wariba-component-workstation-surface-raised)] pt-1">
+      <div className="shrink-0 bg-[color:var(--wariba-component-workstation-surface-raised)]">
+        {/* §9 — margin and both loss budgets stay with the actions, whatever
+            the Impact section above happens to be scrolled to. */}
+        <ExecutionImpactSummary impact={impact} />
         <ExecutionActions
           orderKind={draft.orderKind}
           referencePrice={referencePrice}

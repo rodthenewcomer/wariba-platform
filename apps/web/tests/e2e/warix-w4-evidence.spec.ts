@@ -88,9 +88,11 @@ test.describe('WariX W4 review evidence', { tag: ['@warix-w4-evidence'] }, () =>
         'open',
         { timeout: 30_000 },
       );
-      await expect(page.getByText('Pas 0.0100 · Min 0.0100 · Max 10.0000')).toBeVisible({
-        timeout: 30_000,
-      });
+      // Rendered from the `symbol_specs` payload, so it cannot appear before
+      // the specs land. Anchored on the test id rather than the copy: visual
+      // closure §7 compacted the wording, and a readiness gate should not
+      // break every time a sentence is shortened.
+      await expect(page.getByTestId('quantity-bounds')).toBeVisible({ timeout: 30_000 });
       // A real quote, not a dash: the panel's whole point is the two prices.
       await expect(page.getByTestId('execution-bid')).not.toHaveText('—', { timeout: 30_000 });
     };
@@ -155,10 +157,107 @@ test.describe('WariX W4 review evidence', { tag: ['@warix-w4-evidence'] }, () =>
     const rejectedActions = await actionsPosition();
     const rejectionCode = await page.getByTestId('execution-rejection').textContent();
 
-    // ---- Blocked entry, produced on the wire -------------------------------
-    // The account snapshot's own risk verdict is rewritten to `breached`; the
-    // panel reads that verdict rather than deriving one, so this is the exact
-    // state a genuinely breached account would show.
+    // ---- 1366×768, the tightest supported desktop --------------------------
+    await page.setViewportSize({ width: 1366, height: 768 });
+    await openWorkstation();
+    await shot('1366x768-workstation-execution-center');
+    const narrowDesktopActions = await actionsPosition();
+
+    // ---- 390×844 mobile ----------------------------------------------------
+    const openMobileSheet = async (): Promise<void> => {
+      await page.getByRole('button', { name: /^Trader/ }).click();
+      await expect(page.getByTestId('execution-center')).toBeVisible();
+      await expect(page.getByTestId('execution-bid')).not.toHaveText('—', { timeout: 30_000 });
+    };
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/trade');
+    await expect(page.getByTestId('mobile-market-trigger')).not.toContainText('— / —', {
+      timeout: 30_000,
+    });
+    await shot('390x844-chart-first-sheet-closed');
+    // §14 — how much of the phone the chart actually claims, recorded rather
+    // than asserted: the review question is whether it still reads as empty.
+    const chartBox = await page.getByRole('group', { name: /Graphique/ }).boundingBox();
+
+    await openMobileSheet();
+    await shot('390x844-execution-center-market');
+    const mobileCopies = await page.getByTestId('execution-center').count();
+    // §2/§3 — the sheet's own surface and how much of the viewport it takes.
+    const sheetSurface = await page.evaluate(() => {
+      const dialog = document.querySelector('dialog[open]');
+      if (!dialog) return null;
+      const style = getComputedStyle(dialog);
+      const box = dialog.getBoundingClientRect();
+      return {
+        backgroundColor: style.backgroundColor,
+        color: style.color,
+        heightRatio: Math.round((box.height / window.innerHeight) * 100) / 100,
+      };
+    });
+
+    await page.getByRole('radio', { name: 'Limit' }).click();
+    const mobileBid = Number(await page.getByTestId('execution-bid').textContent());
+    await page.getByTestId('trigger-price-input').fill((mobileBid - 0.005).toFixed(5));
+    await shot('390x844-execution-center-limit');
+
+    await page.getByRole('radio', { name: 'Market' }).click();
+    await page.getByLabel('Quantité (lots)').fill('1.00');
+    await page.getByTestId('execution-submit-buy').click();
+    await expect(page.getByTestId('execution-rejection')).toBeVisible({ timeout: 30_000 });
+    await shot('390x844-execution-center-server-rejection');
+
+    // ---- 320-wide density smoke -------------------------------------------
+    // The narrowest viewport the review asks about. Not a comfortable target,
+    // and not claimed to be: the point is to prove the panel still fits and
+    // the document still does not scroll sideways.
+    await page.setViewportSize({ width: 320, height: 844 });
+    await page.goto('/trade');
+    await expect(page.getByTestId('mobile-market-trigger')).not.toContainText('— / —', {
+      timeout: 30_000,
+    });
+    await openMobileSheet();
+    await shot('320x844-execution-center-density-smoke');
+
+    // ---- §19 — no document horizontal overflow at any required width -------
+    const overflow: Record<string, { scrollWidth: number; clientWidth: number }> = {};
+    for (const [width, height] of [
+      [1366, 768],
+      [1440, 900],
+      [1920, 1080],
+      [320, 844],
+      [360, 844],
+      [390, 844],
+      [412, 915],
+      [430, 932],
+    ] as const) {
+      await page.setViewportSize({ width, height });
+      await page.goto('/trade');
+      await expect(page.getByTestId('workstation-connection')).toHaveAttribute(
+        'data-connection',
+        'open',
+        { timeout: 30_000 },
+      );
+      overflow[`${width}x${height}`] = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        clientWidth: document.documentElement.clientWidth,
+      }));
+    }
+
+    /*
+     * ---- Blocked entry, produced on the wire, and deliberately LAST ---------
+     *
+     * The account snapshot's own risk verdict is rewritten to `breached`; the
+     * panel reads that verdict rather than deriving one, so this is the exact
+     * state a genuinely breached account would show.
+     *
+     * Installed once, after every other capture, because a `routeWebSocket`
+     * handler is not undone by `page.unrouteAll()` — the first version of this
+     * spec installed it mid-run and every later capture silently inherited a
+     * breached account, which showed up as a five-minute timeout clicking a Buy
+     * button that was correctly disabled. Ordering the run so the route never
+     * has to be removed is simpler than trying to remove it.
+     */
     await page.routeWebSocket(/\/ws/, (ws) => {
       const server = ws.connectToServer();
       // Only the server→client direction is filtered, for the same reason
@@ -179,25 +278,29 @@ test.describe('WariX W4 review evidence', { tag: ['@warix-w4-evidence'] }, () =>
         ws.send(message);
       });
     });
+
+    await page.setViewportSize({ width: 1440, height: 900 });
     await openWorkstation();
     await expect(page.getByTestId('execution-gate')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('execution-submit-buy')).toBeDisabled();
     await shotPanel('panel-1440-entry-blocked-hard-breach');
     const blockedMessage = await page.getByTestId('execution-gate').textContent();
+    // §10 — the disabled state has to be legible too. The generic disabled
+    // token pair measured 2.25:1 here and the repo's axe gates caught it; this
+    // records the replacement rather than trusting the arithmetic.
+    const disabledActionContrast = {
+      buy: await page.evaluate(CONTRAST_IN_PAGE, '[data-testid="execution-submit-buy"]'),
+      sell: await page.evaluate(CONTRAST_IN_PAGE, '[data-testid="execution-submit-sell"]'),
+    };
 
-    // ---- 390×844, the mobile sheet -----------------------------------------
-    await page.unrouteAll({ behavior: 'ignoreErrors' });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/trade');
     await expect(page.getByTestId('mobile-market-trigger')).not.toContainText('— / —', {
       timeout: 30_000,
     });
-    await shot('390x844-chart-first-before-execution-sheet');
-    await page.getByRole('button', { name: /^Trader EURUSD$/ }).click();
-    await expect(page.getByTestId('execution-center')).toBeVisible();
-    await expect(page.getByTestId('execution-bid')).not.toHaveText('—', { timeout: 30_000 });
-    await shot('390x844-execution-sheet');
-    const mobileCopies = await page.getByTestId('execution-center').count();
+    await openMobileSheet();
+    await expect(page.getByTestId('execution-gate')).toBeVisible({ timeout: 30_000 });
+    await shot('390x844-execution-center-entry-blocked');
 
     writeFileSync(
       `${OUT_DIR}/evidence-manifest.json`,
@@ -214,13 +317,31 @@ test.describe('WariX W4 review evidence', { tag: ['@warix-w4-evidence'] }, () =>
             default: defaultActions,
             limitWithProtectionPreview: pendingActions,
             withServerRejectionNotice: rejectedActions,
+            narrowDesktop1366: narrowDesktopActions,
           },
           /** Measured from the live DOM. WCAG AA text minimum is 4.5:1. */
           sideActionContrast,
+          disabledActionContrast,
           serverRejection: rejectionCode?.replace(/\s+/g, ' ').trim(),
           blockedEntryMessage: blockedMessage?.replace(/\s+/g, ' ').trim(),
           /** W4 §69 — one mount point per presentation, never both. */
           executionCentersMountedOnMobile: mobileCopies,
+          /**
+           * §2/§16 — the sheet's own computed surface. A white shell was the
+           * headline visual failure of the first review; this records the
+           * colour the sheet actually paints rather than asserting the token.
+           */
+          mobileSheetSurface: sheetSurface,
+          /** §14 — how much of a 390×844 phone the chart claims. */
+          mobileChartBox: chartBox
+            ? {
+                height: Math.round(chartBox.height),
+                viewportHeight: 844,
+                share: Math.round((chartBox.height / 844) * 100) / 100,
+              }
+            : null,
+          /** §19 — scrollWidth must never exceed clientWidth at any width. */
+          documentOverflow: overflow,
         },
         null,
         2,

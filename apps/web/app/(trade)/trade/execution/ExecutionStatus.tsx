@@ -42,9 +42,20 @@ function ExecutionNotice({
       {...(testId ? { 'data-testid': testId } : {})}
       className={`flex flex-col gap-0.5 border-l-2 px-2 py-1.5 ${NOTICE_STYLE[level]}`}
     >
-      <p className="text-[length:var(--wariba-font-size-body-sm)] font-semibold">{title}</p>
+      {/*
+       * Visual closure §17 — prominent without being tall. The title stays at
+       * body size and semibold so the state is unmistakable; the explanation
+       * drops to `data-xs` with tight leading, which is what lets a rejection
+       * carry its reason, its suggested action *and* its code in the space the
+       * reason alone used to take. No content is removed.
+       */}
+      <p className="text-[length:var(--wariba-font-size-body-sm)] font-semibold leading-tight">
+        {title}
+      </p>
       {children ? (
-        <div className="text-[length:var(--wariba-font-size-body-sm)]">{children}</div>
+        <div className="flex flex-col gap-0.5 text-[length:var(--wariba-font-size-data-xs)] leading-snug">
+          {children}
+        </div>
       ) : null}
     </div>
   );
@@ -97,7 +108,9 @@ export function ExecutionStatus({ gate, rejection, risk }: ExecutionStatusProps)
         <ExecutionNotice level="danger" title="Ordre refusé" testId="execution-rejection">
           <p>{rejection.reason}</p>
           <p>{rejection.action}</p>
-          <p className="wariba-data text-[length:var(--wariba-font-size-data-xs)]">
+          {/* §17 — the code stays visible and stays subordinate to the human
+              explanation above it. */}
+          <p className="wariba-data text-[length:var(--wariba-font-size-data-xs)] opacity-80">
             Code : {rejection.code}
           </p>
         </ExecutionNotice>

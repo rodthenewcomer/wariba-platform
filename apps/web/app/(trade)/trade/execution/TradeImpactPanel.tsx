@@ -1,6 +1,5 @@
 'use client';
 
-import { ExecutionStatLine } from './ExecutionSection';
 import type { TradeImpactView } from './execution-impact';
 
 export interface TradeImpactPanelProps {
@@ -10,17 +9,18 @@ export interface TradeImpactPanelProps {
 /**
  * W4 §30/§31/§32/§33/§35 — Guardian's data, folded into the execution flow.
  *
- * Every figure Guardian showed is still here — estimated margin, DLL
+ * Every figure Guardian showed is still on screen — estimated margin, DLL
  * remaining, maximum-loss remaining, concentration per bucket, the stale-price
  * caveat — and every one still comes from the same source it did before: the
- * canonical `estimateRequiredMargin` for margin, and the server's risk
- * snapshot verbatim for the rest. What changed is only that it is a section of
- * the instrument rather than a second card sitting under the ticket, and that
- * the concentration bars are compact (§35: no large chart).
+ * canonical `estimateRequiredMargin` for margin, and the server's risk snapshot
+ * verbatim for the rest. What changed is where each one lives. The three
+ * headline figures are pinned above the actions in `ExecutionImpactSummary`
+ * (visual closure §9), because they decide whether to press the button; this
+ * section keeps what the summary cannot carry at that size.
  *
- * The label is "Marge estimée", never "Marge finale": the server prices and
- * executes the order, and the browser's mid-price estimate is not the figure
- * that will be debited (§32).
+ * The summary labels the margin "MARGE" with "Marge estimée" as its title —
+ * never "Marge finale": the server prices and executes the order, and the
+ * browser's mid-price estimate is not the figure that will be debited (§32).
  *
  * Guardian's own promise is preserved by construction — this component states
  * impact and never suggests a direction. There is no "buy"/"sell"/"strong
@@ -40,12 +40,20 @@ export function TradeImpactPanel({ impact }: TradeImpactPanelProps) {
 
   return (
     <div className="flex flex-col gap-1.5" data-testid="trade-impact">
-      <ExecutionStatLine label="Marge estimée" value={impact.marginEstimatedFormatted} />
-      <ExecutionStatLine label="DLL restante" value={impact.dailyLossRemainingFormatted} />
-      <ExecutionStatLine label="Perte max. restante" value={impact.maximumLossRemainingFormatted} />
-
+      {/*
+       * Visual closure §9 — the three headline figures *moved* here to the
+       * pinned summary above the actions; they are not repeated.
+       *
+       * Rendering them in both places was the first attempt and the mobile
+       * capture showed why it was wrong: on a 90dvh sheet both are on screen
+       * at once, so "Marge estimée 216.99 USD" appeared twice, four rows apart.
+       * Duplication in a panel about money reads as two numbers that happen to
+       * agree rather than as one fact. What stays here is what the summary
+       * cannot carry at that size — concentration per bucket, and the
+       * stale-price caveat.
+       */}
       {impact.concentration.length > 0 ? (
-        <div className="mt-1 flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5">
           {impact.concentration.map((entry) => (
             <div key={entry.bucket} className="flex flex-col gap-0.5">
               <div className="flex items-baseline justify-between gap-2">

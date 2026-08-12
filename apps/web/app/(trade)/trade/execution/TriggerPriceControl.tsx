@@ -9,7 +9,6 @@ export interface TriggerPriceControlProps {
   /** Never rendered for 'market' — the caller decides; this narrows the type. */
   orderKind: 'limit' | 'stop';
   spec: SymbolSpec | undefined;
-  tick: MarketTick | null;
   value: string;
   onChange: (value: string) => void;
   error: string | null;
@@ -47,7 +46,13 @@ export function creatableSidesFor(params: {
 
 const RELATIONSHIP_HINT: Record<'limit' | 'stop', string> = {
   limit: 'Buy Limit sous l’Ask · Sell Limit au-dessus du Bid.',
-  stop: 'Buy Stop au-dessus de l’Ask · Sell Stop sous le Bid. Aucune garantie de prix : un écart de marché peut exécuter au-delà du seuil.',
+  stop: 'Buy Stop au-dessus de l’Ask · Sell Stop sous le Bid · pas de garantie de prix.',
+};
+
+const RELATIONSHIP_DETAIL: Record<'limit' | 'stop', string> = {
+  limit:
+    'Un Buy Limit doit être placé sous l’Ask et un Sell Limit au-dessus du Bid, sinon il s’exécuterait immédiatement.',
+  stop: 'Un Buy Stop doit être placé au-dessus de l’Ask et un Sell Stop sous le Bid. Le prix n’est pas garanti : un écart de marché peut exécuter l’ordre au-delà du seuil.',
 };
 
 /**
@@ -64,19 +69,10 @@ const RELATIONSHIP_HINT: Record<'limit' | 'stop', string> = {
 export function TriggerPriceControl({
   orderKind,
   spec,
-  tick,
   value,
   onChange,
   error,
 }: TriggerPriceControlProps) {
-  const sides = creatableSidesFor({
-    orderKind,
-    triggerPrice: value,
-    tick,
-    hasError: Boolean(error),
-  });
-  const neitherSide = sides !== null && !sides.buy && !sides.sell;
-
   return (
     <div className="flex flex-col gap-1.5">
       <Input
@@ -92,19 +88,24 @@ export function TriggerPriceControl({
         onChange={(event) => onChange(event.target.value)}
         {...(error ? { errorText: error } : {})}
       />
-      <p className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-tertiary)]">
-        {spec ? `Précision : ${spec.pricePrecision} décimales. ` : ''}
+      {/*
+       * Visual closure §11 — the rule, once, as metadata.
+       *
+       * The "valid on neither side" banner that used to live here is gone: it
+       * was a footer sentence a trader had to map back onto two equally
+       * emphasised buttons. `ExecutionActions` now de-saturates the side the
+       * current quote does not support and labels it under that side, which is
+       * the same information where the decision is actually made. This line
+       * keeps the general rule for someone who has not typed a threshold yet.
+       */}
+      <p
+        title={RELATIONSHIP_DETAIL[orderKind]}
+        data-testid="trigger-price-hint"
+        className="text-[length:var(--wariba-font-size-data-xs)] leading-snug text-[color:var(--wariba-text-tertiary)]"
+      >
+        {spec ? `${spec.pricePrecision} déc. · ` : ''}
         {RELATIONSHIP_HINT[orderKind]}
       </p>
-      {neitherSide ? (
-        <p
-          role="status"
-          data-testid="trigger-price-no-side"
-          className="text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-status-warning-text)]"
-        >
-          Ce seuil n’est valide ni à l’achat ni à la vente par rapport au marché actuel.
-        </p>
-      ) : null}
     </div>
   );
 }
