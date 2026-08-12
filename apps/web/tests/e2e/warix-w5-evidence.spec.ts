@@ -89,7 +89,40 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
     const hasMoreOlder = async (): Promise<string> =>
       (await chart().getAttribute('data-history-has-more-older')) ?? '';
 
+    /**
+     * The server rate-limits market-history requests to 6 per 10 s per
+     * connection (W3, `HISTORY_RATE_LIMIT_MAX_REQUESTS`). That limit is correct
+     * and is not relaxed for evidence: a harness that clicks through five
+     * timeframes plus a symbol switch inside one window trips it, the chart
+     * honestly reports `error`, and the screenshot would be of a rate-limited
+     * chart rather than of chart intelligence.
+     *
+     * So the harness models the limiter instead of sleeping arbitrarily: it
+     * keeps the timestamps of the requests it has caused and waits only as long
+     * as the oldest one needs to fall out of the window.
+     */
+    const HISTORY_RATE_LIMIT_MAX = 6;
+    const HISTORY_RATE_LIMIT_WINDOW_MS = 10_000;
+    const requestTimestamps: number[] = [];
+    const paceHistoryRequest = async (): Promise<void> => {
+      const now = Date.now();
+      while (
+        requestTimestamps.length > 0 &&
+        now - requestTimestamps[0]! > HISTORY_RATE_LIMIT_WINDOW_MS
+      ) {
+        requestTimestamps.shift();
+      }
+      if (requestTimestamps.length >= HISTORY_RATE_LIMIT_MAX - 1) {
+        const oldest = requestTimestamps[0]!;
+        const waitMs = HISTORY_RATE_LIMIT_WINDOW_MS - (now - oldest) + 250;
+        if (waitMs > 0) await page.waitForTimeout(waitMs);
+        requestTimestamps.shift();
+      }
+      requestTimestamps.push(Date.now());
+    };
+
     const openWorkstation = async (): Promise<void> => {
+      await paceHistoryRequest();
       await page.goto('/trade');
       await expect(page.getByTestId('workstation-connection')).toHaveAttribute(
         'data-connection',
@@ -108,10 +141,15 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
      * not a failure. What is never acceptable is photographing `loading`.
      */
     const waitForResolvedHistory = async (): Promise<void> => {
-      await expect(status).toHaveAttribute('data-history-epoch', /.+/, { timeout: 120_000 });
       await expect
-        .poll(historyStatus, { timeout: 60_000, message: 'history resolves to a terminal state' })
+        .poll(historyStatus, {
+          timeout: 120_000,
+          intervals: [500],
+          message:
+            'history resolves to ready or empty — `error` here usually means the harness outran the server rate limit; see paceHistoryRequest',
+        })
         .toMatch(/^(ready|empty)$/);
+      await expect(status).toHaveAttribute('data-history-epoch', /.+/, { timeout: 30_000 });
     };
 
     /**
@@ -143,6 +181,7 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
     };
 
     const selectTimeframe = async (timeframe: string): Promise<void> => {
+      await paceHistoryRequest();
       await page.getByRole('radio', { name: timeframe, exact: true }).click();
       await expect(page.getByRole('radio', { name: timeframe, exact: true })).toHaveAttribute(
         'aria-checked',
@@ -155,6 +194,7 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
     // role=button regex also matches the mobile market trigger and the
     // execution header, and which one wins depends on the viewport.
     const selectSymbol = async (symbol: string): Promise<void> => {
+      await paceHistoryRequest();
       await page
         .getByTestId('market-navigator')
         .first()
@@ -214,27 +254,26 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
     const timeframeProof: Record<string, unknown> = {};
     for (const timeframe of ['5s', '15s', '30s', '1m', '3m']) {
       await selectTimeframe(timeframe);
+      const observed = await candleCount();
       timeframeProof[timeframe] = {
         active: await page
           .getByRole('radio', { name: timeframe, exact: true })
           .getAttribute('aria-checked'),
         historyStatus: await historyStatus(),
-        observedCandles: await candleCount(),
+        observedCandles: observed,
         // §D — sparse long-interval history on a young process is honest, and
         // is recorded as such rather than read as a defect.
         note:
-          (await candleCount()) < 100
+          observed < 100
             ? 'sparse — fewer observed bars than a 100-period average needs; correct W3 state'
             : 'sufficient for every default indicator',
       };
+      // The two intervals W5 adds are captured here, inside the one pass, so
+      // the harness does not switch timeframe twice for the same evidence.
+      if (timeframe === '15s') await shot('1440x900-02a-nas100-15s-timeframe-active');
+      if (timeframe === '3m') await shot('1440x900-02b-nas100-3m-timeframe-active');
     }
     manifest.timeframeProof = timeframeProof;
-
-    // The two intervals W5 adds, captured on their own.
-    await selectTimeframe('15s');
-    await shot('1440x900-02a-nas100-15s-timeframe-active');
-    await selectTimeframe('3m');
-    await shot('1440x900-02b-nas100-3m-timeframe-active');
 
     // Toolbar density (§62), measured rather than eyeballed.
     const toolbarBox = await page.getByTestId('chart-toolbar').boundingBox();
