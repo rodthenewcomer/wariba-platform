@@ -16,7 +16,73 @@ The 2026 direction is **Quiet Financial Authority with Kinetic Operational Clari
 - professional without becoming gray or microscopic;
 - powerful without inventing capabilities.
 
-## 2. Five experience laws
+## 2. One design system, multiple product expressions
+
+```text
+ONE DESIGN SYSTEM
+MULTIPLE PRODUCT EXPRESSIONS
+```
+
+WARIBA is one coherent product family, not one workstation skin repeated across every route. Every surface shares the same design-system contract while expressing the needs, trust level and cognitive load of its own job.
+
+### 2.1 Product Experience Expression Matrix
+
+| Product surface | Expression | Density and layout | Motion and visual energy | Primary product focus |
+|---|---|---|---|---|
+| **WariX** | kinetic, dense, live, tool-heavy, dark professional workstation | persistent operational modules; compact controls; chart-first | immediate state feedback; restrained local transitions; no decorative ambience | market context, risk, execution and activity |
+| **Trader Portal** | premium fintech with richer visual storytelling and more breathing room | progressive account, progress and performance hierarchy; comfortable page rhythm | selective product and progress transitions; richer but controlled brand moments | progress, account, payout, billing and performance |
+| **Public / Homepage / Marketing** | the most expressive WARIBA surface; narrative and conversion-oriented | editorial sections, product visualization and clear conversion paths | controlled motion and richer brand moments without theatrical finance claims | proposition, trust, product understanding and conversion |
+| **Authentication** | premium, focused and highly trustworthy; visually richer than a generic centered card | dedicated Login, Signup, Forgot password, Recovery, Verification and session-state compositions | calm state transitions and restrained brand treatment; errors and recovery remain dominant | identity, security, consent and successful recovery |
+| **Acquisition / Commerce** | clear, reassuring and conversion-aware | offers, checkout, payment processing, success/failure and activation/welcome as one traceable journey | motion clarifies progress and outcome; never pressures or celebrates spending | offer comprehension, price truth, payment status and activation |
+| **Help / Support** | searchable, calm, human and low cognitive load | task-led search, guides and escalation; tickets/Assist are separated from marketing support | minimal motion; reading and problem resolution dominate | self-service, contact, ticket state and decision explanation |
+| **Legal / Trust** | readable, versioned and authoritative | long-form reading, stable anchors, accepted-version evidence and print-safe structure | no decorative interference | policy meaning, version, effective date and acceptance evidence |
+| **WARIBA Control** | operational, dense and evidence-first, with more restrained color | investigation, queues, tables and audit context; permission-aware actions | state changes are direct and quiet; no promotional treatment | operations, evidence, authorization and auditability |
+
+### 2.2 Shared contract, variable expression
+
+All expressions share:
+
+- tokens;
+- typography;
+- icons;
+- primitives;
+- motion law;
+- accessibility;
+- responsive law;
+- semantic color meaning.
+
+They do **not** share identical density, layout, animation or decorative intensity. WariX cannot export its austere workstation composition to Auth or Marketing; Marketing cannot export promotional energy to Trade, Legal or Control. Control remains restrained even when it reuses the same primitives.
+
+### 2.3 PX0 route-audit contract
+
+PX0 must later audit **every route and every material state**, not only the signed-in dashboard. Its explicit inventory is:
+
+- homepage;
+- login;
+- signup;
+- forgot-password;
+- recovery;
+- checkout;
+- success/failure;
+- welcome;
+- hub/dashboard;
+- accounts;
+- payouts;
+- performance;
+- billing;
+- rules;
+- profile;
+- settings;
+- notifications;
+- support/help;
+- legal;
+- Control;
+- 404/errors;
+- loading, empty, offline and unauthorized states.
+
+PX0 may refine the expression of each surface, but it cannot fork the shared design system or weaken product truth, accessibility, authority or semantic meaning.
+
+## 3. Five experience laws
 
 1. **Authority is visible.** Server state, risk, connection and execution outcome are named in text and never inferred from color alone.
 2. **The primary task owns space.** In WariX the plot dominates; in Hub progression dominates; in Control the investigation/evidence surface dominates.
@@ -24,7 +90,7 @@ The 2026 direction is **Quiet Financial Authority with Kinetic Operational Clari
 4. **Motion explains change.** It never simulates market activity, delays truth or celebrates financial outcomes.
 5. **Honesty beats completeness.** Empty, sparse, stale or unavailable states are explicitly shown; no fake bars, metrics, symbols, volume, partners or outcomes.
 
-## 3. WariX experience hierarchy
+## 4. WariX experience hierarchy
 
 The trader should answer these questions in under three seconds:
 
@@ -42,7 +108,7 @@ The data/overlay order is:
 
 `trading overlays → live bid/ask → risk → selected analysis → normal analysis → grid`.
 
-## 4. Density model
+## 5. Density model
 
 | Layer | Density | Typical geometry | Rule |
 |---|---|---|---|
@@ -54,7 +120,7 @@ The data/overlay order is:
 
 No core trading text is smaller than 11 px. Financial figures use IBM Plex Mono, tabular figures and `SymbolSpec` precision.
 
-## 5. State model
+## 6. State model
 
 Every major surface covers:
 
@@ -73,7 +139,7 @@ Every major surface covers:
 
 Empty states in dense workspaces are single-line or compact structured rows. Marketing-style illustrations do not belong in the workstation.
 
-## 6. Interaction model
+## 7. Interaction model
 
 - A command changes state only after its authoritative result.
 - Optimistic visual feedback is allowed for local preferences, tool selection and drawing style, not execution truth.
@@ -83,13 +149,13 @@ Empty states in dense workspaces are single-line or compact structured rows. Mar
 - Escape dismisses the topmost transient layer and returns focus to its trigger.
 - Closing mobile sheets preserves drafts but unmounts expensive live trees.
 
-## 7. Responsive transformation
+## 8. Responsive transformation
 
 Desktop and mobile share contracts, state controllers and business meaning—not layout DOM.
 
 Desktop owns persistent Navigator, drawing rail, execution module and activity dock. Mobile owns chart-first composition and mutually exclusive Market, Tools, Execution and Activity sheets. A hidden desktop copy is not a mobile implementation.
 
-## 8. Experience quality score
+## 9. Experience quality score
 
 The release rubric is scored from runtime evidence:
 
@@ -103,7 +169,7 @@ The release rubric is scored from runtime evidence:
 
 A score is not a release gate by itself. Critical authority, accessibility, migration or test failures fail closed regardless of score.
 
-## 9. Non-goals
+## 10. Non-goals
 
 - no casino reward loops;
 - no neon/glowing workstation;

@@ -55,7 +55,7 @@ block-beta
   dock["Empty activity dock · h48"]:5
 ```
 
-Target plot share: approximately `710 × 584 / (1366 × 768) = 39.5%`.
+Target `chartViewportAreaShare`: approximately `710 × 584 / (1366 × 768) = 39.5%`.
 
 ### Desktop 1440×900
 
@@ -119,7 +119,7 @@ Sheets overlay the plot; they do not insert rows. Market, Tools, Execution and A
 
 ## 4. Current evidence and target gains
 
-| Viewport | Current plot box | Current share | Target plot box | Target share |
+| Viewport | Current plot box | Current `chartViewportAreaShare` | Target plot box | Target `chartViewportAreaShare` |
 |---|---:|---:|---:|---:|
 | 1366×768 | 678×410 | 26.50% | ~710×584 | ~39.5% |
 | 1440×900 | 740×542 | 30.95% | ~784×716 | ~43.3% |
@@ -129,6 +129,10 @@ Sheets overlay the plot; they do not insert rows. Market, Tools, Execution and A
 | 430×932 | 414×689 | 71.18% | 430×755 | 81.0% |
 
 Target figures are architecture budgets, not claims about implemented pixels.
+
+WX1 must additionally report `chartShareOfCenterWorkspace = chartPlotArea / centerWorkspaceArea`. On desktop, the center workspace is the principal content rectangle below global instrumentation and above the activity dock, excluding global product navigation while including Navigator, drawing rail, chart and Execution Center. On mobile, it is the full-width rectangle below the global account bar and above the bottom action rail, including market/tools chrome and plot. Overlaying sheets are excluded. The same chart-plot rectangle is the numerator for both KPIs.
+
+`chartShareOfCenterWorkspace` has no fabricated WX0 target: `TO_BE_PROVEN_BY_WX1_EVIDENCE`. Baseline and candidate must be captured at the same viewport, dock state and measurement boundary. This normalized KPI prevents the apparent dominance gain from being credited solely to a smaller dock.
 
 ## 5. Responsive audit matrix
 
@@ -154,7 +158,7 @@ Every WX1 row must record document/client width, overflow, global bar, pre-plot 
 
 ## 6. Toolbar transformation
 
-Ten target intervals are a WX2 data feature. The responsive control contract is nevertheless locked:
+Registration/exposure of the ten target intervals and their professional historical depth are WX2 data work. W5 already has one generic, duration-driven candle aggregator; WX2 extends the canonical interval list and duration map, then adds the durable history capability. The responsive control contract is nevertheless locked:
 
 - desktop 1366: up to five frequent intervals + `More`;
 - desktop ≥1920: all honest enabled intervals may be visible if the toolbar still fits;

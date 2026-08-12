@@ -1,10 +1,10 @@
 # WARIBA Kinetic UI System
 
-Status: WX0 specification; tokens are proposed for WX1 and are not active in production.
+Status: WX0 WariX specification; tokens are proposed for WX1 and are not active in production.
 
 ## 1. Purpose
 
-Kinetic UI is the interaction and visual layer that makes WARIBA feel operationally alive while preserving Quiet Financial Authority. It extends the canonical Design System; it does not replace Manrope, IBM Plex Mono, Ink, Bone, Cobalt or Copper.
+Kinetic UI is the interaction and visual layer that makes the WariX workstation feel operationally alive while preserving Quiet Financial Authority. It extends the canonical Design System; it does not replace Manrope, IBM Plex Mono, Ink, Bone, Cobalt or Copper, and it is not the mandatory page composition for every WARIBA surface.
 
 ## 2. Surface architecture
 
@@ -87,7 +87,9 @@ All effects become instantaneous under reduced motion. No glow, bounce, confetti
 
 Allowed only for a functional, static meter fill that encodes monotonic progression within one semantic family, such as warning-to-danger risk proximity. The meter must also have text and stops.
 
-Forbidden on modules, backgrounds, buttons, chart plot, candles, tool selection, execution confirmation and marketing-like decoration inside the workstation.
+Within WariX, large decorative gradients remain forbidden on modules, backgrounds, buttons, chart plot, candles, tool selection, execution confirmation and marketing-like decoration.
+
+This workstation restriction is not a WARIBA-wide ban on visual richness. Public/Marketing, Authentication, onboarding/activation and selected Trader Portal brand moments may use restrained static gradients or richer visual treatments when they preserve contrast, never replace semantic color, avoid gaming/crypto/neon grammar, imply no false financial meaning and remain tokenized and WARIBA-owned. WARIBA Control remains restrained. The shared motion, color and accessibility laws still apply to every expression.
 
 ## 9. Performance contract
 

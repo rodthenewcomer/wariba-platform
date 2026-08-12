@@ -2,9 +2,11 @@
 
 Status: WX0 specification; reconciles with canonical Ink/Bone/Cobalt/Copper tokens.
 
-## 1. Semantic law
+## 1. Scope and semantic law
 
-One color family has one primary meaning in the workstation. Position, label, shape and text must reinforce color; color is never the only channel.
+The palette and state recipes below govern the **WariX workstation expression**. One color family has one primary meaning in the workstation. Position, label, shape and text must reinforce color; color is never the only channel.
+
+WARIBA-wide surfaces reuse the same token families and semantic meanings, but they are not required to reproduce WariX density or visual austerity.
 
 ## 2. Proposed dark workstation palette
 
@@ -72,5 +74,20 @@ The authoritative number changes immediately. A 160 ms background wash may indic
 
 ## 7. Gradients
 
-- Allowed: static risk/progress meter track within one semantic path and with textual values.
-- Forbidden: chart background, module surface, nav, execution actions, candles, quote flash, selected tool, sheets and decorative ambience.
+### 7.1 Workstation law
+
+- Allowed: a functional static risk/progress meter track within one semantic path and with textual values.
+- Forbidden: large decorative gradients, chart background, module surface, nav, execution actions, candles, quote flash, selected tool, sheets and decorative ambience.
+
+### 7.2 WARIBA-wide visual-energy law
+
+Public/Marketing, Authentication, onboarding/activation and selected Trader Portal brand moments may use restrained static gradients or richer visual treatments when they:
+
+- preserve text contrast in every state and viewport;
+- do not replace semantic color;
+- do not resemble gaming, crypto or neon UI;
+- do not create false financial meaning;
+- remain tokenized and WARIBA-owned;
+- remain subordinate to content, task and authoritative state.
+
+This allowance does not permit a dominant generic gradient or a separate theme system. WARIBA Control remains restrained and evidence-first. Legal/Trust remains free of decorative interference. A future PX0 audit must tune visual energy by product expression instead of applying the WariX workstation skin to every route.

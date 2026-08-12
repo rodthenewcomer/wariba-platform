@@ -76,11 +76,14 @@ For each viewport:
   "globalBar": { "height": 44 },
   "navigator": { "width": 244 },
   "drawingRail": { "width": 36 },
+  "centerWorkspace": { "x": 56, "y": 44, "width": 1310, "height": 676 },
   "plot": { "x": 336, "y": 112, "width": 710, "height": 584 },
   "execution": { "width": 320 },
   "dock": { "height": 48, "state": "empty" },
   "preChartChrome": 112,
   "chartViewportAreaSharePercent": 39.5,
+  "chartShareOfCenterWorkspacePercent": null,
+  "chartShareOfCenterWorkspaceTarget": "TO_BE_PROVEN_BY_WX1_EVIDENCE",
   "minimumTouchTarget": 44,
   "toolbarOverflow": false
 }
@@ -88,9 +91,17 @@ For each viewport:
 
 Values are examples from the target budget and must be replaced with runtime values in candidate evidence.
 
+Every WX1 manifest must calculate both chart-dominance KPIs from measured rectangles:
+
+- `chartViewportAreaShare = chartPlotArea / viewportArea`;
+- `chartShareOfCenterWorkspace = chartPlotArea / centerWorkspaceArea`.
+
+On desktop, `centerWorkspace` is the principal workstation content rectangle below global instrumentation and above the activity dock, from the right edge of global product navigation to the viewport right; it includes Navigator, drawing rail, chart and Execution Center. On mobile, it spans full width below the global account bar and above the bottom action rail, including market/tools chrome and plot. Overlaying sheets are excluded. The plot rectangle and viewport/state must be identical across both calculations and baseline/candidate comparison. The center-workspace target remains `TO_BE_PROVEN_BY_WX1_EVIDENCE`; reducing dock height alone is not evidence of improved normalized dominance.
+
 ## 7. Visual review checklist
 
 - chart is the dominant module;
+- both chart-dominance KPIs are present and use the documented rectangles;
 - module seams align; no accidental card gaps;
 - no clipped labels/prices/axes;
 - bid/ask, Buy/Sell and risk meanings remain distinct;
@@ -135,4 +146,4 @@ Visual evidence is accepted only after:
 - candidate SHA is clean and CI for that SHA is green;
 - human review marks the milestone accepted.
 
-WX0 itself remains `WX0_HUMAN_REVIEW=pending` and `WX0_ACCEPTED=false`.
+WX0 documentation closure has human review `PASS`; `WX0_ACCEPTED=true`. This acceptance does not authorize WX1 implementation or weaken the immutable-SHA/CI requirements for future milestones.

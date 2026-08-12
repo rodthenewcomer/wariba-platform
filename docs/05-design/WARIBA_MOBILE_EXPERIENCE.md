@@ -24,7 +24,7 @@ Do not repeat `MARCHÉ EURUSD Ouvert` as a separate row. OHLC is a compact on-ch
 
 ## 3. Interval behavior
 
-After WX2 makes the family real, direct access is `1m · 3m · 5m · 15m · 1h`; More contains `30m · 4h · 1D · 1W · 1M`. A More-selected interval replaces the `1h` label in the direct row for the session so the current value remains visible.
+After WX2 registers/exposes the target family and supplies professional provider-backed depth, direct access is `1m · 3m · 5m · 15m · 1h`; More contains `30m · 4h · 1D · 1W · 1M`. A More-selected interval replaces the `1h` label in the direct row for the session so the current value remains visible. W5 already supplies the shared duration-driven aggregation engine; WX2 does not need a second aggregator.
 
 Before WX2, WX1 may apply the same component grammar only to current intervals. It must not render disabled future intervals or silently synthesize bars.
 

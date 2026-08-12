@@ -47,8 +47,9 @@ Desktop top instrumentation       44px
 Desktop drawing rail              36px
 Mobile pre-chart chrome           <=116px
 Mobile bottom actions             61px + safe area
-Target chart share 1366           >=39% viewport area
-Target chart share 390            >=78% viewport area
+Target chartViewportAreaShare 1366 >=39% viewport area
+Target chartViewportAreaShare 390  >=78% viewport area
+Target chartShareOfCenterWorkspace TO_BE_PROVEN_BY_WX1_EVIDENCE
 ```
 
 ## 4. Delivery sequence
@@ -115,7 +116,7 @@ Files: `ChartWorkspace`, `TradeChart` chrome only, `ChartToolbar`, `ChartLegend`
 - compact/collapsible legend on mobile;
 - preserve renderer, history controller, indicator engine and overlay geometry.
 
-Acceptance: chart target share; no dead actions; current timeframe public behavior unchanged; pan/zoom/history tests green.
+Acceptance: both chart-dominance KPIs reported; viewport-area targets met; center-workspace baseline/candidate evidence reviewed; no dead actions; current timeframe public behavior unchanged; pan/zoom/history tests green.
 
 Rollback: restore existing chrome around unchanged renderer.
 
@@ -181,6 +182,7 @@ Required:
 - relevant `@trade`, mobile, accessibility and evidence specs;
 - render ownership;
 - visual matrix in `WARIBA_VISUAL_EVIDENCE_STANDARD.md`;
+- `chartViewportAreaShare` and `chartShareOfCenterWorkspace` from the documented rectangles;
 - manual image inspection and same-viewport baseline comparisons;
 - clean candidate SHA and PR CI.
 
@@ -200,7 +202,7 @@ No migrations. No adapter/provider/domain/policy/risk/payout modification.
 ## 6. Acceptance criteria
 
 1. W1–W5 functional suites remain green.
-2. Chart share ≥39% at 1366 empty and ≥78% at 390 chart-first.
+2. `chartViewportAreaShare` is ≥39% at 1366 empty and ≥78% at 390 chart-first; `chartShareOfCenterWorkspace` is reported for the same baseline/candidate states with target `TO_BE_PROVEN_BY_WX1_EVIDENCE`.
 3. Navigator 244 px and execution 320 px pass content/precision checks.
 4. Empty dock 48 px; populated dock stable and preference-owned.
 5. Mobile pre-chart chrome ≤116 px.
@@ -223,11 +225,11 @@ No migrations. No adapter/provider/domain/policy/risk/payout modification.
 | icon migration changes meaning | named WARIBA wrapper and snapshot review | keep existing icon until exact replacement accepted |
 | dock height jitters | authoritative state + settle window + populated preference | disable auto-empty transition |
 | mobile duplicate subscriptions | mount exclusivity tests | revert to accepted single-tree presentation |
-| interval UI implies unsupported data | WX1 current intervals only | WX2 owns target family |
+| interval UI implies unregistered or insufficient-depth data | WX1 current intervals only | WX2 owns canonical registration/exposure and professional history depth |
 
 ## 8. WX2 handoff contract
 
-WX1 must leave chart module/toolbar interval inputs typed from current contracts, not hardcode the future family. WX2 changes the data contract, provider, cache, source identity, interval list/default, range presets and fit-content behavior in one separately auditable milestone.
+WX1 must leave chart module/toolbar interval inputs typed from current contracts, not hardcode the future family. The generic duration-driven candle aggregator already exists; WX2 registers target intervals in the canonical list/duration map, propagates the contract, and adds provider-backed history, cache, durable source identity, restart continuity, live cutover, sufficient depth, range presets and fit-content correction in one separately auditable milestone.
 
 ## 9. Definition of done
 

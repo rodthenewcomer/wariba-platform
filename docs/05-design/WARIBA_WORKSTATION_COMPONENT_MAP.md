@@ -57,7 +57,7 @@ Trading overlays remain above drawings; drawing interaction remains above chart 
 | `ChartContextMenu` | KEEP + REFINE VISUALS | behavior already price-aware | workbench menu style, same exact actions | accidental trade action or focus regression | B5 |
 | `ModifyPositionDialog` / pending dialogs | KEEP + REFINE | functional | token/density alignment only | command semantics | B8 |
 | multi-chart layout | DEFER | absent by decision | define `chartInstanceId` boundary only | subscription explosion | future WX3+ |
-| seconds-first interval UX | DEFER REPLACEMENT TO WX2 | current truthful process-memory default | target family after provider history | fake/sparse history | WX2 |
+| seconds-first interval UX | DEFER REPLACEMENT TO WX2 | current truthful process-memory default | target family after canonical registration/exposure and provider history; reuse generic aggregator | fake/sparse history | WX2 |
 | DOM/tape/volume UI | DELETE/REJECT | not present/unsupported | none | false market claim | permanent non-scope V1 |
 
 ## 3. Render ownership budget

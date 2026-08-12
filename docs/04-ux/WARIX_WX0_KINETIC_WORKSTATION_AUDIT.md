@@ -1,6 +1,6 @@
 # WARIX WX0 — Kinetic Professional Workstation 2026
 
-- Status: **AUDIT COMPLETE — HUMAN REVIEW PENDING**
+- Status: **AUDIT COMPLETE — HUMAN REVIEW PASSED**
 - Scope: merged W5 at `715010163cafca56561f71e396c0c7f5d58c63a6`
 - Accepted W5 head: `96ec035ceccf35dcc7cfe46346ae7ae739cad15c`
 - WX0 branch base: `715010163cafca56561f71e396c0c7f5d58c63a6`
@@ -52,8 +52,9 @@ Baseline evidence and exact DOM geometry are in [`evidence/warix-wx0-kinetic-wor
 
 | Metric | Current accepted W5 | WX1 target | Decision |
 |---|---:|---:|---|
-| Chart viewport-area share, 1366×768 | 26.50% | ≥39% | Recover empty dock height; narrow tracks; add 36 px drawing rail without reducing current plot width |
-| Chart viewport-area share, 390×844 | 68.29% | ≥78% | Reduce pre-chart chrome; keep 61 px bottom actions |
+| `chartViewportAreaShare`, 1366×768 | 26.50% | ≥39% | Recover empty dock height; narrow tracks; add 36 px drawing rail without reducing current plot width |
+| `chartViewportAreaShare`, 390×844 | 68.29% | ≥78% | Reduce pre-chart chrome; keep 61 px bottom actions |
+| `chartShareOfCenterWorkspace` | not recorded by the WX0 manifest | `TO_BE_PROVEN_BY_WX1_EVIDENCE` | Prevent a dominance claim based only on reclaiming dock height |
 | Navigator logical width | 280 px default (276 px measured content) | 244 px | Best balance of symbol, quote, spread and chart recovery |
 | Execution logical width at 1366 | 336 px (319 px measured content) | 320 px | Dense instrument; still holds two-side price/actions safely |
 | Execution logical width at ≥1440 | 348 px (331 px measured content) | 320 px default, user-resizable to 360 px | Do not pay 28 px permanently for infrequent long copy |
@@ -63,7 +64,16 @@ Baseline evidence and exact DOM geometry are in [`evidence/warix-wx0-kinetic-wor
 
 At 1366 the proposed tracks are `56 rail + 244 navigator + 36 drawing rail + fluid chart + 320 execution`; the empty dock becomes 48 px. The drawing rail is paid for mainly by the 36 px navigator reduction and 16 px execution reduction, so the chart does not become narrower than W5. Its height increases by roughly 172 px.
 
-### 3.2 Current responsive evidence
+### 3.2 Chart-dominance metric pair
+
+WX1 evidence must report both metrics from runtime rectangles:
+
+1. `chartViewportAreaShare = chartPlotArea / viewportArea`. This remains the repeatable end-to-end space KPI used by WX0.
+2. `chartShareOfCenterWorkspace = chartPlotArea / centerWorkspaceArea`. On desktop, `centerWorkspace` is the principal workstation content rectangle between the global instrumentation bar and activity dock, from the right edge of global product navigation to the viewport right; it includes Navigator, drawing rail, chart and Execution Center. On mobile, it spans full width below the global account bar and above the bottom action rail; it includes market/tools chrome and the plot. Global chrome, the activity dock/action rail and overlaying sheets are excluded.
+
+Both metrics use the same measured chart-plot rectangle. Shrinking the dock expands the chart and the center-workspace denominator together, so it cannot by itself prove stronger chart hierarchy. WX0 did not record the normalized center-workspace rectangle; no retroactive baseline or target is invented. The WX1 target is `TO_BE_PROVEN_BY_WX1_EVIDENCE` from baseline/candidate measurements at the same viewports and states.
+
+### 3.3 Current responsive evidence
 
 | Viewport | Chart box | Chart area share | Pre-chart chrome | Dock | Horizontal overflow |
 |---|---:|---:|---:|---:|---|
@@ -187,10 +197,24 @@ Only the transition from empty to first populated row may expand once and should
 |---|---|---|
 | Current public implementation | 5s, 15s, 30s, 1m, 3m | Observed process memory only; restart loses all history |
 | Current honest target-family intersection | 1m, 3m | Honest but shallow and process-lifetime bounded |
-| Target intervals not implementable honestly today | 5m, 15m, 30m, 1h, 4h, 1D, 1W, 1M | No contract, aggregator or provider history |
+| Currently not registered/exposed | 5m, 15m, 30m, 1h, 4h, 1D, 1W, 1M | Absent from the canonical interval list/duration map and therefore from schemas, transport and UI; the generic aggregator already exists |
 | Intervals requiring durable provider history for professional depth | all target intervals | Even 1m/3m need continuity and depth across process restart |
 
 Seconds may remain internally supported during transition, but WX1 must not pretend the target family exists. The presentation blueprint demotes them; WX2 performs the contract/provider migration and public default switch.
+
+The W5 candle architecture is already generic and duration-driven. [`packages/contracts/src/market-candles.ts`](../../packages/contracts/src/market-candles.ts) defines one canonical `CANDLE_TIMEFRAMES` list, one duration map and one `createCandleAggregator(timeframe)` implementation used by realtime, web and tests. Registering another interval is primarily an extension of that canonical list and duration map, followed by propagation through the existing schemas and consumers—not a new aggregation engine.
+
+What remains missing for the professional target is:
+
+- canonical interval contract registration;
+- durable/provider-backed historical bars;
+- durable source identity;
+- cache and pagination;
+- restart continuity;
+- provider/live cutover;
+- sufficient depth.
+
+Those requirements keep every target interval in WX2 and keep `LONG_RANGE_HISTORY_PROVIDER_READY = false`.
 
 Bar interval and view range remain separate types. A `1M` bar means one monthly candle. A `1M` range means a one-month visible window. No range preset ships until its coverage is true.
 
@@ -296,7 +320,7 @@ The complete matrix is in [`../05-design/WARIBA_WORKSTATION_COMPONENT_MAP.md`](.
 
 **Q4. What is rejected?** Futures/DOM/tape/volume/multi-chart scope, unapproved order commands, TradingView cloning, hotkey execution and brand mimicry.
 
-**Q5. Recoverable chart area?** At 1366, from 26.50% to at least 39% viewport area, mainly by empty dock recovery. At 390, from 68.29% to at least 78% by reducing pre-chart chrome. Larger desktop widths retain current fluid growth.
+**Q5. Recoverable chart area?** At 1366, from 26.50% to at least 39% viewport area, mainly by empty dock recovery. At 390, from 68.29% to at least 78% by reducing pre-chart chrome. Larger desktop widths retain current fluid growth. WX1 must also report `chartShareOfCenterWorkspace`; its target is `TO_BE_PROVEN_BY_WX1_EVIDENCE` so dock shrink alone cannot pass chart dominance.
 
 **Q6. Navigator width?** 244 px default, 220–320 resizable.
 
@@ -314,7 +338,7 @@ The complete matrix is in [`../05-design/WARIBA_WORKSTATION_COMPONENT_MAP.md`](.
 
 **Q13. Ten intervals responsive?** Desktop: five frequent intervals plus a `More intervals` menu at 1366; all may fit at ≥1920. Mobile: 1m/3m/5m/15m/1h plus More for 30m/4h/1D/1W/1M after WX2. Current selection always replaces the least-recent direct slot if in More.
 
-**Q14. Which are not honest today?** Target 5m, 15m, 30m, 1h, 4h, 1D, 1W, 1M. Current 1m/3m are honest only within process uptime.
+**Q14. Which are not registered/exposed today?** Target 5m, 15m, 30m, 1h, 4h, 1D, 1W, 1M. The duration-driven generic aggregator already exists, but these intervals lack canonical registration and professional provider-backed history. Current 1m/3m are honest only within process uptime.
 
 **Q15. Provider capability?** Separate read-only finalized-bar provider, explicit basis/generation, UTC buckets, bounded cursor pages, durable cache and a realtime composite cutover that preserves accepted-tick live authority.
 
@@ -344,7 +368,7 @@ The complete matrix is in [`../05-design/WARIBA_WORKSTATION_COMPONENT_MAP.md`](.
 
 **Q28. Multi-chart seam?** A future `ChartModule` receives symbol/timeframe/view preferences and command callbacks by instance id; layout owns module instances. No shared global renderer or cross-chart tick subscription is added now.
 
-**Q29. WX2 debt?** Provider history, durable source identity, target intervals, view ranges, initial fit/backfill gating, history cache/limits and public default migration.
+**Q29. WX2 debt?** Canonical registration/exposure of target intervals, provider history, durable source identity, view ranges, initial fit/backfill gating, history cache/limits and public default migration. A new aggregation engine is not required.
 
 **Q30. Is WX1 unambiguous?** Yes for presentation: tokens, tracks, component decisions, toolbar/rail membership, responsive matrices, motion/color contracts, acceptance evidence and explicit exclusions are locked. Provider/timeframe work is explicitly outside WX1.
 
@@ -371,7 +395,8 @@ WX1 changes no server authority, order semantics, indicator math, drawing model,
 ### WX2 exact scope
 
 - select and integrate durable historical-bar provider capability;
-- extend candle/history contracts with durable source identity and target intervals;
+- register the target intervals in the canonical contract/duration map and propagate them through history schemas and consumers;
+- extend candle/history contracts with durable source identity;
 - provider/memory cache and exact hydration/live cutover;
 - 1m/3m/5m/15m/30m/1h/4h/1D/1W/1M public family;
 - target default migration and legacy-second transition plan;
@@ -413,6 +438,11 @@ WX0_WX1_BLUEPRINT_READY                     = true
 WX0_BASELINE_EVIDENCE_READY                 = true
 WX0_FAST_GATE_READY                         = true
 
-WX0_HUMAN_REVIEW                            = pending
-WX0_ACCEPTED                                = false
+WARIBA_PRODUCT_EXPRESSION_MATRIX_READY      = true
+TIMEFRAME_ARCHITECTURE_WORDING_CORRECTED    = true
+WORKSTATION_VS_GLOBAL_VISUAL_ENERGY_SCOPED  = true
+CENTER_WORKSPACE_CHART_KPI_READY            = true
+
+WX0_HUMAN_REVIEW                            = PASS
+WX0_ACCEPTED                                = true
 ```
