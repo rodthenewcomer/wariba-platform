@@ -71,7 +71,7 @@ test.describe('WariX Market Navigator', { tag: ['@trade'] }, () => {
       .getByRole('button', { name: /^XAUUSD/ })
       .click();
     await expect(page.getByRole('group', { name: 'Graphique XAUUSD' })).toBeVisible();
-    await expect(page.getByText('ORDER TICKET — XAUUSD').first()).toBeVisible();
+    await expect(page.getByTestId('execution-market-header')).toContainText('XAUUSD');
   });
 
   test('a favorite persists across a reload and survives corrupt storage', async ({

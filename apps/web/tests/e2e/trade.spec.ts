@@ -225,13 +225,14 @@ test.describe('WariX order lifecycle', { tag: ['@trade'] }, () => {
       await page.getByLabel('Quantité (lots)').first().fill('1.00');
       await page.getByRole('button', { name: 'Buy' }).first().click();
 
-      // Duplicated in the DOM: OrderTicket renders once for the desktop
-      // <aside> and once inside the (closed) mobile BottomSheet — getByText,
-      // unlike getByRole, doesn't filter by accessibility-tree/visibility, so
-      // both copies match. .first() is the desktop aside's, reliably first in
-      // DOM order.
-      await expect(page.getByText('Ordre refusé').first()).toBeVisible();
-      await expect(page.getByText('exposure_limit_exceeded').first()).toBeVisible();
+      // Since W4 the Execution Center exists exactly once in the document —
+      // it used to render for the desktop column *and* inside the closed
+      // mobile sheet, which is why these matches needed `.first()` to
+      // disambiguate two live copies of the same panel.
+      await expect(page.getByTestId('execution-rejection')).toBeVisible();
+      await expect(page.getByTestId('execution-rejection')).toContainText(
+        'exposure_limit_exceeded',
+      );
 
       // Order status/reason lives under Orders → Récents; Trades is the
       // closed-position PnL/eligibility ledger and never shows rejections
@@ -239,8 +240,8 @@ test.describe('WariX order lifecycle', { tag: ['@trade'] }, () => {
       await page.getByRole('tab', { name: /^Orders/ }).click();
       await page.getByRole('button', { name: 'Récents' }).click();
       // Scoped to the active tabpanel: the rejection reason also appears in
-      // OrderTicket's own Alert (which stays mounted regardless of which tab
-      // is active), so an unscoped match would be ambiguous here too.
+      // the Execution Center's own status notice (which stays put regardless
+      // of which dock tab is active), so an unscoped match would be ambiguous.
       const ordersPanel = page.getByRole('tabpanel');
       await expect(ordersPanel.getByText('Rejeté')).toBeVisible();
       await expect(
@@ -320,7 +321,7 @@ test.describe('WariX Close All', { tag: ['@trade'] }, () => {
     await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toBeVisible();
 
     await page.getByText('GBPUSD').first().click();
-    await expect(page.getByText('ORDER TICKET — GBPUSD').first()).toBeVisible();
+    await expect(page.getByTestId('execution-market-header')).toContainText('GBPUSD');
     await page.getByRole('button', { name: 'Sell' }).first().click();
 
     await page.getByRole('tab', { name: 'Positions' }).click();
@@ -434,7 +435,7 @@ test.describe('WariX keyboard access', { tag: ['@trade', '@accessibility'] }, ()
     await xauusdRow.focus();
     await page.keyboard.press('Enter');
     await expect(xauusdRow).toHaveAttribute('aria-current', 'true');
-    await expect(page.getByText('ORDER TICKET — XAUUSD').first()).toBeVisible();
+    await expect(page.getByTestId('execution-market-header')).toContainText('XAUUSD');
   });
 });
 
@@ -699,8 +700,8 @@ test.describe('WariX partial close', { tag: ['@trade'] }, () => {
       // All): PartialCloseSheet's onSubmitPartialClose closes the sheet
       // synchronously on click, before any server round trip — a deliberate
       // choice (unlike CloseAllDialog, this sheet has no "result" view of
-      // its own; a rejection surfaces through OrderTicket's own persistent
-      // Alert and the aria-live status announcement instead). So the sheet
+      // its own; a rejection surfaces through the Execution Center's own
+      // persistent status notice and the aria-live announcement instead). So the sheet
       // is expected to disappear immediately, not linger in a disabled state.
       const confirmButton = sheet.getByRole('button', { name: 'Confirmer la clôture partielle' });
       await confirmButton.click();

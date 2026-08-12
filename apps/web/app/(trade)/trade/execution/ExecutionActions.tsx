@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import { ORDER_KIND_LABEL } from './OrderTypeSelector';
 import type { ExecutionSide, TicketOrderKind } from './execution-contract';
 
@@ -67,6 +68,8 @@ export function ExecutionActions({
   pending,
   onSubmit,
 }: ExecutionActionsProps) {
+  const descriptionIdPrefix = useId();
+
   return (
     <div className="flex flex-col gap-1.5 px-3 pb-3 pt-1" data-testid="execution-actions">
       <div className="grid grid-cols-2 gap-2">
@@ -87,23 +90,25 @@ export function ExecutionActions({
                 data-testid={`execution-submit-${side}`}
                 disabled={disabled || pending}
                 aria-busy={pending || undefined}
-                // The visible verb opens the accessible name (WCAG 2.5.3), then
-                // the side in French and the price this action references — the
-                // two facts a non-sighted trader otherwise has to reconstruct
-                // from the header's left/right column order.
-                aria-label={[
-                  label,
-                  copy.accessible,
-                  orderKind === 'market' ? copy.quoteLabel : 'au seuil',
-                  price ?? '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
+                // Described, not relabelled. An `aria-label` carrying the side
+                // and the price would make the accessible name "Buy Acheter à
+                // l'Ask 1.08518" — which still satisfies WCAG 2.5.3 but stops
+                // the name from *being* the verb, so voice control and every
+                // exact-name selector in the suite lose their handle on it.
+                // The description carries the same facts and is announced
+                // right after the name instead.
+                aria-describedby={`${descriptionIdPrefix}-${side}`}
                 onClick={() => onSubmit(side)}
                 className={[
                   'flex min-h-[var(--wariba-size-touch-target-minimum)] flex-col items-center justify-center',
                   'rounded-[var(--wariba-radius-sm)] px-2 py-1.5 transition-colors',
-                  'text-[color:var(--wariba-action-primary-text)]',
+                  // `--wariba-action-destructive-text`, not `-primary-text`:
+                  // the primary one is #0B0D12 under a dark theme (correct on
+                  // the bright cobalt primary button, 3.1:1 and failing on
+                  // these saturated surfaces). The destructive token is the
+                  // one already paired with #A73C3C and is #FFFFFF in every
+                  // theme — 6.3:1 on the Sell red, 5.8:1 on the Buy green.
+                  'text-[color:var(--wariba-action-destructive-text)]',
                   'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]',
                   'disabled:bg-[color:var(--wariba-border-disabled)] disabled:text-[color:var(--wariba-text-disabled)]',
                   SIDE_TONE[side],
@@ -115,10 +120,23 @@ export function ExecutionActions({
                 <span className="text-[length:var(--wariba-font-size-label-md)] font-semibold">
                   {label}
                 </span>
-                <span className="wariba-data text-[length:var(--wariba-font-size-data-xs)] opacity-90">
+                {/* Hidden from the name computation so the button is named
+                    exactly "Buy"/"Sell"; the price is announced through the
+                    description below instead, so nothing is lost. Full
+                    opacity: at 11px, dimming this line alone was enough to
+                    drop it under the 4.5:1 minimum. */}
+                <span
+                  aria-hidden="true"
+                  className="wariba-data text-[length:var(--wariba-font-size-data-xs)]"
+                >
                   {price ?? DASH}
                 </span>
               </button>
+
+              <span id={`${descriptionIdPrefix}-${side}`} className="sr-only">
+                {copy.accessible} {orderKind === 'market' ? copy.quoteLabel : 'au seuil'}
+                {price ? ` ${price}` : ''}
+              </span>
 
               {sideUnavailable ? (
                 <p

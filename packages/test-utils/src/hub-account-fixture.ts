@@ -106,6 +106,17 @@ export async function deleteFixtureAccount(db: Db, fixture: E2eFixtureAccount): 
     .execute();
   await db.deleteFrom('app.fills').where('account_id', '=', fixture.accountId).execute();
   await db.deleteFrom('app.trade_orders').where('account_id', '=', fixture.accountId).execute();
+  // Before positions: both reference `positions` as well as the account, and
+  // every account_id FK here is NO ACTION rather than ON DELETE CASCADE, so a
+  // row left behind fails the account delete instead of being swept with it.
+  // A pending order that never triggered, and a reduction still queued, are
+  // both ordinary end states for a test — not leaks — so teardown clears them
+  // rather than requiring every test to cancel what it created.
+  await db
+    .deleteFrom('app.position_reduction_queue')
+    .where('account_id', '=', fixture.accountId)
+    .execute();
+  await db.deleteFrom('app.pending_orders').where('account_id', '=', fixture.accountId).execute();
   await db.deleteFrom('app.positions').where('account_id', '=', fixture.accountId).execute();
   await db
     .deleteFrom('app.trading_ledger_entries')

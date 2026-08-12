@@ -241,14 +241,28 @@ describe('ExecutionActions', () => {
     expect(buttons[1]).toHaveTextContent(TICK.ask);
   });
 
-  it('names the side in French and quotes the price for assistive tech', () => {
+  it('is named exactly by its verb, and describes the side and price separately', () => {
     render(<ExecutionActions {...baseProps} />);
+
+    // The accessible *name* is the verb alone — what voice control acts on,
+    // and what every exact-name selector in the E2E suite depends on.
+    expect(screen.getByRole('button', { name: 'Buy' })).toHaveAttribute(
+      'data-testid',
+      'execution-submit-buy',
+    );
+    expect(screen.getByRole('button', { name: 'Sell' })).toHaveAttribute(
+      'data-testid',
+      'execution-submit-sell',
+    );
+
+    // The side in French and the price it references ride on the description,
+    // announced right after the name.
     const buy = screen.getByTestId('execution-submit-buy');
-    const name = buy.getAttribute('aria-label') ?? '';
-    // The visible verb opens the accessible name (WCAG 2.5.3).
-    expect(name.startsWith('Buy')).toBe(true);
-    expect(name).toContain('Acheter');
-    expect(name).toContain(TICK.ask);
+    const describedBy = buy.getAttribute('aria-describedby');
+    expect(describedBy).toBeTruthy();
+    const description = document.getElementById(describedBy as string);
+    expect(description?.textContent).toContain('Acheter');
+    expect(description?.textContent).toContain(TICK.ask);
   });
 
   it('qualifies the verb for a pending order', () => {
