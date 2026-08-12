@@ -19,8 +19,8 @@ import { NotificationCenter, type CreateAlertParams } from './NotificationCenter
 import { PartialCloseSheet } from './PartialCloseSheet';
 import { PendingOrderConfirm } from './PendingOrderConfirm';
 import { QuickOrderConfirm } from './QuickOrderConfirm';
-import type { OrderRejectionDetail } from './OrderTicket';
-import type { TicketDraft } from './ticket-draft';
+import type { OrderRejectionDetail } from './execution/execution-contract';
+import { useTicketDraft, type TicketDraftStore } from './ticket-draft';
 import { useTick, type TickStore } from './tick-store';
 
 export interface TradeDialogState {
@@ -68,7 +68,11 @@ export interface TradeDialogsProps {
   symbolSpecs: Partial<Record<TradableSymbol, SymbolSpec>>;
   selectedSymbol: TradableSymbol;
   accountPublicId: string;
-  draft: TicketDraft;
+  /**
+   * The live ticket draft, read only by the two confirmation dialogs that
+   * restate it — and only while one of them is mounted (see the hosts below).
+   */
+  draftStore: TicketDraftStore;
   pending: boolean;
   rejection: OrderRejectionDetail | null;
   closeAllResult: CloseAllOutcome[] | null;
@@ -95,18 +99,52 @@ const PartialCloseSheetHost = memo(function PartialCloseSheetHost({
   return <PartialCloseSheet {...rest} tick={useTick(store, symbol)} />;
 });
 
+/**
+ * The two confirmation dialogs restate the ticket the trader is about to send,
+ * so they — and only they — subscribe to the draft store. Because
+ * `TradeDialogs` mounts each dialog on demand, that subscription exists only
+ * while the dialog is open: a keystroke in the quantity field re-renders the
+ * Execution Center and, if one is open, the confirmation that quotes it, and
+ * nothing else in the document (W4 §68).
+ */
 const QuickOrderConfirmHost = memo(function QuickOrderConfirmHost({
   store,
+  draftStore,
   ...rest
-}: { store: TickStore } & Omit<React.ComponentProps<typeof QuickOrderConfirm>, 'tick'>) {
-  return <QuickOrderConfirm {...rest} tick={useTick(store, rest.symbol)} />;
+}: { store: TickStore; draftStore: TicketDraftStore } & Omit<
+  React.ComponentProps<typeof QuickOrderConfirm>,
+  'tick' | 'quantity' | 'stopLoss' | 'takeProfit'
+>) {
+  const draft = useTicketDraft(draftStore);
+  return (
+    <QuickOrderConfirm
+      {...rest}
+      quantity={draft.quantity}
+      stopLoss={draft.stopLoss}
+      takeProfit={draft.takeProfit}
+      tick={useTick(store, rest.symbol)}
+    />
+  );
 });
 
 const PendingOrderConfirmHost = memo(function PendingOrderConfirmHost({
   store,
+  draftStore,
   ...rest
-}: { store: TickStore } & Omit<React.ComponentProps<typeof PendingOrderConfirm>, 'tick'>) {
-  return <PendingOrderConfirm {...rest} tick={useTick(store, rest.symbol)} />;
+}: { store: TickStore; draftStore: TicketDraftStore } & Omit<
+  React.ComponentProps<typeof PendingOrderConfirm>,
+  'tick' | 'quantity' | 'stopLoss' | 'takeProfit'
+>) {
+  const draft = useTicketDraft(draftStore);
+  return (
+    <PendingOrderConfirm
+      {...rest}
+      quantity={draft.quantity}
+      stopLoss={draft.stopLoss}
+      takeProfit={draft.takeProfit}
+      tick={useTick(store, rest.symbol)}
+    />
+  );
 });
 
 /**
@@ -132,7 +170,7 @@ export const TradeDialogs = memo(function TradeDialogs({
   symbolSpecs,
   selectedSymbol,
   accountPublicId,
-  draft,
+  draftStore,
   pending,
   rejection,
   closeAllResult,
@@ -174,14 +212,12 @@ export const TradeDialogs = memo(function TradeDialogs({
       {state.quickOrderSide !== null ? (
         <QuickOrderConfirmHost
           store={store}
+          draftStore={draftStore}
           open
           onClose={actions.closeQuickOrder}
           symbol={selectedSymbol}
           side={state.quickOrderSide}
-          quantity={draft.quantity}
           spec={symbolSpecs[selectedSymbol] ?? null}
-          stopLoss={draft.stopLoss}
-          takeProfit={draft.takeProfit}
           pending={pending}
           onConfirm={actions.confirmQuickOrder}
         />
@@ -214,15 +250,13 @@ export const TradeDialogs = memo(function TradeDialogs({
       {state.pendingOrderRequest !== null ? (
         <PendingOrderConfirmHost
           store={store}
+          draftStore={draftStore}
           open
           onClose={actions.closePendingOrderRequest}
           symbol={selectedSymbol}
           orderType={state.pendingOrderRequest.orderType}
           triggerPrice={state.pendingOrderRequest.triggerPrice}
-          quantity={draft.quantity}
           spec={symbolSpecs[selectedSymbol] ?? null}
-          stopLoss={draft.stopLoss}
-          takeProfit={draft.takeProfit}
           pending={pending}
           onConfirm={actions.confirmPendingOrderRequest}
         />

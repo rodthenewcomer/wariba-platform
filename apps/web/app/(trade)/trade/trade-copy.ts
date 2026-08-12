@@ -1,4 +1,4 @@
-import type { OrderRejectionDetail } from './OrderTicket';
+import type { OrderRejectionDetail } from './execution/execution-contract';
 
 /**
  * Rejection copy for every code the server actually produces — extracted

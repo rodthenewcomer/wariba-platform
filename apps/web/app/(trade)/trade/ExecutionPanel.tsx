@@ -1,53 +1,81 @@
 'use client';
 
-import { memo, useMemo } from 'react';
-import { Alert, Guardian, Text, type GuardianConcentrationBucket } from '@wariba/ui';
-import { estimateRequiredMargin } from '@wariba/domain';
+import { memo } from 'react';
+import { quotedPrice } from '@wariba/domain';
 import type { AccountRisk, SymbolSpec, TradableSymbol } from '@wariba/contracts';
-import { OrderTicket, type OrderRejectionDetail } from './OrderTicket';
-import { CONCENTRATION_BUCKET_LABEL } from './trade-labels';
-import { deriveRiskRibbonStatus } from './risk-status';
+import { ExecutionActions } from './execution/ExecutionActions';
+import { ExecutionMarketHeader } from './execution/ExecutionMarketHeader';
+import { ExecutionSection } from './execution/ExecutionSection';
+import { ExecutionStatus } from './execution/ExecutionStatus';
+import { OrderTypeSelector } from './execution/OrderTypeSelector';
+import { ProtectionSection } from './execution/ProtectionSection';
+import { QuantityControl } from './execution/QuantityControl';
+import { TradeImpactPanel } from './execution/TradeImpactPanel';
+import { TriggerPriceControl, creatableSidesFor } from './execution/TriggerPriceControl';
+import type { ExecutionSide, OrderRejectionDetail } from './execution/execution-contract';
+import { deriveExecutionGate } from './execution/execution-gating';
+import { deriveProtectionPreview, deriveTradeImpact } from './execution/execution-impact';
 import {
+  protectionPriceErrorFor,
   quantityErrorFor,
   triggerPriceErrorFor,
-  type TicketDraft,
-  type TicketDraftSetters,
+  useTicketDraft,
+  type TicketDraftStore,
 } from './ticket-draft';
 import { useTick, type TickStore } from './tick-store';
 
 export interface ExecutionPanelProps {
   store: TickStore;
+  draftStore: TicketDraftStore;
   symbol: TradableSymbol;
   spec: SymbolSpec | undefined;
   accountPublicId: string;
-  draft: TicketDraft;
-  setters: TicketDraftSetters;
+  /** The account's server-priced equity, for the SL/TP impact preview. Null before the first snapshot. */
+  equity: string | null;
   risk: AccountRisk | null;
   connectionOk: boolean;
   isResyncing: boolean;
   pending: boolean;
   rejection: OrderRejectionDetail | null;
-  onSubmit: (side: 'buy' | 'sell') => void;
+  onSubmit: (side: ExecutionSide) => void;
 }
 
 /**
- * W1 §16 — one of the four legitimate selected-symbol tick consumers. The
- * ticket shows the live bid/ask and Guardian prices the current draft against
- * it, so this surface genuinely re-renders per tick; nothing above it does.
+ * The Execution Center (W4 §10/§11/§12) — one instrument, one draft, one
+ * surface.
  *
- * The submit gate is unchanged from the pre-split TradeClient: connection,
- * then market staleness, then risk lock, then the two client-side field
- * checks, in that order. Every value it reads is server-authoritative
- * (AccountSnapshot.risk, SymbolSpec) or a canonical domain helper — this
- * component introduces no arithmetic of its own.
+ * Before W4 this panel was a stack of independently-boxed widgets: three
+ * full-width `Alert` cards, then an `OrderTicket` card, then a `Guardian`
+ * card, each with its own border, radius and 16px padding. On a 320px column
+ * that pushed the Buy/Sell buttons below the fold whenever a single notice was
+ * showing — the trader had to scroll a *trading panel* to reach the trade. The
+ * sections below are the same information with the boxes removed: a hairline
+ * seam and a small-caps heading per section (`ExecutionSection`), notices
+ * reduced to a left-edge accent rule (`ExecutionStatus`), and the actions
+ * pinned last where the eye ends up.
+ *
+ * **This component composes and derives; it does not compute.** Every number
+ * shown comes from a canonical helper or verbatim from the server's snapshot
+ * (see `execution-impact.ts`), every gate branch mirrors a rule the server
+ * enforces anyway (see `execution-gating.ts`), and the arithmetic that could
+ * produce a floating-point artefact lives in `@wariba/domain` where decimal.js
+ * exists (see `execution-quantity.ts`). W4 §5's constraint — no new browser
+ * arithmetic — is met structurally rather than by review.
+ *
+ * **Two subscriptions, both local.** The tick (W1 §16: one of the four
+ * legitimate selected-symbol consumers) and the ticket draft. Both terminate
+ * here: `TradeClient` holds the draft store but never reads it during render,
+ * so a keystroke in the quantity field re-renders this panel and nothing above
+ * it (W4 §68). That is why the draft is an external store rather than
+ * `useState` in the composition root — see `ticket-draft.ts`.
  */
 export const ExecutionPanel = memo(function ExecutionPanel({
   store,
+  draftStore,
   symbol,
   spec,
   accountPublicId,
-  draft,
-  setters,
+  equity,
   risk,
   connectionOk,
   isResyncing,
@@ -56,128 +84,143 @@ export const ExecutionPanel = memo(function ExecutionPanel({
   onSubmit,
 }: ExecutionPanelProps) {
   const tick = useTick(store, symbol);
-  const isStale = tick?.marketStatus === 'stale';
-
-  const riskRibbonStatus = deriveRiskRibbonStatus({ risk, isStale, isResyncing });
-  const isShortDurationEntryLocked = risk?.shortDurationMonitoring.status === 'entry_locked';
-  const isRiskLocked =
-    riskRibbonStatus === 'soft-lock' ||
-    riskRibbonStatus === 'hard-breach' ||
-    isShortDurationEntryLocked;
+  const draft = useTicketDraft(draftStore);
 
   const quantityError = quantityErrorFor(draft.quantity, spec);
   const triggerPriceError = triggerPriceErrorFor(draft.orderKind, draft.triggerPrice);
+  const stopLossError = protectionPriceErrorFor(draft.stopLoss);
+  const takeProfitError = protectionPriceErrorFor(draft.takeProfit);
 
-  const submitDisabled =
-    !connectionOk ||
-    isStale ||
-    isRiskLocked ||
-    Boolean(quantityError) ||
-    Boolean(triggerPriceError);
+  const gate = deriveExecutionGate({
+    connectionOk,
+    isResyncing,
+    tick,
+    risk,
+    quantityError,
+    triggerPriceError,
+    protectionError: stopLossError ?? takeProfitError,
+  });
 
-  const disabledMessage = !connectionOk
-    ? 'Connexion au serveur en cours…'
-    : isStale
-      ? 'Les nouvelles positions sont bloquées tant que le marché n’est pas à jour.'
-      : isRiskLocked
-        ? isShortDurationEntryLocked
-          ? 'Les nouvelles ouvertures sont suspendues pour revue après six profits sous 60 secondes sur 24 h.'
-          : riskRibbonStatus === 'hard-breach'
-            ? 'La limite maximale de perte est dépassée. Aucun nouvel ordre possible.'
-            : 'Votre compte est en blocage temporaire jusqu’au prochain reset à 00:00 UTC.'
-        : (quantityError ?? triggerPriceError);
+  // Not memoized, deliberately. Both derivations depend on `tick`, which is a
+  // new object on every tick this panel subscribes to — a useMemo keyed on it
+  // would recompute every time anyway while adding a dependency array that can
+  // silently go stale. The pre-W4 panel memoized Guardian's props on exactly
+  // the same (always-changing) key.
+  const impactInput = { spec, tick, risk, equity, draft };
+  const impact = deriveTradeImpact(impactInput);
+  const protectionPreview = deriveProtectionPreview(impactInput);
 
-  // Guardian (UX Architecture §22.8) — impact potentiel of the current Order
-  // Ticket draft. Side-agnostic on purpose: the exposure gate
-  // (isAggregateExposureAllowed) sums raw quantities regardless of buy/sell,
-  // so margin/exposure impact don't depend on a chosen side either. Null
-  // until a symbol spec + a live tick + a priced account exist — no
-  // fabricated numbers before then.
-  const guardianProps = useMemo(() => {
-    if (!spec || !tick || !risk) return null;
-    const midPrice = ((Number(tick.bid) + Number(tick.ask)) / 2).toFixed(spec.pricePrecision);
-    const marginEstimated = estimateRequiredMargin({
-      quantity: draft.quantity,
-      price: midPrice,
-      contractSize: spec.contractSize,
-      leverage: spec.leverage,
-    });
-    const concentration: GuardianConcentrationBucket[] = risk.concentration.map((bucket) => ({
-      bucket: bucket.bucket,
-      label: CONCENTRATION_BUCKET_LABEL[bucket.bucket] ?? bucket.bucket,
-      usedFormatted: bucket.usedQuantity,
-      limitFormatted: bucket.limitQuantity,
-      usedRatioPercent: Number(bucket.usedRatio) * 100,
-    }));
-    return {
-      symbol,
-      quantityFormatted: draft.quantity,
-      marginEstimatedFormatted: `${marginEstimated} USD`,
-      dailyLossRemainingFormatted: `${risk.dailyLoss.remaining} USD`,
-      maximumLossRemainingFormatted: `${risk.maximumLoss.remaining} USD`,
-      concentration,
-      isPriceStale: tick.marketStatus === 'stale',
-    };
-  }, [spec, tick, risk, symbol, draft.quantity]);
+  /**
+   * The price each action references: its own executable quote for a market
+   * order (`quotedPrice` — the server's rule, not a re-implementation), and the
+   * trigger level for a pending one, shown only once that level parses.
+   */
+  const referencePriceFor = (side: ExecutionSide): string | null => {
+    if (draft.orderKind !== 'market') {
+      if (triggerPriceError !== null) return null;
+      return draft.triggerPrice.trim() || null;
+    }
+    if (!tick) return null;
+    return quotedPrice({ bid: tick.bid, ask: tick.ask, positionSide: side, action: 'open' });
+  };
+  const referencePrice: Record<ExecutionSide, string | null> = {
+    sell: referencePriceFor('sell'),
+    buy: referencePriceFor('buy'),
+  };
+
+  const creatableSides =
+    draft.orderKind === 'market'
+      ? null
+      : creatableSidesFor({
+          orderKind: draft.orderKind,
+          triggerPrice: draft.triggerPrice,
+          tick,
+          hasError: triggerPriceError !== null,
+        });
 
   return (
-    <div className="flex min-h-0 flex-col gap-4 overflow-y-auto">
-      {/* Kept from the pre-W1 header stack. The status bar carries the badge
-          that says *that* the monitoring fired; this is where the trader is
-          about to act, so it is where the full explanation belongs. The
-          entry_locked case is additionally surfaced through the ticket's own
-          disabledMessage above. */}
-      {risk?.shortDurationMonitoring.status === 'warning' && (
-        <Alert level="warning" title="Profits de très courte durée détectés">
-          {risk.shortDurationMonitoring.count24h} clôtures profitables sous 60 secondes sur 24 h.
-          Elles restent visibles mais ne comptent pas dans votre progression.
-        </Alert>
-      )}
-      {risk?.shortDurationMonitoring.status === 'entry_locked' && (
-        <Alert level="warning" title="Nouvelles ouvertures temporairement suspendues">
-          Vous pouvez toujours réduire ou fermer vos positions. Le verrou suit une fenêtre glissante
-          de 24 h ; le signal reste auditable pour revue du risque et aucune violation permanente
-          n’est créée automatiquement.
-        </Alert>
-      )}
-      {isResyncing && (
-        <Alert level="warning" title="Resynchronisation en cours">
-          Un écart de séquence a été détecté. Les ordres restent bloqués jusqu&apos;au nouveau
-          snapshot serveur.
-        </Alert>
-      )}
+    <div
+      data-testid="execution-center"
+      className="flex min-h-0 flex-1 flex-col bg-[color:var(--wariba-component-workstation-surface-raised)]"
+    >
+      {/* The three quotes and the reason the trader cannot act: pinned, because
+          neither is useful if it has scrolled away from the button. */}
+      <div className="shrink-0">
+        <ExecutionMarketHeader
+          symbol={symbol}
+          spec={spec}
+          tick={tick}
+          accountPublicId={accountPublicId}
+        />
+        <ExecutionStatus gate={gate} rejection={rejection} risk={risk} />
+      </div>
 
-      <OrderTicket
-        accountPublicId={accountPublicId}
-        symbol={symbol}
-        spec={spec ?? null}
-        tick={tick}
-        quantity={draft.quantity}
-        onQuantityChange={setters.setQuantity}
-        quantityError={quantityError}
-        stopLoss={draft.stopLoss}
-        onStopLossChange={setters.setStopLoss}
-        takeProfit={draft.takeProfit}
-        onTakeProfitChange={setters.setTakeProfit}
-        onSubmit={onSubmit}
-        pending={pending}
-        submitDisabled={submitDisabled}
-        disabledMessage={disabledMessage}
-        rejection={rejection}
-        orderKind={draft.orderKind}
-        onOrderKindChange={setters.setOrderKind}
-        triggerPrice={draft.triggerPrice}
-        onTriggerPriceChange={setters.setTriggerPrice}
-        triggerPriceError={triggerPriceError}
-      />
+      {/*
+       * Only the *fields* scroll.
+       *
+       * The panel used to scroll as one block, which put the Buy/Sell actions
+       * below the fold on a 900px-tall screen as soon as the protection
+       * preview or a notice was showing — the pre-W4 defect W4 §36 exists to
+       * fix, reintroduced by a different mechanism. With the header and the
+       * actions pinned and this region owning the overflow, the two things
+       * that spend money are on screen at every viewport and in every state,
+       * whatever the sections between them grow to.
+       */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <ExecutionSection title="Type" testId="execution-order-type">
+          <OrderTypeSelector value={draft.orderKind} onChange={draftStore.setOrderKind} />
+          {draft.orderKind !== 'market' ? (
+            <TriggerPriceControl
+              orderKind={draft.orderKind}
+              spec={spec}
+              tick={tick}
+              value={draft.triggerPrice}
+              onChange={draftStore.setTriggerPrice}
+              error={triggerPriceError}
+            />
+          ) : null}
+        </ExecutionSection>
 
-      {guardianProps ? (
-        <Guardian {...guardianProps} />
-      ) : (
-        <Text variant="body-sm" color="tertiary">
-          Guardian sera actif après votre première journée de trading.
-        </Text>
-      )}
+        <ExecutionSection title="Quantité" testId="execution-quantity">
+          <QuantityControl
+            spec={spec}
+            value={draft.quantity}
+            onChange={draftStore.setQuantity}
+            error={quantityError}
+          />
+        </ExecutionSection>
+
+        <ExecutionSection title="Protection" testId="execution-protection">
+          <ProtectionSection
+            spec={spec}
+            stopLoss={draft.stopLoss}
+            onStopLossChange={draftStore.setStopLoss}
+            stopLossError={stopLossError}
+            takeProfit={draft.takeProfit}
+            onTakeProfitChange={draftStore.setTakeProfit}
+            takeProfitError={takeProfitError}
+            preview={protectionPreview}
+          />
+        </ExecutionSection>
+
+        <ExecutionSection title="Impact" testId="execution-impact">
+          <TradeImpactPanel impact={impact} />
+        </ExecutionSection>
+      </div>
+
+      {/* Explicitly opaque, not merely last in the flow: the fields above
+          scroll *under* this bar, and a transparent one would let a
+          half-scrolled input show through the buttons. */}
+      <div className="shrink-0 border-t border-[color:var(--wariba-component-workstation-seam)] bg-[color:var(--wariba-component-workstation-surface-raised)] pt-1">
+        <ExecutionActions
+          orderKind={draft.orderKind}
+          referencePrice={referencePrice}
+          creatableSides={creatableSides}
+          disabled={gate.entryBlocked}
+          pending={pending}
+          onSubmit={onSubmit}
+        />
+      </div>
     </div>
   );
 });

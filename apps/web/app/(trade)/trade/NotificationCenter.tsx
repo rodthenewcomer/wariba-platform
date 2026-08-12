@@ -9,7 +9,7 @@ import type {
   PriceAlertDTO,
   TradableSymbol,
 } from '@wariba/contracts';
-import type { OrderRejectionDetail } from './OrderTicket';
+import type { OrderRejectionDetail } from './execution/execution-contract';
 
 export interface CreateAlertParams {
   symbol: TradableSymbol;

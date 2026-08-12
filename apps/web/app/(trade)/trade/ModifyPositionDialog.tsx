@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, Button, Dialog, Input, Text } from '@wariba/ui';
 import type { PositionDTO } from '@wariba/contracts';
-import type { OrderRejectionDetail } from './OrderTicket';
+import type { OrderRejectionDetail } from './execution/execution-contract';
 import { useTick, type TickStore } from './tick-store';
 
 export interface ModifyPositionField {

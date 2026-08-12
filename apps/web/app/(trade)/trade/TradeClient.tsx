@@ -8,9 +8,9 @@ import { ChartWorkspace, type ChartWorkspaceActions } from './ChartWorkspace';
 import { MarketNavigator } from './MarketNavigator';
 import { useIsDesktop } from './use-viewport';
 import { ExecutionPanel } from './ExecutionPanel';
-import { pendingOrderTypeFor } from './OrderTicket';
+import { pendingOrderTypeFor } from './execution/execution-contract';
 import { TradeDialogs, type TradeDialogActions, type TradeDialogState } from './TradeDialogs';
-import { useTicketDraft } from './ticket-draft';
+import { createTicketDraftStore } from './ticket-draft';
 import { useTradeSession } from './trade-session';
 import { MobileMarketBar } from './workstation/MobileMarketBar';
 import { NavRail } from './workstation/NavRail';
@@ -62,10 +62,17 @@ export interface TradeClientProps {
  *   holding tick + snapshot + commands + modal state would have moved this
  *   component's problem rather than fixed it (W1 §3).
  *
- * The composed callbacks below all read `selectedSymbolRef` / `draftRef`
+ * The composed callbacks below all read `selectedSymbolRef` / `draftStore`
  * rather than capturing render-scoped values, so their identity never
  * changes and neither the chart nor the dock re-renders because someone
  * typed in the quantity field.
+ *
+ * W4 made that last sentence true rather than merely intended. The draft used
+ * to be `useState` here, so every keystroke re-rendered this component, which
+ * rebuilds the JSX it passes as props (`headerAction`, `resizeHandle`, the
+ * dock's `account` object…) — fresh objects each time, so no `memo` below
+ * could hold. It is now an external store (`ticket-draft.ts`) that only the
+ * surfaces genuinely displaying the draft subscribe to.
  */
 export function TradeClient({
   accountId,
@@ -81,7 +88,27 @@ export function TradeClient({
   const selectedSymbolRef = useRef(selectedSymbol);
   selectedSymbolRef.current = selectedSymbol;
 
-  const { draft, draftRef, setters } = useTicketDraft();
+  // Created once and never re-read here during render — see ticket-draft.ts
+  // for why the draft is an external store rather than this component's state.
+  const draftStore = useMemo(() => createTicketDraftStore(), []);
+
+  /**
+   * W4 §54 — switching instrument clears the three absolute-price fields.
+   *
+   * A stop of 1.08500 carried from EURUSD onto NAS100 is not visibly wrong on
+   * screen, is not caught by any client-side check (the fields validate syntax,
+   * not instrument range), and would be submitted verbatim. Quantity and order
+   * kind survive on purpose: a quantity *is* validated against the new symbol's
+   * own bounds and says so inline when it no longer fits.
+   */
+  const selectSymbol = useCallback(
+    (next: TradableSymbol) => {
+      if (next === selectedSymbolRef.current) return;
+      draftStore.clearPriceLevels();
+      setSelectedSymbol(next);
+    },
+    [draftStore],
+  );
 
   const [oneClickTrading] = useOneClickTrading();
   const oneClickTradingRef = useRef(oneClickTrading);
@@ -124,7 +151,7 @@ export function TradeClient({
 
   const submitMarketOrder = useCallback(
     (side: 'buy' | 'sell') => {
-      const { quantity, stopLoss, takeProfit } = draftRef.current;
+      const { quantity, stopLoss, takeProfit } = draftStore.getDraft();
       commands.openPosition({
         symbol: selectedSymbolRef.current,
         side,
@@ -133,12 +160,12 @@ export function TradeClient({
         takeProfit,
       });
     },
-    [commands, draftRef],
+    [commands, draftStore],
   );
 
   const submitPendingOrder = useCallback(
     (orderType: PendingOrderType, triggerPrice: string) => {
-      const { quantity, stopLoss, takeProfit } = draftRef.current;
+      const { quantity, stopLoss, takeProfit } = draftStore.getDraft();
       commands.createPendingOrder({
         symbol: selectedSymbolRef.current,
         orderType,
@@ -148,7 +175,7 @@ export function TradeClient({
         takeProfit,
       });
     },
-    [commands, draftRef],
+    [commands, draftStore],
   );
 
   // The ticket's Buy/Sell buttons route to openPosition when orderKind is
@@ -159,14 +186,14 @@ export function TradeClient({
   // PendingOrderConfirm, mirroring QuickOrderConfirm).
   const submitTicket = useCallback(
     (side: 'buy' | 'sell') => {
-      const { orderKind, triggerPrice } = draftRef.current;
+      const { orderKind, triggerPrice } = draftStore.getDraft();
       if (orderKind === 'market') {
         submitMarketOrder(side);
       } else {
         submitPendingOrder(pendingOrderTypeFor(orderKind, side), triggerPrice.trim());
       }
     },
-    [draftRef, submitMarketOrder, submitPendingOrder],
+    [draftStore, submitMarketOrder, submitPendingOrder],
   );
 
   // Chart context menu's Market Buy/Sell (Appendix 07-C §7/§8) — same
@@ -349,11 +376,11 @@ export function TradeClient({
   const executionPanel = (
     <ExecutionPanel
       store={tickStore}
+      draftStore={draftStore}
       symbol={selectedSymbol}
       spec={symbolSpecs[selectedSymbol]}
       accountPublicId={accountPublicId}
-      draft={draft}
-      setters={setters}
+      equity={snapshot?.equity ?? null}
       risk={session.risk}
       connectionOk={session.connectionOk}
       isResyncing={session.isResyncing}
@@ -431,7 +458,7 @@ export function TradeClient({
             symbolSpecs={symbolSpecs}
             selectedSymbol={selectedSymbol}
             favorites={preferences.favorites}
-            onSelectSymbol={setSelectedSymbol}
+            onSelectSymbol={selectSymbol}
             onToggleFavorite={toggleFavorite}
           />
         }
@@ -441,7 +468,7 @@ export function TradeClient({
             symbolSpecs={symbolSpecs}
             selectedSymbol={selectedSymbol}
             favorites={preferences.favorites}
-            onSelectSymbol={setSelectedSymbol}
+            onSelectSymbol={selectSymbol}
             onToggleFavorite={toggleFavorite}
             headerAction={
               <button
@@ -501,11 +528,18 @@ export function TradeClient({
             </Button>
           </div>
         }
-        execution={executionPanel}
-        // W2 §27 — the dock is mounted inline on desktop and inside the sheet
-        // on mobile, never both at once: a hidden Positions panel would still
-        // hold a useAllTicks subscription and still recompute live P&L per
-        // tick. (After viewport resolution; see use-viewport.ts.)
+        // W4 §69/§70 — the Execution Center exists exactly once in the
+        // document, following the rule W2 §27 already set for the dock. Before
+        // W4 it was rendered here *and* inside the mobile sheet: the desktop
+        // copy was merely `hidden` by CSS on a phone, so both trees held a
+        // `useTick` subscription, both re-derived margin and impact on every
+        // tick, and every field appeared twice in the DOM — which is why the
+        // E2E suite had to reach for `.first()` and why "Ordre refusé" matched
+        // two nodes. (After viewport resolution; see use-viewport.ts.)
+        execution={isDesktop ? executionPanel : null}
+        // W2 §27 — same rule for the dock: a hidden Positions panel would
+        // still hold a useAllTicks subscription and still recompute live P&L
+        // per tick.
         dock={isDesktop ? workstationDock : null}
       />
 
@@ -519,12 +553,17 @@ export function TradeClient({
         ) : null}
       </BottomSheet>
 
+      {/* The mobile presentation of the same panel — the sheet is the only
+          place it is mounted below `lg`, and the desktop column the only place
+          above it. The draft itself lives in `draftStore`, outside React, so
+          moving between the two presentations carries the trader's in-progress
+          ticket across intact. */}
       <BottomSheet
-        open={ticketOpen}
+        open={!isDesktop && ticketOpen}
         onClose={() => setTicketOpen(false)}
         title={`Trader ${selectedSymbol}`}
       >
-        {ticketOpen ? executionPanel : null}
+        {!isDesktop && ticketOpen ? executionPanel : null}
       </BottomSheet>
 
       <TradeDialogs
@@ -533,7 +572,7 @@ export function TradeClient({
         symbolSpecs={symbolSpecs}
         selectedSymbol={selectedSymbol}
         accountPublicId={accountPublicId}
-        draft={draft}
+        draftStore={draftStore}
         pending={session.pending}
         rejection={session.rejection}
         closeAllResult={session.closeAllResult}

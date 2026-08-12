@@ -30,7 +30,7 @@ import { createSupabaseBrowserClient } from '../../../lib/supabase/browser';
 import type { CloseAllOutcome } from './CloseAllDialog';
 import type { ModifyPendingOrderParams } from './ModifyPendingOrderDialog';
 import type { CreateAlertParams } from './NotificationCenter';
-import type { OrderRejectionDetail } from './OrderTicket';
+import type { OrderRejectionDetail } from './execution/execution-contract';
 import { createTickStore, type TickStore } from './tick-store';
 import {
   createChartHistoryTransportHub,
