@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { isQuantityWithinBounds } from '@wariba/domain';
 import type { MarketTick, SymbolSpec } from '@wariba/contracts';
 import { ExecutionActions } from '../app/(trade)/trade/execution/ExecutionActions';
+import { ExecutionImpactSummary } from '../app/(trade)/trade/execution/ExecutionImpactSummary';
 import { ExecutionStatus } from '../app/(trade)/trade/execution/ExecutionStatus';
 import { OrderTypeSelector } from '../app/(trade)/trade/execution/OrderTypeSelector';
 import { QuantityControl } from '../app/(trade)/trade/execution/QuantityControl';
@@ -123,9 +124,14 @@ describe('QuantityControl', () => {
     expect(target).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('states the instrument’s own bounds, which is also the specs-loaded signal', () => {
+  it('states step, minimum and maximum compactly, at the value’s own scale', () => {
+    // Visual closure §7 — the same three facts, without the numeric(14,4)
+    // column padding leaking into the interface as "0.0100". Nothing is
+    // hidden: the accessible title still spells all three out.
     render(<QuantityHost />);
-    expect(screen.getByText(/Pas 0.0100 · Min 0.0100 · Max 10.0000/)).toBeInTheDocument();
+    const bounds = screen.getByTestId('quantity-bounds');
+    expect(bounds).toHaveTextContent('Pas 0.01 · 0.01–10.00');
+    expect(bounds.getAttribute('title')).toBe('Pas de 0.01, minimum 0.01, maximum 10.00 lots');
   });
 
   it('disables a stepper that cannot move rather than letting it leave the bounds', () => {
@@ -170,51 +176,30 @@ describe('TriggerPriceControl', () => {
   const baseProps = {
     orderKind: 'limit' as const,
     spec: SPEC,
-    tick: TICK,
     onChange: () => {},
     error: null,
   };
 
   it('states the creation-side rule for the selected kind', () => {
     const { rerender } = render(<TriggerPriceControl {...baseProps} value="" />);
-    expect(screen.getByText(/Buy Limit sous l’Ask/)).toBeInTheDocument();
+    expect(screen.getByTestId('trigger-price-hint')).toHaveTextContent(/Buy Limit sous l’Ask/);
 
     rerender(<TriggerPriceControl {...baseProps} orderKind="stop" value="" />);
-    // A stop is not a guaranteed price, and the copy has to say so.
-    expect(screen.getByText(/écart de marché peut exécuter au-delà du seuil/)).toBeInTheDocument();
-  });
-
-  it('warns when a threshold is valid on neither side of the current market', () => {
-    // Inside the spread, a Stop is creatable on neither side: a Buy Stop must
-    // sit above the ask and a Sell Stop below the bid. (The same price is valid
-    // on *both* sides for a Limit, which is the case asserted just below.)
-    render(<TriggerPriceControl {...baseProps} orderKind="stop" value="1.08505" />);
-    expect(screen.getByTestId('trigger-price-no-side')).toBeInTheDocument();
-  });
-
-  it('stays quiet when the threshold is creatable on at least one side', () => {
-    const { rerender } = render(<TriggerPriceControl {...baseProps} value="1.08505" />);
-    expect(screen.queryByTestId('trigger-price-no-side')).not.toBeInTheDocument();
-
-    // Well below the market: a Buy Limit, and a Sell Stop, both creatable.
-    rerender(<TriggerPriceControl {...baseProps} value="1.07000" />);
-    expect(screen.queryByTestId('trigger-price-no-side')).not.toBeInTheDocument();
-  });
-
-  it('says nothing about sides while the field is empty, malformed, or the market is closed', () => {
-    const { rerender } = render(<TriggerPriceControl {...baseProps} value="" />);
-    expect(screen.queryByTestId('trigger-price-no-side')).not.toBeInTheDocument();
-
-    rerender(<TriggerPriceControl {...baseProps} value="1.2.3" error="Invalide" />);
-    expect(screen.queryByTestId('trigger-price-no-side')).not.toBeInTheDocument();
-
-    rerender(
-      <TriggerPriceControl
-        {...baseProps}
-        tick={{ ...TICK, marketStatus: 'closed' }}
-        value="1.08505"
-      />,
+    const hint = screen.getByTestId('trigger-price-hint');
+    // A stop is not a guaranteed price, and the copy has to say so — briefly
+    // on screen, in full in the accessible title (visual closure §11).
+    expect(hint).toHaveTextContent(/pas de garantie de prix/);
+    expect(hint.getAttribute('title')).toMatch(
+      /écart de marché peut exécuter l’ordre au-delà du seuil/,
     );
+  });
+
+  it('no longer carries an ambiguous both-sides footer', () => {
+    // Visual closure §11 — the "valid on neither side" banner that used to sit
+    // here made a trader map one sentence back onto two equally emphasised
+    // buttons. The guidance now lives per side on the actions themselves
+    // (asserted in the ExecutionActions suite below).
+    render(<TriggerPriceControl {...baseProps} orderKind="stop" value="1.08505" />);
     expect(screen.queryByTestId('trigger-price-no-side')).not.toBeInTheDocument();
   });
 });
@@ -296,6 +281,39 @@ describe('ExecutionActions', () => {
     expect(screen.getByTestId('execution-submit-buy')).toHaveTextContent('Buy');
   });
 
+  it('de-emphasises and labels the side the current quote cannot create', async () => {
+    // Visual closure §11 — the two actions must stop being equally emphasised
+    // when only one of them is creatable at the current threshold, and the
+    // guidance must sit under the side it applies to rather than as one
+    // ambiguous footer sentence.
+    render(
+      <ExecutionActions
+        {...baseProps}
+        orderKind="limit"
+        creatableSides={{ buy: false, sell: true }}
+      />,
+    );
+
+    const buy = screen.getByTestId('execution-submit-buy');
+    const sell = screen.getByTestId('execution-submit-sell');
+    // Outline instead of fill — and deliberately not `opacity`, which would
+    // composite the label with its own background and fail contrast on a
+    // control that is still live.
+    expect(buy.className).toContain('bg-transparent');
+    expect(buy.className).not.toContain('opacity-');
+    expect(sell.className).toContain('var(--wariba-status-danger-strong)');
+
+    expect(screen.getByTestId('execution-side-unavailable-buy')).toHaveTextContent(
+      'Non valide au cours actuel',
+    );
+    expect(screen.queryByTestId('execution-side-unavailable-sell')).not.toBeInTheDocument();
+
+    // The description keeps the full explanation, including that the server
+    // is still the authority.
+    const description = document.getElementById(buy.getAttribute('aria-describedby') as string);
+    expect(description?.textContent).toContain('le serveur reste juge');
+  });
+
   it('notes a side the current market cannot create, without blocking it', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
@@ -317,8 +335,13 @@ describe('ExecutionActions', () => {
   });
 
   it('states that no client price is authoritative, and GTC only for pending orders', () => {
+    // Visual closure §4 — the disclosure is compacted, not dropped: the short
+    // form stays on screen and the full sentence is the accessible title.
     const { rerender } = render(<ExecutionActions {...baseProps} />);
-    expect(screen.getByText(/Exécution serveur uniquement/)).toBeInTheDocument();
+    expect(screen.getByText(/exécution serveur/)).toBeInTheDocument();
+    expect(screen.getByText(/exécution serveur/).getAttribute('title')).toMatch(
+      /aucun prix affiché dans le navigateur n’est jamais autoritaire/,
+    );
     expect(screen.queryByText(/GTC/)).not.toBeInTheDocument();
 
     rerender(<ExecutionActions {...baseProps} orderKind="limit" />);
@@ -420,5 +443,50 @@ describe('ExecutionStatus', () => {
     // Assertive for the refusal, polite for the standing monitoring notice.
     expect(notices[0]).toHaveAttribute('role', 'alert');
     expect(notices[1]).toHaveAttribute('role', 'status');
+  });
+});
+
+describe('ExecutionImpactSummary', () => {
+  const IMPACT = {
+    quantityFormatted: '0.10',
+    marginEstimatedFormatted: '216.92 USD',
+    dailyLossRemainingFormatted: '300.00 USD',
+    maximumLossRemainingFormatted: '1000.00 USD',
+    compact: {
+      marginEstimated: '216.92',
+      dailyLossRemaining: '300.00',
+      maximumLossRemaining: '1000.00',
+    },
+    concentration: [],
+    isPriceStale: false,
+  };
+
+  it('shows the three decision figures, from the same derivation as the section', () => {
+    // Visual closure §9 — identical values, one derivation. The only difference
+    // from the detailed rows is that the shared unit is hoisted into the header
+    // rather than repeated on every value.
+    render(<ExecutionImpactSummary impact={IMPACT} />);
+
+    expect(screen.getByTestId('execution-impact-summary-margin')).toHaveTextContent('216.92');
+    expect(screen.getByTestId('execution-impact-summary-dll')).toHaveTextContent('300.00');
+    expect(screen.getByTestId('execution-impact-summary-mll')).toHaveTextContent('1000.00');
+
+    // Each value here is the detailed row's value minus its unit suffix —
+    // proof the summary is a presentation of the same figure, not a second one.
+    expect(IMPACT.marginEstimatedFormatted).toBe(`${IMPACT.compact.marginEstimated} USD`);
+    expect(IMPACT.dailyLossRemainingFormatted).toBe(`${IMPACT.compact.dailyLossRemaining} USD`);
+    expect(IMPACT.maximumLossRemainingFormatted).toBe(`${IMPACT.compact.maximumLossRemaining} USD`);
+  });
+
+  it('expands its abbreviations for assistive tech and on hover', () => {
+    render(<ExecutionImpactSummary impact={IMPACT} />);
+    const dll = screen.getByText('DLL', { exact: false });
+    expect(dll).toHaveAttribute('title', 'Perte journalière restante');
+    expect(dll.textContent).toContain('en dollars');
+  });
+
+  it('renders nothing rather than placeholders before the data exists', () => {
+    const { container } = render(<ExecutionImpactSummary impact={null} />);
+    expect(container).toBeEmptyDOMElement();
   });
 });

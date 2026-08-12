@@ -27,12 +27,16 @@ import { createTickStore, type TickStore } from '../app/(trade)/trade/tick-store
 
 const seriesUpdate = vi.fn();
 const seriesSetData = vi.fn();
+const seriesApplyOptions = vi.fn();
 const fitContent = vi.fn();
 
 vi.mock('lightweight-charts', () => {
   const series = {
     update: seriesUpdate,
     setData: seriesSetData,
+    // Visual closure §6 — the chart applies the instrument's own price format
+    // through this, so the fake series has to offer it like the real one does.
+    applyOptions: seriesApplyOptions,
     setMarkers: vi.fn(),
     createPriceLine: vi.fn(() => ({})),
     removePriceLine: vi.fn(),
@@ -400,6 +404,17 @@ describe('history UX states (W3 §52-§54)', () => {
 });
 
 describe('renderer write model (W3 §42/§43)', () => {
+  it('gives the renderer the instrument’s own price format, not the library default', () => {
+    // W4 visual closure §6 — the chart used to leave lightweight-charts on its
+    // default `{ precision: 2, minMove: 0.01 }`, so EURUSD's Bid and Ask axis
+    // labels both read "1.09" while the market was 1.08504 / 1.08514. The
+    // fixture spec above is `pricePrecision: 5`.
+    renderChart();
+    expect(seriesApplyOptions).toHaveBeenCalledWith({
+      priceFormat: { type: 'price', precision: 5, minMove: 0.00001 },
+    });
+  });
+
   it('writes the whole series once on hydration and increments per tick after', () => {
     const h = renderChart();
     h.deliver(sweepingHistory(h.requests[0]?.requestId ?? ''));

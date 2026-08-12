@@ -57,6 +57,21 @@ export interface TradeImpactView {
   marginEstimatedFormatted: string;
   dailyLossRemainingFormatted: string;
   maximumLossRemainingFormatted: string;
+  /**
+   * The same three figures without the " USD" suffix, for the compact summary
+   * that sits above the side actions (visual closure §9).
+   *
+   * Deliberately carried here rather than reconstructed by the component: they
+   * are the *identical* values, differing only in whether the unit is glued on,
+   * and a component that stripped the suffix by string surgery — or worse,
+   * re-ran `estimateRequiredMargin` for itself — would be exactly the duplicated
+   * arithmetic §9 forbids. One derivation, two presentations.
+   */
+  compact: {
+    marginEstimated: string;
+    dailyLossRemaining: string;
+    maximumLossRemaining: string;
+  };
   concentration: ConcentrationBucketView[];
   isPriceStale: boolean;
 }
@@ -107,6 +122,11 @@ export function deriveTradeImpact(input: ExecutionImpactInput): TradeImpactView 
     marginEstimatedFormatted: `${marginEstimated} USD`,
     dailyLossRemainingFormatted: `${risk.dailyLoss.remaining} USD`,
     maximumLossRemainingFormatted: `${risk.maximumLoss.remaining} USD`,
+    compact: {
+      marginEstimated,
+      dailyLossRemaining: risk.dailyLoss.remaining,
+      maximumLossRemaining: risk.maximumLoss.remaining,
+    },
     concentration: risk.concentration.map((bucket) => ({
       bucket: bucket.bucket,
       label: CONCENTRATION_BUCKET_LABEL[bucket.bucket] ?? bucket.bucket,

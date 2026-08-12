@@ -88,11 +88,18 @@ const MarketRow = memo(function MarketRow({
         </span>
         <span className="flex items-center justify-between gap-2">
           {/* No tick yet means no price — never a remembered value wearing a
-              live label (W2 §30). */}
-          <span className="wariba-data text-[length:var(--wariba-font-size-data-xs)] text-[color:var(--wariba-text-secondary)]">
+              live label (W2 §30).
+
+              Visual closure §13 — the quote moves from `data-xs` (11px) to
+              `data-sm` (12px) with tabular figures. This is a price a trader
+              scans down a list of instruments to compare; 11px is a density
+              choice that costs legibility on the one value in the row that
+              matters. The *spread* stays at 11px: it is secondary, and holding
+              it a step below keeps the row's own hierarchy. */}
+          <span className="wariba-data text-[length:var(--wariba-font-size-data-sm)] tabular-nums text-[color:var(--wariba-text-secondary)]">
             {tick ? `${tick.bid} / ${tick.ask}` : '— / —'}
           </span>
-          <span className="wariba-data text-[length:var(--wariba-font-size-data-xs)] text-[color:var(--wariba-text-tertiary)]">
+          <span className="wariba-data text-[length:var(--wariba-font-size-data-xs)] tabular-nums text-[color:var(--wariba-text-tertiary)]">
             {spread ?? '—'}
           </span>
         </span>

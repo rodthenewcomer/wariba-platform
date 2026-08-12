@@ -63,8 +63,23 @@ function Metric({
           {label}
         </span>
       </dt>
+      {/*
+       * Visual closure §13 — equity, balance and the two loss budgets read at
+       * `data-sm` (12px) rather than `data-xs` (11px), with tabular figures.
+       * These are the numbers a trader checks before every order; the *label*
+       * beside them stays where it was, so the row gets more legible without
+       * getting taller.
+       *
+       * From `sm` up only, and that is not a hedge. W2 §25 gives this bar a
+       * hard density budget on a phone — the document must never scroll
+       * sideways — and 12px spent it: the metrics group grew to 159px and the
+       * bar overflowed a 360px viewport by 4px, which the repo's own mobile
+       * overflow gate caught. The legibility complaint §13 raises is a desktop
+       * one; the phone keeps 11px, and the same `sm:` boundary already decides
+       * short vs long labels on this row.
+       */}
       <dd
-        className={`wariba-data text-[length:var(--wariba-font-size-data-xs)] font-medium ${tone ?? 'text-[color:var(--wariba-theme-text)]'}`}
+        className={`wariba-data text-[length:var(--wariba-font-size-data-xs)] font-medium tabular-nums sm:text-[length:var(--wariba-font-size-data-sm)] ${tone ?? 'text-[color:var(--wariba-theme-text)]'}`}
       >
         <span className="sm:hidden">{shortValue ?? value}</span>
         <span className="hidden sm:inline">{value}</span>
