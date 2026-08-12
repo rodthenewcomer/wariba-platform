@@ -609,9 +609,22 @@ writing to `apps/web/test-results/warix-w5-review/`. Not part of any gate; no
 pixel-diff acceptance.
 
 ```
+# One invocation — Playwright wipes test-results at the start of each run, so
+# running these separately deletes the previous spec's artifacts.
 pnpm --filter @wariba/web exec playwright test \
+  tests/e2e/warix-w5-drawing-visibility.spec.ts \
+  tests/e2e/warix-w5-backfill.spec.ts \
   tests/e2e/warix-w5-evidence.spec.ts --project=desktop
 ```
+
+Three specs, because two of the questions a reviewer asked could not be answered
+by the survey spec alone:
+
+| Spec | Answers |
+|---|---|
+| `warix-w5-drawing-visibility.spec.ts` | Is each drawing type *visible*? Ten checks per type — stored record, projection, layer box, expected SVG geometry, coordinates inside the plot, computed stroke, stacking, pointer-events, selection handles, and that no stroke resolves to the crosshair colour. Pointer parked outside the plot for every capture |
+| `warix-w5-backfill.spec.ts` | Did an older page genuinely load? Reads the history conversation off the WebSocket, so "bounded first page" and "page size" are facts rather than inferences |
+| `warix-w5-evidence.spec.ts` | The workstation survey: timeframes, indicators, drawings, mobile, overflow matrix |
 
 Eleven captures: NAS100 5s with four warmed moving averages · the indicator menu
 · NAS100 15s and 3m timeframe proofs · EURUSD 3m with a trend line and a
@@ -637,7 +650,27 @@ failure. The manifest records the observed depth per interval and labels it,
 rather than pretending it away. What is never acceptable, and is still barred
 everywhere, is photographing `loading`.
 
-### 13.2 Backfill is awaited, and viewport preservation is observable
+### 13.2 Backfill is proved from the wire, not inferred from the DOM
+
+Two DOM-based attempts were wrong before this one, and both failure modes are
+worth recording because they look like passes:
+
+1. **The client had accumulated every retained bar live.** It was open while the
+   process was young, so there was genuinely nothing older to fetch:
+   `candlesBefore == candlesAfter`, `hasMore = false`. That is not a backfill
+   test, it is the absence of one. The fix is ordering — warm the *server*
+   first, then open a fresh client.
+2. **A live candle finalized during the pan.** On a 5s chart
+   `data-history-candles` increments every five seconds on its own, so "the
+   count went up" was satisfied by the market ticking over. That recorded a
+   `prependedCount` of 1 and called it a page.
+
+The signal now comes from the WebSocket: a `market_history_result` correlated to
+a request that carried a `before` cursor. The page size is what the server sent.
+The DOM delta is still recorded alongside it, and labelled, because it
+legitimately includes live growth.
+
+### 13.3 Viewport preservation, measured with a ruler the product already has
 
 The harness polls for one of two truthful terminal outcomes: an older page lands
 and the candle count rises, or the server reports no older retained page — the
@@ -646,12 +679,23 @@ says which, and carries `candlesBefore`, `candlesAfter`, `pageLanded`,
 `hasMoreOlder` before and after, `sourceEpoch` before and after with a stability
 flag, and the timeframe.
 
-Viewport preservation (§21) is proved through UI that already exists rather than
-debug state added for a screenshot: the OHLC legend names the bar under the
-crosshair, so an identical reading at an identical pixel across the prepend means
-the bar did not move. The manifest records both readings. The *exact* shift
-remains asserted where it can be measured precisely — in
-`chart-interaction-priority.test.tsx`, which pins
+A drawing is anchored to a candle *time* and projected through the same
+coordinate adapter the chart uses, so the `x1` of a trend line is a direct
+readout of where that instant sits on screen. Place one, pan in uniform 90 px
+steps sampling it before each step, and compare across the prepend: if the
+logical range shifted correctly the anchor does not move; if it did not, the
+anchor moves by roughly 1 200 px (400 bars' worth). The recorded shift was
+**54 px** — less than one pan step, against a 120 px tolerance and a ~20×
+margin to the failure case.
+
+A coarse-then-fine pan cannot work here, and it is worth saying why: nothing
+observable reports "you are nearly at the oldest bar", so a coarse phase lands
+the page itself and no clean pre-prepend sample ever exists. Uniform stepping is
+what makes the tolerance honest rather than convenient.
+
+The OHLC legend reading is kept as a secondary record — it is bar-quantised and
+cannot resolve the difference as finely. The *exact* shift remains asserted where
+it can be measured precisely: `chart-interaction-priority.test.tsx` pins
 `setVisibleLogicalRange({from: from+N})` and the absence of `fitContent`.
 
 ### 13.1 Human review questions
