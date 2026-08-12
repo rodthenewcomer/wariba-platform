@@ -687,7 +687,25 @@ To be answered by the reviewer against the captures:
    placing an anchor needs a pointer.
 6. **One drawn indicator point is suppressed at each genuine history gap**
    (W5-D8) — the cost of breaking the line without inventing a chart slot.
-7. **No volume, VWAP, DOM, Level II or Time & Sales.** The feed carries no
+7. **One older page loads on hydration, before any pan.** Found by the live
+   evidence run, not by the unit suite. Hydration ends with `fitContent()`
+   (W3 §44), which puts the whole loaded series in view — so the leftmost
+   visible logical index is ≈ 0, the 50-bar threshold in §4.1 is already
+   crossed, and the backfill fires immediately. One page, not a loop: the
+   prepend preserves the viewport, which puts the left edge 400 bars away and
+   stops further triggering.
+
+   Nothing about it is incorrect — the merge deduplicates, the viewport is
+   compensated, single-inflight holds, `sourceEpoch` is stable — but it is a
+   deviation from §17/§18's "when the trader pans", and it costs one extra
+   ~35 KB history request per hydration and per symbol or timeframe switch.
+   **Deliberately not changed in this pass**, which is scoped out of production
+   history behaviour; the evidence manifest carries `candlesAtPanStart` and
+   names the mechanism so the decision sits with a human. The obvious remedies
+   (arm the trigger only after the first user-driven range change, or exempt the
+   range change that `fitContent` itself causes) are both one-line and both
+   change history behaviour, so neither was applied.
+8. **No volume, VWAP, DOM, Level II or Time & Sales.** The feed carries no
    authoritative volume or trade-tape semantics, so none is displayed.
 
 ---
