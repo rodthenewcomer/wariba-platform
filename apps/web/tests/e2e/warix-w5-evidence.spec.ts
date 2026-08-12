@@ -151,12 +151,19 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
       await waitForResolvedHistory();
     };
 
+    // Scoped to the navigator, matching warix-w3-evidence.spec.ts: a bare
+    // role=button regex also matches the mobile market trigger and the
+    // execution header, and which one wins depends on the viewport.
     const selectSymbol = async (symbol: string): Promise<void> => {
       await page
+        .getByTestId('market-navigator')
+        .first()
         .getByRole('button', { name: new RegExp(`^${symbol}`) })
         .first()
         .click();
-      await expect(chart()).toHaveAccessibleName(new RegExp(symbol));
+      await expect(page.getByRole('group', { name: `Graphique ${symbol}` })).toBeVisible({
+        timeout: 15_000,
+      });
       await waitForResolvedHistory();
     };
 
