@@ -62,7 +62,26 @@ export const FIBONACCI_LEVELS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1] as const
  */
 export const MAX_DRAWINGS_PER_SYMBOL = 100;
 
-export const DRAWING_COLORS = ['#9AA3B1', '#6684FF', '#E0A458', '#4FA3A5', '#B48EAD'] as const;
+/**
+ * W5 §53/§127 — the drawing palette, chosen against the chart's *operational*
+ * colours rather than for variety.
+ *
+ * Two exact collisions shipped in the first cut and had to go, because a
+ * collision at the pixel level defeats the whole hierarchy §127 asks for:
+ *
+ * - the old default `#9AA3B1` **is** `--wariba-chart-crosshair`, so every
+ *   drawing was painted in the crosshair's own colour and a reviewer could not
+ *   tell a trend line from the pointer;
+ * - `#6684FF` **is** `--wariba-chart-position`, so a drawing could be mistaken
+ *   for an open position's line.
+ *
+ * What every entry now avoids: the crosshair grey, position blue `#6684FF`,
+ * stop-loss red `#C94D4D`, take-profit green `#258A61`, bid blue `#3673C9`,
+ * ask `#BE6945`, and the indicator whites and blues. Muted on purpose — §126
+ * bars neon, and a drawing must still read as quieter than an open position.
+ * Grey stays available as a deliberate choice, just never as the default.
+ */
+export const DRAWING_COLORS = ['#4FA3A5', '#E0A458', '#B48EAD', '#7FA4C4', '#9AA3B1'] as const;
 export type ChartDrawingColor = (typeof DRAWING_COLORS)[number];
 
 export const DRAWING_LINE_STYLES = ['solid', 'dashed'] as const;
@@ -75,10 +94,18 @@ export interface ChartDrawingStyle {
 }
 
 export const DEFAULT_DRAWING_STYLE: ChartDrawingStyle = {
-  // Quieter than every operational overlay on the chart by default (§127): a
-  // trader's own analysis must not compete visually with an open position's line.
-  color: '#9AA3B1',
-  width: 1,
+  // Muted teal: unmistakably not the crosshair, unmistakably not an operational
+  // level, and quiet enough that a trader's own analysis never competes with an
+  // open position's line (§127).
+  color: '#4FA3A5',
+  // Width 2, not 1. The required hierarchy is
+  //   position/SL/TP/pending > bid/ask > alerts > selected drawing > drawing >
+  //   indicators > grid,
+  // and a 1 px stroke put a trader's own analysis *below* the moving averages —
+  // the hierarchy inverted. The operational overlays stay ahead of it on more
+  // than stroke weight: they carry labelled HTML chips and badges, which no
+  // drawing does.
+  width: 2,
   lineStyle: 'solid',
 };
 

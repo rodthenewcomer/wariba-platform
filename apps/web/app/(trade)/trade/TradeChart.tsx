@@ -267,6 +267,16 @@ export function TradeChart({
     axis: '#3A4251',
   });
   const [chartVersion, setChartVersion] = useState(0);
+  /**
+   * The plot's measured box, as state rather than a ref read during render.
+   *
+   * The drawing overlay is sized from this. Reading `containerRef.current` at
+   * render time worked only because something else happened to re-render the
+   * component after the ref was attached; nothing guaranteed it, and a chart
+   * that never re-rendered would have shown a 0×0 SVG and no drawings at all.
+   * The ResizeObserver below is the one writer.
+   */
+  const [plotSize, setPlotSize] = useState({ width: 0, height: 0 });
   /** W5 §65 — the candle under the crosshair, held imperatively (see the subscription below). */
   const [hoveredCandle, setHoveredCandle] = useState<MarketCandle | null>(null);
   const [drag, setDrag] = useState<DragSession | null>(null);
@@ -442,6 +452,7 @@ export function TradeChart({
       lastWidth = width;
       lastHeight = height;
       chart.applyOptions({ width, height });
+      setPlotSize({ width, height });
       bumpChartVersion();
     };
     measure();
@@ -1223,7 +1234,24 @@ export function TradeChart({
       <div className="relative min-h-0 flex-1">
         <div
           ref={containerRef}
-          className="absolute inset-0"
+          /**
+           * `isolate` is load-bearing, not decoration.
+           *
+           * lightweight-charts puts `z-index: 1` on its canvas. Because nothing
+           * between that canvas and this column created a stacking context, the
+           * `1` competed directly with every sibling overlay's `z-index: auto`
+           * — and won. The drawing layer was painting *underneath the chart*:
+           * the geometry was correct, the strokes were correct, and none of it
+           * was ever visible. Trading overlays were one CSS change away from the
+           * same fate.
+           *
+           * `isolation: isolate` makes this container a stacking context, so the
+           * library's z-index stays the library's business and painting order
+           * among the siblings below is decided by DOM order again — which is
+           * exactly what §57's hierarchy is written against: drawing layer
+           * first, trading overlays after, so operational controls stay on top.
+           */
+          className="absolute inset-0 isolate"
           role="group"
           aria-label={`Graphique ${symbol}`}
           // Visual closure §6 — the precision the renderer was actually given.
@@ -1251,8 +1279,8 @@ export function TradeChart({
           projected={analysis.projected}
           selectedId={analysis.selectedId}
           draft={analysis.projectedDraft}
-          width={containerRef.current?.clientWidth ?? 0}
-          height={containerRef.current?.clientHeight ?? 0}
+          width={plotSize.width}
+          height={plotSize.height}
         />
         <ChartLegend
           candle={legendCandle(history, hoveredCandle)}

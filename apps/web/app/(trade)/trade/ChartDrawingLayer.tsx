@@ -52,7 +52,10 @@ function Shape({ projected, selected }: { projected: ProjectedDrawing; selected:
   const stroke = drawing.style.color;
   const strokeWidth = selected ? drawing.style.width + 1 : drawing.style.width;
   const dash = dashFor(drawing.style.lineStyle);
-  const opacity = selected ? 1 : 0.85;
+  // 0.95, not 0.85: over a dense candle chart the extra 10 % is the difference
+  // between a reviewer seeing the geometry and not. Still short of the 1.0 the
+  // selected state uses, so selection remains visible as a change.
+  const opacity = selected ? 1 : 0.95;
 
   if (drawing.type === 'horizontal_line' && b) {
     return (
@@ -95,7 +98,9 @@ function Shape({ projected, selected }: { projected: ProjectedDrawing; selected:
         width={Math.abs(b.x - a.x)}
         height={Math.abs(b.y - a.y)}
         fill={stroke}
-        fillOpacity={0.08}
+        // Enough tint to read as a region, far short of the saturated bands
+        // §130 bars.
+        fillOpacity={0.12}
         stroke={stroke}
         strokeWidth={strokeWidth}
         strokeDasharray={dash}
@@ -119,9 +124,9 @@ function Shape({ projected, selected }: { projected: ProjectedDrawing; selected:
               x2={right}
               y2={level.y}
               stroke={stroke}
-              strokeWidth={selected ? 1.5 : 1}
+              strokeWidth={selected ? 1.75 : 1.25}
               strokeDasharray={level.level === 0 || level.level === 1 ? undefined : '3 3'}
-              opacity={0.75}
+              opacity={0.9}
             />
             <text x={left + 4} y={level.y - 3} fill={stroke} fontSize={10} opacity={0.9}>
               {fibonacciLevelLabel(level.label)}

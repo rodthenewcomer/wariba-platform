@@ -573,7 +573,28 @@ found a third. All three are test-only; no product behaviour changed.
    asynchronous, so reading the candle count straight after the pan could record
    `pageLanded: false` before the response arrived. The harness now polls for a
    truthful terminal outcome (§13.2).
-6. **A W3 E2E test broke on W5's accessibility improvement.** `warix-w3.spec.ts`
+6. **The drawing layer was painting underneath the chart.** The one that
+   mattered. lightweight-charts sets `z-index: 1` on its canvas; nothing between
+   that canvas and the chart column created a stacking context, so the `1` beat
+   every sibling overlay's `z-index: auto` **regardless of DOM order** — and the
+   §57 hierarchy in §7 above, which reasons entirely from DOM order, was
+   describing something CSS was not doing. Every geometry assertion passed the
+   whole time: the anchors, the projection, the strokes and the SVG box were all
+   correct, and none of it was visible. Fixed with `isolation: isolate` on the
+   chart container, which keeps the library's z-index the library's business and
+   makes DOM order authoritative again. Now asserted in
+   `warix-w5-drawing-visibility.spec.ts`.
+7. **Drawings defaulted to the crosshair's own colour.** `#9AA3B1` **is**
+   `--wariba-chart-crosshair`, and `#6684FF` in the palette **is**
+   `--wariba-chart-position`. Even once the layer painted, a reviewer could not
+   separate a trend line from the pointer. The palette is now chosen against the
+   operational colours rather than for variety (see `DRAWING_COLORS`).
+8. **A 1 px stroke put drawings below the indicators.** The required order is
+   `… > selected drawing > drawing > indicators > grid`, and at width 1 with
+   0.85 opacity a trader's own analysis read as fainter than a moving average.
+   Default width is now 2 and normal opacity 0.95 — still short of the labelled
+   HTML chips every trading overlay carries, so §127 holds.
+9. **A W3 E2E test broke on W5's accessibility improvement.** `warix-w3.spec.ts`
    selected timeframes with `getByRole('button') + aria-pressed`; §86
    deliberately made the control a real `radiogroup`. Caught by the live run, not
    by the unit suite, which does not exercise the E2E helpers. Both W3 specs now

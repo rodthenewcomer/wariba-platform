@@ -15,6 +15,7 @@ import {
 } from './chart-drawing-geometry';
 import {
   DEFAULT_DRAWING_STYLE,
+  DRAWING_COLORS,
   MAX_DRAWINGS_PER_SYMBOL,
   type ChartDrawing,
   type ChartDrawingAnchor,
@@ -480,9 +481,10 @@ export function useChartAnalysis(deps: ChartAnalysisDeps): ChartAnalysis {
   /** §53 — restrained styling: cycle the palette, no colour picker, no editor. */
   const cycleSelectedColor = useCallback(() => {
     if (selectedDrawing === null) return;
-    const palette = ['#9AA3B1', '#6684FF', '#E0A458', '#4FA3A5', '#B48EAD'] as const;
-    const index = palette.indexOf(selectedDrawing.style.color as (typeof palette)[number]);
-    const color = palette[(index + 1) % palette.length] ?? palette[0];
+    // The one palette, not a second copy that can drift out of step with the
+    // validator (a colour it rejected would silently drop the drawing on reload).
+    const index = DRAWING_COLORS.indexOf(selectedDrawing.style.color);
+    const color = DRAWING_COLORS[(index + 1) % DRAWING_COLORS.length] ?? DRAWING_COLORS[0];
     store.replace({
       ...selectedDrawing,
       style: { ...selectedDrawing.style, color },
