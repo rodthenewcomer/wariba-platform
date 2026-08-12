@@ -198,7 +198,9 @@ test.describe('WariX order lifecycle', { tag: ['@trade'] }, () => {
       // match for 'Exécuté' too — exact: true also makes this case-sensitive,
       // which the status Badge's all-uppercase-styled but literally-cased
       // "Exécuté" text still satisfies exactly.
-      await expect(page.getByText('Exécuté', { exact: true })).toBeVisible();
+      await expect(
+        page.getByRole('tabpanel').locator('tbody').getByText('Exécuté', { exact: true }),
+      ).toBeVisible();
 
       await page.getByRole('tab', { name: /^Positions/ }).click();
       await page.getByRole('button', { name: 'Fermer EURUSD · Achat' }).click();
@@ -241,9 +243,10 @@ test.describe('WariX order lifecycle', { tag: ['@trade'] }, () => {
       // the Execution Center's own status notice (which stays put regardless
       // of which dock tab is active), so an unscoped match would be ambiguous.
       const ordersPanel = page.getByRole('tabpanel');
-      await expect(ordersPanel.getByText('Rejeté')).toBeVisible();
+      const desktopOrders = ordersPanel.locator('tbody');
+      await expect(desktopOrders.getByText('Rejeté')).toBeVisible();
       await expect(
-        ordersPanel.getByText('Cet ordre dépasserait votre exposition maximale autorisée'),
+        desktopOrders.getByText('Cet ordre dépasserait votre exposition maximale autorisée'),
       ).toBeVisible();
     },
   );
@@ -394,7 +397,7 @@ test.describe('WariX mobile', { tag: ['@trade', '@mobile'] }, () => {
     await page.keyboard.press('Escape');
     await expect(sheet).not.toBeVisible();
     await openDockTab(page, /^Positions/);
-    await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toBeVisible();
+    await expect(page.locator('article').filter({ hasText: 'EURUSD · Achat' })).toBeVisible();
   });
 });
 
@@ -658,7 +661,7 @@ test.describe('WariX mobile chart context menu', { tag: ['@trade', '@mobile'] },
     await page.keyboard.press('Escape');
     await expect(ticketSheet).not.toBeVisible();
     await openDockTab(page, /^Positions/);
-    await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toBeVisible();
+    await expect(page.locator('article').filter({ hasText: 'EURUSD · Achat' })).toBeVisible();
     // Close the dock sheet again so the chart is reachable for the long press.
     await page.keyboard.press('Escape');
 
