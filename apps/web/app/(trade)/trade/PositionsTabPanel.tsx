@@ -49,6 +49,7 @@ export const PositionsTabPanel = memo(function PositionsTabPanel({
           id: position.id,
           symbol: position.symbol,
           sideLabel: position.side === 'buy' ? 'Achat' : 'Vente',
+          sideTone: position.side,
           quantityFormatted: position.openQuantity,
           entryPriceFormatted: position.averageOpenPrice,
           currentPriceFormatted: '—',
@@ -76,6 +77,7 @@ export const PositionsTabPanel = memo(function PositionsTabPanel({
         id: position.id,
         symbol: position.symbol,
         sideLabel: position.side === 'buy' ? 'Achat' : 'Vente',
+        sideTone: position.side,
         quantityFormatted: position.openQuantity,
         entryPriceFormatted: position.averageOpenPrice,
         currentPriceFormatted: closePrice,
@@ -96,7 +98,8 @@ export const PositionsTabPanel = memo(function PositionsTabPanel({
         onModify={onModifyPosition}
         onPartialClose={onPartialClosePosition}
         closeDisabled={pending}
-        emptyLabel="Aucune position ouverte."
+        emptyLabel="Aucune position ouverte"
+        emptyHint="Les positions ouvertes apparaîtront ici avec leur P&L en direct."
       />
       {openPositions.length > 0 && (
         <Button

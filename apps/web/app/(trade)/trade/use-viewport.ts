@@ -37,3 +37,29 @@ export function useIsDesktop(query: string = DESKTOP_QUERY): boolean {
 
   return isDesktop;
 }
+
+/** The hybrid band (visual closure §22): desktop grid, but not enough width for three columns. */
+export const HYBRID_QUERY = '(min-width: 1024px) and (max-width: 1279px)';
+
+/**
+ * Whether the workstation is in the 1024–1279 hybrid band.
+ *
+ * Used for one decision only: whether an explicitly-opened Market Navigator
+ * takes width from the chart or floats over it. Starting `false` keeps the SSR
+ * render and the first client paint on the wide composition, which is both the
+ * common case and the safe one — a first paint that reserves the track and then
+ * releases it is a layout shift; the reverse is not.
+ */
+export function useIsHybridDesktop(query: string = HYBRID_QUERY): boolean {
+  const [isHybrid, setIsHybrid] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    const apply = () => setIsHybrid(media.matches);
+    apply();
+    media.addEventListener('change', apply);
+    return () => media.removeEventListener('change', apply);
+  }, [query]);
+
+  return isHybrid;
+}

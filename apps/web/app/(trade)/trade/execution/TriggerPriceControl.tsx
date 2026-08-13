@@ -1,9 +1,9 @@
 'use client';
 
-import { Input } from '@wariba/ui';
 import { isPendingOrderCreationPriceValid } from '@wariba/domain';
 import type { MarketTick, SymbolSpec } from '@wariba/contracts';
 import { pendingOrderTypeFor, type ExecutionSide } from './execution-contract';
+import { ExecutionField } from './ExecutionField';
 
 export interface TriggerPriceControlProps {
   /** Never rendered for 'market' — the caller decides; this narrows the type. */
@@ -75,18 +75,19 @@ export function TriggerPriceControl({
 }: TriggerPriceControlProps) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Input
+      <ExecutionField
         label="Prix de déclenchement"
-        hideLabel
+        prefix="Seuil"
+        prefixClassName="text-[color:var(--wariba-component-workstation-interaction-selected-text)]"
         type="text"
         inputMode="decimal"
         name="triggerPrice"
         data-testid="trigger-price-input"
-        className="wariba-data"
+        accentClassName="bg-[color:var(--wariba-component-workstation-interaction-selected)]"
         placeholder={spec ? `0.${'0'.repeat(Math.max(0, spec.pricePrecision - 1))}0` : 'Prix'}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        {...(error ? { errorText: error } : {})}
+        errorText={error}
       />
       {/*
        * Visual closure §11 — the rule, once, as metadata.
@@ -101,7 +102,7 @@ export function TriggerPriceControl({
       <p
         title={RELATIONSHIP_DETAIL[orderKind]}
         data-testid="trigger-price-hint"
-        className="text-[length:var(--wariba-font-size-data-xs)] leading-snug text-[color:var(--wariba-text-tertiary)]"
+        className="text-[length:var(--wariba-component-workstation-type-meta)] leading-snug text-[color:var(--wariba-component-workstation-text-tertiary)]"
       >
         {spec ? `${spec.pricePrecision} déc. · ` : ''}
         {RELATIONSHIP_HINT[orderKind]}

@@ -19,9 +19,12 @@ export interface ExecutionActionsProps {
   onSubmit: (side: ExecutionSide) => void;
 }
 
-const SIDE_COPY: Record<ExecutionSide, { verb: string; accessible: string; quoteLabel: string }> = {
-  sell: { verb: 'Sell', accessible: 'Vendre', quoteLabel: 'au Bid' },
-  buy: { verb: 'Buy', accessible: 'Acheter', quoteLabel: 'à l’Ask' },
+const SIDE_COPY: Record<
+  ExecutionSide,
+  { verb: string; accessible: string; quoteLabel: string; glyph: string }
+> = {
+  sell: { verb: 'Sell', accessible: 'Vendre', quoteLabel: 'au Bid', glyph: '▼' },
+  buy: { verb: 'Buy', accessible: 'Acheter', quoteLabel: 'à l’Ask', glyph: '▲' },
 };
 
 /** The only saturated colours in the panel — see the note on the component below. */
@@ -30,10 +33,34 @@ const SIDE_TONE: Record<ExecutionSide, string> = {
   buy: 'bg-[color:var(--wariba-component-workstation-trading-buy)] hover:enabled:brightness-110',
 };
 
+/**
+ * The physical treatment shared by both sides.
+ *
+ * Visual closure §13 — a key, not a coloured rectangle. A hairline of rim light
+ * along the top edge and a hard 2px shadow along the bottom give the control a
+ * body; pressing removes the shadow and drops the key by the same 2px, so the
+ * button travels rather than merely tinting. That is the whole difference
+ * between "two colored rectangles" and a control that communicates consequence,
+ * and it costs one box-shadow and one transform — no animation runs on a tick,
+ * and `prefers-reduced-motion` collapses the transition globally.
+ */
+const SIDE_PHYSICAL = [
+  'shadow-[inset_0_1px_0_0_rgba(255,255,255,0.28),0_2px_0_0_rgba(5,7,12,0.55)]',
+  'hover:enabled:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.34),0_3px_0_0_rgba(5,7,12,0.6)]',
+  'hover:enabled:-translate-y-px',
+  // Refinement pass — the press *bottoms out*. The key travels the full 2px of
+  // its own shadow, loses the shadow entirely and darkens: three coincident
+  // changes, which is what makes a press feel like it landed on something
+  // rather than like a colour changed. An e-commerce CTA brightens on press;
+  // an instrument key sinks.
+  'active:enabled:translate-y-0.5 active:enabled:brightness-90',
+  'active:enabled:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]',
+].join(' ');
+
 /** The de-emphasised form: side identity kept in the border, fill dropped. */
 const SIDE_OUTLINE: Record<ExecutionSide, string> = {
-  sell: 'bg-transparent ring-1 ring-inset ring-[color:var(--wariba-component-workstation-trading-sell)]',
-  buy: 'bg-transparent ring-1 ring-inset ring-[color:var(--wariba-component-workstation-trading-buy)]',
+  sell: 'bg-[color:var(--wariba-component-workstation-wash-sell)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-trading-sell)]',
+  buy: 'bg-[color:var(--wariba-component-workstation-wash-buy)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-trading-buy)]',
 };
 
 const DASH = '—';
@@ -77,7 +104,7 @@ export function ExecutionActions({
   const descriptionIdPrefix = useId();
 
   return (
-    <div className="flex flex-col gap-1.5 px-3 pb-3 pt-1" data-testid="execution-actions">
+    <div className="flex flex-col gap-2 px-3 pb-3 pt-2.5" data-testid="execution-actions">
       <div className="grid grid-cols-2 gap-2">
         {SIDES.map((side) => {
           const copy = SIDE_COPY[side];
@@ -106,8 +133,12 @@ export function ExecutionActions({
                 aria-describedby={`${descriptionIdPrefix}-${side}`}
                 onClick={() => onSubmit(side)}
                 className={[
-                  'flex min-h-12 flex-col items-center justify-center gap-0.5',
-                  'rounded-[var(--wariba-radius-sm)] px-2 py-2 transition-[background-color,filter,transform] duration-[var(--wariba-component-workstation-motion-interaction)] active:translate-y-px',
+                  'flex min-h-[var(--wariba-component-workstation-decision-button-height)] flex-col items-center justify-center gap-1.5',
+                  'rounded-[8px] px-2 py-2',
+                  'transition-[background-color,filter,transform,box-shadow] duration-[var(--wariba-component-workstation-motion-interaction)]',
+                  // The key treatment is dropped on the de-emphasised and
+                  // disabled forms: an inert control must not look pressable.
+                  sideUnavailable || disabled || pending ? '' : SIDE_PHYSICAL,
                   // Ink, not white: WX1's brighter Emerald/Coral fills carry
                   // sufficient contrast with the workstation canvas tone,
                   // while white falls below AA on both semantic actions.
@@ -145,8 +176,31 @@ export function ExecutionActions({
               >
                 {/* The label stays put while a command is in flight — a
                     button whose text is replaced by a spinner changes width
-                    mid-press and loses the one word that says what it does. */}
-                <span className="text-[length:var(--wariba-font-size-body-md)] font-semibold leading-none">
+                    mid-press and loses the one word that says what it does.
+
+                    The direction glyph is the conventional terminal cue and is
+                    `aria-hidden`: the verb, the accessible name and the
+                    description already carry the side three times over, so the
+                    triangle adds instant recognition without adding a fourth
+                    thing to announce. */}
+                {/*
+                 * Refinement pass — verb, direction and price as three ranks.
+                 *
+                 * The glyph is a fixed-width slot so `Sell` and `Buy` occupy
+                 * optically identical keys despite one being a glyph wider; the
+                 * verb holds the top rank at 16px bold; the price sits under a
+                 * hairline rule in its own band, which is what stops the two
+                 * lines reading as one wrapped label. The rule also gives the
+                 * key an internal structure — the thing that separates a
+                 * trading key from a coloured rectangle with two lines of text.
+                 */}
+                <span className="flex items-center justify-center gap-1.5 text-[length:var(--wariba-component-workstation-type-decision)] font-bold leading-none tracking-[var(--wariba-component-workstation-tracking-decision)]">
+                  <span
+                    aria-hidden="true"
+                    className="w-2 shrink-0 text-center text-[9px] leading-none opacity-75"
+                  >
+                    {copy.glyph}
+                  </span>
                   {label}
                 </span>
                 {/* Hidden from the name computation so the button is named
@@ -156,7 +210,17 @@ export function ExecutionActions({
                     drop it under the 4.5:1 minimum. */}
                 <span
                   aria-hidden="true"
-                  className="wariba-data text-[length:var(--wariba-font-size-data-xs)] leading-none tabular-nums"
+                  className={[
+                    // Inset, not full-bleed: at phone scale a rule spanning the
+                    // whole key split it into two stacked cells. A short
+                    // centred mark separates the price from the verb without
+                    // making the key look like a table.
+                    'wariba-data w-10 border-t pt-1 text-center leading-none tabular-nums',
+                    'text-[length:var(--wariba-component-workstation-type-data)] font-semibold',
+                    sideUnavailable
+                      ? 'border-[color:var(--wariba-component-workstation-border-strong)]'
+                      : 'border-[color:var(--wariba-component-workstation-surface-canvas)]/25',
+                  ].join(' ')}
                 >
                   {sideUnavailable ? 'hors marché' : (price ?? DASH)}
                 </span>
@@ -176,7 +240,7 @@ export function ExecutionActions({
               {sideUnavailable ? (
                 <p
                   data-testid={`execution-side-unavailable-${side}`}
-                  className="text-[length:var(--wariba-font-size-data-xs)] leading-tight text-[color:var(--wariba-status-warning-text)]"
+                  className="text-[length:var(--wariba-component-workstation-type-meta)] font-semibold leading-tight text-[color:var(--wariba-component-workstation-trading-warning)]"
                 >
                   Non valide au cours actuel
                 </p>
@@ -195,7 +259,7 @@ export function ExecutionActions({
        */}
       <p
         title="Compte simulé. L’exécution est faite par le serveur uniquement — aucun prix affiché dans le navigateur n’est jamais autoritaire."
-        className="text-[length:var(--wariba-font-size-data-xs)] leading-snug text-[color:var(--wariba-text-tertiary)]"
+        className="text-[length:var(--wariba-component-workstation-type-meta)] leading-snug text-[color:var(--wariba-component-workstation-text-tertiary)]"
       >
         Compte simulé · exécution serveur — aucun prix client n&apos;est autoritaire.
         {orderKind !== 'market' ? ' Ordres en attente GTC.' : ''}

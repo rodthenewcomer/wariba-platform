@@ -139,7 +139,12 @@ test.describe('WariX trading dock', { tag: ['@trade'] }, () => {
     await expect(page.getByRole('button', { name: 'En attente' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Récents' })).toBeVisible();
     const ordersTable = page.getByRole('tabpanel').locator('tbody');
-    await expect(ordersTable.getByRole('cell', { name: 'Aucun ordre en attente.' })).toBeVisible();
+    // The empty state is now a workstation state block — a title without a full
+    // stop, plus a line naming what will appear here (visual closure §17) — so
+    // the cell's accessible name is the two together. The assertion is on the
+    // title, which is the fact under test: the pending view reports emptiness
+    // rather than showing a row.
+    await expect(ordersTable.getByRole('cell', { name: /Aucun ordre en attente/ })).toBeVisible();
     await page.getByRole('button', { name: 'Récents' }).click();
     await expect(ordersTable.getByRole('cell', { name: 'EURUSD' }).first()).toBeVisible();
 

@@ -41,11 +41,25 @@ export function Tabs({ value, onValueChange, children, className }: TabsProps) {
   );
 }
 
+/**
+ * `default` is the product tab strip. `workstation` is WariX's dense variant:
+ * the strip sits on the raised module surface, the active tab lifts onto a wash
+ * with a cobalt rule on top rather than underneath, and everything runs a step
+ * smaller in small caps — which is what stops the activity dock from reading as
+ * an administrative table header (visual closure §14).
+ */
+export type TabsVariant = 'default' | 'workstation';
+
 export function TabList({
   children,
+  variant = 'default',
+  wrap = false,
   'aria-label': ariaLabel,
 }: {
   children: ReactNode;
+  variant?: TabsVariant;
+  /** Lets an overflow destination fall to a second line inside the same tablist. */
+  wrap?: boolean;
   'aria-label': string;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
@@ -74,14 +88,28 @@ export function TabList({
       role="tablist"
       aria-label={ariaLabel}
       onKeyDown={onKeyDown}
-      className="flex gap-1 border-b border-[color:var(--wariba-border-subtle)]"
+      className={cx(
+        'flex',
+        wrap ? 'flex-wrap' : '',
+        variant === 'workstation'
+          ? 'gap-0.5'
+          : 'gap-1 border-b border-[color:var(--wariba-border-subtle)]',
+      )}
     >
       {children}
     </div>
   );
 }
 
-export function Tab({ value, children }: { value: string; children: ReactNode }) {
+export function Tab({
+  value,
+  variant = 'default',
+  children,
+}: {
+  value: string;
+  variant?: TabsVariant;
+  children: ReactNode;
+}) {
   const { value: active, setValue, baseId } = useTabsContext('Tab');
   const selected = active === value;
   return (
@@ -94,11 +122,25 @@ export function Tab({ value, children }: { value: string; children: ReactNode })
       tabIndex={selected ? 0 : -1}
       onClick={() => setValue(value)}
       className={cx(
-        'min-h-11 border-b-2 px-[var(--wariba-space-3)] py-[var(--wariba-space-2)] lg:min-h-0',
-        'text-[length:var(--wariba-font-size-label-md)] font-semibold transition-colors',
-        selected
-          ? 'border-[color:var(--wariba-action-primary)] text-[color:var(--wariba-text-primary)]'
-          : 'border-transparent text-[color:var(--wariba-text-secondary)] hover:text-[color:var(--wariba-text-primary)]',
+        'font-semibold transition-[background-color,color,box-shadow]',
+        variant === 'workstation'
+          ? cx(
+              'relative flex min-h-11 items-center gap-1.5 rounded-t-[7px] px-2 lg:min-h-9 lg:px-3',
+              'text-[length:var(--wariba-component-workstation-type-label)] uppercase tracking-[var(--wariba-component-workstation-tracking-label)]',
+              selected
+                ? cx(
+                    'bg-[color:var(--wariba-component-workstation-wash-selected)] text-[color:var(--wariba-component-workstation-text-primary)]',
+                    'after:absolute after:inset-x-0 after:top-0 after:h-0.5 after:rounded-b-full after:bg-[color:var(--wariba-component-workstation-interaction-selected)]',
+                  )
+                : 'text-[color:var(--wariba-component-workstation-text-tertiary)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)]',
+            )
+          : cx(
+              'min-h-11 border-b-2 px-[var(--wariba-space-3)] py-[var(--wariba-space-2)] lg:min-h-0',
+              'text-[length:var(--wariba-font-size-label-md)]',
+              selected
+                ? 'border-[color:var(--wariba-action-primary)] text-[color:var(--wariba-text-primary)]'
+                : 'border-transparent text-[color:var(--wariba-text-secondary)] hover:text-[color:var(--wariba-text-primary)]',
+            ),
       )}
     >
       {children}

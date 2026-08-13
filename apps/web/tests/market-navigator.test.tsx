@@ -12,6 +12,7 @@ import {
 import { createTickStore } from '../app/(trade)/trade/tick-store';
 import {
   DEFAULT_WORKSTATION_PREFERENCES,
+  defaultWorkstationPreferencesForWidth,
   parseWorkstationPreferences,
   NAVIGATOR_WIDTH_MAX,
   NAVIGATOR_WIDTH_MIN,
@@ -126,9 +127,13 @@ describe('MarketNavigator', () => {
 
   it('reports an unavailable quote honestly instead of a remembered one', () => {
     renderNavigator();
-    // No tick has been pushed into the store.
-    expect(screen.getAllByText('— / —').length).toBe(Object.keys(ACCOUNT_SPECS).length);
-    expect(screen.getAllByText('Indisponible').length).toBe(Object.keys(ACCOUNT_SPECS).length);
+    // No tick has been pushed into the store. Bid, ask and spread each hold
+    // their own aligned column now (visual closure §8), so an instrument with
+    // no quote shows three dashes rather than one "— / —" run — the point is
+    // unchanged: a placeholder in every price cell, never a remembered figure.
+    const symbolCount = Object.keys(ACCOUNT_SPECS).length;
+    expect(screen.getAllByText('—').length).toBe(symbolCount * 3);
+    expect(screen.getAllByText('Indisponible').length).toBe(symbolCount);
   });
 
   it('filters by search and states plainly when nothing matches', async () => {
@@ -214,6 +219,33 @@ describe('workstation layout preferences', () => {
     );
     expect(nonsense.navigatorWidth).toBe(DEFAULT_WORKSTATION_PREFERENCES.navigatorWidth);
     expect(nonsense.dockHeight).toBe(DEFAULT_WORKSTATION_PREFERENCES.dockHeight);
+  });
+
+  it('collapses the navigator by default only in the 1024–1279 hybrid band', () => {
+    // Visual closure §22 — a first-run default, not a breakpoint change. The
+    // band still renders the full desktop grid; it simply starts with the
+    // occasional surface out of the way so the chart gets the 244px back.
+    expect(defaultWorkstationPreferencesForWidth(1024).navigatorCollapsed).toBe(true);
+    expect(defaultWorkstationPreferencesForWidth(1279).navigatorCollapsed).toBe(true);
+    expect(defaultWorkstationPreferencesForWidth(1280).navigatorCollapsed).toBe(false);
+    expect(defaultWorkstationPreferencesForWidth(1440).navigatorCollapsed).toBe(false);
+    // Below the desktop floor the shell is the mobile column, where the
+    // navigator is a sheet and this flag decides nothing.
+    expect(defaultWorkstationPreferencesForWidth(390).navigatorCollapsed).toBe(false);
+    // Nothing else about the layout changes with the viewport.
+    const { navigatorCollapsed: _hybrid, ...hybridRest } =
+      defaultWorkstationPreferencesForWidth(1024);
+    const { navigatorCollapsed: _wide, ...wideRest } = DEFAULT_WORKSTATION_PREFERENCES;
+    expect(hybridRest).toEqual(wideRest);
+  });
+
+  it('lets a stored preference override the hybrid default', () => {
+    // A trader who opened the Navigator at 1100px has made a decision, and a
+    // stored payload is what carries it. `parse` never consults the viewport.
+    const stored = parseWorkstationPreferences(
+      JSON.stringify({ version: 1, navigatorCollapsed: false }),
+    );
+    expect(stored.navigatorCollapsed).toBe(false);
   });
 
   it('keeps only real tradable symbols in favorites, de-duplicated', () => {

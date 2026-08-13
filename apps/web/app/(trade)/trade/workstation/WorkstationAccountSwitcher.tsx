@@ -62,24 +62,33 @@ export const WorkstationAccountSwitcher = memo(function WorkstationAccountSwitch
     // loaded is the one fact this bar exists to state. The program name drops
     // out entirely on the narrowest widths instead, leaving the public id —
     // which is unambiguous on its own.
-    <span className="flex shrink-0 items-center gap-2">
+    //
+    // Visual closure §6 — an identity *block*, not a run of same-sized words.
+    // Programme on top, machine identity beneath it a step down, matching the
+    // stacked label/value rhythm every metric in the bar now uses. That is what
+    // stops the left edge from reading as the first four words of a sentence.
+    <span className="flex min-w-0 shrink-0 items-center gap-2">
       <span
         aria-hidden="true"
         className={`h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[active.statusVariant]}`}
       />
-      <span className="hidden text-[length:var(--wariba-font-size-label-sm)] font-semibold text-[color:var(--wariba-theme-text)] sm:inline">
-        {active.programLabel}
-      </span>
-      {/* Phone widths carry the program code; the canonical public id returns
-          from `sm` upward and is always in the accessible name. */}
-      <span className="shrink-0 text-[length:var(--wariba-font-size-label-sm)] font-semibold text-[color:var(--wariba-theme-text)] sm:hidden">
-        {active.programShortLabel}
-      </span>
-      <span className="wariba-data hidden shrink-0 text-[length:var(--wariba-font-size-data-xs)] text-[color:var(--wariba-text-secondary)] sm:inline">
-        {active.publicId}
-      </span>
-      <span className="wariba-data hidden shrink-0 text-[length:var(--wariba-font-size-data-xs)] text-[color:var(--wariba-text-secondary)] sm:inline">
-        {active.nominalFormatted}
+      <span className="flex min-w-0 flex-col gap-[3px]">
+        <span className="flex items-baseline gap-1.5 leading-none">
+          <span className="hidden text-[length:var(--wariba-component-workstation-type-data-strong)] font-bold leading-none tracking-[-0.01em] text-[color:var(--wariba-component-workstation-text-primary)] sm:inline">
+            {active.programLabel}
+          </span>
+          {/* Phone widths carry the program code; the canonical public id returns
+              from `sm` upward and is always in the accessible name. */}
+          <span className="shrink-0 text-[length:var(--wariba-component-workstation-type-data-strong)] font-bold leading-none text-[color:var(--wariba-component-workstation-text-primary)] sm:hidden">
+            {active.programShortLabel}
+          </span>
+          <span className="wariba-data hidden shrink-0 text-[length:var(--wariba-component-workstation-type-meta)] leading-none text-[color:var(--wariba-component-workstation-text-tertiary)] 2xl:inline">
+            {active.nominalFormatted}
+          </span>
+        </span>
+        <span className="wariba-data hidden shrink-0 text-[length:var(--wariba-component-workstation-type-meta)] leading-none tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-text-tertiary)] sm:inline">
+          {active.publicId}
+        </span>
       </span>
     </span>
   );
@@ -107,7 +116,7 @@ export const WorkstationAccountSwitcher = memo(function WorkstationAccountSwitch
     >
       <summary
         aria-label={`Compte actif : ${active.programLabel} ${active.publicId}. Changer de compte`}
-        className="flex min-h-11 shrink-0 cursor-pointer list-none items-center gap-1.5 rounded-[var(--wariba-radius-sm)] px-1.5 py-1 hover:bg-[color:var(--wariba-surface-selected)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)] lg:min-h-0 lg:px-2 [&::-webkit-details-marker]:hidden"
+        className="flex min-h-11 shrink-0 cursor-pointer list-none items-center gap-1.5 rounded-[var(--wariba-radius-sm)] px-1.5 py-1 transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:min-h-0 lg:px-2 [&::-webkit-details-marker]:hidden"
       >
         {summary}
         <svg
@@ -135,8 +144,8 @@ export const WorkstationAccountSwitcher = memo(function WorkstationAccountSwitch
               aria-current={isActive ? 'page' : undefined}
               className={`flex min-h-11 flex-col justify-center gap-0.5 rounded-[var(--wariba-radius-sm)] px-2 py-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)] ${
                 isActive
-                  ? 'bg-[color:var(--wariba-surface-selected)]'
-                  : 'hover:bg-[color:var(--wariba-surface-selected)]'
+                  ? 'bg-[color:var(--wariba-component-workstation-wash-selected)]'
+                  : 'hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)]'
               }`}
             >
               <span className="flex items-center justify-between gap-2">

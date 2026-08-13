@@ -44,19 +44,37 @@ export function ExecutionImpactSummary({ impact }: ExecutionImpactSummaryProps) 
   } as const;
 
   return (
-    <dl data-testid="execution-impact-summary" className="grid grid-cols-3 gap-x-2 px-3 py-1.5">
-      {COLUMNS.map((column) => (
-        <div key={column.key} className="flex min-w-0 flex-col gap-0.5">
+    /*
+     * Visual closure §12G — the three figures that decide the press, presented
+     * as instrumentation rather than as a caption. Micro-caps label above a
+     * tabular figure a full step larger, hairline-separated columns, and the
+     * whole strip sunk one tone below the decision zone it introduces — the
+     * same grammar the global instrumentation bar uses, so a trader reads the
+     * bottom of the panel the way they already read the top of the screen.
+     */
+    <dl
+      data-testid="execution-impact-summary"
+      className="grid grid-cols-3 border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-canvas)] px-3 py-2"
+    >
+      {COLUMNS.map((column, index) => (
+        <div
+          key={column.key}
+          className={`flex min-w-0 flex-col gap-1 ${
+            index === 0
+              ? ''
+              : 'border-l border-[color:var(--wariba-component-workstation-border-hairline)] pl-2.5'
+          }`}
+        >
           <dt
             title={column.title}
-            className="text-[length:var(--wariba-font-size-data-xs)] uppercase tracking-[0.08em] text-[color:var(--wariba-component-workstation-text-tertiary)]"
+            className="text-[length:var(--wariba-component-workstation-type-meta)] font-semibold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]"
           >
             {column.label}
             <span className="sr-only"> — {column.title}, en dollars</span>
           </dt>
           <dd
             data-testid={`execution-impact-summary-${column.key}`}
-            className="wariba-data truncate text-[length:var(--wariba-font-size-data-sm)] font-semibold tabular-nums text-[color:var(--wariba-component-workstation-text-primary)]"
+            className="wariba-data truncate text-[length:var(--wariba-component-workstation-type-data-strong)] font-semibold leading-none tabular-nums text-[color:var(--wariba-component-workstation-text-primary)]"
           >
             {value[column.key]}
           </dd>

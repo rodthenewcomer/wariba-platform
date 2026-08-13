@@ -56,28 +56,59 @@ export const MobileMarketBar = memo(function MobileMarketBar({
 
   return (
     <>
+      {/*
+       * Visual closure §15 — the phone's market context is instrumentation too.
+       *
+       * WX1 ran the instrument, both quotes and the market state at one weight
+       * in one row of near-identical grey, so the single most important line of
+       * context on the phone read as a caption. The instrument is now bold and a
+       * step up, each quote sits in its own side colour behind a micro-caps
+       * label, and the market state is an enclosed chip — all still inside the
+       * same passive 28px band, so no chart height is spent on it.
+       */}
       <div
         data-testid="mobile-market-context"
-        className="flex h-[var(--wariba-component-workstation-mobile-market-height)] w-full items-center justify-between gap-2 border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-module)] px-2"
+        className="flex h-[var(--wariba-component-workstation-mobile-market-height)] w-full items-center justify-between gap-2 border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-module)] px-2.5"
       >
-        <span className="flex items-center gap-2">
-          <span className="wariba-data text-[12px] font-bold text-[color:var(--wariba-component-workstation-text-primary)]">
+        <span className="flex min-w-0 items-baseline gap-2.5">
+          {/* Sans, matching the Navigator and the execution header: a symbol is
+              the instrument's name, and names are interface. Mono is reserved
+              for figures — the two quotes beside it. */}
+          <span className="shrink-0 text-[length:var(--wariba-component-workstation-type-data-strong)] font-bold leading-none tracking-[-0.01em] text-[color:var(--wariba-component-workstation-text-primary)]">
             {selectedSymbol}
           </span>
-          <span className="wariba-data text-[11px] tabular-nums text-[color:var(--wariba-component-workstation-text-secondary)]">
+          <span className="wariba-data flex items-baseline gap-1.5 text-[length:var(--wariba-component-workstation-type-data)] font-semibold leading-none tabular-nums">
             <span className="text-[color:var(--wariba-component-workstation-trading-live-bid)]">
               {tick?.bid ?? '—'}
             </span>
-            {' / '}
+            <span
+              aria-hidden="true"
+              className="text-[color:var(--wariba-component-workstation-border-strong)]"
+            >
+              ·
+            </span>
             <span className="text-[color:var(--wariba-component-workstation-trading-live-ask)]">
               {tick?.ask ?? '—'}
             </span>
           </span>
         </span>
-        <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-[color:var(--wariba-component-workstation-text-tertiary)]">
+        <span
+          /* Open is the quiet case — dot plus a tertiary word, no enclosure.
+             A stale or closed market takes the amber chip, so the exception is
+             what the eye finds. Same rule as the Navigator and the transport
+             chip; the word itself is never dropped, because this strip is the
+             only market state a phone shows before a sheet is opened. */
+          className={`flex shrink-0 items-center gap-1 rounded-[5px] px-1.5 py-0.5 text-[length:var(--wariba-component-workstation-type-meta)] font-semibold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-label)] ${
+            tick?.marketStatus === 'open'
+              ? 'text-[color:var(--wariba-component-workstation-text-tertiary)]'
+              : tick?.marketStatus === 'stale'
+                ? 'bg-[color:var(--wariba-component-workstation-wash-warning)] text-[color:var(--wariba-component-workstation-trading-warning)]'
+                : 'bg-[color:var(--wariba-component-workstation-wash-neutral)] text-[color:var(--wariba-component-workstation-text-tertiary)]'
+          }`}
+        >
           <span
             aria-hidden="true"
-            className={`h-1.5 w-1.5 rounded-full ${
+            className={`h-1 w-1 rounded-full ${
               tick?.marketStatus === 'open'
                 ? 'bg-[color:var(--wariba-component-workstation-trading-buy)]'
                 : tick?.marketStatus === 'stale'

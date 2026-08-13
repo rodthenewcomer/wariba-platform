@@ -8,7 +8,6 @@ export interface ExecutionMarketHeaderProps {
   symbol: TradableSymbol;
   spec: SymbolSpec | undefined;
   tick: MarketTick | null;
-  accountPublicId: string;
 }
 
 const DASH = '—';
@@ -38,12 +37,7 @@ const STATUS_DOT: Record<'open' | 'stale' | 'closed', string> = {
  * a stale or closed quote is marked right next to the numbers rather than
  * hidden behind a tooltip (§57).
  */
-export function ExecutionMarketHeader({
-  symbol,
-  spec,
-  tick,
-  accountPublicId,
-}: ExecutionMarketHeaderProps) {
+export function ExecutionMarketHeader({ symbol, spec, tick }: ExecutionMarketHeaderProps) {
   const status = tick?.marketStatus ?? null;
   const spread =
     tick && spec ? (Number(tick.ask) - Number(tick.bid)).toFixed(spec.pricePrecision) : null;
@@ -51,13 +45,20 @@ export function ExecutionMarketHeader({
 
   return (
     <div className="flex flex-col" data-testid="execution-market-header">
-      {/* §4 step 1 — instrument and live status, read before anything else. */}
+      {/* §4 step 1 — instrument and live status, read before anything else.
+          The copper rule marks this module as the one WARIBA instrument on the
+          desk that spends money. */}
       <ModuleHeader
         eyebrow="Exécution"
         title={symbol}
+        accent="identity"
         status={
           <span
-            className="flex items-center gap-1.5 font-medium uppercase tracking-[0.06em] text-[color:var(--wariba-component-workstation-text-secondary)]"
+            className={`flex items-center gap-1.5 rounded-[6px] px-1.5 py-0.5 font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] ring-1 ring-inset ${
+              status === 'open'
+                ? 'bg-[color:var(--wariba-component-workstation-wash-neutral)] text-[color:var(--wariba-component-workstation-text-secondary)] ring-[color:var(--wariba-component-workstation-border-hairline)]'
+                : 'bg-[color:var(--wariba-component-workstation-wash-warning)] text-[color:var(--wariba-component-workstation-trading-warning)] ring-[color:var(--wariba-component-workstation-trading-warning)]/35'
+            }`}
             data-testid="execution-market-status"
             data-market-status={status ?? 'unavailable'}
           >
@@ -75,37 +76,39 @@ export function ExecutionMarketHeader({
             </span>
           </span>
         }
-        actions={
-          <span
-            className="wariba-data text-[length:var(--wariba-font-size-data-xs)] text-[color:var(--wariba-component-workstation-text-tertiary)]"
-            title="Compte"
-          >
-            {accountPublicId}
-          </span>
-        }
+        /*
+         * The account identifier used to sit here and the 1440 checkpoint
+         * render showed what it cost: at 320px the header could not fit
+         * "Exécution", the symbol, the state chip *and* a 19-character public
+         * id, so the title truncated to "EUR…" — the one word in the panel that
+         * must never be ambiguous was the word that got cut. It is not lost:
+         * the same identifier is stated in the instrumentation bar under the
+         * programme name, one glance away and never truncated, so showing it
+         * twice was duplication that cost the instrument its name.
+         */
       />
 
       {/*
-       * Visual closure §5 — the quotes are the largest thing on the panel.
+       * Visual closure §12B — a quote deck, not a row of three labels.
        *
-       * They were `data-md` (16px) with `label-sm` (12px) labels above them, so
-       * a label and its price were within one step of each other and neither
-       * won. The price now runs at `data-lg` (24px) and the label drops to
-       * `data-xs` (11px): a 13px gap, which is what makes "1.08504" register
-       * before the word "Bid" does. Tabular figures throughout, so the digits
-       * do not shift column as the last decimal ticks.
+       * The deck is sunk to the workstation's deepest tone, below the module it
+       * sits in, so it reads as a well cut into the instrument rather than as
+       * another band of panel. Each quote carries a 2px rule in its own side
+       * colour along the bottom edge of its cell — the cheapest possible way to
+       * make a price feel like a live readout without animating anything on a
+       * tick, which §20 forbids outright.
        *
        * The digits shown are the server's own strings at the instrument's
        * precision — nothing here rounds or reformats.
        */}
-      <div className="grid min-h-[68px] grid-cols-[1fr_auto_1fr] items-center gap-1.5 border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-control)] px-3 py-2">
-        <div className="flex flex-col gap-0.5">
-          <span className="text-[length:var(--wariba-font-size-data-xs)] uppercase tracking-[0.08em] text-[color:var(--wariba-text-tertiary)]">
+      <div className="grid min-h-[var(--wariba-component-workstation-quote-deck-height)] grid-cols-[1fr_auto_1fr] items-stretch gap-2 border-b border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-quote-deck)] px-3 py-2.5">
+        <div className="relative flex flex-col justify-center gap-1.5 pb-1.5">
+          <span className="text-[length:var(--wariba-component-workstation-type-meta)] font-semibold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]">
             Vente · Bid
           </span>
           <span
             data-testid="execution-bid"
-            className={`wariba-data text-[length:var(--wariba-font-size-data-lg)] font-semibold leading-none tabular-nums ${
+            className={`wariba-data text-[length:var(--wariba-component-workstation-type-quote-hero)] font-semibold leading-none tracking-[-0.02em] tabular-nums ${
               quotesAreLive
                 ? 'text-[color:var(--wariba-component-workstation-trading-live-bid)]'
                 : 'text-[color:var(--wariba-component-workstation-text-tertiary)]'
@@ -113,24 +116,34 @@ export function ExecutionMarketHeader({
           >
             {tick?.bid ?? DASH}
           </span>
+          <span
+            aria-hidden="true"
+            className={`absolute bottom-0 left-0 h-0.5 w-9 rounded-full ${
+              quotesAreLive
+                ? 'bg-[color:var(--wariba-component-workstation-trading-live-bid)]'
+                : 'bg-[color:var(--wariba-component-workstation-border-strong)]'
+            }`}
+          />
         </div>
 
-        <div className="flex flex-col items-center gap-0.5 pb-0.5">
-          <span className="text-[length:var(--wariba-font-size-data-xs)] uppercase tracking-[0.08em] text-[color:var(--wariba-text-tertiary)]">
+        {/* Spread sits between the two quotes as an enclosed chip: it is the
+            relationship between them, not a third quote. */}
+        <div className="flex flex-col items-center justify-center gap-1">
+          <span className="text-[length:var(--wariba-component-workstation-type-meta)] font-semibold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]">
             Spread
           </span>
-          <span className="wariba-data text-[length:var(--wariba-font-size-data-sm)] tabular-nums text-[color:var(--wariba-text-secondary)]">
+          <span className="wariba-data rounded-[6px] bg-[color:var(--wariba-component-workstation-wash-neutral)] px-1.5 py-1 text-[length:var(--wariba-component-workstation-type-data)] font-medium leading-none tabular-nums text-[color:var(--wariba-component-workstation-text-secondary)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)]">
             {spread ?? DASH}
           </span>
         </div>
 
-        <div className="flex flex-col items-end gap-0.5">
-          <span className="text-[length:var(--wariba-font-size-data-xs)] uppercase tracking-[0.08em] text-[color:var(--wariba-text-tertiary)]">
+        <div className="relative flex flex-col items-end justify-center gap-1.5 pb-1.5">
+          <span className="text-[length:var(--wariba-component-workstation-type-meta)] font-semibold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]">
             Achat · Ask
           </span>
           <span
             data-testid="execution-ask"
-            className={`wariba-data text-[length:var(--wariba-font-size-data-lg)] font-semibold leading-none tabular-nums ${
+            className={`wariba-data text-[length:var(--wariba-component-workstation-type-quote-hero)] font-semibold leading-none tracking-[-0.02em] tabular-nums ${
               quotesAreLive
                 ? 'text-[color:var(--wariba-component-workstation-trading-live-ask)]'
                 : 'text-[color:var(--wariba-component-workstation-text-tertiary)]'
@@ -138,11 +151,19 @@ export function ExecutionMarketHeader({
           >
             {tick?.ask ?? DASH}
           </span>
+          <span
+            aria-hidden="true"
+            className={`absolute bottom-0 right-0 h-0.5 w-9 rounded-full ${
+              quotesAreLive
+                ? 'bg-[color:var(--wariba-component-workstation-trading-live-ask)]'
+                : 'bg-[color:var(--wariba-component-workstation-border-strong)]'
+            }`}
+          />
         </div>
       </div>
 
       {tick && !quotesAreLive ? (
-        <p className="px-3 py-1.5 text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-component-workstation-trading-warning)]">
+        <p className="border-l-2 border-[color:var(--wariba-component-workstation-trading-warning)] bg-[color:var(--wariba-component-workstation-wash-warning)] px-3 py-1.5 text-[length:var(--wariba-component-workstation-type-data)] font-semibold text-[color:var(--wariba-component-workstation-trading-warning)]">
           {status === 'stale'
             ? 'Dernier prix connu — le flux n’est plus à jour.'
             : 'Dernier prix connu — marché fermé.'}

@@ -9,7 +9,7 @@ import { ExecutionMarketHeader } from './execution/ExecutionMarketHeader';
 import { ExecutionSection } from './execution/ExecutionSection';
 import { ExecutionStatus } from './execution/ExecutionStatus';
 import { OrderTypeSelector } from './execution/OrderTypeSelector';
-import { ProtectionSection } from './execution/ProtectionSection';
+import { ProtectionPreview, ProtectionSection } from './execution/ProtectionSection';
 import { QuantityControl } from './execution/QuantityControl';
 import { TradeImpactPanel } from './execution/TradeImpactPanel';
 import { TriggerPriceControl, creatableSidesFor } from './execution/TriggerPriceControl';
@@ -30,7 +30,6 @@ export interface ExecutionPanelProps {
   draftStore: TicketDraftStore;
   symbol: TradableSymbol;
   spec: SymbolSpec | undefined;
-  accountPublicId: string;
   /** The account's server-priced equity, for the SL/TP impact preview. Null before the first snapshot. */
   equity: string | null;
   risk: AccountRisk | null;
@@ -75,7 +74,6 @@ export const ExecutionPanel = memo(function ExecutionPanel({
   draftStore,
   symbol,
   spec,
-  accountPublicId,
   equity,
   risk,
   connectionOk,
@@ -149,12 +147,7 @@ export const ExecutionPanel = memo(function ExecutionPanel({
       {/* The three quotes and the reason the trader cannot act: pinned, because
           neither is useful if it has scrolled away from the button. */}
       <div className="shrink-0">
-        <ExecutionMarketHeader
-          symbol={symbol}
-          spec={spec}
-          tick={tick}
-          accountPublicId={accountPublicId}
-        />
+        <ExecutionMarketHeader symbol={symbol} spec={spec} tick={tick} />
         <ExecutionStatus gate={gate} rejection={rejection} risk={risk} />
       </div>
 
@@ -192,7 +185,11 @@ export const ExecutionPanel = memo(function ExecutionPanel({
           />
         </ExecutionSection>
 
-        <ExecutionSection title="Protection" testId="execution-protection">
+        <ExecutionSection
+          title="Protection"
+          testId="execution-protection"
+          footer={<ProtectionPreview preview={protectionPreview} />}
+        >
           <ProtectionSection
             spec={spec}
             stopLoss={draft.stopLoss}
@@ -201,7 +198,6 @@ export const ExecutionPanel = memo(function ExecutionPanel({
             takeProfit={draft.takeProfit}
             onTakeProfitChange={draftStore.setTakeProfit}
             takeProfitError={takeProfitError}
-            preview={protectionPreview}
           />
         </ExecutionSection>
 
@@ -222,8 +218,14 @@ export const ExecutionPanel = memo(function ExecutionPanel({
 
       {/* Explicitly opaque, not merely last in the flow: the fields above
           scroll *under* this bar, and a transparent one would let a
-          half-scrolled input show through the buttons. */}
-      <div className="shrink-0 border-t border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] shadow-[0_-8px_16px_rgba(0,0,0,0.12)]">
+          half-scrolled input show through the buttons.
+
+          Visual closure §12G — the decision zone is a distinct plane. It sits a
+          tone above the panel body, carries a strong top edge rather than a
+          hairline, and casts a real upward shadow onto the scrolling fields, so
+          the bottom of the Execution Center reads as the console the trader
+          commits from and not as the last section of a form. */}
+      <div className="shrink-0 border-t border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-decision-zone)] shadow-[var(--wariba-component-workstation-elevation-decision)]">
         {/* §9 — margin and both loss budgets stay with the actions, whatever
             the Impact section above happens to be scrolled to. */}
         <ExecutionImpactSummary impact={impact} />

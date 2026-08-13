@@ -152,11 +152,18 @@ describe('WorkstationStatusBar', () => {
     // (W2 §25). All three are in the DOM, so assert presence, not uniqueness.
     const metrics = within(screen.getByTestId('workstation-metrics'));
     expect(metrics.getAllByText('Equity').length).toBeGreaterThan(0);
-    expect(metrics.getAllByText('10 050.00 USD').length).toBeGreaterThan(0);
     expect(metrics.getAllByText('DLL restant').length).toBeGreaterThan(0);
-    expect(metrics.getAllByText('400.00 USD').length).toBeGreaterThan(0);
     expect(metrics.getAllByText('Perte max restante').length).toBeGreaterThan(0);
-    // The phone-width variants drop the ` USD` suffix but never the figure.
+    // Visual closure §6 — the currency is drawn a step below its figure, so the
+    // amount and its unit are separate elements inside one `<dd>`. The announced
+    // and displayed value is still "10 050.00 USD"; only the type size differs
+    // between the two halves.
+    expect(metrics.getAllByText('10 050.00').length).toBeGreaterThan(0);
+    expect(metrics.getAllByText('400.00').length).toBeGreaterThan(0);
+    expect(metrics.getAllByText('USD').length).toBeGreaterThan(0);
+    const equity = metrics.getAllByRole('definition')[0] as HTMLElement;
+    expect(equity.textContent).toContain('10 050.00 USD');
+    // The phone-width labels stay short; no figure is dropped with them.
     expect(metrics.getAllByText('Eq').length).toBeGreaterThan(0);
     expect(metrics.getAllByText('DLL').length).toBeGreaterThan(0);
   });

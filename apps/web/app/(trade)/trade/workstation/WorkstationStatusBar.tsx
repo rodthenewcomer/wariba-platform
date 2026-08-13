@@ -1,12 +1,13 @@
 'use client';
 
-import { memo } from 'react';
+import { memo, type ReactNode } from 'react';
 import {
   Badge,
-  Button,
   MetricReadout,
+  MetricSeam,
   WariXNotificationsIcon,
   WariXRiskIcon,
+  type MetricEmphasis,
   type MetricTone,
 } from '@wariba/ui';
 import type { AccountRisk } from '@wariba/contracts';
@@ -38,45 +39,92 @@ const RISK_TONE: Record<string, MetricTone> = {
   stale: 'default',
 };
 
+const DASH = '—';
+
+/** `10 050.00 USD` → `["10 050.00", "USD"]`; a placeholder keeps no unit. */
+function splitAmount(formatted: string): { value: string; unit?: string } {
+  if (formatted === DASH) return { value: DASH };
+  return formatted.endsWith(' USD')
+    ? { value: formatted.slice(0, -4), unit: 'USD' }
+    : { value: formatted };
+}
+
 /**
  * One metric. `<dt>`/`<dd>` so the value is never an unlabelled number to a
  * screen reader, and `wariba-data` so every figure stays tabular (W1 §11).
+ *
+ * Stacked, not inline: the WX1 bar ran label and value on one baseline at one
+ * step apart, which is precisely what made eight independent facts read as a
+ * single sentence. Label above, value below, and the value a full step larger
+ * gives each metric its own block the eye can land on.
  */
 function Metric({
   label,
   shortLabel,
-  value,
-  shortValue,
+  formatted,
   tone = 'default',
+  emphasis = 'support',
   className,
 }: {
   label: string;
   /** Phone-width label. The full label stays in the accessible name. */
   shortLabel?: string | undefined;
-  value: string;
-  /** Phone-width value — usually the same figure without its ` USD` suffix. */
-  shortValue?: string | undefined;
+  /** Server-formatted amount, ` USD` suffix included where it has one. */
+  formatted: string;
   tone?: MetricTone | undefined;
+  emphasis?: MetricEmphasis | undefined;
   className?: string | undefined;
 }) {
+  const { value, unit } = splitAmount(formatted);
   return (
     <MetricReadout
       label={label}
       value={value}
+      shortValue={value}
       tone={tone}
-      compact
-      valueClassName="max-sm:text-[11px]"
+      emphasis={emphasis}
+      {...(unit === undefined ? {} : { unit })}
       {...(shortLabel === undefined ? {} : { shortLabel })}
-      {...(shortValue === undefined ? {} : { shortValue })}
       {...(className === undefined ? {} : { className })}
     />
   );
 }
 
 /**
- * The workstation status bar (W1 §11) — one compact horizontal row replacing
- * the 214 px account/risk header stack the W0 audit measured at every desktop
- * width.
+ * A run of metrics that belong to one question, held together by proximity and
+ * separated from the next question by a seam.
+ *
+ * §6's "readable in ~3 seconds" is a grouping problem, not a size problem: the
+ * eye needs to see *three* things — who, how much, how much room is left —
+ * before it starts reading individual figures.
+ */
+function MetricGroup({
+  children,
+  tinted = false,
+  className,
+}: {
+  children: ReactNode;
+  /** Risk states tint their own group rather than recolouring the whole bar. */
+  tinted?: boolean;
+  className?: string;
+}) {
+  return (
+    <div
+      className={[
+        'flex shrink-0 items-center gap-3 rounded-[7px] px-2 py-1 xl:gap-4',
+        tinted
+          ? 'bg-[color:var(--wariba-component-workstation-wash-warning)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-trading-warning)]/25'
+          : '',
+        className ?? '',
+      ].join(' ')}
+    >
+      {children}
+    </div>
+  );
+}
+
+/**
+ * The workstation instrumentation bar (W1 §11, visual closure §6).
  *
  * Three deliberate departures from the block it replaces:
  *
@@ -94,6 +142,13 @@ function Metric({
  *   out below wide desktop and the daily-loss figure below `sm`; nothing is
  *   invented and nothing is lost — "Détail des règles" opens the full
  *   server-computed breakdown at every width.
+ *
+ * The visual closure adds a fourth: **the bar is grouped**. Identity, equity,
+ * the two loss budgets and the programme figures are four blocks separated by
+ * seams, with the equity figure carrying the only `lead` emphasis on the left
+ * side. When the account is in a warning or locked risk state the budget group
+ * — and only that group — takes an amber wash, so the bar reports risk by
+ * colour without any of it becoming decoration.
  *
  * Every figure is server-authoritative (`AccountSnapshot` / `AccountRisk`).
  * This component performs no arithmetic.
@@ -113,6 +168,7 @@ export const WorkstationStatusBar = memo(function WorkstationStatusBar({
   // symbol's staleness is deliberately not an input here.
   const riskStatus = deriveRiskRibbonStatus({ risk, isStale: false, isResyncing });
   const tone = RISK_TONE[riskStatus] ?? RISK_TONE.normal;
+  const budgetsAtRisk = tone === 'warning' || tone === 'danger';
   const connectionLabel = connectionOk
     ? 'Connecté'
     : isResyncing
@@ -123,14 +179,16 @@ export const WorkstationStatusBar = memo(function WorkstationStatusBar({
   return (
     <header
       data-testid="workstation-status-bar"
-      className="relative z-30 flex h-[var(--wariba-component-workstation-statusbar-mobile-height)] min-w-0 shrink-0 items-center gap-1.5 overflow-visible border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-1 lg:h-[var(--wariba-component-workstation-statusbar-height)] lg:gap-2 lg:px-2"
+      className="relative z-30 flex h-[var(--wariba-component-workstation-statusbar-mobile-height)] min-w-0 shrink-0 items-stretch gap-1 overflow-visible border-b border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-1 shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light)] lg:h-[var(--wariba-component-workstation-statusbar-height)] lg:gap-1.5 lg:px-2"
     >
-      <WorkstationAccountSwitcher accounts={accounts} activeAccountId={activeAccountId} />
+      {/* Identity carries the only copper in the bar — WARIBA's own mark on the
+          account, and the reason the left edge reads as "whose desk is this"
+          before any figure is read. */}
+      <div className="relative flex shrink-0 items-center pl-2.5 before:absolute before:bottom-1.5 before:left-0 before:top-1.5 before:w-[3px] before:rounded-r-full before:bg-[color:var(--wariba-component-workstation-identity-rule)]">
+        <WorkstationAccountSwitcher accounts={accounts} activeAccountId={activeAccountId} />
+      </div>
 
-      <span
-        aria-hidden="true"
-        className="h-5 w-px shrink-0 bg-[color:var(--wariba-component-workstation-border-hairline)]"
-      />
+      <MetricSeam className="self-center" />
 
       {/* `shrink-0`, not `min-w-0`: a squeezed metric list does not truncate
           gracefully, it overlaps the controls to its right — a status bar
@@ -149,52 +207,65 @@ export const WorkstationStatusBar = memo(function WorkstationStatusBar({
           `sm` only the first metric fits, so only the first one is shown;
           the daily-loss figure returns at `sm` and is reachable at every
           width through "Détail des règles" → "Restant avant blocage". */}
-      <dl data-testid="workstation-metrics" className="flex shrink-0 items-center gap-2 xl:gap-3">
-        <Metric
-          label="Equity"
-          shortLabel="Eq"
-          value={equityFormatted}
-          shortValue={equityFormatted.replace(' USD', '')}
-        />
-        <Metric
-          label="DLL restant"
-          shortLabel="DLL"
-          value={risk ? `${risk.dailyLoss.remaining} USD` : '—'}
-          shortValue={risk ? risk.dailyLoss.remaining : '—'}
-          tone={tone}
-          className="hidden sm:flex"
-        />
-        <Metric
-          label="Perte max restante"
-          value={risk ? `${risk.maximumLoss.remaining} USD` : '—'}
-          tone={tone}
-          className="hidden xl:flex"
-        />
-        <Metric label="Balance" value={balanceFormatted} className="hidden 2xl:flex" />
-        <Metric
-          label="Objectif"
-          value={risk ? `${risk.target.current} / ${risk.target.required} USD` : '—'}
-          className="hidden 3xl:flex"
-        />
-        <Metric
-          label="Consistance"
-          value={
-            risk?.bestDay.ratio === null || risk === null
-              ? '—'
-              : `${(Number(risk.bestDay.ratio) * 100).toFixed(0)} %`
-          }
-          tone={risk && !risk.bestDay.compliant ? 'warning' : undefined}
-          className="hidden 3xl:flex"
-        />
-      </dl>
+      {/* A plain container: each `MetricReadout` carries its own `<dl>`, so the
+          bar can group and seam freely without nesting inside list semantics. */}
+      <div
+        data-testid="workstation-metrics"
+        className="flex shrink-0 items-stretch gap-1 lg:gap-1.5"
+      >
+        <MetricGroup>
+          <Metric label="Equity" shortLabel="Eq" formatted={equityFormatted} emphasis="lead" />
+        </MetricGroup>
+
+        <MetricSeam className="hidden self-center sm:block" />
+
+        {/* The two budgets are one question — "how much room is left" — so they
+            sit inside one group with no seam between them. */}
+        <MetricGroup tinted={budgetsAtRisk} className="hidden sm:flex">
+          <Metric
+            label="DLL restant"
+            shortLabel="DLL"
+            formatted={risk ? `${risk.dailyLoss.remaining} USD` : DASH}
+            tone={tone}
+            emphasis={budgetsAtRisk ? 'lead' : 'support'}
+          />
+          <Metric
+            label="Perte max restante"
+            formatted={risk ? `${risk.maximumLoss.remaining} USD` : DASH}
+            tone={tone}
+            className="hidden xl:flex"
+          />
+        </MetricGroup>
+
+        <MetricSeam className="hidden self-center 2xl:block" />
+
+        <MetricGroup className="hidden 2xl:flex">
+          <Metric label="Balance" formatted={balanceFormatted} />
+          <Metric
+            label="Objectif"
+            formatted={risk ? `${risk.target.current} / ${risk.target.required} USD` : DASH}
+            className="hidden 3xl:flex"
+          />
+          <Metric
+            label="Consistance"
+            formatted={
+              risk?.bestDay.ratio === null || risk === null
+                ? DASH
+                : `${(Number(risk.bestDay.ratio) * 100).toFixed(0)} %`
+            }
+            tone={risk && !risk.bestDay.compliant ? 'warning' : undefined}
+            className="hidden 3xl:flex"
+          />
+        </MetricGroup>
+      </div>
 
       {shortDuration === 'warning' || shortDuration === 'entry_locked' ? (
-        <Badge variant="warning" className="shrink-0">
+        <Badge variant="warning" className="shrink-0 self-center">
           {shortDuration === 'entry_locked' ? 'Ouvertures suspendues' : 'Profits < 60 s'}
         </Badge>
       ) : null}
 
-      <div className="ml-auto flex shrink-0 items-center gap-2">
+      <div className="ml-auto flex shrink-0 items-center gap-1 lg:gap-1.5">
         {risk ? (
           <TradeRiskDetail
             risk={risk}
@@ -204,46 +275,61 @@ export const WorkstationStatusBar = memo(function WorkstationStatusBar({
                 <WariXRiskIcon className="sm:hidden" />
               </>
             }
-            triggerClassName="flex min-h-11 min-w-11 items-center justify-center rounded-[var(--wariba-radius-sm)] px-1.5 py-1 text-[length:var(--wariba-font-size-label-sm)] font-medium text-[color:var(--wariba-text-secondary)] underline decoration-dotted underline-offset-2 hover:text-[color:var(--wariba-theme-text)] lg:min-h-0 lg:min-w-0"
+            triggerClassName="flex min-h-11 min-w-11 items-center justify-center rounded-[8px] px-2 py-1 text-[length:var(--wariba-component-workstation-type-label)] font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-text-tertiary)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] lg:min-h-8 lg:min-w-0"
           />
         ) : null}
 
+        {/* A chip, not loose text: the transport state is a state, and states in
+            WariX are enclosed. The dot keeps its semantic colour and the label
+            keeps saying the same thing beside it — colour is never the only
+            carrier. */}
         <span
           role="status"
           aria-label={connectionLabel}
           data-testid="workstation-connection"
           data-connection={connectionOk ? 'open' : isResyncing ? 'resyncing' : 'closed'}
-          className="flex items-center gap-1.5 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]"
+          /* Phone widths render the connection state as a dot only, so it takes
+             the same 44px key footprint as the two actions beside it — a 32px
+             ringed box between two 44px glyphs was the one visibly ragged edge
+             of the mobile account bar. */
+          /* State by exception, the same rule the Navigator's rows follow: a
+             healthy transport is a dot, and only a degraded one takes an
+             enclosure. A permanently-filled chip between two bare glyphs read
+             as though the connection were selected. */
+          className={`flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-[8px] px-2 text-[length:var(--wariba-component-workstation-type-label)] font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] sm:min-h-8 sm:min-w-0 sm:justify-start ${
+            connectionOk
+              ? 'text-[color:var(--wariba-component-workstation-text-tertiary)]'
+              : 'bg-[color:var(--wariba-component-workstation-wash-warning)] text-[color:var(--wariba-component-workstation-trading-warning)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-trading-warning)]/35'
+          }`}
         >
           <span
             aria-hidden="true"
-            className={`h-2 w-2 rounded-full ${
+            className={`h-1.5 w-1.5 rounded-full ${
               connectionOk
-                ? 'bg-[color:var(--wariba-status-success-text)]'
-                : 'bg-[color:var(--wariba-status-warning-text)]'
+                ? 'bg-[color:var(--wariba-component-workstation-text-financial-positive)]'
+                : 'bg-[color:var(--wariba-component-workstation-trading-warning)]'
             }`}
           />
           <span className="hidden sm:inline">{connectionLabel}</span>
         </span>
 
-        <Button
-          variant="ghost"
-          size="sm"
+        <button
+          type="button"
           onClick={onOpenNotifications}
           aria-label="Notifications"
           data-testid="workstation-notifications"
-          className="min-h-11 min-w-11 lg:min-h-0 lg:min-w-0"
+          className="relative flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-[8px] px-2 text-[length:var(--wariba-component-workstation-type-label)] font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-text-tertiary)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:min-h-8 lg:min-w-8"
         >
           <span aria-hidden="true" className="hidden sm:inline">
             Notifications
           </span>
           <WariXNotificationsIcon className="sm:hidden" />
           {unreadCount > 0 && (
-            <Badge variant="danger" className="ml-1.5">
+            <Badge variant="danger" className="ml-0.5">
               {unreadCount}
             </Badge>
           )}
-        </Button>
+        </button>
       </div>
     </header>
   );

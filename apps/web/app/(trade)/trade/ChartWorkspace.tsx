@@ -129,12 +129,13 @@ export const ChartWorkspace = memo(function ChartWorkspace({
         title={symbol}
         testId="chart-context-header"
         className="hidden lg:flex"
+        accent="interaction"
         status={
           <span
-            className={`inline-flex items-center gap-1 font-medium ${
+            className={`inline-flex items-center gap-1.5 rounded-[6px] px-1.5 py-0.5 font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] ring-1 ring-inset ${
               tick?.marketStatus === 'stale'
-                ? 'text-[color:var(--wariba-component-workstation-trading-warning)]'
-                : 'text-[color:var(--wariba-component-workstation-text-secondary)]'
+                ? 'bg-[color:var(--wariba-component-workstation-wash-warning)] text-[color:var(--wariba-component-workstation-trading-warning)] ring-[color:var(--wariba-component-workstation-trading-warning)]/35'
+                : 'bg-[color:var(--wariba-component-workstation-wash-neutral)] text-[color:var(--wariba-component-workstation-text-secondary)] ring-[color:var(--wariba-component-workstation-border-hairline)]'
             }`}
           >
             <span
@@ -150,19 +151,36 @@ export const ChartWorkspace = memo(function ChartWorkspace({
         }
         actions={
           tick ? (
-            <div className="wariba-data flex items-center gap-2 text-[11px] tabular-nums">
-              <span className="text-[color:var(--wariba-component-workstation-text-tertiary)]">
-                BID{' '}
-                <strong className="text-[color:var(--wariba-component-workstation-trading-live-bid)]">
-                  {tick.bid}
-                </strong>
-              </span>
-              <span className="text-[color:var(--wariba-component-workstation-text-tertiary)]">
-                ASK{' '}
-                <strong className="text-[color:var(--wariba-component-workstation-trading-live-ask)]">
-                  {tick.ask}
-                </strong>
-              </span>
+            /* Visual closure §9 — the chart header's quotes are instrumentation
+               too. Micro-caps label above the figure, the figure in its own side
+               colour and a full step larger, so BID and ASK read as two readouts
+               rather than as four words in a row. */
+            <div className="flex items-center gap-3">
+              {(
+                [
+                  [
+                    'Bid',
+                    tick.bid,
+                    'text-[color:var(--wariba-component-workstation-trading-live-bid)]',
+                  ],
+                  [
+                    'Ask',
+                    tick.ask,
+                    'text-[color:var(--wariba-component-workstation-trading-live-ask)]',
+                  ],
+                ] as const
+              ).map(([label, value, tone]) => (
+                <span key={label} className="flex items-baseline gap-1.5 leading-none">
+                  <span className="text-[length:var(--wariba-component-workstation-type-meta)] font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]">
+                    {label}
+                  </span>
+                  <strong
+                    className={`wariba-data text-[length:var(--wariba-component-workstation-type-data-strong)] font-semibold tabular-nums ${tone}`}
+                  >
+                    {value}
+                  </strong>
+                </span>
+              ))}
             </div>
           ) : null
         }

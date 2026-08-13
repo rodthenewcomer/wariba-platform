@@ -116,7 +116,77 @@ Canonical professional interval registration, durable/provider-backed historical
 source identity, caching, pagination, restart continuity, provider/live cutover and sufficient depth
 remain WX2 work. No screenshot or control implies these capabilities exist.
 
-## 10. Review status
+## 10. Visual art direction closure
+
+Human visual review of the first WX1 candidate returned **FAIL on perceived visual quality** — the
+architecture was accepted, the expression was not. This section records the closure that followed.
+
+### 10.1 What changed
+
+| Area | Change |
+|---|---|
+| Surfaces | A real L0–L4 ink ladder (`#05070C` → `#0D111A` → `#151A25` → `#1E2433` → `#333B4D`) with rim light on raised planes. The chart is the deepest tone in the product. |
+| Typography | An instrument ladder: 27px quote hero, 16px lead metric, 14px support, 13px module title, 10px small-caps section labels. Rank is size, not dimming. |
+| Instrumentation | Grouped and seamed — identity, equity, loss budgets, programme — with stacked label-over-value. Risk states tint their own group. |
+| Navigator | Labelled `BID / ASK / SPR.` columns, aqua/copper quotes, cobalt-washed selection, sticky category bands, market state by exception. |
+| Chart | Deep well, dimmed grid, mono price and time scales, themed crosshair labels, neutral current-price label, integrated drawing rail. |
+| Execution | A gutter-railed spec plate rather than a stacked form; quote deck, integrated quantity instrument, `SL`/`TP` tagged fields, full-width estimate, physical decision keys. |
+| Dock | Workstation tabs, chip counts, side-coloured rows, P&L at the top of the row hierarchy, state-block empty states. |
+| Mobile | Compact account instrumentation, an action rail of two keys, the desktop execution instrument translated to touch, a tool palette, and Account behind an overflow control instead of truncated to "ACC". |
+| 1024–1279 | A hybrid workstation: chart and execution persistent, Navigator contextual and overlaid so opening it never reflows the plot. |
+
+### 10.2 Defects found and fixed during the closure
+
+Four were pre-existing and would have shipped:
+
+1. `--wariba-surface-selected` and `--wariba-surface-raised` are not tokens this design system
+   defines. Fourteen hover and selected states rendered with no background at all, including the
+   quick-quantity chips and the Orders view switcher.
+2. `BottomSheet` and `Dialog` painted their scrim with `--wariba-background-inverse`, which is bone
+   under the dark trade theme — every mobile sheet opened behind a 64% white veil.
+3. `Tooltip` painted `--wariba-background-inverse` on `--wariba-text-inverse`, so every workstation
+   tooltip was a cream box on the dark workstation. Fixed at the primitive with dedicated
+   `component.tooltip.*` tokens that are fixed values in both themes.
+4. The chart's last-value label inherited the last bar's colour, so the current price rendered
+   emerald after an up candle and coral after a down one — the two colours reserved for Buy and
+   Sell. It is now pinned neutral.
+
+Two were introduced by the closure and caught by the gates:
+
+5. Grouping metrics produced `dl > div > div > dt/dd`; a `<dl>` sanctions one level of `<div>`
+   grouping. Axe flagged it `serious` on every workstation page. Each metric now carries its own
+   `<dl>`.
+6. The `SL` tag measured 4.46:1 and a faded `USD` 3.91:1, both under AA. Both retoned.
+
+### 10.3 Developer-facing language removed
+
+The chart footer read `801 BOUGIES · HISTORIQUE EN MÉMOIRE`. The second half described WariX's
+storage architecture, not the trader's market. The footer now reads the interval, the timezone and
+the observed bar count; the process-memory constraint remains recorded in §8 of this report, where
+an engineer looks for it.
+
+### 10.4 Semantic colour law
+
+| Colour | Single meaning |
+|---|---|
+| Cobalt | Interaction and selection |
+| Copper | WARIBA identity, and the Ask side |
+| Aqua | Bid, and the selected analytical object |
+| Emerald | Buy, profit, healthy market status |
+| Coral | Sell, loss, rejection |
+| Amber | Warning and degraded transport |
+| Neutral ink | Current/mid market context, including the chart's last-value label |
+
+### 10.5 1024–1279 decision
+
+Measured, not assumed. The fixed tracks cost 620px at every width: at 1440 the chart keeps 820px, at
+1024 only 404px, and the rendered comparison showed the indicator legend wrapping three lines over
+the candles. The band therefore keeps chart and execution persistent and makes the Navigator
+contextual — an overlay inside the chart cell, so the plot never reflows when it opens. It is a
+first-run default resolved per render against the live viewport; any stored preference wins, and a
+window resized out of the band restores the full cockpit.
+
+## 11. Review status
 
 ```text
 WX1_HUMAN_VISUAL_REVIEW = pending
@@ -124,3 +194,9 @@ WX1_ACCEPTED = false
 ```
 
 Do not merge automatically. Do not start WX2 or PX0 from this milestone.
+
+Visual closure evidence, including the immutable pre-closure baseline:
+
+```text
+docs/04-ux/evidence/warix-wx1-visual-closure/
+```

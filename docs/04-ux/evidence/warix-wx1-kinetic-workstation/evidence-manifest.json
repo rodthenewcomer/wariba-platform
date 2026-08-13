@@ -1,6 +1,6 @@
 {
-  "capturedAt": "2026-08-12T22:12:55.063Z",
-  "capturedCommit": "1680233ab6d471b4d55a091445e412adef626340",
+  "capturedAt": "2026-08-13T12:15:09.691Z",
+  "capturedCommit": "9457a7b7ec4da93c109a7c458f9621e77930fd1e",
   "source": "WX1 production build; live mock realtime; process-memory history; no fabricated market, financial or risk data",
   "baseline": {
     "viewport1366": {
@@ -146,35 +146,30 @@
         "width": 56,
         "height": 720
       },
-      "navigator": {
-        "x": 56,
-        "y": 44,
-        "width": 244,
-        "height": 676
-      },
+      "navigator": null,
       "drawingRail": {
-        "x": 300,
-        "y": 113,
+        "x": 56,
+        "y": 153,
         "width": 36,
-        "height": 582
+        "height": 542
       },
       "chartModule": {
-        "x": 300,
+        "x": 56,
         "y": 44,
-        "width": 404,
+        "width": 648,
         "height": 676
       },
       "chartPlot": {
-        "x": 336,
-        "y": 113,
-        "width": 368,
-        "height": 582
+        "x": 92,
+        "y": 153,
+        "width": 612,
+        "height": 542
       },
       "chartCanvas": {
-        "x": 336,
-        "y": 113,
-        "width": 300,
-        "height": 554
+        "x": 92,
+        "y": 153,
+        "width": 544,
+        "height": 514
       },
       "execution": {
         "x": 704,
@@ -197,9 +192,9 @@
         "width": 968,
         "height": 676
       },
-      "preChartChromeHeight": 113,
-      "chartViewportAreaSharePercent": 27.23,
-      "chartShareOfCenterWorkspacePercent": 32.73,
+      "preChartChromeHeight": 153,
+      "chartViewportAreaSharePercent": 42.18,
+      "chartShareOfCenterWorkspacePercent": 50.69,
       "document": {
         "scrollWidth": 1024,
         "clientWidth": 1024,
@@ -1178,19 +1173,19 @@
   ],
   "contrast": {
     "warning": {
-      "foreground": "rgb(240, 200, 120)",
-      "background": "rgb(22, 26, 36)",
-      "ratio": 10.96
+      "foreground": "rgb(226, 165, 58)",
+      "background": "rgb(21, 26, 37)",
+      "ratio": 8.02
     },
     "buy": {
-      "foreground": "rgb(11, 13, 18)",
+      "foreground": "rgb(5, 7, 12)",
       "background": "rgb(54, 179, 126)",
-      "ratio": 7.32
+      "ratio": 7.59
     },
     "sell": {
-      "foreground": "rgb(11, 13, 18)",
+      "foreground": "rgb(5, 7, 12)",
       "background": "rgb(224, 90, 90)",
-      "ratio": 5.35
+      "ratio": 5.55
     },
     "rejection": {
       "foreground": "rgb(245, 168, 168)",
@@ -1199,13 +1194,13 @@
     },
     "focus": {
       "foreground": "rgb(192, 198, 208)",
-      "background": "rgb(22, 26, 36)",
-      "ratio": 10.13
+      "background": "rgb(21, 26, 37)",
+      "ratio": 10.14
     },
     "selectedTool": {
-      "foreground": "rgb(102, 132, 255)",
-      "background": "rgb(58, 66, 81)",
-      "ratio": 3.04
+      "foreground": "rgb(156, 176, 255)",
+      "background": "rgba(102, 132, 255, 0.24)",
+      "ratio": 1.6
     }
   },
   "dependencies": {

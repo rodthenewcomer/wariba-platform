@@ -18,6 +18,17 @@ export interface BottomSheetProps {
    * seams and sticky regions intact. The handle and title keep their inset.
    */
   flush?: boolean;
+  /**
+   * Keeps `title` as the dialog's accessible name but stops drawing it, for a
+   * panel that already carries its own module header.
+   *
+   * The mobile execution sheet is the case: the sheet said "Trader EURUSD" and
+   * the panel under it said "Exécution · EURUSD · Ouvert", so the instrument
+   * appeared twice within 40px and the sheet spent a band of a phone screen
+   * repeating itself. The dialog still has a name — it is simply not drawn
+   * twice.
+   */
+  hideTitle?: boolean;
   children: ReactNode;
 }
 
@@ -49,6 +60,7 @@ export function BottomSheet({
   title,
   size = 'auto',
   flush = false,
+  hideTitle = false,
   children,
 }: BottomSheetProps) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -87,26 +99,43 @@ export function BottomSheet({
         // around the radius and under the handle.
         'bg-[color:var(--wariba-theme-surface)] text-[color:var(--wariba-theme-text)]',
         'border-x-0 border-b-0 border-t border-solid border-[color:var(--wariba-theme-border)] p-0',
-        'backdrop:bg-[color:var(--wariba-background-inverse)] backdrop:opacity-[var(--wariba-opacity-overlay)]',
+        // A scrim is always *darker* than the page it dims. `--wariba-background-inverse`
+        // is the inverse of the current theme, so under the dark trade theme it
+        // resolved to bone (#F7F3EB) and every mobile sheet opened behind a
+        // 64%-white veil — which is why the workstation looked washed out above
+        // an open execution sheet rather than pushed back behind it. The
+        // dedicated overlay token carries its own alpha and is dark in every
+        // theme, which is what a scrim has to be.
+        'backdrop:bg-[color:var(--wariba-component-workstation-surface-overlay-backdrop)]',
         'shadow-[var(--wariba-component-bottom-sheet-shadow)]',
         // `tall` opens to a working height and leaves the status context above
         // it visible; `auto` hugs its content up to the same ceiling.
         size === 'tall' ? 'h-[90dvh] max-h-[90dvh]' : 'max-h-[85dvh]',
       )}
     >
-      <div className="flex shrink-0 justify-center pt-3">
+      <div className="flex shrink-0 justify-center pb-1 pt-2.5">
         <span
           aria-hidden="true"
           className="h-1 w-[var(--wariba-component-bottom-sheet-minimum-handle-width)] rounded-full bg-[color:var(--wariba-theme-border)]"
         />
       </div>
+      {/* Visual closure §17 — a sheet header, not a page heading. At 18px the
+          title dominated the surface it introduced and repeated identity the
+          panel below already carries; at 15px with a hairline under it, it reads
+          as the top edge of a native sheet and hands the hierarchy back to the
+          content. */}
       {title ? (
         <h2
           id={titleId}
           className={cx(
-            'shrink-0 text-[length:var(--wariba-font-size-heading-sm)] font-semibold',
-            'text-[color:var(--wariba-theme-text)]',
-            'px-[var(--wariba-component-bottom-sheet-padding)] pb-3 pt-2',
+            hideTitle
+              ? 'sr-only'
+              : cx(
+                  'shrink-0 border-b border-[color:var(--wariba-theme-border)]',
+                  'text-[length:var(--wariba-font-size-heading-sm)] font-bold tracking-[-0.01em]',
+                  'text-[color:var(--wariba-theme-text)]',
+                  'px-[var(--wariba-component-bottom-sheet-padding)] pb-2.5 pt-1.5',
+                ),
           )}
         >
           {title}

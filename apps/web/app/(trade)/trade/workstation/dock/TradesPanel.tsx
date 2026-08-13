@@ -19,6 +19,7 @@ import {
   formatDuration,
   formatOrderTimestamp,
 } from '../../trade-labels';
+import { DockEmptyState } from './DockEmptyState';
 
 export interface TradesPanelProps {
   snapshot: AccountSnapshot | null;
@@ -54,9 +55,10 @@ export const TradesPanel = memo(function TradesPanel({ snapshot }: TradesPanelPr
       )}
       <div className="lg:hidden">
         {closes.length === 0 ? (
-          <p className="px-2 py-3 text-center text-[12px] text-[color:var(--wariba-component-workstation-text-secondary)]">
-            Aucune clôture exécutée.
-          </p>
+          <DockEmptyState
+            title="Aucune clôture exécutée"
+            hint="Les positions fermées de cette session apparaîtront ici."
+          />
         ) : (
           closes.map((fill) => (
             <MobileStructuredRow
@@ -95,11 +97,11 @@ export const TradesPanel = memo(function TradesPanel({ snapshot }: TradesPanelPr
           <DataTableBody>
             {closes.length === 0 ? (
               <DataTableRow>
-                <DataTableCell
-                  colSpan={9}
-                  className="text-center text-[color:var(--wariba-text-secondary)]"
-                >
-                  Aucune clôture exécutée.
+                <DataTableCell colSpan={9} className="p-0">
+                  <DockEmptyState
+                    title="Aucune clôture exécutée"
+                    hint="Les positions fermées de cette session apparaîtront ici."
+                  />
                 </DataTableCell>
               </DataTableRow>
             ) : (

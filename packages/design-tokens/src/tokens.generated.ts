@@ -8,11 +8,16 @@ export const color = {
   "ink.300": "#9AA3B1",
   "ink.500": "#555E6E",
   "ink.600": "#3A4251",
+  "ink.650": "#333B4D",
   "ink.700": "#272D3A",
+  "ink.780": "#1E2433",
   "ink.800": "#1A1F2B",
   "ink.850": "#161A24",
+  "ink.870": "#151A25",
   "ink.900": "#121620",
+  "ink.920": "#0D111A",
   "ink.950": "#0B0D12",
+  "ink.975": "#05070C",
   "bone.50": "#F7F3EB",
   "bone.100": "#EEE7DB",
   "bone.150": "#E8DFD1",
@@ -231,9 +236,9 @@ export const zIndexToken = {
   "critical": 700
 } as const;
 export const chart = {
-  "background": "#0B0D12",
-  "surface": "#121620",
-  "grid": "#272D3A",
+  "background": "#05070C",
+  "surface": "#0D111A",
+  "grid": "#1A2130",
   "textPrimary": "#E3E6EB",
   "textSecondary": "#9AA3B1",
   "candleUp": "#258A61",
@@ -243,6 +248,8 @@ export const chart = {
   "position": "#6684FF",
   "stopLoss": "#C94D4D",
   "takeProfit": "#258A61",
-  "crosshair": "#9AA3B1",
-  "axis": "#3A4251"
+  "crosshair": "#555E6E",
+  "crosshairLabel": "#1E2433",
+  "currentPrice": "#9AA3B1",
+  "axis": "#272D3A"
 } as const;

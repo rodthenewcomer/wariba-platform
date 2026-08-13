@@ -296,12 +296,18 @@ describe('ExecutionActions', () => {
 
     const buy = screen.getByTestId('execution-submit-buy');
     const sell = screen.getByTestId('execution-submit-sell');
-    // Outline instead of fill — and deliberately not `opacity`, which would
-    // composite the label with its own background and fail contrast on a
-    // control that is still live.
-    expect(buy.className).toContain('bg-transparent');
+    // Outlined wash instead of the saturated fill — and deliberately not
+    // `opacity`, which would composite the label with its own background and
+    // fail contrast on a control that is still live. The side stays
+    // identifiable through its own ring and its own 16% wash, and it loses the
+    // physical key treatment so it no longer reads as the primary action.
+    expect(buy.className).not.toContain(
+      'bg-[color:var(--wariba-component-workstation-trading-buy)]',
+    );
+    expect(buy.className).toContain('wash-buy');
+    expect(buy.className).toContain('ring-[color:var(--wariba-component-workstation-trading-buy)]');
     expect(buy.className).not.toContain('opacity-');
-    expect(sell.className).toContain('var(--wariba-component-workstation-trading-sell)');
+    expect(sell.className).toContain('bg-[color:var(--wariba-component-workstation-trading-sell)]');
 
     expect(screen.getByTestId('execution-side-unavailable-buy')).toHaveTextContent(
       'Non valide au cours actuel',

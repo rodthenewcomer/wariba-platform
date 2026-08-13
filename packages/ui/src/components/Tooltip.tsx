@@ -21,6 +21,23 @@ export interface TooltipProps {
  * Design System §24.8 — short help only, never the sole channel for required info,
  * and accessible via keyboard focus, not hover-only (also not a substitute for
  * a real explanation on mobile — pair critical content with a visible affordance).
+ *
+ * **A tooltip is always dark and elevated, in every theme.**
+ *
+ * This used to paint `--wariba-background-inverse` on `--wariba-text-inverse`,
+ * which is the *inverse of the current theme* — correct on the light product
+ * surfaces it was written against, and exactly backwards in WariX: under the
+ * dark trade theme those tokens resolve to bone on ink, so hovering a drawing
+ * tool put a bright cream box on the dark workstation. It is the same class of
+ * defect as the sheet backdrop resolving to a white veil: a chrome element that
+ * must not flip was wired to a token whose whole job is flipping.
+ *
+ * The dedicated `component.tooltip.*` tokens are fixed values, so one treatment
+ * serves both themes — dark tooltips on the light surfaces (the conventional
+ * reading, unchanged from before) and the same dark elevated treatment as the
+ * workstation's own popovers inside WariX. Fixed at the primitive on purpose:
+ * every workstation tooltip comes through here, so there is no second place for
+ * this to be got wrong.
  */
 export function Tooltip({ label, children, side = 'top' }: TooltipProps) {
   const [open, setOpen] = useState(false);
@@ -42,8 +59,11 @@ export function Tooltip({ label, children, side = 'top' }: TooltipProps) {
         <span
           className={cx(
             'pointer-events-none absolute left-1/2 z-[var(--wariba-z-popover)] w-max max-w-xs -translate-x-1/2',
-            'rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-background-inverse)] px-[var(--wariba-space-2)] py-1',
-            'text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-inverse)] shadow-[var(--wariba-shadow-sm)]',
+            'rounded-[var(--wariba-component-tooltip-radius)] px-[var(--wariba-component-tooltip-padding-x)] py-1',
+            'bg-[color:var(--wariba-component-tooltip-surface)] text-[color:var(--wariba-component-tooltip-text)]',
+            'border border-[color:var(--wariba-component-tooltip-border)]',
+            'text-[length:var(--wariba-component-tooltip-font-size)] font-semibold leading-tight',
+            'shadow-[var(--wariba-component-tooltip-shadow)]',
             side === 'top'
               ? 'bottom-full mb-2'
               : side === 'right'

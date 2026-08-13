@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, type ReactNode } from 'react';
+import { memo, useState, type ReactNode } from 'react';
 import {
   CompactEmptyState,
   Tab,
@@ -30,6 +30,11 @@ export interface WorkstationDockProps {
   collapsed: boolean;
   /** True when the active panel has no row-level content. Desktop then occupies exactly 48px. */
   empty?: boolean;
+  /**
+   * Phone presentation. Five destination names do not fit a 390px tab strip, so
+   * the fifth moves behind an overflow control rather than being clipped.
+   */
+  compact?: boolean;
   onToggleCollapsed: () => void;
   pending: boolean;
   onClosePosition: (positionId: string) => void;
@@ -72,6 +77,7 @@ export const WorkstationDock = memo(function WorkstationDock({
   onTabChange,
   collapsed,
   empty = false,
+  compact = false,
   onToggleCollapsed,
   pending,
   onClosePosition,
@@ -96,12 +102,21 @@ export const WorkstationDock = memo(function WorkstationDock({
   const openPositions = snapshot?.openPositions.length ?? 0;
   const pendingOrders = snapshot?.pendingOrders.length ?? 0;
   const activeAlerts = alerts.filter((alert) => alert.enabled).length;
+  const [overflowOpen, setOverflowOpen] = useState(false);
 
+  /**
+   * Visual closure §14 — the count is a chip, not a trailing digit.
+   *
+   * "Positions 2" read as two words; an enclosed tabular count reads as a
+   * quantity attached to a surface, which is what a trading dock's tab strip is
+   * actually reporting. The chip takes the cobalt wash on the active tab so the
+   * counter never competes with the tab it belongs to.
+   */
   const label = (text: string, count: number) => (
     <>
       {text}
       {count > 0 ? (
-        <span className="wariba-data ml-1.5 text-[length:var(--wariba-font-size-data-xs)] text-[color:var(--wariba-text-tertiary)]">
+        <span className="wariba-data min-w-[1.25rem] rounded-full bg-[color:var(--wariba-component-workstation-surface-control)] px-1.5 py-0.5 text-center text-[length:var(--wariba-component-workstation-type-meta)] font-semibold tabular-nums text-[color:var(--wariba-component-workstation-text-secondary)]">
           {count}
         </span>
       ) : null}
@@ -116,7 +131,7 @@ export const WorkstationDock = memo(function WorkstationDock({
       aria-label="Dock de trading"
       data-testid="workstation-dock"
       data-empty={empty ? 'true' : 'false'}
-      className="flex min-h-0 min-w-0 flex-col border-t border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] lg:flex-1"
+      className="flex min-h-0 min-w-0 flex-col border-t border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light)] lg:flex-1"
     >
       {resizeHandle}
 
@@ -125,26 +140,66 @@ export const WorkstationDock = memo(function WorkstationDock({
         onValueChange={(next) => onTabChange(next as DockTab)}
         className="flex min-h-0 min-w-0 flex-col"
       >
-        <div className="flex min-h-10 shrink-0 items-center gap-2 pr-1">
+        <div className="flex min-h-10 shrink-0 items-center gap-2 border-b border-[color:var(--wariba-component-workstation-border-hairline)] pr-1">
           {/* The tab strip is the one element allowed to be wider than the
               viewport, and only inside this box — never the document. */}
           <div
             data-testid="workstation-dock-tabs"
             className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden whitespace-nowrap"
           >
-            <TabList aria-label="Dock de trading">
-              <Tab value="positions">{label('Positions', openPositions)}</Tab>
-              <Tab value="orders">{label('Orders', pendingOrders)}</Tab>
-              <Tab value="trades">Trades</Tab>
-              <Tab value="alerts">{label('Alerts', activeAlerts)}</Tab>
-              <Tab value="account">Account</Tab>
+            <TabList variant="workstation" aria-label="Dock de trading" wrap={compact}>
+              <Tab variant="workstation" value="positions">
+                {label('Positions', openPositions)}
+              </Tab>
+              <Tab variant="workstation" value="orders">
+                {label('Orders', pendingOrders)}
+              </Tab>
+              <Tab variant="workstation" value="trades">
+                Trades
+              </Tab>
+              <Tab variant="workstation" value="alerts">
+                {label('Alerts', activeAlerts)}
+              </Tab>
+              {/*
+               * Final closure §16 — the fifth destination overflows, it does not
+               * truncate.
+               *
+               * At 390px the strip clipped "Account" to "ACC", which names
+               * nothing. On a phone the four execution surfaces stay in the
+               * strip and Account moves behind a "Plus" disclosure; the tab
+               * itself is unchanged, still a real `role="tab"` in the same
+               * tablist, so arrow-key navigation and the panel wiring are
+               * untouched. It costs one extra tap to reach Account today, which
+               * is the right trade against a destination whose name a trader
+               * cannot read — and the pattern already holds whatever WX2 adds.
+               *
+               * Desktop keeps all five in the strip: it has the room.
+               */}
+              {!compact || overflowOpen || tab === 'account' ? (
+                <Tab variant="workstation" value="account">
+                  Account
+                </Tab>
+              ) : null}
             </TabList>
           </div>
+
+          {compact && !overflowOpen && tab !== 'account' ? (
+            <button
+              type="button"
+              onClick={() => setOverflowOpen(true)}
+              aria-expanded={false}
+              aria-label="Plus de surfaces d’activité"
+              data-testid="workstation-dock-overflow"
+              className="flex min-h-11 shrink-0 items-center gap-1 rounded-t-[7px] px-2 text-[length:var(--wariba-component-workstation-type-label)] font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-text-tertiary)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]"
+            >
+              Plus
+            </button>
+          ) : null}
 
           {!collapsed && empty ? (
             <CompactEmptyState
               title="Aucune activité"
-              className="hidden max-w-52 shrink truncate border-l border-[color:var(--wariba-component-workstation-border-hairline)] lg:flex"
+              className="hidden max-w-52 shrink truncate lg:flex"
             />
           ) : null}
 
@@ -154,7 +209,7 @@ export const WorkstationDock = memo(function WorkstationDock({
             aria-expanded={!collapsed}
             aria-label={collapsed ? 'Déplier le dock' : 'Replier le dock'}
             data-testid="workstation-dock-collapse"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--wariba-radius-sm)] text-[color:var(--wariba-component-workstation-text-secondary)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:h-7 lg:w-7"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[7px] text-[color:var(--wariba-component-workstation-text-tertiary)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:h-8 lg:w-8"
           >
             {collapsed ? <WariXChevronUpIcon /> : <WariXChevronDownIcon />}
           </button>

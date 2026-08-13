@@ -1,7 +1,7 @@
 'use client';
 
-import { Input } from '@wariba/ui';
 import type { SymbolSpec } from '@wariba/contracts';
+import { ExecutionField } from './ExecutionField';
 import type { ProtectionPreviewView } from './execution-impact';
 
 export interface ProtectionSectionProps {
@@ -12,7 +12,6 @@ export interface ProtectionSectionProps {
   takeProfit: string;
   onTakeProfitChange: (value: string) => void;
   takeProfitError: string | null;
-  preview: ProtectionPreviewView;
 }
 
 const SIDE_LABEL = { sell: 'Vente', buy: 'Achat' } as const;
@@ -46,55 +45,56 @@ export function ProtectionSection({
   takeProfit,
   onTakeProfitChange,
   takeProfitError,
-  preview,
 }: ProtectionSectionProps) {
   return (
     <div className="flex flex-col gap-1.5">
+      {/*
+       * Visual closure §12E — protection reads as operational, not optional.
+       *
+       * Two identical grey boxes both placeholdered "Optionnel" gave a trader no
+       * way to tell a stop from a target without reading. Each field now carries
+       * a 2px leading rule *and* an in-field `SL`/`TP` tag in its own semantic
+       * colour — coral for the level that limits a loss, emerald for the one
+       * that takes a profit — matching the colours the chart already draws those
+       * same levels in, so the panel and the plot agree.
+       *
+       * The tags are what let the section's own gutter label read `PROTECTION`
+       * once instead of stacking two more headings above the fields: the
+       * refinement pass's whole point is that the middle third stops being a
+       * sequence of label/control pairs. The bound `<label>` for each field is
+       * unchanged and still carries the full name to assistive technology.
+       */}
       <div className="grid grid-cols-2 gap-2">
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor="execution-stop-loss"
-            className="text-[length:var(--wariba-font-size-data-xs)] font-medium uppercase tracking-[0.06em] text-[color:var(--wariba-text-secondary)]"
-          >
-            Stop Loss
-          </label>
-          <Input
-            id="execution-stop-loss"
-            label="Stop Loss (prix)"
-            hideLabel
-            type="text"
-            inputMode="decimal"
-            name="stopLoss"
-            data-testid="stop-loss-input"
-            className="wariba-data"
-            placeholder="Optionnel"
-            value={stopLoss}
-            onChange={(event) => onStopLossChange(event.target.value)}
-            {...(stopLossError ? { errorText: stopLossError } : {})}
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor="execution-take-profit"
-            className="text-[length:var(--wariba-font-size-data-xs)] font-medium uppercase tracking-[0.06em] text-[color:var(--wariba-text-secondary)]"
-          >
-            Take Profit
-          </label>
-          <Input
-            id="execution-take-profit"
-            label="Take Profit (prix)"
-            hideLabel
-            type="text"
-            inputMode="decimal"
-            name="takeProfit"
-            data-testid="take-profit-input"
-            className="wariba-data"
-            placeholder="Optionnel"
-            value={takeProfit}
-            onChange={(event) => onTakeProfitChange(event.target.value)}
-            {...(takeProfitError ? { errorText: takeProfitError } : {})}
-          />
-        </div>
+        <ExecutionField
+          id="execution-stop-loss"
+          label="Stop Loss (prix)"
+          prefix="SL"
+          prefixClassName="text-[color:var(--wariba-component-workstation-trading-sell)]"
+          type="text"
+          inputMode="decimal"
+          name="stopLoss"
+          data-testid="stop-loss-input"
+          placeholder="Optionnel"
+          accentClassName="bg-[color:var(--wariba-chart-stop-loss)]"
+          value={stopLoss}
+          onChange={(event) => onStopLossChange(event.target.value)}
+          errorText={stopLossError}
+        />
+        <ExecutionField
+          id="execution-take-profit"
+          label="Take Profit (prix)"
+          prefix="TP"
+          prefixClassName="text-[color:var(--wariba-component-workstation-trading-buy)]"
+          type="text"
+          inputMode="decimal"
+          name="takeProfit"
+          data-testid="take-profit-input"
+          placeholder="Optionnel"
+          accentClassName="bg-[color:var(--wariba-chart-take-profit)]"
+          value={takeProfit}
+          onChange={(event) => onTakeProfitChange(event.target.value)}
+          errorText={takeProfitError}
+        />
       </div>
 
       {/*
@@ -114,83 +114,118 @@ export function ProtectionSection({
             ? `Prix absolus à ${spec.pricePrecision} décimales, joints à l’ordre et jamais envoyés séparément.`
             : 'Prix absolus, joints à l’ordre et jamais envoyés séparément.'
         }
-        className="text-[length:var(--wariba-font-size-data-xs)] text-[color:var(--wariba-text-tertiary)]"
+        className="text-[length:var(--wariba-component-workstation-type-meta)] text-[color:var(--wariba-component-workstation-text-tertiary)]"
       >
         Prix{spec ? ` · ${spec.pricePrecision} déc.` : ''} · joints à l’ordre
       </p>
+    </div>
+  );
+}
 
-      {preview.sides ? (
-        <div className="flex flex-col gap-1" data-testid="protection-preview">
-          <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-baseline gap-x-3">
-            <span className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
-              Estimation
+export interface ProtectionPreviewProps {
+  preview: ProtectionPreviewView;
+}
+
+/**
+ * The per-side estimate, rendered full-bleed under the Protection controls.
+ *
+ * Visual closure §12F — the estimate is a small aligned table, and its labels
+ * are quieter than its figures. WX1 ran the row labels at 14px and the money at
+ * 11px, which is the hierarchy exactly inverted: a trader reads "how much do I
+ * lose", not "Perte au SL".
+ *
+ * The refinement pass moved it out of the section's control column. Inside that
+ * 222px column a three-column money table wrapped both its labels and its
+ * amounts onto second lines and read as broken; at the panel's full width every
+ * row holds one line. `USD` is hoisted into the side headings exactly as
+ * `ExecutionImpactSummary` already does — the unit is stated once per column
+ * instead of six times, and no figure is altered.
+ */
+export function ProtectionPreview({ preview }: ProtectionPreviewProps) {
+  const sides = preview.sides;
+  if (!sides) return null;
+  /** `20.00 USD` → `20.00`; the unit is stated once, in the column heading. */
+  const amount = (value: string | null | undefined): string =>
+    value ? value.replace(/\s*USD$/, '') : '—';
+
+  return (
+    <div
+      className="flex flex-col gap-1.5 rounded-[8px] bg-[color:var(--wariba-component-workstation-wash-neutral)] px-2.5 py-2"
+      data-testid="protection-preview"
+    >
+      <div className="grid grid-cols-[minmax(0,1fr)_4.5rem_4.5rem] items-baseline gap-x-3 gap-y-1.5">
+        <span className="text-[length:var(--wariba-component-workstation-type-section-label)] font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]">
+          Estimation
+        </span>
+        {sides.map((side) => (
+          <span
+            key={side.side}
+            className="whitespace-nowrap text-right text-[length:var(--wariba-component-workstation-type-section-label)] font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]"
+          >
+            {/* No `opacity` on the unit. Faded to 70% it composited to #747B88
+                on the estimate block's own wash and measured 3.91:1 — under AA
+                for 10px text. It is already subordinate by being the second
+                word in a small-caps heading; dimming it was decoration that
+                cost legibility. */}
+            {SIDE_LABEL[side.side]} USD
+          </span>
+        ))}
+
+        {sides.some((side) => side.stopLossPnlFormatted) ? (
+          <>
+            <span className="whitespace-nowrap text-[length:var(--wariba-component-workstation-type-label)] text-[color:var(--wariba-component-workstation-text-secondary)]">
+              Perte au SL
             </span>
-            {preview.sides.map((side) => (
+            {sides.map((side) => (
               <span
                 key={side.side}
-                className="w-16 text-right text-[length:var(--wariba-font-size-label-sm)] uppercase tracking-wide text-[color:var(--wariba-text-tertiary)]"
+                data-testid={`protection-sl-${side.side}`}
+                className="wariba-data whitespace-nowrap text-right text-[length:var(--wariba-component-workstation-type-data)] font-semibold tabular-nums text-[color:var(--wariba-component-workstation-text-primary)]"
               >
-                {SIDE_LABEL[side.side]}
+                {amount(side.stopLossPnlFormatted)}
               </span>
             ))}
+          </>
+        ) : null}
 
-            {preview.sides.some((side) => side.stopLossPnlFormatted) ? (
-              <>
-                <span className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
-                  Perte au SL
-                </span>
-                {preview.sides.map((side) => (
-                  <span
-                    key={side.side}
-                    data-testid={`protection-sl-${side.side}`}
-                    className="wariba-data w-16 text-right text-[length:var(--wariba-font-size-data-xs)] text-[color:var(--wariba-text-primary)]"
-                  >
-                    {side.stopLossPnlFormatted ?? '—'}
-                  </span>
-                ))}
-              </>
-            ) : null}
+        {sides.some((side) => side.takeProfitPnlFormatted) ? (
+          <>
+            <span className="whitespace-nowrap text-[length:var(--wariba-component-workstation-type-label)] text-[color:var(--wariba-component-workstation-text-secondary)]">
+              Gain au TP
+            </span>
+            {sides.map((side) => (
+              <span
+                key={side.side}
+                data-testid={`protection-tp-${side.side}`}
+                className="wariba-data whitespace-nowrap text-right text-[length:var(--wariba-component-workstation-type-data)] font-semibold tabular-nums text-[color:var(--wariba-component-workstation-text-primary)]"
+              >
+                {amount(side.takeProfitPnlFormatted)}
+              </span>
+            ))}
+          </>
+        ) : null}
 
-            {preview.sides.some((side) => side.takeProfitPnlFormatted) ? (
-              <>
-                <span className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
-                  Gain au TP
-                </span>
-                {preview.sides.map((side) => (
-                  <span
-                    key={side.side}
-                    data-testid={`protection-tp-${side.side}`}
-                    className="wariba-data w-16 text-right text-[length:var(--wariba-font-size-data-xs)] text-[color:var(--wariba-text-primary)]"
-                  >
-                    {side.takeProfitPnlFormatted ?? '—'}
-                  </span>
-                ))}
-              </>
-            ) : null}
-
-            {preview.sides.some((side) => side.riskRewardFormatted) ? (
-              <>
-                <span className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
-                  R:R (distance)
-                </span>
-                {preview.sides.map((side) => (
-                  <span
-                    key={side.side}
-                    data-testid={`protection-rr-${side.side}`}
-                    className="wariba-data w-16 text-right text-[length:var(--wariba-font-size-data-xs)] text-[color:var(--wariba-text-primary)]"
-                  >
-                    {side.riskRewardFormatted ?? '—'}
-                  </span>
-                ))}
-              </>
-            ) : null}
-          </div>
-          <p className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-tertiary)]">
-            Estimations au prix d’entrée indicatif, hors slippage.
-            {preview.triggerMayGap ? ' Un ordre Stop peut être exécuté au-delà du seuil.' : ''}
-          </p>
-        </div>
-      ) : null}
+        {sides.some((side) => side.riskRewardFormatted) ? (
+          <>
+            <span className="whitespace-nowrap text-[length:var(--wariba-component-workstation-type-label)] text-[color:var(--wariba-component-workstation-text-secondary)]">
+              R:R (distance)
+            </span>
+            {sides.map((side) => (
+              <span
+                key={side.side}
+                data-testid={`protection-rr-${side.side}`}
+                className="wariba-data whitespace-nowrap text-right text-[length:var(--wariba-component-workstation-type-data)] font-semibold tabular-nums text-[color:var(--wariba-component-workstation-text-primary)]"
+              >
+                {side.riskRewardFormatted ?? '—'}
+              </span>
+            ))}
+          </>
+        ) : null}
+      </div>
+      <p className="text-[length:var(--wariba-component-workstation-type-meta)] leading-snug text-[color:var(--wariba-component-workstation-text-tertiary)]">
+        Estimations au prix d’entrée indicatif, hors slippage.
+        {preview.triggerMayGap ? ' Un ordre Stop peut être exécuté au-delà du seuil.' : ''}
+      </p>
     </div>
   );
 }

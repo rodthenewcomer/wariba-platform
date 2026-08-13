@@ -27,6 +27,16 @@ export interface ChartLegendProps {
   /** Digits the instrument is quoted at, so O/H/L/C read the way its price does. */
   pricePrecision: number | null;
   indicators: readonly IndicatorLegendEntry[];
+  /**
+   * Phone presentation: indicator *values* are dropped, names and colours kept.
+   *
+   * Four indicators with their prices ran to three wrapped lines on a 390px
+   * plot and covered roughly 90px of candles — the legend was taking the chart
+   * area §4 exists to protect. The series identity is what the legend is for on
+   * a phone; the value under the cursor is what the crosshair is for, and it
+   * still reports every series on tap. Desktop is unchanged.
+   */
+  compact?: boolean;
 }
 
 function formatPrice(value: string, precision: number | null): string {
@@ -44,8 +54,14 @@ export const ChartLegend = memo(function ChartLegend({
   candle,
   pricePrecision,
   indicators,
+  compact = false,
 }: ChartLegendProps) {
   if (candle === null && indicators.length === 0) return null;
+
+  /** A phone plot fits two series names beside the OHLC row; the rest are counted. */
+  const COMPACT_LEGEND_LIMIT = 2;
+  const shown = compact ? indicators.slice(0, COMPACT_LEGEND_LIMIT) : indicators;
+  const hidden = indicators.length - shown.length;
 
   return (
     <div
@@ -75,8 +91,11 @@ export const ChartLegend = memo(function ChartLegend({
         </div>
       )}
       {indicators.length > 0 && (
-        <div data-testid="chart-indicator-legend" className="flex flex-wrap gap-x-3 gap-y-0.5">
-          {indicators.map((entry) => (
+        <div
+          data-testid="chart-indicator-legend"
+          className={`flex gap-x-3 gap-y-0.5 ${compact ? 'flex-nowrap' : 'flex-wrap'}`}
+        >
+          {shown.map((entry) => (
             <span key={entry.id} className="wariba-data flex items-center gap-1">
               <span
                 aria-hidden="true"
@@ -84,11 +103,30 @@ export const ChartLegend = memo(function ChartLegend({
                 style={{ backgroundColor: entry.color }}
               />
               <span className="text-[color:var(--wariba-text-tertiary)]">{entry.label}</span>
-              <span className="text-[color:var(--wariba-text-secondary)]">
-                {formatIndicator(entry.value, pricePrecision)}
-              </span>
+              {compact ? null : (
+                <span className="text-[color:var(--wariba-text-secondary)]">
+                  {formatIndicator(entry.value, pricePrecision)}
+                </span>
+              )}
             </span>
           ))}
+          {/*
+           * Final closure §14 — the overflow is counted, never dropped silently.
+           *
+           * Four series names plus the OHLC row filled the top of a 320px plot
+           * edge to edge. A phone shows the two it has room for and states how
+           * many more are running; the full set, with its toggles, is one tap
+           * away in Indicateurs. The count is the honest part: a trader can see
+           * at a glance that two more averages are on the chart.
+           */}
+          {hidden > 0 ? (
+            <span
+              className="wariba-data text-[color:var(--wariba-component-workstation-text-tertiary)]"
+              title={`${hidden} indicateur${hidden > 1 ? 's' : ''} supplémentaire${hidden > 1 ? 's' : ''} actif${hidden > 1 ? 's' : ''}`}
+            >
+              +{hidden}
+            </span>
+          ) : null}
         </div>
       )}
     </div>

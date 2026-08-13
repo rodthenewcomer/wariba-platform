@@ -6,7 +6,7 @@ import type { PendingOrderType, TradableSymbol } from '@wariba/contracts';
 import { useOneClickTrading } from '../../../lib/one-click-trading';
 import { ChartWorkspace, type ChartWorkspaceActions } from './ChartWorkspace';
 import { MarketNavigator } from './MarketNavigator';
-import { useIsDesktop } from './use-viewport';
+import { useIsDesktop, useIsHybridDesktop } from './use-viewport';
 import { ExecutionPanel } from './ExecutionPanel';
 import { pendingOrderTypeFor } from './execution/execution-contract';
 import { TradeDialogs, type TradeDialogActions, type TradeDialogState } from './TradeDialogs';
@@ -123,16 +123,32 @@ export function TradeClient({
   // The two dock presentations are never concurrently active — see
   // use-viewport.ts for the SSR/hydration caveat on "one tree".
   const isDesktop = useIsDesktop();
+  // §22 — at 1024–1279 an opened Navigator floats over the chart rather than
+  // taking 244px from it. The band still renders the full desktop grid.
+  const isHybridDesktop = useIsHybridDesktop();
   const [mobileDockOpen, setMobileDockOpen] = useState(false);
   const [mobileMarketOpen, setMobileMarketOpen] = useState(false);
   const {
     preferences,
+    hasStoredLayout,
     setNavigatorWidth,
     setNavigatorCollapsed,
     setDockHeight,
     setDockCollapsed,
     toggleFavorite,
   } = useWorkstationPreferences();
+  /*
+   * §22 — the hybrid default is resolved here, per render, not frozen at mount.
+   *
+   * A trader who has never touched the layout gets the band's own default:
+   * collapsed in 1024–1279, expanded above it. Resizing a window across the
+   * boundary therefore does the right thing in both directions — the WX1
+   * evidence harness caught the mount-time version leaving 1366 collapsed after
+   * it had measured 1024. The moment the trader collapses or expands anything,
+   * `hasStoredLayout` flips and their choice wins at every width.
+   */
+  const navigatorCollapsed = hasStoredLayout ? preferences.navigatorCollapsed : isHybridDesktop;
+
   const [ticketOpen, setTicketOpen] = useState(false);
   const [dialogs, setDialogs] = useState<TradeDialogState>({
     closeAllOpen: false,
@@ -347,6 +363,7 @@ export function TradeClient({
       onTabChange={setTab}
       collapsed={preferences.dockCollapsed}
       empty={!dockHasContent}
+      compact={!isDesktop}
       onToggleCollapsed={() => setDockCollapsed(!preferences.dockCollapsed)}
       pending={session.pending}
       onClosePosition={commands.closePosition}
@@ -393,7 +410,6 @@ export function TradeClient({
       draftStore={draftStore}
       symbol={selectedSymbol}
       spec={symbolSpecs[selectedSymbol]}
-      accountPublicId={accountPublicId}
       equity={snapshot?.equity ?? null}
       risk={session.risk}
       connectionOk={session.connectionOk}
@@ -414,11 +430,12 @@ export function TradeClient({
 
       <WorkstationShell
         navigatorWidth={preferences.navigatorWidth}
-        navigatorCollapsed={preferences.navigatorCollapsed}
+        navigatorCollapsed={navigatorCollapsed}
+        navigatorOverlay={isHybridDesktop}
         dockHeight={effectiveDockHeight}
         dockCollapsed={preferences.dockCollapsed}
         navigatorResizeHandle={
-          preferences.navigatorCollapsed ? null : (
+          navigatorCollapsed || isHybridDesktop ? null : (
             <ResizeSeparator
               orientation="vertical"
               label="Largeur du navigateur de marchés"
@@ -437,7 +454,7 @@ export function TradeClient({
             onClick={() => setNavigatorCollapsed(false)}
             aria-label="Afficher le navigateur de marchés"
             data-testid="navigator-restore"
-            className="m-1 flex items-center gap-1 rounded-[var(--wariba-radius-sm)] border border-[color:var(--wariba-component-workstation-seam)] px-2 py-1 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)] hover:bg-[color:var(--wariba-surface-selected)] hover:text-[color:var(--wariba-theme-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]"
+            className="m-1 flex items-center gap-1.5 rounded-[7px] bg-[color:var(--wariba-component-workstation-surface-control)] px-2 py-1 text-[length:var(--wariba-component-workstation-type-label)] font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-text-secondary)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]"
           >
             <WariXExpandLeftIcon />
             Marchés
@@ -483,7 +500,7 @@ export function TradeClient({
                 onClick={() => setNavigatorCollapsed(true)}
                 aria-label="Replier le navigateur de marchés"
                 data-testid="navigator-collapse"
-                className="flex h-6 w-6 items-center justify-center rounded-[var(--wariba-radius-sm)] text-[color:var(--wariba-text-secondary)] hover:bg-[color:var(--wariba-surface-selected)] hover:text-[color:var(--wariba-theme-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]"
+                className="flex h-6 w-6 items-center justify-center rounded-[6px] text-[color:var(--wariba-component-workstation-text-tertiary)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]"
               >
                 <WariXCollapseLeftIcon />
               </button>
@@ -523,33 +540,61 @@ export function TradeClient({
            */
           <div
             data-testid="mobile-action-rail"
-            className="flex items-stretch gap-2 border-t border-[color:var(--wariba-component-workstation-seam)] bg-[color:var(--wariba-component-workstation-surface-raised)] px-2 py-2"
+            className="flex items-stretch gap-2 border-t border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-raised)] px-2.5 py-2 shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light)]"
           >
+            {/*
+             * Visual closure §16 / mobile gate §5 — an action rail of two keys.
+             *
+             * WX1 drew "Trader EURUSD" across the full width in the lightest
+             * cobalt the palette has (`action-primary` is cobalt-400 in the dark
+             * theme), which made a control that only *opens a sheet* the single
+             * loudest object on a chart-first screen. Four changes, no
+             * functionality touched:
+             *
+             * - The instrument leaves the visible label. It is already stated
+             *   directly above the chart in the market-context strip and again
+             *   in the sheet's own title, so repeating it here was the third
+             *   time. It stays in the accessible name, which is what actually
+             *   owes the context — so the control still announces "Trader
+             *   EURUSD" and every existing selector still resolves.
+             * - Cobalt-600 with white text instead of cobalt-400 with ink:
+             *   7.3:1, unmistakably the primary action, and no longer a pale
+             *   lavender slab competing with the candles.
+             * - Both keys take the desktop decision-key physique — rim light,
+             *   2px key shadow, and a press that bottoms out — so the rail reads
+             *   as two instruments rather than a CTA beside a ghost link.
+             * - The chevron says the sheet arrives from below, which is the
+             *   discoverability the shorter label gives up.
+             */}
             <button
               type="button"
               onClick={() => setTicketOpen(true)}
-              className="flex min-h-[var(--wariba-size-touch-target-minimum)] flex-1 items-center justify-center gap-1.5 rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-action-primary)] px-3 text-[color:var(--wariba-action-primary-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]"
+              aria-label={`Trader ${selectedSymbol}`}
+              className="flex min-h-11 flex-[3] items-center justify-center gap-2 rounded-[10px] bg-[color:var(--wariba-color-cobalt-600)] px-3 text-[color:var(--wariba-color-white)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.22),0_2px_0_0_rgba(5,7,12,0.55)] transition-[transform,box-shadow,filter] duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-0.5 active:brightness-90 active:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]"
             >
-              <span className="text-[length:var(--wariba-font-size-label-md)] font-semibold">
-                Trader
+              <span aria-hidden="true" className="text-[9px] leading-none opacity-75">
+                ▲
               </span>
-              <span className="wariba-data text-[length:var(--wariba-font-size-data-sm)] font-semibold">
-                {selectedSymbol}
+              <span
+                aria-hidden="true"
+                className="text-[length:var(--wariba-font-size-label-md)] font-bold tracking-[var(--wariba-component-workstation-tracking-decision)]"
+              >
+                Trader
               </span>
             </button>
             <button
               type="button"
               onClick={() => setMobileDockOpen(true)}
               data-testid="mobile-dock-trigger"
-              className="flex min-h-[var(--wariba-size-touch-target-minimum)] items-center justify-center gap-1.5 rounded-[var(--wariba-radius-sm)] border border-[color:var(--wariba-component-workstation-seam)] px-3 text-[color:var(--wariba-text-secondary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]"
+              className="flex min-h-11 flex-[2] items-center justify-center gap-1.5 rounded-[10px] bg-[color:var(--wariba-component-workstation-surface-control)] px-3 text-[color:var(--wariba-component-workstation-text-secondary)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong),0_2px_0_0_rgba(5,7,12,0.45)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] transition-[transform,box-shadow,color] duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-0.5 active:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]"
             >
-              <span className="text-[length:var(--wariba-font-size-label-md)] font-medium">
+              <span className="text-[length:var(--wariba-font-size-label-md)] font-semibold">
                 Activité
               </span>
               {openPositionCount > 0 ? (
                 <span
                   aria-label={`${openPositionCount} position ouverte`}
-                  className="wariba-data min-w-5 rounded-full bg-[color:var(--wariba-surface-selected)] px-1.5 text-center text-[length:var(--wariba-font-size-data-xs)] font-semibold text-[color:var(--wariba-theme-text)]"
+                  className="wariba-data min-w-5 rounded-full bg-[color:var(--wariba-component-workstation-wash-selected-strong)] px-1.5 text-center text-[length:var(--wariba-component-workstation-type-meta)] font-bold tabular-nums text-[color:var(--wariba-component-workstation-interaction-selected-text)]"
                 >
                   {openPositionCount}
                 </span>
@@ -593,6 +638,9 @@ export function TradeClient({
         open={!isDesktop && ticketOpen}
         onClose={() => setTicketOpen(false)}
         title={`Trader ${selectedSymbol}`}
+        // The panel's own ModuleHeader is the sheet's visible header — see
+        // `hideTitle` on BottomSheet for why the instrument is not named twice.
+        hideTitle
         // Visual closure §3 — a working height, not a content hug: the market
         // header, order type, quantity and the sticky Sell/Buy footer must all
         // be reachable without the sheet swallowing the status context above

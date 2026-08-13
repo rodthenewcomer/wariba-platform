@@ -55,6 +55,52 @@ export const DEFAULT_WORKSTATION_PREFERENCES: WorkstationPreferences = {
   favorites: [],
 };
 
+/** The desktop grid's own floor — below this the shell is the mobile column. */
+export const DESKTOP_MINIMUM_WIDTH = 1024;
+/** The last width at which the full three-column cockpit starves the chart. */
+export const HYBRID_MAXIMUM_WIDTH = 1279;
+
+/**
+ * Visual closure §22 — the 1024–1279 hybrid.
+ *
+ * The full cockpit's fixed tracks cost 56 + 244 + 320 = 620px whatever the
+ * viewport is. At 1440 that leaves the chart 820px and the composition reads as
+ * a workstation; at 1024 it leaves 404px, and a 404px chart with a 320px
+ * execution panel beside it is no longer chart-dominant — the panel that
+ * supports the decision is nearly as wide as the thing the decision is made
+ * from. Measured on the captured evidence, the chart plot holds 39.4% of the
+ * viewport at 1366 and only 26.9% at 1024 with the navigator open.
+ *
+ * The hybrid keeps **both** persistent surfaces the trader acts through — the
+ * chart and the Execution Center — and makes the *selection* surface contextual,
+ * because choosing an instrument is occasional while reading the chart and
+ * sizing an order are continuous. The Navigator is therefore collapsed by
+ * default in this band and restored with the control the shell already renders
+ * in the chart cell; that recovers its full 244px for the chart (404 → 648px,
+ * a 60% increase) using only mechanisms W2 already shipped.
+ *
+ * This is a **default**, not a breakpoint change and not a capability change.
+ * The band is still the desktop grid, the trader can open the Navigator at any
+ * width, and the choice is then persisted like any other layout preference —
+ * so the hybrid never overrides a decision the trader has actually made.
+ */
+export function isHybridWidth(width: number): boolean {
+  return width >= DESKTOP_MINIMUM_WIDTH && width <= HYBRID_MAXIMUM_WIDTH;
+}
+
+/**
+ * First-run layout for a viewport that has no stored preference yet.
+ *
+ * Kept as the single definition of what the band's default *is*; `TradeClient`
+ * resolves it per render against the live viewport rather than freezing it at
+ * mount, so a window resized across the boundary settles correctly either way.
+ */
+export function defaultWorkstationPreferencesForWidth(width: number): WorkstationPreferences {
+  return isHybridWidth(width)
+    ? { ...DEFAULT_WORKSTATION_PREFERENCES, navigatorCollapsed: true }
+    : DEFAULT_WORKSTATION_PREFERENCES;
+}
+
 export function clamp(value: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return min;
   return Math.min(max, Math.max(min, Math.round(value)));
@@ -104,6 +150,14 @@ function serialize(preferences: WorkstationPreferences): string {
 
 export interface WorkstationPreferencesController {
   preferences: WorkstationPreferences;
+  /**
+   * Whether this browser holds a layout the trader actually chose.
+   *
+   * The hybrid default (§22) must never override a decision, and must stay
+   * reactive to the viewport until one is made — so the caller needs to know
+   * which of the two is in force rather than having it baked in at mount.
+   */
+  hasStoredLayout: boolean;
   setNavigatorWidth(width: number): void;
   setNavigatorCollapsed(collapsed: boolean): void;
   setDockHeight(height: number): void;
@@ -120,12 +174,19 @@ export function useWorkstationPreferences(): WorkstationPreferencesController {
   const [preferences, setPreferences] = useState<WorkstationPreferences>(
     DEFAULT_WORKSTATION_PREFERENCES,
   );
+  const [hasStoredLayout, setHasStoredLayout] = useState(false);
 
   useEffect(() => {
     try {
-      setPreferences(
-        parseWorkstationPreferences(window.localStorage.getItem(WORKSTATION_PREFERENCES_KEY)),
-      );
+      const stored = window.localStorage.getItem(WORKSTATION_PREFERENCES_KEY);
+      if (stored === null) return;
+      // A stored payload is the trader's own decision and always wins over the
+      // viewport-derived hybrid default. Reading it is all this hook does — the
+      // *default* is resolved by the caller, per render, so that a window
+      // resized out of the hybrid band restores the full cockpit instead of
+      // keeping a collapse that was only ever a first-run guess.
+      setPreferences(parseWorkstationPreferences(stored));
+      setHasStoredLayout(true);
     } catch {
       // Storage unavailable (private browsing, quota, disabled): the defaults
       // already in state are the correct outcome.
@@ -133,6 +194,8 @@ export function useWorkstationPreferences(): WorkstationPreferencesController {
   }, []);
 
   const update = useCallback((patch: Partial<WorkstationPreferences>) => {
+    // Any deliberate change makes this browser's layout the trader's own.
+    setHasStoredLayout(true);
     setPreferences((previous) => {
       const next = { ...previous, ...patch };
       try {
@@ -148,6 +211,7 @@ export function useWorkstationPreferences(): WorkstationPreferencesController {
   return useMemo(
     () => ({
       preferences,
+      hasStoredLayout,
       setNavigatorWidth: (width) =>
         update({ navigatorWidth: clamp(width, NAVIGATOR_WIDTH_MIN, NAVIGATOR_WIDTH_MAX) }),
       setNavigatorCollapsed: (navigatorCollapsed) => update({ navigatorCollapsed }),
@@ -168,6 +232,6 @@ export function useWorkstationPreferences(): WorkstationPreferencesController {
           return next;
         }),
     }),
-    [preferences, update],
+    [preferences, hasStoredLayout, update],
   );
 }

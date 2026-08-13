@@ -347,7 +347,9 @@ export function TradeChart({
     const gridColor = readToken(container, '--wariba-chart-grid', '#272D3A');
     const textColor = readToken(container, '--wariba-chart-text-secondary', '#9AA3B1');
     const axisColor = readToken(container, '--wariba-chart-axis', '#3A4251');
-    const crosshairColor = readToken(container, '--wariba-chart-crosshair', '#9AA3B1');
+    const crosshairColor = readToken(container, '--wariba-chart-crosshair', '#555E6E');
+    const crosshairLabel = readToken(container, '--wariba-chart-crosshair-label', '#1E2433');
+    const currentPriceColor = readToken(container, '--wariba-chart-current-price', '#9AA3B1');
     const upColor = readToken(container, '--wariba-chart-candle-up', '#258A61');
     const downColor = readToken(container, '--wariba-chart-candle-down', '#C94D4D');
     colorsRef.current = {
@@ -368,17 +370,48 @@ export function TradeChart({
       // height. `measure()` runs synchronously right after creation.
       ...(container.clientWidth > 0 ? { width: container.clientWidth } : {}),
       height: container.clientHeight || CHART_FALLBACK_HEIGHT,
-      layout: { background: { color: background }, textColor },
+      /*
+       * Visual closure §9 — the chart environment is typography too.
+       *
+       * The price and time scales are drawn into the canvas by the library, so
+       * they are the one part of WariX that CSS cannot reach: left at the
+       * library's default sans they were the only proportional figures on a
+       * screen where every other number is tabular mono, and they read as
+       * "third-party widget" rather than as part of the instrument. Handing the
+       * renderer the WARIBA mono stack at 11px is what makes the scales belong
+       * to the same product as the quote deck beside them.
+       */
+      layout: {
+        background: { color: background },
+        textColor,
+        fontFamily: readToken(container, '--wariba-font-mono', 'monospace'),
+        fontSize: 11,
+      },
       grid: {
         vertLines: { color: gridColor },
         horzLines: { color: gridColor },
       },
       rightPriceScale: { borderColor: axisColor },
       timeScale: { borderColor: axisColor, timeVisible: true, secondsVisible: true },
+      /*
+       * Final closure §5 — the crosshair's own labels are WARIBA surfaces.
+       *
+       * `labelBackgroundColor` defaulted to the crosshair line colour, an ink-300
+       * grey, so hovering the chart put a large light-grey plate on the time axis
+       * ("13 Aug '26 11:16:15" in the mobile drawing evidence) and another on the
+       * price scale. Those are the only two chrome elements in WariX that a
+       * trader summons dozens of times a minute, and they read as a different
+       * product. They now take the workstation's own control tone; the renderer
+       * picks a light label colour against it automatically.
+       *
+       * The line itself drops from ink-300 to ink-500: a crosshair is a
+       * temporary analytical aid and must sit *below* the live trading overlays
+       * in the visual hierarchy (§26), which a near-white line did not.
+       */
       crosshair: {
         mode: CrosshairMode.Normal,
-        vertLine: { color: crosshairColor, labelBackgroundColor: crosshairColor },
-        horzLine: { color: crosshairColor, labelBackgroundColor: crosshairColor },
+        vertLine: { color: crosshairColor, labelBackgroundColor: crosshairLabel },
+        horzLine: { color: crosshairColor, labelBackgroundColor: crosshairLabel },
       },
     });
     const series = chart.addCandlestickSeries({
@@ -388,6 +421,25 @@ export function TradeChart({
       borderDownColor: downColor,
       wickUpColor: upColor,
       wickDownColor: downColor,
+      /*
+       * Final closure §6 — the current-price label is market context, not a
+       * trading semantic.
+       *
+       * Traced rather than guessed: the green plate between Ask and Bid on the
+       * price scale is lightweight-charts' own *last value* label, which by
+       * default inherits the last bar's colour. So it rendered emerald after an
+       * up candle and coral after a down one — the two colours WariX reserves
+       * for Buy and Sell. A trader glancing at the scale saw a Buy-coloured
+       * price that had nothing to do with buying, and the same label changed
+       * semantic colour every few seconds.
+       *
+       * Pinning `priceLineColor` makes the label and its dotted line neutral
+       * ink. The value is unchanged and still the series' own last close — only
+       * its colour stops claiming a meaning it does not have. One colour, one
+       * meaning: aqua Bid, copper Ask, neutral current.
+       */
+      priceLineVisible: true,
+      priceLineColor: currentPriceColor,
     });
     chartRef.current = chart;
     seriesRef.current = series;
@@ -1209,7 +1261,7 @@ export function TradeChart({
           directly reachable; on a phone the indicator and drawing controls
           collapse into a single "Outils" sheet so the strip cannot push the
           document sideways at 320 px (§66/§67). */}
-      <div className="flex h-11 min-w-0 shrink-0 items-center justify-between gap-0 border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-0 min-[360px]:gap-1 min-[360px]:px-1 lg:h-[var(--wariba-component-workstation-toolbar-height)]">
+      <div className="flex h-11 min-w-0 shrink-0 items-center justify-between gap-0 border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-1 min-[360px]:gap-1 min-[360px]:px-2 lg:h-[var(--wariba-component-workstation-toolbar-height)] lg:px-2">
         <ChartToolbar
           timeframe={analysis.timeframe}
           onSelectTimeframe={analysis.selectTimeframe}
@@ -1221,6 +1273,10 @@ export function TradeChart({
           compact={!isDesktop}
         />
         <div className="flex shrink-0 items-center gap-0 min-[360px]:gap-1">
+          {/* Mobile toolbar keys take the same enclosure as the interval track
+              beside them — sunken surface, hairline ring — so the strip reads as
+              one row of instrument keys rather than two bare glyphs floating
+              beside a control. */}
           {!isDesktop && onOpenMobileMarkets ? (
             <ToolbarButton
               label="Marchés"
@@ -1231,7 +1287,7 @@ export function TradeChart({
               data-testid="mobile-market-trigger"
               aria-haspopup="dialog"
               onClick={onOpenMobileMarkets}
-              className="h-11 min-w-11 px-1.5"
+              className="h-11 min-w-11 rounded-[9px] bg-[color:var(--wariba-component-workstation-surface-canvas)] px-2 ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)]"
             />
           ) : null}
           {!isDesktop && (
@@ -1243,7 +1299,7 @@ export function TradeChart({
               active={analysis.drawingModeActive}
               data-testid="chart-tools-sheet-trigger"
               onClick={() => setChartToolsOpen(true)}
-              className="h-11 min-w-11 px-1.5"
+              className="h-11 min-w-11 rounded-[9px] bg-[color:var(--wariba-component-workstation-surface-canvas)] px-2 ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)]"
             />
           )}
         </div>
@@ -1309,6 +1365,7 @@ export function TradeChart({
             candle={legendCandle(history, hoveredCandle)}
             pricePrecision={pricePrecision}
             indicators={analysis.legend}
+            compact={!isDesktop}
           />
           {/* W3 §52-§55 — chart-local, subtle, and never covering the price or an
             execution control: pointer-events-none so it cannot intercept a
@@ -1337,7 +1394,7 @@ export function TradeChart({
               <span
                 role="status"
                 aria-live="polite"
-                className="rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-surface-raised)]/85 px-2 py-1 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]"
+                className="rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-component-workstation-surface-popover)]/90 px-2 py-1 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]"
               >
                 {historyMessage}
               </span>
@@ -1523,15 +1580,15 @@ export function TradeChart({
           {analysis.drawingModeActive && (
             <div
               data-testid="chart-active-tool"
-              className="absolute right-2 top-2 z-20 flex items-center gap-2 rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-component-workstation-surface-raised)]/95 px-2 py-1 text-[length:var(--wariba-font-size-label-sm)]"
+              className="absolute right-2 top-2 z-20 flex items-center gap-2 rounded-[8px] bg-[color:var(--wariba-component-workstation-surface-popover)]/95 py-1 pl-2.5 pr-1 text-[length:var(--wariba-component-workstation-type-label)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-selected)] shadow-[var(--wariba-component-workstation-elevation-popover)]"
             >
-              <span className="text-[color:var(--wariba-text-secondary)]">
+              <span className="font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-interaction-selected-text)]">
                 {toolLabel(analysis.tool)}
               </span>
               <button
                 type="button"
                 onClick={() => analysis.selectTool('select')}
-                className="min-h-11 px-2 font-medium text-[color:var(--wariba-theme-text)] underline underline-offset-2 lg:min-h-0 lg:px-0"
+                className="min-h-11 rounded-[6px] px-2 font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-text-secondary)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] lg:min-h-7"
               >
                 Annuler
               </button>
@@ -1543,33 +1600,49 @@ export function TradeChart({
             drawing and nothing else — drawing ids and trading overlay ids are
             separate namespaces (§113). */}
           {analysis.selectedDrawing && (
+            /*
+             * Visual closure §19 — chart-native, and out of the price scale.
+             *
+             * WX1 pinned this to `bottom-2 right-2`, which is exactly where
+             * lightweight-charts draws the right price scale and the last
+             * price/bid/ask labels: the control for the drawing you just made
+             * covered the numbers you made it against. It is now centred above
+             * the time axis — clear of the price scale on the right, clear of
+             * the OHLC legend at the top left, clear of the history chip at the
+             * bottom left, and on the opposite side of the workstation from
+             * every trading action, which §19 requires. The enclosure takes the
+             * selected drawing's own aqua so the bar and the drawing it acts on
+             * read as one object.
+             */
             <div
               data-testid="chart-drawing-actions"
-              className="absolute bottom-2 right-2 z-20 flex items-center gap-1 rounded-[var(--wariba-radius-sm)] border border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-popover)]/95 p-1 text-[length:var(--wariba-font-size-label-sm)] shadow-[var(--wariba-shadow-sm)]"
+              className="absolute bottom-9 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-[10px] border border-[color:var(--wariba-component-workstation-analytics-selected-drawing)]/45 bg-[color:var(--wariba-component-workstation-surface-popover)]/95 p-1 text-[length:var(--wariba-component-workstation-type-label)] shadow-[var(--wariba-component-workstation-elevation-popover)]"
             >
-              <span className="border-r border-[color:var(--wariba-component-workstation-border-hairline)] px-1.5 font-semibold text-[color:var(--wariba-component-workstation-text-secondary)]">
+              <span className="whitespace-nowrap border-r border-[color:var(--wariba-component-workstation-border-hairline)] px-2 font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-analytics-selected-drawing)]">
                 {drawingTypeLabel(analysis.selectedDrawing.type)}
               </span>
               <ToolbarButton
                 label="Style"
                 icon={<WariXPaletteIcon />}
                 showLabel
+                labelClassName="hidden min-[430px]:inline"
                 onClick={analysis.cycleSelectedColor}
-                className="h-11 px-1.5 lg:h-7"
+                className="h-11 px-2 lg:h-8"
               />
               <ToolbarButton
                 label="Supprimer"
                 icon={<WariXDeleteIcon />}
                 showLabel
+                labelClassName="hidden min-[430px]:inline"
                 data-testid="chart-drawing-delete"
                 onClick={analysis.deleteSelected}
-                className="h-11 px-1.5 text-[color:var(--wariba-component-workstation-trading-rejection)] lg:h-7"
+                className="h-11 px-2 text-[color:var(--wariba-component-workstation-trading-rejection)] hover:bg-[color:var(--wariba-component-workstation-wash-sell)] hover:text-[color:var(--wariba-component-workstation-trading-rejection)] lg:h-8"
               />
               <ToolbarButton
                 label="Terminé"
                 icon={<WariXDoneIcon />}
                 onClick={analysis.clearSelection}
-                className="h-11 min-w-11 px-1 lg:h-7 lg:min-w-7"
+                className="h-11 min-w-11 px-2 lg:h-8 lg:min-w-8"
               />
             </div>
           )}
@@ -1632,14 +1705,61 @@ export function TradeChart({
           )}
         </div>
       </div>
-      <footer className="hidden h-6 shrink-0 items-center justify-between border-t border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-module)] px-2 text-[10px] font-medium text-[color:var(--wariba-component-workstation-text-tertiary)] lg:flex">
-        <span className="wariba-data">UTC · {analysis.timeframe}</span>
-        <span className="wariba-data tabular-nums">
-          {historyCandleCount} bougies ·{' '}
-          {historyState.status === 'ready'
-            ? 'Historique en mémoire'
-            : (historyMessage ?? 'En attente')}
+      {/* Visual closure §9 — the footer is the chart's nameplate: small caps,
+          tabular, one tone below the plot's own labels, on the raised surface so
+          the deep chart well is closed at the bottom edge rather than bleeding
+          into the dock. */}
+      {/*
+       * Final closure §4 — the footer states the chart's reading, not its
+       * implementation.
+       *
+       * It used to read "801 BOUGIES · HISTORIQUE EN MÉMOIRE". The second half
+       * is an architecture note: it told a trader that this build keeps history
+       * in the realtime process's memory, which is a fact about WariX's
+       * internals and not about their market. It is gone from the interface —
+       * the constraint itself is unchanged and is still recorded in the WX1
+       * implementation report, where an engineer looks for it.
+       *
+       * The bar count stays, because it does carry trader value: it says how
+       * much observed market this plot is drawn from, which is exactly what a
+       * trader needs to judge a moving average on a young session. It is
+       * labelled "barres" rather than left as a bare number, and reads as a
+       * scale note beside the interval.
+       *
+       * A degraded history state still speaks in full: loading, still building
+       * and unavailable each keep their own sentence, in a warning tone when
+       * the news is bad. Nothing is hidden, and nothing implementation-shaped
+       * is shown.
+       */}
+      <footer className="hidden h-[var(--wariba-component-workstation-chart-footer-height)] shrink-0 items-center justify-between gap-3 border-t border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-2.5 text-[length:var(--wariba-component-workstation-type-meta)] font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-text-tertiary)] lg:flex">
+        <span className="flex items-center gap-2">
+          <span>UTC</span>
+          <span
+            aria-hidden="true"
+            className="h-2.5 w-px bg-[color:var(--wariba-component-workstation-border-hairline)]"
+          />
+          <span className="wariba-data tabular-nums text-[color:var(--wariba-component-workstation-text-secondary)]">
+            {analysis.timeframe}
+          </span>
         </span>
+        {historyState.status === 'ready' ? (
+          <span className="flex items-center gap-1.5">
+            <span className="wariba-data tabular-nums text-[color:var(--wariba-component-workstation-text-secondary)]">
+              {historyCandleCount}
+            </span>
+            <span>barres</span>
+          </span>
+        ) : (
+          <span
+            className={
+              historyState.status === 'error'
+                ? 'normal-case tracking-normal text-[color:var(--wariba-component-workstation-trading-warning)]'
+                : 'normal-case tracking-normal'
+            }
+          >
+            {historyMessage ?? 'En attente'}
+          </span>
+        )}
       </footer>
       <BottomSheet
         open={Boolean(contextMenu?.isTouchOrigin)}
@@ -1708,20 +1828,39 @@ export function TradeChart({
             children stay mounted otherwise — which would put a second, hidden
             copy of every indicator checkbox and tool button in the accessibility
             tree alongside the desktop popover's. */}
+        {/*
+         * Visual closure §18 — a chart tool palette, not a settings panel.
+         *
+         * WX1 stacked three loosely-titled sections of full-width rows with a
+         * lot of empty sheet below them. Each section now announces itself with
+         * the same small-caps rule the workstation uses everywhere, indicators
+         * are colour-ruled chips, drawings are a three-column icon grid, and the
+         * view action is a full-width key rather than a lone button floating at
+         * the left edge — so the sheet fills its own height with structure
+         * instead of blank space. Every target stays at or above 44px.
+         */}
         {chartToolsOpen && (
           <div className="flex flex-col gap-4 pb-2" data-testid="chart-tools-sheet">
-            <section className="flex flex-col gap-1.5">
-              <h3 className="text-[length:var(--wariba-font-size-label-sm)] font-medium text-[color:var(--wariba-text-tertiary)]">
+            <section className="flex flex-col gap-2">
+              <h3 className="flex items-center gap-2 text-[length:var(--wariba-component-workstation-type-section-label)] font-bold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]">
                 Indicateurs
+                <span
+                  aria-hidden="true"
+                  className="h-px flex-1 bg-[color:var(--wariba-component-workstation-border-hairline)]"
+                />
               </h3>
               <IndicatorOptions
                 indicators={analysis.indicators}
                 onToggle={analysis.toggleIndicator}
               />
             </section>
-            <section className="flex flex-col gap-1.5">
-              <h3 className="text-[length:var(--wariba-font-size-label-sm)] font-medium text-[color:var(--wariba-text-tertiary)]">
+            <section className="flex flex-col gap-2">
+              <h3 className="flex items-center gap-2 text-[length:var(--wariba-component-workstation-type-section-label)] font-bold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]">
                 Dessin
+                <span
+                  aria-hidden="true"
+                  className="h-px flex-1 bg-[color:var(--wariba-component-workstation-border-hairline)]"
+                />
               </h3>
               <ToolOptions
                 tool={analysis.tool}
@@ -1731,9 +1870,13 @@ export function TradeChart({
                 }}
               />
             </section>
-            <section className="flex flex-col gap-1.5">
-              <h3 className="text-[length:var(--wariba-font-size-label-sm)] font-medium uppercase tracking-[0.08em] text-[color:var(--wariba-component-workstation-text-tertiary)]">
+            <section className="flex flex-col gap-2">
+              <h3 className="flex items-center gap-2 text-[length:var(--wariba-component-workstation-type-section-label)] font-bold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]">
                 Vue
+                <span
+                  aria-hidden="true"
+                  className="h-px flex-1 bg-[color:var(--wariba-component-workstation-border-hairline)]"
+                />
               </h3>
               <ToolbarButton
                 label="Ajuster la vue"
@@ -1743,7 +1886,7 @@ export function TradeChart({
                   fitChart();
                   setChartToolsOpen(false);
                 }}
-                className="min-h-11 self-start"
+                className="min-h-12 w-full justify-start gap-2.5 rounded-[10px] bg-[color:var(--wariba-component-workstation-surface-control)] px-3"
               />
             </section>
           </div>

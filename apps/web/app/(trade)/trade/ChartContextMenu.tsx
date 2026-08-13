@@ -142,7 +142,7 @@ export function ChartContextMenuContent({
           role="menuitem"
           disabled={disabled}
           onClick={action.onSelect}
-          className={`min-h-[var(--wariba-size-touch-target-minimum)] rounded-[var(--wariba-radius-xs)] px-2 py-1.5 text-left text-[length:var(--wariba-font-size-body-sm)] hover:bg-[color:var(--wariba-surface-selected)] disabled:cursor-not-allowed disabled:opacity-50 ${
+          className={`min-h-[var(--wariba-size-touch-target-minimum)] rounded-[var(--wariba-radius-xs)] px-2 py-1.5 text-left text-[length:var(--wariba-font-size-body-sm)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] disabled:cursor-not-allowed disabled:opacity-50 ${
             action.tone === 'danger'
               ? 'text-[color:var(--wariba-status-danger-text)]'
               : 'text-[color:var(--wariba-text-primary)]'

@@ -20,6 +20,7 @@ import {
   ORDER_TYPE_LABEL,
   PENDING_ORDER_TYPE_LABEL,
 } from '../../trade-labels';
+import { DockEmptyState } from './DockEmptyState';
 
 type OrdersView = 'pending' | 'recent';
 
@@ -59,22 +60,27 @@ export const OrdersPanel = memo(function OrdersPanel({
       type="button"
       onClick={() => setView(id)}
       aria-pressed={view === id}
-      className={`min-h-11 rounded-[var(--wariba-radius-sm)] px-2 py-1 text-[length:var(--wariba-font-size-label-sm)] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:min-h-8 ${
+      // WX1 pointed the selected state at `--wariba-surface-selected`, which
+      // this design system does not define — so the active view rendered with
+      // no background at all and the control read as two plain words.
+      className={`min-h-11 rounded-[7px] px-2.5 py-1 text-[length:var(--wariba-component-workstation-type-label)] font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:min-h-8 ${
         view === id
-          ? 'bg-[color:var(--wariba-surface-selected)] text-[color:var(--wariba-theme-text)]'
-          : 'text-[color:var(--wariba-text-secondary)] hover:text-[color:var(--wariba-theme-text)]'
+          ? 'bg-[color:var(--wariba-component-workstation-wash-selected)] text-[color:var(--wariba-component-workstation-interaction-selected-text)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-selected)]'
+          : 'text-[color:var(--wariba-component-workstation-text-tertiary)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)]'
       }`}
     >
       {label}
       {count !== null && count > 0 ? (
-        <span className="wariba-data ml-1.5 text-[color:var(--wariba-text-tertiary)]">{count}</span>
+        <span className="wariba-data ml-1.5 tabular-nums text-[color:var(--wariba-component-workstation-text-tertiary)]">
+          {count}
+        </span>
       ) : null}
     </button>
   );
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-1" role="group" aria-label="Vue des ordres">
+      <div className="flex items-center gap-1.5" role="group" aria-label="Vue des ordres">
         {segment('pending', 'En attente', pendingOrders.length)}
         {/* No count on Récents: the snapshot carries a bounded recent window,
             so a number here would read as a lifetime total it is not. */}
@@ -85,9 +91,10 @@ export const OrdersPanel = memo(function OrdersPanel({
         <>
           <div className="lg:hidden">
             {pendingOrders.length === 0 ? (
-              <p className="px-2 py-3 text-center text-[12px] text-[color:var(--wariba-component-workstation-text-secondary)]">
-                Aucun ordre en attente.
-              </p>
+              <DockEmptyState
+                title="Aucun ordre en attente"
+                hint="Les ordres Limit et Stop en attente apparaîtront ici."
+              />
             ) : (
               pendingOrders.map((order) => (
                 <MobileStructuredRow
@@ -136,11 +143,11 @@ export const OrdersPanel = memo(function OrdersPanel({
               <DataTableBody>
                 {pendingOrders.length === 0 ? (
                   <DataTableRow>
-                    <DataTableCell
-                      colSpan={5}
-                      className="text-center text-[color:var(--wariba-text-secondary)]"
-                    >
-                      Aucun ordre en attente.
+                    <DataTableCell colSpan={5} className="p-0">
+                      <DockEmptyState
+                        title="Aucun ordre en attente"
+                        hint="Les ordres Limit et Stop en attente apparaîtront ici."
+                      />
                     </DataTableCell>
                   </DataTableRow>
                 ) : (
@@ -180,9 +187,10 @@ export const OrdersPanel = memo(function OrdersPanel({
         <>
           <div className="lg:hidden">
             {recentOrders.length === 0 ? (
-              <p className="px-2 py-3 text-center text-[12px] text-[color:var(--wariba-component-workstation-text-secondary)]">
-                Aucun ordre.
-              </p>
+              <DockEmptyState
+                title="Aucun ordre récent"
+                hint="Les ordres traités par le serveur apparaîtront ici."
+              />
             ) : (
               recentOrders.map((order) => (
                 <MobileStructuredRow
@@ -216,11 +224,11 @@ export const OrdersPanel = memo(function OrdersPanel({
               <DataTableBody>
                 {recentOrders.length === 0 ? (
                   <DataTableRow>
-                    <DataTableCell
-                      colSpan={4}
-                      className="text-center text-[color:var(--wariba-text-secondary)]"
-                    >
-                      Aucun ordre.
+                    <DataTableCell colSpan={4} className="p-0">
+                      <DockEmptyState
+                        title="Aucun ordre récent"
+                        hint="Les ordres traités par le serveur apparaîtront ici."
+                      />
                     </DataTableCell>
                   </DataTableRow>
                 ) : (

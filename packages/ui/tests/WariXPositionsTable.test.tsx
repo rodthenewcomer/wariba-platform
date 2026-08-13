@@ -42,7 +42,11 @@ describe('WariXPositionsTable', () => {
         emptyLabel="Aucune position ouverte."
       />,
     );
-    expect(screen.getByText('EURUSD · Achat')).toBeInTheDocument();
+    // The desktop row draws the symbol and its direction as separate elements
+    // so each can carry its own weight and colour (visual closure §14), so they
+    // are asserted separately rather than as one run of text.
+    expect(screen.getByText('EURUSD')).toBeInTheDocument();
+    expect(screen.getByText('Achat')).toBeInTheDocument();
     expect(screen.getByText('0.10')).toBeInTheDocument();
     expect(screen.getByText('1.08300')).toBeInTheDocument();
     expect(screen.getByText('1.08450')).toBeInTheDocument();
@@ -62,10 +66,13 @@ describe('WariXPositionsTable', () => {
         emptyLabel="Aucune position ouverte."
       />,
     );
+    // Both presentations tone the figure, and both use the workstation's own
+    // financial-negative token rather than the generic status colour — the P&L
+    // is the loudest thing in the row, so it is coloured on the trading scale.
     expect(
       screen
         .getAllByText('-8.00 USD')
-        .every((element) => element.className.includes('status-danger-text')),
+        .every((element) => element.className.includes('workstation-text-financial-negative')),
     ).toBe(true);
   });
 

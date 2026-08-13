@@ -252,6 +252,16 @@ const N_TICKS = 25;
 describe('workstation render ownership', () => {
   beforeEach(() => {
     renderCounts.clear();
+    /*
+     * These assertions are about the *wide* desktop cockpit — they read the
+     * Market Navigator's rows directly, which only exist while the Navigator is
+     * expanded. jsdom reports a 1024px window by default, and visual closure
+     * §22 makes 1024 the first width of the hybrid band where the Navigator now
+     * starts collapsed, so the width has to be stated rather than inherited.
+     * Declaring it is the honest fix: a test that reads a panel should say at
+     * which viewport that panel is on screen.
+     */
+    window.innerWidth = 1440;
   });
 
   afterEach(() => {

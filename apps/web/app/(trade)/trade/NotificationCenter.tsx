@@ -122,7 +122,9 @@ export function NotificationCenter({
                 <li
                   key={notification.id}
                   className={`flex items-center justify-between gap-2 rounded-[var(--wariba-radius-sm)] px-2 py-1.5 ${
-                    notification.readAt === null ? 'bg-[color:var(--wariba-surface-selected)]' : ''
+                    notification.readAt === null
+                      ? 'bg-[color:var(--wariba-component-workstation-wash-selected)]'
+                      : ''
                   }`}
                 >
                   <span className="wariba-data text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-primary)]">

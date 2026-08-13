@@ -15,6 +15,7 @@ import {
 } from '@wariba/ui';
 import type { AlertDirection, AlertNotificationDTO, PriceAlertDTO } from '@wariba/contracts';
 import { formatOrderTimestamp } from '../../trade-labels';
+import { DockEmptyState } from './DockEmptyState';
 
 const DIRECTION_LABEL: Record<AlertDirection, string> = {
   cross_above: 'Franchit au-dessus de',
@@ -68,9 +69,10 @@ export const AlertsPanel = memo(function AlertsPanel({
 
       <div className="lg:hidden">
         {alerts.length === 0 ? (
-          <p className="px-2 py-3 text-center text-[12px] text-[color:var(--wariba-component-workstation-text-secondary)]">
-            Aucune alerte.
-          </p>
+          <DockEmptyState
+            title="Aucune alerte"
+            hint="Les alertes de prix que vous créez apparaîtront ici."
+          />
         ) : (
           alerts.map((alert) => (
             <MobileStructuredRow
@@ -125,11 +127,11 @@ export const AlertsPanel = memo(function AlertsPanel({
           <DataTableBody>
             {alerts.length === 0 ? (
               <DataTableRow>
-                <DataTableCell
-                  colSpan={5}
-                  className="text-center text-[color:var(--wariba-text-secondary)]"
-                >
-                  Aucune alerte.
+                <DataTableCell colSpan={5} className="p-0">
+                  <DockEmptyState
+                    title="Aucune alerte"
+                    hint="Les alertes de prix que vous créez apparaîtront ici."
+                  />
                 </DataTableCell>
               </DataTableRow>
             ) : (
