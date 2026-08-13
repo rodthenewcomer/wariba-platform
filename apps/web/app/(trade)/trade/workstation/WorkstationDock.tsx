@@ -145,9 +145,9 @@ export const WorkstationDock = memo(function WorkstationDock({
               viewport, and only inside this box — never the document. */}
           <div
             data-testid="workstation-dock-tabs"
-            className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden whitespace-nowrap"
+            className="flex min-w-0 flex-1 items-center overflow-x-auto overflow-y-hidden whitespace-nowrap"
           >
-            <TabList variant="workstation" aria-label="Dock de trading" wrap={compact}>
+            <TabList variant="workstation" aria-label="Dock de trading">
               <Tab variant="workstation" value="positions">
                 {label('Positions', openPositions)}
               </Tab>
@@ -181,20 +181,19 @@ export const WorkstationDock = memo(function WorkstationDock({
                 </Tab>
               ) : null}
             </TabList>
+            {compact && !overflowOpen && tab !== 'account' ? (
+              <button
+                type="button"
+                onClick={() => setOverflowOpen(true)}
+                aria-expanded={false}
+                aria-label="Plus de surfaces d’activité"
+                data-testid="workstation-dock-overflow"
+                className="flex min-h-11 shrink-0 items-center gap-1 rounded-t-[7px] px-2 text-[length:var(--wariba-component-workstation-type-label)] font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-text-tertiary)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]"
+              >
+                Plus
+              </button>
+            ) : null}
           </div>
-
-          {compact && !overflowOpen && tab !== 'account' ? (
-            <button
-              type="button"
-              onClick={() => setOverflowOpen(true)}
-              aria-expanded={false}
-              aria-label="Plus de surfaces d’activité"
-              data-testid="workstation-dock-overflow"
-              className="flex min-h-11 shrink-0 items-center gap-1 rounded-t-[7px] px-2 text-[length:var(--wariba-component-workstation-type-label)] font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-text-tertiary)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]"
-            >
-              Plus
-            </button>
-          ) : null}
 
           {!collapsed && empty ? (
             <CompactEmptyState
@@ -203,16 +202,26 @@ export const WorkstationDock = memo(function WorkstationDock({
             />
           ) : null}
 
-          <button
-            type="button"
-            onClick={onToggleCollapsed}
-            aria-expanded={!collapsed}
-            aria-label={collapsed ? 'Déplier le dock' : 'Replier le dock'}
-            data-testid="workstation-dock-collapse"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[7px] text-[color:var(--wariba-component-workstation-text-tertiary)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:h-8 lg:w-8"
-          >
-            {collapsed ? <WariXChevronUpIcon /> : <WariXChevronDownIcon />}
-          </button>
+          {/*
+           * Collapsing is a *desktop* affordance: it returns the dock's grid
+           * track to the chart. Inside the mobile sheet there is no track to
+           * return — the sheet is the container and it has its own dismissal —
+           * so the control did nothing but consume 44px of a 390px tab strip,
+           * which is what pushed "Plus" to clip. Hiding it on phones is both
+           * the honest behaviour and exactly the width the strip needed.
+           */}
+          {compact ? null : (
+            <button
+              type="button"
+              onClick={onToggleCollapsed}
+              aria-expanded={!collapsed}
+              aria-label={collapsed ? 'Déplier le dock' : 'Replier le dock'}
+              data-testid="workstation-dock-collapse"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[7px] text-[color:var(--wariba-component-workstation-text-tertiary)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:h-8 lg:w-8"
+            >
+              {collapsed ? <WariXChevronUpIcon /> : <WariXChevronDownIcon />}
+            </button>
+          )}
         </div>
 
         {/* Collapsed keeps the tab strip and its counts — the trader still sees

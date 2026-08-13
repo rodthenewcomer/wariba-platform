@@ -53,13 +53,10 @@ export type TabsVariant = 'default' | 'workstation';
 export function TabList({
   children,
   variant = 'default',
-  wrap = false,
   'aria-label': ariaLabel,
 }: {
   children: ReactNode;
   variant?: TabsVariant;
-  /** Lets an overflow destination fall to a second line inside the same tablist. */
-  wrap?: boolean;
   'aria-label': string;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
@@ -90,7 +87,6 @@ export function TabList({
       onKeyDown={onKeyDown}
       className={cx(
         'flex',
-        wrap ? 'flex-wrap' : '',
         variant === 'workstation'
           ? 'gap-0.5'
           : 'gap-1 border-b border-[color:var(--wariba-border-subtle)]',

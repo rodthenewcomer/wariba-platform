@@ -1,6 +1,6 @@
 {
-  "capturedAt": "2026-08-13T12:15:09.691Z",
-  "capturedCommit": "9457a7b7ec4da93c109a7c458f9621e77930fd1e",
+  "capturedAt": "2026-08-13T12:54:10.766Z",
+  "capturedCommit": "b4f1022c1059235ee17aa81c7d9aef3ba066efa2",
   "source": "WX1 production build; live mock realtime; process-memory history; no fabricated market, financial or risk data",
   "baseline": {
     "viewport1366": {
