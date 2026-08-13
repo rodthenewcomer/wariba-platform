@@ -37,6 +37,20 @@ Compare these with no annotations:
 | Mobile tools palette | `before/mobile-390x844-tools-palette.png` | `checkpoint/checkpoint-mobile-390x844-tools.png` |
 | Mobile activity | `before/mobile-390x844-activity.png` | `checkpoint/checkpoint-mobile-390x844-activity.png` |
 
+## Final-closure states
+
+| State | File |
+|---|---|
+| Navigator with a non-default instrument selected | `checkpoint/checkpoint-1440x900-navigator-selected.png` |
+| Populated dock, one open position | `checkpoint/checkpoint-1440x900-populated-dock.png` |
+| 1536 desktop | `checkpoint/checkpoint-1536x864-default.png` |
+| Mobile Activity, populated | `checkpoint/checkpoint-mobile-390x844-activity-populated.png` |
+| Mobile crosshair over a selected drawing | `checkpoint/checkpoint-mobile-390x844-crosshair-with-drawing.png` |
+| Mobile 375 / 430 chart-first | `checkpoint/checkpoint-mobile-{375,430}x844-chart-first.png` |
+
+Server rejection, disconnected/stale, warning, and each of the five drawing types are captured
+deterministically by the WX1 evidence harness in `../warix-wx1-kinetic-workstation/`.
+
 ## States the closure added, which have no before
 
 These states did not exist as evidence in WX1 and are new here:

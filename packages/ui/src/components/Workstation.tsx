@@ -21,6 +21,15 @@ const METRIC_TONE: Record<MetricTone, string> = {
   danger: 'text-[color:var(--wariba-component-workstation-trading-rejection)]',
 };
 
+/** The consumption rule takes its metric's own tone, so it can never disagree with the figure. */
+const CONSUMPTION_TONE: Record<MetricTone, string> = {
+  default: 'bg-[color:var(--wariba-component-workstation-interaction-selected)]',
+  positive: 'bg-[color:var(--wariba-component-workstation-text-financial-positive)]',
+  negative: 'bg-[color:var(--wariba-component-workstation-text-financial-negative)]',
+  warning: 'bg-[color:var(--wariba-component-workstation-trading-warning)]',
+  danger: 'bg-[color:var(--wariba-component-workstation-trading-rejection)]',
+};
+
 /**
  * How much of the instrument's hierarchy this figure claims.
  *
@@ -49,6 +58,17 @@ export interface MetricReadoutProps {
   emphasis?: MetricEmphasis;
   layout?: MetricLayout;
   compact?: boolean;
+  /**
+   * How much of this metric's own budget is consumed, 0..1, as a hairline rule
+   * under the figure.
+   *
+   * Final closure §12 — risk communicated visually without inventing data. The
+   * ratio must come from a canonical helper, never from arithmetic performed
+   * here; this component only draws what it is handed. The rule is
+   * `aria-hidden` on purpose: it is a redundant encoding of the figure directly
+   * above it, which is already text, so nothing is carried by colour alone.
+   */
+  consumedRatio?: number;
   className?: string;
   valueClassName?: string;
 }
@@ -64,6 +84,7 @@ export function MetricReadout({
   emphasis = 'support',
   layout = 'stacked',
   compact = false,
+  consumedRatio,
   className,
   valueClassName,
 }: MetricReadoutProps) {
@@ -136,6 +157,20 @@ export function MetricReadout({
           {unitNode}
         </span>
       </dd>
+      {consumedRatio === undefined ? null : (
+        <div
+          aria-hidden="true"
+          className="mt-1 h-0.5 w-full overflow-hidden rounded-full bg-[color:var(--wariba-component-workstation-surface-canvas)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)]"
+        >
+          <div
+            className={cx(
+              'h-full rounded-full transition-[width] duration-[var(--wariba-component-workstation-motion-interaction)]',
+              CONSUMPTION_TONE[tone],
+            )}
+            style={{ width: `${Math.min(100, Math.max(0, consumedRatio * 100))}%` }}
+          />
+        </div>
+      )}
     </dl>
   );
 }

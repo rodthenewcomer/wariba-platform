@@ -53,6 +53,42 @@ body {
   border-radius: var(--wariba-radius-xs);
 }
 
+/*
+ * Final closure §9 — directional quote feedback.
+ *
+ * A brief tint behind a price that has just moved, driven by a data attribute
+ * written imperatively (see use-quote-direction.ts) so no React render is
+ * involved. The figure itself is never animated: it updates through the
+ * ordinary render path the instant the tick lands, and only its background
+ * fades. The reduced-motion block below collapses both keyframes to 1ms, which
+ * removes the wash entirely rather than merely speeding it up.
+ */
+@keyframes wariba-quote-up {
+  from {
+    background-color: var(--wariba-component-workstation-wash-buy);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+@keyframes wariba-quote-down {
+  from {
+    background-color: var(--wariba-component-workstation-wash-sell);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+[data-quote-direction='up'] {
+  animation: wariba-quote-up 160ms ease-out;
+}
+
+[data-quote-direction='down'] {
+  animation: wariba-quote-down 160ms ease-out;
+}
+
 @keyframes wariba-fade-in {
   from {
     opacity: 0;

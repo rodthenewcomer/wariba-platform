@@ -141,6 +141,48 @@ test.describe('WX1 visual checkpoint', { tag: ['@warix-visual-checkpoint'] }, ()
     await shot('checkpoint-1366x768-tooltip');
     await page.getByRole('button', { name: 'Sélection', exact: true }).click();
 
+    // §33 — a Navigator with a different instrument selected, so the selection
+    // treatment is judged against a row that is not the default.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/trade');
+    await settle();
+    await page
+      .getByTestId('market-navigator')
+      .first()
+      .getByRole('button', { name: /^XAUUSD/ })
+      .click();
+    await page.waitForTimeout(600);
+    await shot('checkpoint-1440x900-navigator-selected');
+    await page
+      .getByTestId('market-navigator')
+      .first()
+      .getByRole('button', { name: /^EURUSD/ })
+      .click();
+    await page.waitForTimeout(400);
+
+    /*
+     * §10/§33 — execution blocked, and a populated dock.
+     *
+     * Blocking here is transport loss, which drives the *same* `entryBlocked`
+     * gate a risk lock drives: both disable the decision keys and both surface
+     * through `ExecutionStatus`. A DLL-breach lock is not reachable from this
+     * harness without writing account risk state, and §10 forbids inventing a
+     * rejection the server did not produce — so the gate's blocked presentation
+     * is proven through the path that is genuinely reachable.
+     */
+    await page.getByTestId('execution-submit-buy').click();
+    await page.getByRole('tab', { name: /^Positions/ }).click();
+    await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toBeVisible({
+      timeout: 30_000,
+    });
+    await page.waitForTimeout(600);
+    await shot('checkpoint-1440x900-populated-dock');
+
+    await page.setViewportSize({ width: 1536, height: 864 });
+    await page.goto('/trade');
+    await settle();
+    await shot('checkpoint-1536x864-default');
+
     await page.setViewportSize({ width: 1920, height: 1080 });
     await page.goto('/trade');
     await settle();
@@ -253,7 +295,67 @@ test.describe(
         await shot('checkpoint-mobile-390x844-crosshair');
       }
 
-      for (const width of [320, 360, 412] as const) {
+      /*
+       * §21 — the contextual bar, proven at its widest label.
+       *
+       * `drawingTypeLabel` has five values and the two longest are
+       * "Ligne horizontale" and "Ligne de tendance", both 17 characters;
+       * "Demi-droite", "Rectangle" and "Fibonacci" are shorter. The bar's width
+       * is driven by that label, so a type that fits on one line at 17
+       * characters cannot wrap at 11 or 9 — proving the widest case proves the
+       * set.
+       *
+       * An earlier attempt drove all five through the mobile Tools sheet and
+       * produced worse evidence than none: the arming click was intermittently
+       * lost between sheet dismissal and the plot, so captures named "rectangle"
+       * and "fibonacci" showed a leftover horizontal line. The per-type
+       * geometry of each drawing is proven instead by the WX1 evidence harness,
+       * which draws and captures all five deterministically on desktop
+       * (`desktop-1440x900-{horizontal-line,trend-line,rectangle,fibonacci}`).
+       */
+      await page.getByTestId('chart-tools-sheet-trigger').click();
+      await page.getByTestId('chart-tool-horizontal_line').click();
+      const drawingPlot = await page.getByRole('group', { name: /^Graphique / }).boundingBox();
+      if (drawingPlot) {
+        await page.mouse.click(
+          drawingPlot.x + drawingPlot.width * 0.45,
+          drawingPlot.y + drawingPlot.height * 0.45,
+        );
+        await page.waitForTimeout(400);
+        await page.getByTestId('chart-tools-sheet-trigger').click();
+        await page.getByTestId('chart-tool-select').click();
+        await page.mouse.click(
+          drawingPlot.x + drawingPlot.width * 0.45,
+          drawingPlot.y + drawingPlot.height * 0.45,
+        );
+        await page.waitForTimeout(500);
+        await shot('checkpoint-mobile-390x844-selected-drawing');
+
+        // §33 — the crosshair over a selected drawing: two temporary analytical
+        // layers at once, against the live Bid/Ask labels they must not
+        // overpower.
+        await page.mouse.move(
+          drawingPlot.x + drawingPlot.width * 0.72,
+          drawingPlot.y + drawingPlot.height * 0.28,
+        );
+        await page.waitForTimeout(400);
+        await shot('checkpoint-mobile-390x844-crosshair-with-drawing');
+      }
+
+      // §33 — a populated Activity sheet, so the dock is judged with rows in it.
+      await page.getByRole('button', { name: /^Trader EURUSD$/ }).click();
+      await page.getByTestId('execution-submit-buy').click();
+      await page.waitForTimeout(1_200);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(400);
+      await page.getByTestId('mobile-dock-trigger').click();
+      await expect(page.getByRole('dialog', { name: 'Activité de trading' })).toBeVisible();
+      await page.waitForTimeout(600);
+      await shot('checkpoint-mobile-390x844-activity-populated');
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(400);
+
+      for (const width of [320, 360, 412, 375, 430] as const) {
         await page.setViewportSize({ width, height: 844 });
         await page.goto('/trade');
         await settle();

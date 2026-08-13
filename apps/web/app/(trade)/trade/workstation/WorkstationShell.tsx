@@ -1,6 +1,7 @@
 'use client';
 
 import { memo, type ReactNode } from 'react';
+import { NavigatorOverlay } from './NavigatorOverlay';
 
 export interface WorkstationShellProps {
   /**
@@ -22,6 +23,8 @@ export interface WorkstationShellProps {
    * where the box sits, which is exactly this component's remit.
    */
   navigatorOverlay?: boolean;
+  /** Collapses an overlaid Navigator. Required whenever `navigatorOverlay` is set. */
+  onNavigatorOverlayDismiss?: () => void;
   dockHeight: number;
   dockCollapsed: boolean;
   navigatorResizeHandle: ReactNode;
@@ -73,6 +76,7 @@ export const WorkstationShell = memo(function WorkstationShell({
   navigatorWidth,
   navigatorCollapsed,
   navigatorOverlay = false,
+  onNavigatorOverlayDismiss,
   dockHeight,
   dockCollapsed,
   navigatorResizeHandle,
@@ -171,14 +175,10 @@ export const WorkstationShell = memo(function WorkstationShell({
          * a live market, not a modal, and dimming the chart to choose a symbol
          * would be the opposite of the point.
          */}
-        {navigatorOverlay && !navigatorCollapsed ? (
-          <div
-            data-testid="market-navigator-overlay"
-            style={{ width: `${navigatorWidth}px` }}
-            className="absolute inset-y-0 left-0 z-30 hidden min-h-0 min-w-0 border-r border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-module)] shadow-[var(--wariba-component-workstation-elevation-popover)] lg:flex lg:flex-col"
-          >
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{navigator}</div>
-          </div>
+        {navigatorOverlay && !navigatorCollapsed && onNavigatorOverlayDismiss ? (
+          <NavigatorOverlay width={navigatorWidth} onDismiss={onNavigatorOverlayDismiss}>
+            {navigator}
+          </NavigatorOverlay>
         ) : null}
       </div>
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { memo, type ReactNode } from 'react';
+import { computeDailyLossUsedRatio } from '@wariba/domain';
 import {
   Badge,
   MetricReadout,
@@ -64,6 +65,7 @@ function Metric({
   formatted,
   tone = 'default',
   emphasis = 'support',
+  consumedRatio,
   className,
 }: {
   label: string;
@@ -73,6 +75,8 @@ function Metric({
   formatted: string;
   tone?: MetricTone | undefined;
   emphasis?: MetricEmphasis | undefined;
+  /** 0..1, from a canonical helper. Draws the consumption rule under the figure. */
+  consumedRatio?: number | undefined;
   className?: string | undefined;
 }) {
   const { value, unit } = splitAmount(formatted);
@@ -83,6 +87,7 @@ function Metric({
       shortValue={value}
       tone={tone}
       emphasis={emphasis}
+      {...(consumedRatio === undefined ? {} : { consumedRatio })}
       {...(unit === undefined ? {} : { unit })}
       {...(shortLabel === undefined ? {} : { shortLabel })}
       {...(className === undefined ? {} : { className })}
@@ -169,6 +174,22 @@ export const WorkstationStatusBar = memo(function WorkstationStatusBar({
   const riskStatus = deriveRiskRibbonStatus({ risk, isStale: false, isResyncing });
   const tone = RISK_TONE[riskStatus] ?? RISK_TONE.normal;
   const budgetsAtRisk = tone === 'warning' || tone === 'danger';
+  /*
+   * Final closure §12 — the daily-loss budget shows how much of itself is gone.
+   *
+   * `computeDailyLossUsedRatio` is the canonical @wariba/domain helper, fed the
+   * three authoritative fields the risk DTO already carries (reference, floor,
+   * used) and evaluated with decimal.js. It is the *same* call
+   * `deriveRiskRibbonStatus` already makes for the tone above, so the rule and
+   * the colour can never disagree, and no arithmetic on money happens in this
+   * browser.
+   *
+   * Only the daily loss gets a rule. `maximumLoss` carries `floor`, `remaining`
+   * and `breached` but no `used` and no reference, so there is no canonical
+   * ratio for it — and deriving one here would be exactly the invented client
+   * math §12 forbids. Max loss keeps the tone escalation and nothing more.
+   */
+  const dailyLossConsumed = risk ? Number(computeDailyLossUsedRatio(risk.dailyLoss)) : undefined;
   const connectionLabel = connectionOk
     ? 'Connecté'
     : isResyncing
@@ -228,6 +249,7 @@ export const WorkstationStatusBar = memo(function WorkstationStatusBar({
             formatted={risk ? `${risk.dailyLoss.remaining} USD` : DASH}
             tone={tone}
             emphasis={budgetsAtRisk ? 'lead' : 'support'}
+            consumedRatio={dailyLossConsumed}
           />
           <Metric
             label="Perte max restante"

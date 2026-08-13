@@ -109,6 +109,20 @@ docs/04-ux/evidence/warix-wx1-kinetic-workstation/README.md
 - Pointer drawing is not keyboard-editable in WX1, matching the accepted scope.
 - Historical depth is bounded by current realtime process memory and does not survive restart.
 - Human visual approval remains mandatory.
+- **Right-anchored trading overlays overlap the chart's own price scale.** With a position open, the
+  position badge's actions and the empty SL/TP slots sit over the right axis and can cover the
+  Bid/Ask labels. This is W5 overlay geometry — `ChartPositionOverlay` is untouched by the visual
+  closure — and fixing it means insetting every right-anchored overlay by the runtime price-scale
+  width, which moves drag targets W5 certified. Not attempted at the immutable-HEAD stage.
+- **The crosshair price label can cover the Bid or Ask axis label.** Both are drawn into the same
+  canvas by lightweight-charts, which always paints the crosshair label last; the library exposes no
+  ordering control. The only lever is hiding the crosshair label entirely, which the closure
+  explicitly forbids. The label is transient and correctly themed.
+- **The mobile drawing-context bar is proven at its widest label, not per type.** `drawingTypeLabel`
+  has five values whose two longest are 17 characters ("Ligne horizontale", "Ligne de tendance");
+  the bar's width is driven by that label, so a type that holds one line at 17 characters cannot
+  wrap at 11 or 9. Per-type drawing geometry is captured deterministically on desktop by the WX1
+  evidence harness.
 
 ## 9. Deferred to WX2
 
@@ -185,6 +199,42 @@ the candles. The band therefore keeps chart and execution persistent and makes t
 contextual — an overlay inside the chart cell, so the plot never reflows when it opens. It is a
 first-run default resolved per render against the live viewport; any stored preference wins, and a
 window resized out of the band restores the full cockpit.
+
+### 10.6 Kinetic interaction
+
+Press, selection, popover, sheet and overlay transitions all run on the workstation motion tokens,
+and `globals.css` collapses every animation and transition to 1ms under `prefers-reduced-motion` —
+a stylesheet-level guarantee rather than a per-component one, asserted by
+`apps/web/tests/workstation-hybrid.test.tsx`.
+
+Quote directional feedback (§9-G) is implemented on the execution quote deck and **causes no React
+render**. The obvious implementation — state plus a timer — would re-render the deck twice per tick
+and put a `setTimeout` on every instrument, which is the tick-driven animation §30 rules out.
+`use-quote-direction.ts` instead writes a `data-quote-direction` attribute onto a node the component
+already owns and lets a CSS animation expire; React is not involved after the first paint. It is
+attached only where the tick is already consumed, so it adds no `TickStore` subscription, and a
+260ms cooldown keeps a fast market from strobing. The figure itself is never animated — it updates
+through the ordinary render path the instant the tick lands.
+
+### 10.7 Authoritative risk visualisation
+
+The daily-loss budget carries a consumption rule under its figure. The ratio comes from
+`computeDailyLossUsedRatio` (@wariba/domain), fed the three authoritative fields the risk DTO
+already carries — `reference`, `floor`, `used` — and evaluated with decimal.js. It is the same call
+`deriveRiskRibbonStatus` already makes for the metric's tone, so the rule and the colour cannot
+disagree, and **no arithmetic on money happens in the browser**.
+
+Only the daily loss gets a rule. `maximumLoss` carries `floor`, `remaining` and `breached` but no
+`used` and no reference, so no canonical ratio exists for it; deriving one client-side would be
+exactly the invented math the closure forbids. Max loss keeps tone escalation and nothing more.
+
+### 10.8 Hybrid overlay behaviour
+
+`NavigatorOverlay` owns the dismissal contract the hybrid band needs: Escape, a pointer outside,
+focus into the panel on open and back to the opener on every dismissal path. Deliberately **no
+scrim and no focus trap** — a scrim would dim the market being read, and trapping focus would stop
+Tab reaching the chart and the Execution Center, both of which stay live while the Navigator is
+open. It is a desktop panel, not a modal.
 
 ## 11. Review status
 

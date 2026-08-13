@@ -1,6 +1,7 @@
 'use client';
 
 import { ModuleHeader } from '@wariba/ui';
+import { useQuoteDirection } from '../use-quote-direction';
 import type { MarketTick, SymbolSpec, TradableSymbol } from '@wariba/contracts';
 import { MARKET_STATUS_LABEL, MARKET_STATUS_SHORT_LABEL } from './execution-gating';
 
@@ -38,6 +39,15 @@ const STATUS_DOT: Record<'open' | 'stale' | 'closed', string> = {
  * hidden behind a tooltip (§57).
  */
 export function ExecutionMarketHeader({ symbol, spec, tick }: ExecutionMarketHeaderProps) {
+  /*
+   * §9-G — the deck's two quotes tint briefly in the direction they moved.
+   *
+   * Attached here because this component is already handed the tick by a parent
+   * that subscribes for the figures themselves, so the feedback costs no new
+   * subscription and no extra render — the hook writes to these nodes directly.
+   */
+  const bidRef = useQuoteDirection<HTMLDivElement>(tick?.bid);
+  const askRef = useQuoteDirection<HTMLDivElement>(tick?.ask);
   const status = tick?.marketStatus ?? null;
   const spread =
     tick && spec ? (Number(tick.ask) - Number(tick.bid)).toFixed(spec.pricePrecision) : null;
@@ -102,7 +112,10 @@ export function ExecutionMarketHeader({ symbol, spec, tick }: ExecutionMarketHea
        * precision — nothing here rounds or reformats.
        */}
       <div className="grid min-h-[var(--wariba-component-workstation-quote-deck-height)] grid-cols-[1fr_auto_1fr] items-stretch gap-2 border-b border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-quote-deck)] px-3 py-2.5">
-        <div className="relative flex flex-col justify-center gap-1.5 pb-1.5">
+        <div
+          ref={bidRef}
+          className="relative -mx-1 flex flex-col justify-center gap-1.5 rounded-[6px] px-1 pb-1.5"
+        >
           <span className="text-[length:var(--wariba-component-workstation-type-meta)] font-semibold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]">
             Vente · Bid
           </span>
@@ -137,7 +150,10 @@ export function ExecutionMarketHeader({ symbol, spec, tick }: ExecutionMarketHea
           </span>
         </div>
 
-        <div className="relative flex flex-col items-end justify-center gap-1.5 pb-1.5">
+        <div
+          ref={askRef}
+          className="relative -mx-1 flex flex-col items-end justify-center gap-1.5 rounded-[6px] px-1 pb-1.5"
+        >
           <span className="text-[length:var(--wariba-component-workstation-type-meta)] font-semibold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]">
             Achat · Ask
           </span>

@@ -148,6 +148,8 @@ export function TradeClient({
    * `hasStoredLayout` flips and their choice wins at every width.
    */
   const navigatorCollapsed = hasStoredLayout ? preferences.navigatorCollapsed : isHybridDesktop;
+  /** Stable identity: the overlay's effect re-runs whenever this changes. */
+  const collapseNavigator = useCallback(() => setNavigatorCollapsed(true), [setNavigatorCollapsed]);
 
   const [ticketOpen, setTicketOpen] = useState(false);
   const [dialogs, setDialogs] = useState<TradeDialogState>({
@@ -432,6 +434,7 @@ export function TradeClient({
         navigatorWidth={preferences.navigatorWidth}
         navigatorCollapsed={navigatorCollapsed}
         navigatorOverlay={isHybridDesktop}
+        onNavigatorOverlayDismiss={collapseNavigator}
         dockHeight={effectiveDockHeight}
         dockCollapsed={preferences.dockCollapsed}
         navigatorResizeHandle={
