@@ -289,6 +289,14 @@ export function TradeChart({
    * The ResizeObserver below is the one writer.
    */
   const [plotSize, setPlotSize] = useState({ width: 0, height: 0 });
+  /**
+   * True while a pane-resize-induced relayout is settling.
+   *
+   * Read by the visible-range subscription so a geometry change cannot be
+   * mistaken for the trader panning into older history.
+   */
+  const resizingRef = useRef(false);
+
   /** W5 §65 — the candle under the crosshair, held imperatively (see the subscription below). */
   const [hoveredCandle, setHoveredCandle] = useState<MarketCandle | null>(null);
   const [drag, setDrag] = useState<DragSession | null>(null);
@@ -506,6 +514,29 @@ export function TradeChart({
      */
     let lastWidth = 0;
     let lastHeight = 0;
+    /*
+     * Workspace Layout Engine — geometry must never look like navigation.
+     *
+     * Widening the chart (by narrowing a pane) shows more bars, which moves
+     * `range.from` leftward and can cross the backfill threshold. Without this
+     * guard, dragging the Navigator narrower would issue a history request the
+     * trader never asked for — the addendum's "no history request merely
+     * because pane geometry changed", and a real hazard rather than a
+     * theoretical one.
+     *
+     * The flag covers only range changes that are a *direct consequence* of
+     * `applyOptions`, and is released two frames later. A human pan cannot
+     * begin and cross the threshold inside ~32ms, so a genuine pan-left
+     * immediately after a resize still backfills normally.
+     */
+    let resizeFrames = 0;
+    const releaseResizeGuard = () => {
+      resizeFrames -= 1;
+      if (resizeFrames <= 0) {
+        resizeFrames = 0;
+        resizingRef.current = false;
+      }
+    };
     const measure = () => {
       const node = containerRef.current;
       if (!node) return;
@@ -513,11 +544,22 @@ export function TradeChart({
       const height = node.clientHeight;
       if (width <= 0 || height <= 0) return;
       if (width === lastWidth && height === lastHeight) return;
+      // The first measurement is the chart being *sized*, not resized: it is the
+      // mount, and hydration's own history request belongs to it. Guarding it
+      // would suppress a genuine pan-left in the moments after load.
+      const isInitialMeasure = lastWidth === 0 && lastHeight === 0;
       lastWidth = width;
       lastHeight = height;
+      if (!isInitialMeasure) {
+        resizingRef.current = true;
+        resizeFrames += 1;
+      }
       chart.applyOptions({ width, height });
       setPlotSize({ width, height });
       bumpChartVersion();
+      if (!isInitialMeasure) {
+        requestAnimationFrame(() => requestAnimationFrame(releaseResizeGuard));
+      }
     };
     measure();
 
@@ -535,7 +577,11 @@ export function TradeChart({
      * request per page (§19/§96). No timer, no polling.
      */
     const onVisibleRangeChange = (range: { from: number; to: number } | null) => {
+      // The overlay coordinates always refresh: a resized plot must not keep
+      // drawing yesterday's pixel positions.
       bumpChartVersion();
+      // The *request* is what geometry may not cause.
+      if (resizingRef.current) return;
       if (range !== null) historyRef.current?.maybeRequestOlder(range.from);
     };
     chart.timeScale().subscribeVisibleLogicalRangeChange(onVisibleRangeChange);

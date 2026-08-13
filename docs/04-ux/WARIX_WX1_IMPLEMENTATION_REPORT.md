@@ -118,6 +118,13 @@ docs/04-ux/evidence/warix-wx1-kinetic-workstation/README.md
   canvas by lightweight-charts, which always paints the crosshair label last; the library exposes no
   ordering control. The only lever is hiding the crosshair label entirely, which the closure
   explicitly forbids. The label is transient and correctly themed.
+- **Mobile sheets have no snap points.** The addendum invites an audit of
+  drag/snap behaviour for the Execution, Activity and Tools sheets. `BottomSheet`
+  is a native `<dialog>` whose height is a CSS class, and adding snap detents
+  means owning a gesture controller, inertia and a focus-safe interruption
+  model — a sheet rewrite at the immutable-HEAD stage of a visual closure. Kept
+  as-is and recorded as a future enhancement; desktop pane resizing does not
+  depend on it.
 - **The mobile drawing-context bar is proven at its widest label, not per type.** `drawingTypeLabel`
   has five values whose two longest are 17 characters ("Ligne horizontale", "Ligne de tendance");
   the bar's width is driven by that label, so a type that holds one line at 17 characters cannot
@@ -235,6 +242,67 @@ focus into the panel on open and back to the opener on every dismissal path. Del
 scrim and no focus trap** — a scrim would dim the market being read, and trapping focus would stop
 Tab reaching the chart and the Execution Center, both of which stay live while the Navigator is
 open. It is a desktop panel, not a modal.
+
+### 10.9 Workspace Layout Engine
+
+Resizing is not drag handles bolted onto panels; it is an engine with two kinds
+of number, and keeping them apart is the whole design.
+
+**Preferred** dimensions are what the trader chose. They live in
+`workstation-preferences.ts` at schema 2, they belong to the browser, and only a
+deliberate resize changes them. **Effective** dimensions are what fits right
+now: `workspace-layout.ts` derives them on every render and never writes one
+back. A 360px Navigator therefore survives a spell at 1280 — rendered at 268 to
+protect the chart — and returns at 360 when the window widens. Storing the
+clamped value instead would have destroyed the preference the first time the
+window got small.
+
+| Constant | Value |
+|---|---:|
+| Navigator | 244 default, 220–360 preferred |
+| Execution | 320 default, 304–420 preferred |
+| Activity dock | 220 populated default, 112 min, 560 hard ceiling |
+| `MIN_FULL_DESKTOP_CHART_WIDTH` | 520 |
+| `MIN_CENTER_WORKSPACE_HEIGHT` | 420 |
+
+Both chart minima are read off rendered evidence rather than chosen for
+roundness: at 1024 with both panes open the plot measured ~404px and the
+indicator legend wrapped three lines across the candles, which is where the
+composition stops being chart-dominant.
+
+**Chart protection is dynamic, not a pair of independent maxima.** The side-pane
+budget is `viewportWidth − 56 − 36 − 520`, and each resizer's ceiling is that
+budget minus whatever the *other* pane currently takes. When preferences exceed
+the budget the Navigator gives way first and the Execution Center second —
+because chart authority is non-negotiable, Execution is the more operationally
+critical pane, and the Navigator already has a collapse and a contextual
+presentation to fall back on.
+
+**Dragging renders nothing.** A pointer move writes one CSS custom property
+(`--warix-navigator-width`, `--warix-execution-width`, `--warix-dock-height`) on
+the workspace root inside a `requestAnimationFrame`; the grid relayouts, the
+chart's `ResizeObserver` sees a size change, and React is not involved. Only the
+release commits — one state update and one storage write per resize rather than
+per pixel. The shell supplies the effective dimensions as the properties'
+fallbacks, so a viewport clamp and a stored preference arrive through one
+channel.
+
+**Geometry never looks like navigation.** Widening the chart shows more bars,
+which moves the visible logical range leftward and can cross the backfill
+threshold — so dragging a pane narrower would have issued a history request the
+trader never asked for. `TradeChart` now suppresses `maybeRequestOlder` for the
+two frames after a resize-induced `applyOptions`, and deliberately not on the
+first measurement, which is the chart being sized at mount rather than resized.
+Measured across a full resize sweep: `sourceEpoch` stable, drawings stable,
+execution draft stable, **0 history requests, 0 chart remounts**.
+
+Resizing is keyboard-operable throughout — arrows ±8px, Shift+arrow ±24px, Home
+to the minimum, End to the *dynamic* maximum, double-click to the canonical
+default — on a `role="separator"` carrying its own min/now/max. The seam is a
+1px hairline inside a 9px hit zone; there are no chunky permanent handles.
+
+Mobile is isolated: the engine returns zero pane widths below 1024 and no resize
+control is rendered, while the stored desktop preferences stay untouched.
 
 ## 11. Review status
 

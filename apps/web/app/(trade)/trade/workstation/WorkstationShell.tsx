@@ -28,6 +28,10 @@ export interface WorkstationShellProps {
   dockHeight: number;
   dockCollapsed: boolean;
   navigatorResizeHandle: ReactNode;
+  /** The Execution Center's own edge. Placed on the pane's leading side. */
+  executionResizeHandle: ReactNode;
+  /** Effective width, already resolved against the other pane and the chart minimum. */
+  executionWidth: number;
   /** Shown in the chart cell while the navigator is collapsed, so it can always be brought back. */
   navigatorRestore: ReactNode;
   rail: ReactNode;
@@ -80,6 +84,8 @@ export const WorkstationShell = memo(function WorkstationShell({
   dockHeight,
   dockCollapsed,
   navigatorResizeHandle,
+  executionResizeHandle,
+  executionWidth,
   navigatorRestore,
   rail,
   statusBar,
@@ -93,37 +99,49 @@ export const WorkstationShell = memo(function WorkstationShell({
   return (
     <main
       data-testid="workstation-shell"
+      data-workspace-root=""
       aria-labelledby="warix-workstation-title"
       className={[
         'flex min-h-dvh w-full min-w-0 max-w-full flex-col overflow-x-hidden',
         'bg-[color:var(--wariba-component-workstation-surface-sunken)]',
         'lg:grid lg:h-dvh lg:min-h-0 lg:overflow-hidden lg:transition-[grid-template-rows] lg:duration-[var(--wariba-component-workstation-motion-interaction)] motion-reduce:transition-none',
-        // W0 §9's breakpoint table, as tokens rather than magic numbers. The
-        // 1024–1279 band keeps the full navigator: collapsing it to icons is
-        // W2's job, and a half-built collapse would be worse than none.
-        '[--workstation-nav-w:var(--wariba-component-workstation-nav-width-compact)]',
-        '[--workstation-exec-w:var(--wariba-component-workstation-exec-width-compact)]',
-        '[--workstation-dock-h:var(--wariba-component-workstation-dock-height-compact)]',
-        '2xl:[--workstation-nav-w:var(--wariba-component-workstation-nav-width)]',
-        '2xl:[--workstation-exec-w:var(--wariba-component-workstation-exec-width)]',
-        '2xl:[--workstation-dock-h:var(--wariba-component-workstation-dock-height)]',
-        '3xl:[--workstation-nav-w:var(--wariba-component-workstation-nav-width-wide)]',
-        '3xl:[--workstation-exec-w:var(--wariba-component-workstation-exec-width-wide)]',
-        '3xl:[--workstation-dock-h:var(--wariba-component-workstation-dock-height-wide)]',
+        // W0 §9's per-breakpoint width table is gone. It set three fixed sizes
+        // per band, which is the opposite of a layout the trader owns: the
+        // Workspace Layout Engine now derives every dimension from the stored
+        // preference and the live viewport, and hands the result in as the
+        // custom-property fallbacks below. Two sources of truth for one column
+        // width is one too many.
       ].join(' ')}
       // Ignored while the shell is a flex column (<1024px); the grid tracks
       // below only take effect once `lg:grid` switches display.
+      /*
+       * Workspace Layout Engine — the grid reads three custom properties, and
+       * React only supplies their fallbacks.
+       *
+       * `var(--warix-navigator-width, 244px)` resolves to the fallback whenever
+       * the property is unset, which is every moment except an active drag. A
+       * `ResizeSeparator` sets the property inside a `requestAnimationFrame`
+       * while the pointer moves and removes it on release, so the grid
+       * relayouts at pointer speed without a single React render, and the
+       * committed preferred value takes over the instant the drag ends.
+       *
+       * The fallbacks are the *effective* dimensions the layout engine derived
+       * for this viewport, so a viewport clamp and a stored preference arrive
+       * through the same channel.
+       */
       style={{
         // A collapsed navigator contributes a 0px track — the width is gone,
         // not merely invisible, so the chart column actually receives it.
         gridTemplateColumns: `var(--wariba-component-workstation-rail-width) ${
-          navigatorCollapsed || navigatorOverlay ? '0px' : `${navigatorWidth}px`
-        } minmax(0, 1fr) var(--workstation-exec-w)`,
+          navigatorCollapsed || navigatorOverlay
+            ? '0px'
+            : `var(--warix-navigator-width, ${navigatorWidth}px)`
+        } minmax(0, 1fr) var(--warix-execution-width, ${executionWidth}px)`,
         // Same for the dock: collapsed leaves only its header row.
         gridTemplateRows: `var(--wariba-component-workstation-statusbar-height) minmax(0, 1fr) ${
           dockCollapsed
             ? 'var(--wariba-component-workstation-dock-collapsed-height)'
-            : `min(${dockHeight}px, 55dvh)`
+            : `min(var(--warix-dock-height, ${dockHeight}px), 55dvh)`
         }`,
       }}
     >
@@ -186,11 +204,14 @@ export const WorkstationShell = memo(function WorkstationShell({
           it the full width rather than insetting it on the page background. */}
       <div className="min-w-0 shrink-0 lg:hidden">{mobileExecutionAction}</div>
 
+      {/* The Execution Center's edge is its *leading* one, so the seam sits
+          between the chart and the pane rather than at the window edge. */}
       <div
         data-testid="execution-track"
-        className="hidden min-h-0 min-w-0 border-l border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-module)] lg:[grid-area:2/4/3/5] lg:flex lg:flex-col"
+        className="hidden min-h-0 min-w-0 bg-[color:var(--wariba-component-workstation-surface-module)] lg:[grid-area:2/4/3/5] lg:flex lg:flex-row"
       >
-        {execution}
+        {executionResizeHandle}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{execution}</div>
       </div>
 
       <div className="flex max-h-[38dvh] min-h-0 min-w-0 flex-col lg:max-h-none lg:[grid-area:3/1/4/5]">

@@ -6,7 +6,7 @@ import type { PendingOrderType, TradableSymbol } from '@wariba/contracts';
 import { useOneClickTrading } from '../../../lib/one-click-trading';
 import { ChartWorkspace, type ChartWorkspaceActions } from './ChartWorkspace';
 import { MarketNavigator } from './MarketNavigator';
-import { useIsDesktop, useIsHybridDesktop } from './use-viewport';
+import { useIsDesktop, useIsHybridDesktop, useViewportSize } from './use-viewport';
 import { ExecutionPanel } from './ExecutionPanel';
 import { pendingOrderTypeFor } from './execution/execution-contract';
 import { TradeDialogs, type TradeDialogActions, type TradeDialogState } from './TradeDialogs';
@@ -20,13 +20,12 @@ import { WorkstationShell } from './workstation/WorkstationShell';
 import { WorkstationStatusBar } from './workstation/WorkstationStatusBar';
 import type { WorkstationAccountOption } from './workstation/WorkstationAccountSwitcher';
 import {
-  DOCK_HEIGHT_MAX,
   DOCK_HEIGHT_MIN,
-  DOCK_EMPTY_HEIGHT,
-  NAVIGATOR_WIDTH_MAX,
+  EXECUTION_WIDTH_MIN,
   NAVIGATOR_WIDTH_MIN,
   useWorkstationPreferences,
 } from './workstation/workstation-preferences';
+import { resolveWorkspaceLayout } from './workstation/workspace-layout';
 
 export interface TradeClientProps {
   /** Server-validated: this account belongs to `userId` (see trade/page.tsx). */
@@ -131,12 +130,17 @@ export function TradeClient({
   const {
     preferences,
     hasStoredLayout,
-    setNavigatorWidth,
+    setNavigatorPreferredWidth,
+    setExecutionPreferredWidth,
+    setDockPreferredHeight,
     setNavigatorCollapsed,
-    setDockHeight,
     setDockCollapsed,
+    resetNavigatorWidth,
+    resetExecutionWidth,
+    resetDockHeight,
     toggleFavorite,
   } = useWorkstationPreferences();
+  const viewport = useViewportSize();
   /*
    * §22 — the hybrid default is resolved here, per render, not frozen at mount.
    *
@@ -354,7 +358,29 @@ export function TradeClient({
           : tab === 'alerts'
             ? session.alerts.length > 0 || session.notifications.length > 0
             : true;
-  const effectiveDockHeight = dockHasContent ? preferences.dockHeight : DOCK_EMPTY_HEIGHT;
+  /*
+   * The Workspace Layout Engine, applied.
+   *
+   * Preferred dimensions come from storage and change only when the trader
+   * resizes; effective dimensions are derived here on every render from those
+   * preferences and the live viewport. Nothing below ever writes an effective
+   * value back — that separation is what lets a 360px Navigator survive a spell
+   * at 1280 and come back when the window widens.
+   */
+  const layout = resolveWorkspaceLayout(
+    {
+      navigatorWidth: preferences.navigatorPreferredWidth,
+      executionWidth: preferences.executionPreferredWidth,
+      dockHeight: preferences.activityDockPreferredHeight,
+    },
+    {
+      viewportWidth: viewport.width,
+      viewportHeight: viewport.height,
+      navigatorCollapsed,
+      dockCollapsed: preferences.dockCollapsed,
+      dockEmpty: !dockHasContent,
+    },
+  );
 
   const workstationDock = (
     <WorkstationDock
@@ -394,11 +420,13 @@ export function TradeClient({
           <ResizeSeparator
             orientation="horizontal"
             label="Hauteur du dock"
-            value={preferences.dockHeight}
+            value={layout.dockHeight}
             min={DOCK_HEIGHT_MIN}
-            max={DOCK_HEIGHT_MAX}
-            onChange={setDockHeight}
+            max={layout.dockMax}
+            onCommit={setDockPreferredHeight}
+            onReset={resetDockHeight}
             direction={-1}
+            cssVariable="--warix-dock-height"
             testId="dock-resize"
           />
         ) : null
@@ -431,25 +459,46 @@ export function TradeClient({
       </div>
 
       <WorkstationShell
-        navigatorWidth={preferences.navigatorWidth}
+        navigatorWidth={layout.navigatorWidth}
+        executionWidth={layout.executionWidth}
         navigatorCollapsed={navigatorCollapsed}
         navigatorOverlay={isHybridDesktop}
         onNavigatorOverlayDismiss={collapseNavigator}
-        dockHeight={effectiveDockHeight}
+        dockHeight={layout.dockHeight}
         dockCollapsed={preferences.dockCollapsed}
         navigatorResizeHandle={
           navigatorCollapsed || isHybridDesktop ? null : (
             <ResizeSeparator
               orientation="vertical"
               label="Largeur du navigateur de marchés"
-              value={preferences.navigatorWidth}
+              value={layout.navigatorWidth}
               min={NAVIGATOR_WIDTH_MIN}
-              max={NAVIGATOR_WIDTH_MAX}
-              onChange={setNavigatorWidth}
+              max={layout.navigatorMax}
+              onCommit={setNavigatorPreferredWidth}
+              onReset={resetNavigatorWidth}
               direction={1}
+              cssVariable="--warix-navigator-width"
               testId="navigator-resize"
             />
           )
+        }
+        executionResizeHandle={
+          isDesktop ? (
+            <ResizeSeparator
+              orientation="vertical"
+              label="Largeur du centre d’exécution"
+              value={layout.executionWidth}
+              min={EXECUTION_WIDTH_MIN}
+              max={layout.executionMax}
+              onCommit={setExecutionPreferredWidth}
+              onReset={resetExecutionWidth}
+              // The pane grows as the pointer moves *left*: its edge is the
+              // leading one, between the chart and the panel.
+              direction={-1}
+              cssVariable="--warix-execution-width"
+              testId="execution-resize"
+            />
+          ) : null
         }
         navigatorRestore={
           <button

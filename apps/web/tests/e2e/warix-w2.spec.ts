@@ -190,7 +190,30 @@ test.describe('WariX trading dock', { tag: ['@trade'] }, () => {
       .locator('canvas')
       .first();
     await expect(canvas).toBeVisible({ timeout: 30_000 });
-    const before = (await canvas.boundingBox())?.height ?? 0;
+    /*
+     * The dock's arrival animates: the shell transitions `grid-template-rows`
+     * over 140ms as the empty 48px dock grows to its populated height, and the
+     * chart canvas shrinks with it. Sampling the baseline the instant the
+     * separator appears reads a mid-transition height, so the round-trip
+     * assertion below compares a settling number against a settled one and
+     * fails by whatever the animation happened to have covered.
+     *
+     * Waiting for two identical consecutive reads pins the baseline to the
+     * settled layout. The property under test is unchanged — collapsing gives
+     * the space to the chart and expanding gives it back — it is simply now
+     * measured at a moment when the layout is holding still.
+     */
+    const settledCanvasHeight = async (): Promise<number> => {
+      let previous = -1;
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        const height = Math.round((await canvas.boundingBox())?.height ?? 0);
+        if (height > 0 && height === previous) return height;
+        previous = height;
+        await page.waitForTimeout(100);
+      }
+      return previous;
+    };
+    const before = await settledCanvasHeight();
 
     await page.getByTestId('workstation-dock-collapse').click();
     await expect

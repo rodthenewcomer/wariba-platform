@@ -66,6 +66,27 @@ These states did not exist as evidence in WX1 and are new here:
 - `checkpoint/checkpoint-mobile-390x844-selected-drawing.png` — the contextual bar clear of the
   price scale.
 
+## Workspace Layout Engine
+
+`resize/` holds the addendum's required resize states and `resize-manifest.json`,
+every figure in it measured from the rendered workstation rather than computed
+from the engine's own constants.
+
+| Claim | Where it is proven |
+|---|---|
+| Chart floor holds under both panes at maximum | `1366-both-panes-near-maximum.png` — plot measured **520px**, the configured minimum exactly |
+| Navigator gives way before Execution | `1280-clamped-preferences.png` — Navigator 340 → **268**, Execution keeps its preferred **400** |
+| A clamp never destroys a preference | `resize-manifest.json → preferredWidthRestore`: effective 340 → 268 → **340**, stored preference **340** throughout |
+| Opening the hybrid overlay costs no chart width | `hybridChartWidthStable`: **648px** closed and open |
+| Resizing is not navigation | `chartStateAcrossResize`: `sourceEpoch` stable, drawings stable, execution draft stable, **0** history requests, **0** chart remounts |
+| No horizontal overflow at any sampled state | every sample records `horizontalOverflow: 0` |
+
+Regenerate with:
+
+```bash
+pnpm --filter @wariba/web exec playwright test --grep @warix-resize-evidence
+```
+
 ## How to regenerate
 
 ```bash

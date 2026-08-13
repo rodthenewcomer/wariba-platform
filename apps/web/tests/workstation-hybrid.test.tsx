@@ -14,13 +14,17 @@ import { WorkstationShell } from '../app/(trade)/trade/workstation/WorkstationSh
  * never becomes a grid track, so the plot cannot reflow when it opens.
  */
 
-function slots(overrides: Partial<Parameters<typeof WorkstationShell>[0]> = {}) {
+function slots(
+  overrides: Partial<Parameters<typeof WorkstationShell>[0]> = {},
+): Parameters<typeof WorkstationShell>[0] {
   return {
     navigatorWidth: 244,
     navigatorCollapsed: false,
     dockHeight: 220,
     dockCollapsed: false,
     navigatorResizeHandle: null,
+    executionResizeHandle: null,
+    executionWidth: 320,
     navigatorRestore: <button type="button">Marchés</button>,
     rail: <nav aria-label="rail" />,
     statusBar: <header>status</header>,

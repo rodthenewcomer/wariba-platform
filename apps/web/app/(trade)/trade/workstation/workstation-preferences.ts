@@ -2,9 +2,25 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { TRADABLE_SYMBOLS, type TradableSymbol } from '@wariba/contracts';
+import {
+  DEFAULT_PREFERRED_LAYOUT,
+  DOCK_COLLAPSED_HEIGHT,
+  DOCK_DEFAULT_POPULATED_HEIGHT,
+  DOCK_EMPTY_HEIGHT,
+  DOCK_POPULATED_MAX,
+  DOCK_POPULATED_MIN,
+  EXECUTION_DEFAULT_WIDTH,
+  EXECUTION_PREFERRED_MAX,
+  EXECUTION_PREFERRED_MIN,
+  NAVIGATOR_DEFAULT_WIDTH,
+  NAVIGATOR_PREFERRED_MAX,
+  NAVIGATOR_PREFERRED_MIN,
+  clampToRange,
+} from './workspace-layout';
 
 /**
- * The workstation's UI-only layout preferences (W2 §14).
+ * The workstation's UI-only layout preferences (W2 §14, extended by the
+ * Workspace Layout Engine addendum).
  *
  * Scope is deliberately narrow: this stores **how the workstation is arranged**
  * and nothing about what it displays. No balance, no risk state, no price, no
@@ -12,11 +28,15 @@ import { TRADABLE_SYMBOLS, type TradableSymbol } from '@wariba/contracts';
  * panel edge sits; it can never change what the server says is true, and it is
  * never consulted by any command.
  *
+ * Every dimension stored here is a **preferred** value — what the trader chose,
+ * not what currently fits. `workspace-layout.ts` derives the effective sizes per
+ * viewport. Persisting the effective value instead would mean that the first
+ * time a window got small, the trader's real preference would be destroyed and
+ * would never come back.
+ *
  * Storage is browser-local and therefore **not synchronised across devices** —
- * a trader who resizes the navigator on a laptop finds the default on a phone.
- * That is acceptable for layout and is recorded rather than hidden; making it
- * cross-device would mean a server-side preference table, which W2 does not
- * introduce.
+ * a trader who widens the Navigator on a laptop finds the default on a phone.
+ * That is acceptable for layout and is recorded rather than hidden.
  *
  * Every read is defensive. A corrupt, truncated, hand-edited or
  * future-versioned payload yields the defaults rather than a partially-applied
@@ -24,36 +44,121 @@ import { TRADABLE_SYMBOLS, type TradableSymbol } from '@wariba/contracts';
  * the way out.
  */
 export const WORKSTATION_PREFERENCES_KEY = 'wariba.workstation.layout';
-const VERSION = 1;
 
-export const NAVIGATOR_WIDTH_MIN = 220;
-export const NAVIGATOR_WIDTH_MAX = 320;
-export const NAVIGATOR_WIDTH_DEFAULT = 244;
+/**
+ * Schema 2 — adds the Execution Center's preferred width, and renames the two
+ * existing dimensions to say plainly that they are *preferred*, not effective.
+ *
+ * Version 1 payloads are migrated rather than discarded: a trader who had
+ * already sized their Navigator and dock keeps both, and simply gains an
+ * Execution width at its default. Anything that is neither 1 nor 2 — including
+ * a *newer* version written by some future build — fails closed to the
+ * defaults, so an unknown shape can never silently become authoritative.
+ */
+export const LAYOUT_PREFERENCE_SCHEMA_VERSION = 2;
 
-export const DOCK_HEIGHT_MIN = 112;
-/** Hard ceiling; the shell additionally clamps to 55dvh so a short viewport cannot be swallowed. */
-export const DOCK_HEIGHT_MAX = 560;
-export const DOCK_HEIGHT_DEFAULT = 220;
-/** Header-only dock (W2 §22). */
-export const DOCK_COLLAPSED_HEIGHT = 40;
-/** WX1 authoritative empty presentation; it never overwrites the populated preference. */
-export const DOCK_EMPTY_HEIGHT = 48;
+export const NAVIGATOR_WIDTH_MIN = NAVIGATOR_PREFERRED_MIN;
+export const NAVIGATOR_WIDTH_MAX = NAVIGATOR_PREFERRED_MAX;
+export const NAVIGATOR_WIDTH_DEFAULT = NAVIGATOR_DEFAULT_WIDTH;
+
+export const EXECUTION_WIDTH_MIN = EXECUTION_PREFERRED_MIN;
+export const EXECUTION_WIDTH_MAX = EXECUTION_PREFERRED_MAX;
+export const EXECUTION_WIDTH_DEFAULT = EXECUTION_DEFAULT_WIDTH;
+
+export const DOCK_HEIGHT_MIN = DOCK_POPULATED_MIN;
+/** Hard ceiling; the layout engine additionally derives a per-viewport maximum. */
+export const DOCK_HEIGHT_MAX = DOCK_POPULATED_MAX;
+export const DOCK_HEIGHT_DEFAULT = DOCK_DEFAULT_POPULATED_HEIGHT;
+export { DOCK_COLLAPSED_HEIGHT, DOCK_EMPTY_HEIGHT };
 
 export interface WorkstationPreferences {
-  navigatorWidth: number;
+  /** Preferred, not effective — see the module note. */
+  navigatorPreferredWidth: number;
+  executionPreferredWidth: number;
+  activityDockPreferredHeight: number;
   navigatorCollapsed: boolean;
-  dockHeight: number;
   dockCollapsed: boolean;
   favorites: TradableSymbol[];
 }
 
 export const DEFAULT_WORKSTATION_PREFERENCES: WorkstationPreferences = {
-  navigatorWidth: NAVIGATOR_WIDTH_DEFAULT,
+  navigatorPreferredWidth: DEFAULT_PREFERRED_LAYOUT.navigatorWidth,
+  executionPreferredWidth: DEFAULT_PREFERRED_LAYOUT.executionWidth,
+  activityDockPreferredHeight: DEFAULT_PREFERRED_LAYOUT.dockHeight,
   navigatorCollapsed: false,
-  dockHeight: DOCK_HEIGHT_DEFAULT,
   dockCollapsed: false,
   favorites: [],
 };
+
+export function clamp(value: number, min: number, max: number): number {
+  return clampToRange(value, min, max);
+}
+
+function readFavorites(candidate: Record<string, unknown>): TradableSymbol[] {
+  const favorites = Array.isArray(candidate.favorites)
+    ? candidate.favorites.filter((entry): entry is TradableSymbol =>
+        TRADABLE_SYMBOLS.includes(entry as TradableSymbol),
+      )
+    : [];
+  // De-duplicated so a corrupted list cannot render the same row twice.
+  return [...new Set(favorites)];
+}
+
+function dimension(value: unknown, fallback: number, min: number, max: number): number {
+  return typeof value === 'number' ? clampToRange(value, min, max) : fallback;
+}
+
+/**
+ * Fails closed: anything that is not a well-formed payload of a version this
+ * build understands returns the defaults untouched.
+ */
+export function parseWorkstationPreferences(raw: string | null): WorkstationPreferences {
+  if (!raw) return DEFAULT_WORKSTATION_PREFERENCES;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return DEFAULT_WORKSTATION_PREFERENCES;
+  }
+  if (typeof parsed !== 'object' || parsed === null) return DEFAULT_WORKSTATION_PREFERENCES;
+  const candidate = parsed as Record<string, unknown>;
+
+  // A future schema is not "mostly compatible" — it is unknown. Fail closed.
+  if (candidate.version !== 1 && candidate.version !== LAYOUT_PREFERENCE_SCHEMA_VERSION) {
+    return DEFAULT_WORKSTATION_PREFERENCES;
+  }
+
+  const isV1 = candidate.version === 1;
+  return {
+    // v1 called these `navigatorWidth` / `dockHeight` and had no Execution
+    // width. Both survive the upgrade; the new dimension starts at its default.
+    navigatorPreferredWidth: dimension(
+      isV1 ? candidate.navigatorWidth : candidate.navigatorPreferredWidth,
+      NAVIGATOR_WIDTH_DEFAULT,
+      NAVIGATOR_WIDTH_MIN,
+      NAVIGATOR_WIDTH_MAX,
+    ),
+    executionPreferredWidth: dimension(
+      isV1 ? undefined : candidate.executionPreferredWidth,
+      EXECUTION_WIDTH_DEFAULT,
+      EXECUTION_WIDTH_MIN,
+      EXECUTION_WIDTH_MAX,
+    ),
+    activityDockPreferredHeight: dimension(
+      isV1 ? candidate.dockHeight : candidate.activityDockPreferredHeight,
+      DOCK_HEIGHT_DEFAULT,
+      DOCK_HEIGHT_MIN,
+      DOCK_HEIGHT_MAX,
+    ),
+    navigatorCollapsed: candidate.navigatorCollapsed === true,
+    dockCollapsed: candidate.dockCollapsed === true,
+    favorites: readFavorites(candidate),
+  };
+}
+
+function serialize(preferences: WorkstationPreferences): string {
+  return JSON.stringify({ version: LAYOUT_PREFERENCE_SCHEMA_VERSION, ...preferences });
+}
 
 /** The desktop grid's own floor — below this the shell is the mobile column. */
 export const DESKTOP_MINIMUM_WIDTH = 1024;
@@ -61,28 +166,11 @@ export const DESKTOP_MINIMUM_WIDTH = 1024;
 export const HYBRID_MAXIMUM_WIDTH = 1279;
 
 /**
- * Visual closure §22 — the 1024–1279 hybrid.
+ * Visual closure §22 — the 1024–1279 hybrid band.
  *
- * The full cockpit's fixed tracks cost 56 + 244 + 320 = 620px whatever the
- * viewport is. At 1440 that leaves the chart 820px and the composition reads as
- * a workstation; at 1024 it leaves 404px, and a 404px chart with a 320px
- * execution panel beside it is no longer chart-dominant — the panel that
- * supports the decision is nearly as wide as the thing the decision is made
- * from. Measured on the captured evidence, the chart plot holds 39.4% of the
- * viewport at 1366 and only 26.9% at 1024 with the navigator open.
- *
- * The hybrid keeps **both** persistent surfaces the trader acts through — the
- * chart and the Execution Center — and makes the *selection* surface contextual,
- * because choosing an instrument is occasional while reading the chart and
- * sizing an order are continuous. The Navigator is therefore collapsed by
- * default in this band and restored with the control the shell already renders
- * in the chart cell; that recovers its full 244px for the chart (404 → 648px,
- * a 60% increase) using only mechanisms W2 already shipped.
- *
- * This is a **default**, not a breakpoint change and not a capability change.
- * The band is still the desktop grid, the trader can open the Navigator at any
- * width, and the choice is then persisted like any other layout preference —
- * so the hybrid never overrides a decision the trader has actually made.
+ * The band keeps the chart and the Execution Center persistent and makes the
+ * Navigator contextual, because choosing an instrument is occasional while
+ * reading the chart and sizing an order are continuous.
  */
 export function isHybridWidth(width: number): boolean {
   return width >= DESKTOP_MINIMUM_WIDTH && width <= HYBRID_MAXIMUM_WIDTH;
@@ -101,67 +189,24 @@ export function defaultWorkstationPreferencesForWidth(width: number): Workstatio
     : DEFAULT_WORKSTATION_PREFERENCES;
 }
 
-export function clamp(value: number, min: number, max: number): number {
-  if (!Number.isFinite(value)) return min;
-  return Math.min(max, Math.max(min, Math.round(value)));
-}
-
-/**
- * Fails closed: anything that is not a well-formed payload of the current
- * version returns the defaults untouched.
- */
-export function parseWorkstationPreferences(raw: string | null): WorkstationPreferences {
-  if (!raw) return DEFAULT_WORKSTATION_PREFERENCES;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return DEFAULT_WORKSTATION_PREFERENCES;
-  }
-  if (typeof parsed !== 'object' || parsed === null) return DEFAULT_WORKSTATION_PREFERENCES;
-  const candidate = parsed as Record<string, unknown>;
-  if (candidate.version !== VERSION) return DEFAULT_WORKSTATION_PREFERENCES;
-
-  const favorites = Array.isArray(candidate.favorites)
-    ? candidate.favorites.filter((entry): entry is TradableSymbol =>
-        TRADABLE_SYMBOLS.includes(entry as TradableSymbol),
-      )
-    : [];
-
-  return {
-    navigatorWidth:
-      typeof candidate.navigatorWidth === 'number'
-        ? clamp(candidate.navigatorWidth, NAVIGATOR_WIDTH_MIN, NAVIGATOR_WIDTH_MAX)
-        : NAVIGATOR_WIDTH_DEFAULT,
-    navigatorCollapsed: candidate.navigatorCollapsed === true,
-    dockHeight:
-      typeof candidate.dockHeight === 'number'
-        ? clamp(candidate.dockHeight, DOCK_HEIGHT_MIN, DOCK_HEIGHT_MAX)
-        : DOCK_HEIGHT_DEFAULT,
-    dockCollapsed: candidate.dockCollapsed === true,
-    // De-duplicated so a corrupted list cannot render the same row twice.
-    favorites: [...new Set(favorites)],
-  };
-}
-
-function serialize(preferences: WorkstationPreferences): string {
-  return JSON.stringify({ version: VERSION, ...preferences });
-}
-
 export interface WorkstationPreferencesController {
   preferences: WorkstationPreferences;
   /**
    * Whether this browser holds a layout the trader actually chose.
    *
-   * The hybrid default (§22) must never override a decision, and must stay
-   * reactive to the viewport until one is made — so the caller needs to know
-   * which of the two is in force rather than having it baked in at mount.
+   * The hybrid default must never override a decision, and must stay reactive
+   * to the viewport until one is made — so the caller needs to know which of the
+   * two is in force rather than having it baked in at mount.
    */
   hasStoredLayout: boolean;
-  setNavigatorWidth(width: number): void;
+  setNavigatorPreferredWidth(width: number): void;
+  setExecutionPreferredWidth(width: number): void;
+  setDockPreferredHeight(height: number): void;
   setNavigatorCollapsed(collapsed: boolean): void;
-  setDockHeight(height: number): void;
   setDockCollapsed(collapsed: boolean): void;
+  resetNavigatorWidth(): void;
+  resetExecutionWidth(): void;
+  resetDockHeight(): void;
   toggleFavorite(symbol: TradableSymbol): void;
 }
 
@@ -180,11 +225,6 @@ export function useWorkstationPreferences(): WorkstationPreferencesController {
     try {
       const stored = window.localStorage.getItem(WORKSTATION_PREFERENCES_KEY);
       if (stored === null) return;
-      // A stored payload is the trader's own decision and always wins over the
-      // viewport-derived hybrid default. Reading it is all this hook does — the
-      // *default* is resolved by the caller, per render, so that a window
-      // resized out of the hybrid band restores the full cockpit instead of
-      // keeping a collapse that was only ever a first-run guess.
       setPreferences(parseWorkstationPreferences(stored));
       setHasStoredLayout(true);
     } catch {
@@ -212,12 +252,23 @@ export function useWorkstationPreferences(): WorkstationPreferencesController {
     () => ({
       preferences,
       hasStoredLayout,
-      setNavigatorWidth: (width) =>
-        update({ navigatorWidth: clamp(width, NAVIGATOR_WIDTH_MIN, NAVIGATOR_WIDTH_MAX) }),
+      setNavigatorPreferredWidth: (width) =>
+        update({
+          navigatorPreferredWidth: clampToRange(width, NAVIGATOR_WIDTH_MIN, NAVIGATOR_WIDTH_MAX),
+        }),
+      setExecutionPreferredWidth: (width) =>
+        update({
+          executionPreferredWidth: clampToRange(width, EXECUTION_WIDTH_MIN, EXECUTION_WIDTH_MAX),
+        }),
+      setDockPreferredHeight: (height) =>
+        update({
+          activityDockPreferredHeight: clampToRange(height, DOCK_HEIGHT_MIN, DOCK_HEIGHT_MAX),
+        }),
       setNavigatorCollapsed: (navigatorCollapsed) => update({ navigatorCollapsed }),
-      setDockHeight: (height) =>
-        update({ dockHeight: clamp(height, DOCK_HEIGHT_MIN, DOCK_HEIGHT_MAX) }),
       setDockCollapsed: (dockCollapsed) => update({ dockCollapsed }),
+      resetNavigatorWidth: () => update({ navigatorPreferredWidth: NAVIGATOR_WIDTH_DEFAULT }),
+      resetExecutionWidth: () => update({ executionPreferredWidth: EXECUTION_WIDTH_DEFAULT }),
+      resetDockHeight: () => update({ activityDockPreferredHeight: DOCK_HEIGHT_DEFAULT }),
       toggleFavorite: (symbol) =>
         setPreferences((previous) => {
           const favorites = previous.favorites.includes(symbol)

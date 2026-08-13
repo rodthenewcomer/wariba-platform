@@ -63,3 +63,51 @@ export function useIsHybridDesktop(query: string = HYBRID_QUERY): boolean {
 
   return isHybrid;
 }
+
+export interface ViewportSize {
+  width: number;
+  height: number;
+}
+
+/**
+ * The live viewport, for the Workspace Layout Engine's effective-dimension
+ * derivation.
+ *
+ * Starts at a wide desktop so the server render and the first client paint
+ * agree, then resolves after mount — the same hydrate-then-apply shape the two
+ * media-query hooks above use. Resize events are throttled to one per frame:
+ * the engine is pure and cheap, but a resize storm should still cost one React
+ * commit per painted frame rather than one per event.
+ *
+ * Deliberately *not* a `ResizeObserver` on the shell: the engine reasons about
+ * the viewport the trader has, not about a box whose size it is itself deciding
+ * — observing the latter would close a feedback loop between a pane's width and
+ * the budget that constrains it.
+ */
+export function useViewportSize(): ViewportSize {
+  const [size, setSize] = useState<ViewportSize>({ width: 1440, height: 900 });
+
+  useEffect(() => {
+    let frame: number | null = null;
+    const apply = () => {
+      frame = null;
+      setSize((previous) =>
+        previous.width === window.innerWidth && previous.height === window.innerHeight
+          ? previous
+          : { width: window.innerWidth, height: window.innerHeight },
+      );
+    };
+    apply();
+    const onResize = () => {
+      if (frame !== null) return;
+      frame = requestAnimationFrame(apply);
+    };
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      if (frame !== null) cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  return size;
+}

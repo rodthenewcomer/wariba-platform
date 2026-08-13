@@ -16,6 +16,8 @@ import {
   parseWorkstationPreferences,
   NAVIGATOR_WIDTH_MAX,
   NAVIGATOR_WIDTH_MIN,
+  EXECUTION_WIDTH_MAX,
+  EXECUTION_WIDTH_MIN,
   DOCK_HEIGHT_MAX,
   DOCK_HEIGHT_MIN,
 } from '../app/(trade)/trade/workstation/workstation-preferences';
@@ -197,28 +199,84 @@ describe('workstation layout preferences', () => {
     expect(parseWorkstationPreferences('"a string"')).toEqual(DEFAULT_WORKSTATION_PREFERENCES);
     expect(parseWorkstationPreferences('null')).toEqual(DEFAULT_WORKSTATION_PREFERENCES);
     expect(
-      parseWorkstationPreferences(JSON.stringify({ version: 99, navigatorWidth: 300 })),
+      parseWorkstationPreferences(JSON.stringify({ version: 99, navigatorPreferredWidth: 300 })),
     ).toEqual(DEFAULT_WORKSTATION_PREFERENCES);
   });
 
   it('clamps out-of-range dimensions rather than applying them', () => {
     const wide = parseWorkstationPreferences(
-      JSON.stringify({ version: 1, navigatorWidth: 9999, dockHeight: 9999 }),
+      JSON.stringify({
+        version: 2,
+        navigatorPreferredWidth: 9999,
+        executionPreferredWidth: 9999,
+        activityDockPreferredHeight: 9999,
+      }),
     );
-    expect(wide.navigatorWidth).toBe(NAVIGATOR_WIDTH_MAX);
-    expect(wide.dockHeight).toBe(DOCK_HEIGHT_MAX);
+    expect(wide.navigatorPreferredWidth).toBe(NAVIGATOR_WIDTH_MAX);
+    expect(wide.executionPreferredWidth).toBe(EXECUTION_WIDTH_MAX);
+    expect(wide.activityDockPreferredHeight).toBe(DOCK_HEIGHT_MAX);
 
     const tiny = parseWorkstationPreferences(
-      JSON.stringify({ version: 1, navigatorWidth: -50, dockHeight: 0 }),
+      JSON.stringify({
+        version: 2,
+        navigatorPreferredWidth: -50,
+        executionPreferredWidth: 1,
+        activityDockPreferredHeight: 0,
+      }),
     );
-    expect(tiny.navigatorWidth).toBe(NAVIGATOR_WIDTH_MIN);
-    expect(tiny.dockHeight).toBe(DOCK_HEIGHT_MIN);
+    expect(tiny.navigatorPreferredWidth).toBe(NAVIGATOR_WIDTH_MIN);
+    expect(tiny.executionPreferredWidth).toBe(EXECUTION_WIDTH_MIN);
+    expect(tiny.activityDockPreferredHeight).toBe(DOCK_HEIGHT_MIN);
 
     const nonsense = parseWorkstationPreferences(
-      JSON.stringify({ version: 1, navigatorWidth: 'wide', dockHeight: null }),
+      JSON.stringify({
+        version: 2,
+        navigatorPreferredWidth: 'wide',
+        executionPreferredWidth: {},
+        activityDockPreferredHeight: null,
+      }),
     );
-    expect(nonsense.navigatorWidth).toBe(DEFAULT_WORKSTATION_PREFERENCES.navigatorWidth);
-    expect(nonsense.dockHeight).toBe(DEFAULT_WORKSTATION_PREFERENCES.dockHeight);
+    expect(nonsense.navigatorPreferredWidth).toBe(
+      DEFAULT_WORKSTATION_PREFERENCES.navigatorPreferredWidth,
+    );
+    expect(nonsense.executionPreferredWidth).toBe(
+      DEFAULT_WORKSTATION_PREFERENCES.executionPreferredWidth,
+    );
+    expect(nonsense.activityDockPreferredHeight).toBe(
+      DEFAULT_WORKSTATION_PREFERENCES.activityDockPreferredHeight,
+    );
+  });
+
+  it('migrates a schema-1 payload instead of discarding the trader’s layout', () => {
+    // Schema 2 renamed the two dimensions and added the Execution width. A
+    // trader who had already sized their Navigator and dock keeps both; the new
+    // dimension starts at its default rather than at zero.
+    const migrated = parseWorkstationPreferences(
+      JSON.stringify({
+        version: 1,
+        navigatorWidth: 300,
+        dockHeight: 260,
+        navigatorCollapsed: true,
+        favorites: ['EURUSD'],
+      }),
+    );
+    expect(migrated.navigatorPreferredWidth).toBe(300);
+    expect(migrated.activityDockPreferredHeight).toBe(260);
+    expect(migrated.executionPreferredWidth).toBe(
+      DEFAULT_WORKSTATION_PREFERENCES.executionPreferredWidth,
+    );
+    expect(migrated.navigatorCollapsed).toBe(true);
+    expect(migrated.favorites).toEqual(['EURUSD']);
+  });
+
+  it('fails closed on a schema newer than this build understands', () => {
+    // A future version is not "mostly compatible" — it is unknown, and an
+    // unknown shape must never become authoritative.
+    expect(
+      parseWorkstationPreferences(
+        JSON.stringify({ version: 3, navigatorPreferredWidth: 300, executionPreferredWidth: 400 }),
+      ),
+    ).toEqual(DEFAULT_WORKSTATION_PREFERENCES);
   });
 
   it('collapses the navigator by default only in the 1024–1279 hybrid band', () => {
@@ -261,11 +319,12 @@ describe('workstation layout preferences', () => {
   it('stores no financial or account state', () => {
     const keys = Object.keys(DEFAULT_WORKSTATION_PREFERENCES).sort();
     expect(keys).toEqual([
+      'activityDockPreferredHeight',
       'dockCollapsed',
-      'dockHeight',
+      'executionPreferredWidth',
       'favorites',
       'navigatorCollapsed',
-      'navigatorWidth',
+      'navigatorPreferredWidth',
     ]);
   });
 });
