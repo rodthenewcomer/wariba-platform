@@ -420,6 +420,8 @@ export interface SegmentedControlProps<T extends string> {
   options: readonly SegmentedOption<T>[];
   onValueChange: (value: T) => void;
   className?: string;
+  /** Tighter desktop instrument density; mobile retains the 44px touch target. */
+  compact?: boolean;
   testId?: string;
 }
 
@@ -437,6 +439,7 @@ export function SegmentedControl<T extends string>({
   options,
   onValueChange,
   className,
+  compact = false,
   testId,
 }: SegmentedControlProps<T>) {
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -459,7 +462,8 @@ export function SegmentedControl<T extends string>({
       role="radiogroup"
       aria-label={label}
       className={cx(
-        'grid h-11 grid-flow-col auto-cols-fr rounded-[9px] p-[3px] lg:h-9',
+        'grid h-11 grid-flow-col auto-cols-fr rounded-[9px] p-[3px]',
+        compact ? 'lg:h-8 lg:p-0.5' : 'lg:h-9',
         'bg-[color:var(--wariba-component-workstation-surface-canvas)]',
         'ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)]',
         className,
@@ -484,8 +488,10 @@ export function SegmentedControl<T extends string>({
             tabIndex={selected ? 0 : -1}
             onClick={() => onValueChange(option.value)}
             className={cx(
-              'relative rounded-[6px] px-2 font-semibold uppercase',
-              'text-[length:var(--wariba-component-workstation-type-label)] tracking-[var(--wariba-component-workstation-tracking-label)]',
+              'relative rounded-[6px] font-semibold uppercase',
+              compact
+                ? 'px-0.5 text-[length:var(--wariba-component-workstation-type-meta)] tracking-normal'
+                : 'px-2 text-[length:var(--wariba-component-workstation-type-label)] tracking-[var(--wariba-component-workstation-tracking-label)]',
               'transition-[background-color,color,box-shadow] duration-[var(--wariba-component-workstation-motion-interaction)]',
               'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]',
               selected

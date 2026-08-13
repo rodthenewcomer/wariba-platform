@@ -39,7 +39,7 @@ function StepButton({
       disabled={disabled}
       onClick={onPress}
       className={[
-        'flex h-12 w-12 shrink-0 items-center justify-center',
+        'flex h-12 w-12 shrink-0 items-center justify-center lg:h-9 lg:w-9',
         side === 'left'
           ? 'border-r border-[color:var(--wariba-component-workstation-border-hairline)]'
           : 'border-l border-[color:var(--wariba-component-workstation-border-hairline)]',
@@ -126,7 +126,7 @@ export function QuantityControl({ spec, value, onChange, error }: QuantityContro
   const increased = step(1);
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-1.5">
       {/*
        * Visual closure §12D — one instrument, not three controls in a row.
        *
@@ -141,7 +141,7 @@ export function QuantityControl({ spec, value, onChange, error }: QuantityContro
         Quantité (lots)
       </label>
       <div
-        className={`flex h-12 items-stretch overflow-hidden rounded-[9px] bg-[color:var(--wariba-component-workstation-surface-canvas)] ring-1 ring-inset transition-[box-shadow] duration-[var(--wariba-component-workstation-motion-interaction)] focus-within:ring-2 ${
+        className={`flex h-12 items-stretch overflow-hidden rounded-[9px] bg-[color:var(--wariba-component-workstation-surface-canvas)] ring-1 ring-inset transition-[box-shadow] duration-[var(--wariba-component-workstation-motion-interaction)] focus-within:ring-2 lg:h-9 ${
           error
             ? 'ring-[color:var(--wariba-component-workstation-trading-rejection)]'
             : 'ring-[color:var(--wariba-component-workstation-border-hairline)] focus-within:ring-[color:var(--wariba-component-workstation-border-focus)]'
@@ -164,13 +164,13 @@ export function QuantityControl({ spec, value, onChange, error }: QuantityContro
             data-testid="quantity-input"
             aria-invalid={error ? true : undefined}
             aria-describedby={errorId}
-            className="wariba-data h-full w-full border-0 bg-transparent pl-3 pr-10 text-center text-[length:var(--wariba-font-size-body-lg)] font-semibold tabular-nums text-[color:var(--wariba-component-workstation-text-primary)] focus:outline-none"
+            className="wariba-data h-full min-w-0 w-full border-0 bg-transparent pl-1.5 pr-7 text-center text-[length:var(--wariba-font-size-body-lg)] font-semibold tabular-nums text-[color:var(--wariba-component-workstation-text-primary)] focus:outline-none lg:text-[length:var(--wariba-component-workstation-type-data-strong)]"
             value={value}
             onChange={(event) => onChange(event.target.value)}
           />
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute right-3 text-[length:var(--wariba-component-workstation-type-meta)] font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-text-tertiary)]"
+            className="pointer-events-none absolute right-2 text-[length:var(--wariba-component-workstation-type-meta)] font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-text-tertiary)]"
           >
             lots
           </span>
@@ -195,7 +195,7 @@ export function QuantityControl({ spec, value, onChange, error }: QuantityContro
       ) : null}
 
       {presets.length > 0 ? (
-        <div className="flex gap-1.5" role="group" aria-label="Quantités rapides">
+        <div className="flex gap-1" role="group" aria-label="Quantités rapides">
           {presets.map((preset) => (
             <button
               key={preset}
@@ -204,7 +204,7 @@ export function QuantityControl({ spec, value, onChange, error }: QuantityContro
               aria-pressed={value.trim() === preset}
               onClick={() => onChange(preset)}
               className={[
-                'wariba-data min-h-11 flex-1 rounded-[7px] px-1.5 py-1 lg:min-h-8',
+                'wariba-data min-h-11 flex-1 rounded-[7px] px-1 py-1 lg:min-h-7 lg:py-0.5',
                 'text-[length:var(--wariba-component-workstation-type-data)] font-semibold tabular-nums',
                 'transition-[background-color,color,box-shadow] duration-[var(--wariba-component-workstation-motion-interaction)]',
                 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]',

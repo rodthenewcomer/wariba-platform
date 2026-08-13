@@ -40,7 +40,7 @@ function ExecutionNotice({
     <div
       role={level === 'danger' ? 'alert' : 'status'}
       {...(testId ? { 'data-testid': testId } : {})}
-      className={`flex flex-col gap-0.5 rounded-r-[6px] border-l-[3px] px-2.5 py-1.5 ${NOTICE_STYLE[level]}`}
+      className={`flex flex-col gap-0.5 rounded-r-[6px] border-l-[3px] px-2 py-1 ${NOTICE_STYLE[level]}`}
     >
       {/*
        * Visual closure §17 — prominent without being tall. The title stays at
@@ -103,7 +103,7 @@ export function ExecutionStatus({ gate, rejection, risk }: ExecutionStatusProps)
   }
 
   return (
-    <div className="flex flex-col gap-1.5 px-3 pb-1 pt-2" data-testid="execution-status">
+    <div className="flex flex-col gap-1 px-2.5 pb-1 pt-1.5" data-testid="execution-status">
       {rejection ? (
         <ExecutionNotice level="danger" title="Ordre refusé" testId="execution-rejection">
           <p>{rejection.reason}</p>

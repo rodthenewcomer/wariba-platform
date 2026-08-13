@@ -54,15 +54,15 @@ export function ExecutionImpactSummary({ impact }: ExecutionImpactSummaryProps) 
      */
     <dl
       data-testid="execution-impact-summary"
-      className="grid grid-cols-3 border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-canvas)] px-3 py-2"
+      className="grid grid-cols-3 border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-canvas)] px-2.5 py-1.5"
     >
       {COLUMNS.map((column, index) => (
         <div
           key={column.key}
-          className={`flex min-w-0 flex-col gap-1 ${
+          className={`flex min-w-0 flex-col gap-0.5 ${
             index === 0
               ? ''
-              : 'border-l border-[color:var(--wariba-component-workstation-border-hairline)] pl-2.5'
+              : 'border-l border-[color:var(--wariba-component-workstation-border-hairline)] pl-1.5'
           }`}
         >
           <dt

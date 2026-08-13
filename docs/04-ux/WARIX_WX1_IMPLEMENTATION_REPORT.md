@@ -20,7 +20,7 @@ WX1_BASE_SHA = e8db6accf2ac80b75db9454ac49ccf6920c3b582
 - WARIBA UI primitives: `MetricReadout`, `ModuleHeader`, `ToolbarButton`, `ToolRailButton`,
   `SegmentedControl`, `CompactEmptyState` and `MobileStructuredRow`.
 - A 44 px instrumentation bar, 56 px product rail, 244 px Market Navigator, 36 px drawing rail,
-  fluid chart, 320 px Execution Center and 48 px empty dock.
+  fluid chart, viewport-compact Execution Center and 48 px empty dock.
 - A chart context header, current-contract timeframe toolbar, indicator popover, compact footer and
   exact six-tool desktop drawing rail.
 - A professional drawing context bar using only existing W5 persistence and style semantics.
@@ -60,7 +60,7 @@ No WX2 interval or history capability is exposed. The only available intervals r
 | Measurement | Result |
 |---|---:|
 | Navigator default | 244 px |
-| Execution default | 320 px |
+| Execution default | 260 px @1920 · 248 px @1440 · 236 px @1280–1366 |
 | Drawing rail | 36 px |
 | Empty dock | 48 px |
 | Top instrumentation | 44 px |
@@ -252,15 +252,17 @@ of number, and keeping them apart is the whole design.
 `workstation-preferences.ts` at schema 2, they belong to the browser, and only a
 deliberate resize changes them. **Effective** dimensions are what fits right
 now: `workspace-layout.ts` derives them on every render and never writes one
-back. A 360px Navigator therefore survives a spell at 1280 — rendered at 268 to
-protect the chart — and returns at 360 when the window widens. Storing the
-clamped value instead would have destroyed the preference the first time the
-window got small.
+back. The rendered closure proof sets Execution to 280px at 1920, observes the
+1280 hard clamp at 260 while storage remains 280, then observes 280 again after
+re-expansion. Navigator proves the same contract across the mobile transition:
+340px at 1920, an effective 0px track at 900 with 340 still stored, and 340px
+again at 1920. Storing either effective value would have destroyed the trader's
+preference.
 
 | Constant | Value |
 |---|---:|
 | Navigator | 244 default, 220–360 preferred |
-| Execution | 320 default, 304–420 preferred |
+| Execution | 248 global baseline, 224–300 preferred; 236 / 248 / 260 viewport defaults |
 | Activity dock | 220 populated default, 112 min, 560 hard ceiling |
 | `MIN_FULL_DESKTOP_CHART_WIDTH` | 520 |
 | `MIN_CENTER_WORKSPACE_HEIGHT` | 420 |
@@ -304,10 +306,73 @@ default — on a `role="separator"` carrying its own min/now/max. The seam is a
 Mobile is isolated: the engine returns zero pane widths below 1024 and no resize
 control is rendered, while the stored desktop preferences stay untouched.
 
+### 10.10 Right execution dock compaction
+
+The focused compaction pass keeps the same shell, command surface, risk values,
+history lifecycle and resize mechanism. It changes only the presentation policy
+and the density of the existing controls.
+
+| Viewport | Default | Soft range | Hard max | Chart plot recovered |
+|---:|---:|---:|---:|---:|
+| 1920 | 260 px | 248–280 px | 300 px | +60 px |
+| 1440 | 248 px | 236–264 px | 280 px | +72 px |
+| 1366 | 236 px | 224–248 px | 260 px | +84 px |
+| 1280 | 236 px | 224–248 px | 260 px | +84 px |
+
+At rest, the dock now uses one instrument/status row, 15 px Bid/Ask figures, a
+60 px quote deck, shorter desktop type/quantity/protection controls, compact
+risk instrumentation and 48 px decision keys. Margin, DLL and MLL remain pinned
+beside the actions. The lower-priority concentration/stale-price breakdown is
+still present behind the explicit `Détail impact` disclosure.
+
+The before/after harness uses a real authenticated sandbox account, a live mock
+feed and a real persisted drawing. Across all ten requested states it measured
+zero document overflow, zero resize-induced history requests, zero chart
+remounts and preservation of the execution draft and drawing. Manual resize
+restored 224 px after reload. Evidence and the exact machine-readable geometry
+are stored under:
+
+```text
+docs/04-ux/evidence/warix-wx1-right-dock-compaction/
+```
+
+### 10.11 Resize/layout closure gate
+
+The approved compact direction was not redesigned. Closure corrected two
+layout-engine defects exposed by rendered evidence:
+
+- the right-hand separator now maps arrows to the seam's physical direction
+  (`ArrowRight` narrows Execution by 8px, `Shift+ArrowLeft` widens it by 24px);
+- opening the first-run 1024 Navigator no longer promotes the global 248px
+  Execution baseline over the rendered 236px viewport default, and the restore
+  row remains geometrically reserved while the overlay is open.
+
+Measured final results:
+
+| Gate | Result |
+|---|---|
+| Vertical dock chart protection | PASS — tallest dock 436px; chart module 420px, plot 326px |
+| 1024 hybrid width stability | PASS — module 732→732px; plot 696→696px |
+| 1024 hybrid height stability | PASS — module 504→504px; plot 370→370px |
+| Visible logical range | PASS — `{from: 459.4435261707989, to: 802}` → `{from: 479.3278236914601, to: 802}`; live right edge anchored |
+| Resize transport/ownership | PASS — same source epoch, 0 history requests, 0 chart remounts |
+| Keyboard / Shift+Arrow | PASS — 8px / 24px physical seam movement |
+| Double-click canonical reset | PASS — Execution 260px at 1920, Navigator 244px, dock 220px |
+| Preference restore | PASS — Execution 280→260→280; Navigator 340→0→340 |
+
+At the 224px legal minimum, Market, Limit, populated SL, populated SL+TP,
+estimate and real server rejection were captured. Quotes, monetary values,
+order types and protection prices remain complete; Buy/Sell remain at least
+48px high; track, panel and document horizontal overflow are all 0px. The two
+protection inputs stack only below 220px of panel content, because the initial
+side-by-side render could not display both five-decimal prices in full.
+
 ## 11. Review status
 
 ```text
 WX1_HUMAN_VISUAL_REVIEW = pending
+WX1_RIGHT_DOCK_DIRECTION = approved
+WX1_RESIZE_LAYOUT_GATE = passed
 WX1_ACCEPTED = false
 ```
 

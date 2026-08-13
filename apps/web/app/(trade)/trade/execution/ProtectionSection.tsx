@@ -64,7 +64,10 @@ export function ProtectionSection({
        * sequence of label/control pairs. The bound `<label>` for each field is
        * unchanged and still carries the full name to assistive technology.
        */}
-      <div className="grid grid-cols-2 gap-2">
+      {/* At the 224px legal dock minimum, two prefixed price fields cannot show
+          a five-decimal value in full. Stack only below 220px of panel content;
+          every normal/default width keeps the approved two-column instrument. */}
+      <div className="grid grid-cols-1 gap-1.5 @min-[220px]:grid-cols-2">
         <ExecutionField
           id="execution-stop-loss"
           label="Stop Loss (prix)"
@@ -150,10 +153,10 @@ export function ProtectionPreview({ preview }: ProtectionPreviewProps) {
 
   return (
     <div
-      className="flex flex-col gap-1.5 rounded-[8px] bg-[color:var(--wariba-component-workstation-wash-neutral)] px-2.5 py-2"
+      className="flex flex-col gap-1 rounded-[7px] bg-[color:var(--wariba-component-workstation-wash-neutral)] px-2 py-1.5"
       data-testid="protection-preview"
     >
-      <div className="grid grid-cols-[minmax(0,1fr)_4.5rem_4.5rem] items-baseline gap-x-3 gap-y-1.5">
+      <div className="grid grid-cols-[minmax(0,1fr)_3.5rem_3.5rem] items-baseline gap-x-2 gap-y-1">
         <span className="text-[length:var(--wariba-component-workstation-type-section-label)] font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]">
           Estimation
         </span>

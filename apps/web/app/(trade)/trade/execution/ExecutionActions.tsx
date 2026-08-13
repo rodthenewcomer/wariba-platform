@@ -104,8 +104,8 @@ export function ExecutionActions({
   const descriptionIdPrefix = useId();
 
   return (
-    <div className="flex flex-col gap-2 px-3 pb-3 pt-2.5" data-testid="execution-actions">
-      <div className="grid grid-cols-2 gap-2">
+    <div className="flex flex-col gap-1.5 px-2.5 pb-2 pt-2" data-testid="execution-actions">
+      <div className="grid grid-cols-2 gap-1.5">
         {SIDES.map((side) => {
           const copy = SIDE_COPY[side];
           // The E2E suite and every trader's muscle memory key on the bare
@@ -133,8 +133,8 @@ export function ExecutionActions({
                 aria-describedby={`${descriptionIdPrefix}-${side}`}
                 onClick={() => onSubmit(side)}
                 className={[
-                  'flex min-h-[var(--wariba-component-workstation-decision-button-height)] flex-col items-center justify-center gap-1.5',
-                  'rounded-[8px] px-2 py-2',
+                  'flex min-h-[var(--wariba-component-workstation-decision-button-height)] flex-col items-center justify-center gap-1',
+                  'rounded-[8px] px-1.5 py-1.5',
                   'transition-[background-color,filter,transform,box-shadow] duration-[var(--wariba-component-workstation-motion-interaction)]',
                   // The key treatment is dropped on the de-emphasised and
                   // disabled forms: an inert control must not look pressable.
@@ -197,7 +197,7 @@ export function ExecutionActions({
                 <span className="flex items-center justify-center gap-1.5 text-[length:var(--wariba-component-workstation-type-decision)] font-bold leading-none tracking-[var(--wariba-component-workstation-tracking-decision)]">
                   <span
                     aria-hidden="true"
-                    className="w-2 shrink-0 text-center text-[9px] leading-none opacity-75"
+                    className="w-3 shrink-0 text-center text-[9px] leading-none opacity-75"
                   >
                     {copy.glyph}
                   </span>
@@ -215,7 +215,7 @@ export function ExecutionActions({
                     // whole key split it into two stacked cells. A short
                     // centred mark separates the price from the verb without
                     // making the key look like a table.
-                    'wariba-data w-10 border-t pt-1 text-center leading-none tabular-nums',
+                    'wariba-data w-14 border-t pt-1 text-center leading-none tabular-nums',
                     'text-[length:var(--wariba-component-workstation-type-data)] font-semibold',
                     sideUnavailable
                       ? 'border-[color:var(--wariba-component-workstation-border-strong)]'
@@ -259,7 +259,7 @@ export function ExecutionActions({
        */}
       <p
         title="Compte simulé. L’exécution est faite par le serveur uniquement — aucun prix affiché dans le navigateur n’est jamais autoritaire."
-        className="text-[length:var(--wariba-component-workstation-type-meta)] leading-snug text-[color:var(--wariba-component-workstation-text-tertiary)]"
+        className="text-[length:var(--wariba-component-workstation-type-meta)] leading-tight text-[color:var(--wariba-component-workstation-text-tertiary)]"
       >
         Compte simulé · exécution serveur — aucun prix client n&apos;est autoritaire.
         {orderKind !== 'market' ? ' Ordres en attente GTC.' : ''}

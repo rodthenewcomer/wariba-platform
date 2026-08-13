@@ -66,3 +66,68 @@ Comparaison combinée, même viewport :
   choisi ; les captures et interactions ci-dessus proviennent du navigateur intégré.
 
 Final result: passed
+
+---
+
+# WX1 right execution dock — design QA
+
+## Inputs
+
+- Reference: `/Users/rodrigueadebigni/Downloads/Screenshot_13-8-2026_14576_topstepx.com.jpeg`
+- Product brief: `/Users/rodrigueadebigni/.codex/attachments/c071f7fe-ecad-4117-9775-7e2b66874f36/pasted-text.txt`
+- Before capture: `docs/04-ux/evidence/warix-wx1-right-dock-compaction/before/`
+- After capture: `docs/04-ux/evidence/warix-wx1-right-dock-compaction/after/`
+
+## Side-by-side conclusion
+
+The reference was used only for spatial discipline: a narrow order surface,
+compact quote hierarchy and a chart-dominant workstation. Branding, colours,
+labels, risk information and trading semantics remain WARIBA.
+
+The default dock contracts from 320 px to 260 px at 1920, 248 px at 1440 and
+236 px at 1280–1366. The exact removed width transfers one-for-one to the chart
+module and plot: +60, +72 and +84 px respectively. The resulting composition is
+visibly chart-led and the action surface remains immediately legible.
+
+## Visual and interaction checks
+
+| Check                                                           | Result        | Evidence                                                     |
+| --------------------------------------------------------------- | ------------- | ------------------------------------------------------------ |
+| Instrument and status share one tight row                       | Passed        | all after screenshots                                        |
+| Bid, Ask and spread remain fully legible at 236 px              | Passed        | `04-1280-default.png`                                        |
+| Market / Limit / Stop remain clear and keyboard-operable        | Passed        | isolated UI/web unit suites                                  |
+| Quantity and quick sizes remain usable                          | Passed        | unit suite and 1280 capture                                  |
+| SL / TP values fit the compact fields                           | Passed        | `06-1440-sl-populated.png`                                   |
+| Margin, DLL and MLL remain pinned with actions                  | Passed        | all after screenshots                                        |
+| Secondary impact detail remains available but collapsed at rest | Passed        | default captures                                             |
+| Buy / Sell remain dominant and at least 44 px on touch          | Passed        | mobile E2E                                                   |
+| Tallest desktop state keeps both actions fully in viewport      | Passed        | desktop E2E                                                  |
+| Critical/serious accessibility violations                       | Passed — 0    | Axe E2E with pending order                                   |
+| Document horizontal overflow                                    | Passed — 0 px | ten-state manifest                                           |
+| Live in-app browser verification                                | Passed        | 1440×900, realtime open, all eight critical controls visible |
+
+## State preservation
+
+All ten evidence transitions recorded no chart remount, no history request, no
+execution-draft loss and no drawing loss. The 224 px manual width restored to
+224 px after reload; the real chart drawing also restored.
+
+## Residual review boundary
+
+Automated and agent visual QA passed. The user approved the compact right-dock
+direction on 13 August 2026; it was not redesigned during closure. Overall WX1
+acceptance and merge remain separate and were not performed.
+
+## Closure evidence
+
+- 224px Market, Limit, SL, SL+TP, estimate and server rejection inspected.
+- The first 224px render exposed clipped five-decimal SL/TP fields; closure
+  stacked those two fields only below 220px of panel content and recaptured all
+  six states.
+- Final measurements: no clipped quote or protection price, no wrapped monetary
+  value, no truncated order type, usable 48px Buy/Sell keys and 0px horizontal
+  overflow.
+- 1024 Navigator closed/open geometry is identical: module 732×504px, plot
+  696×370px.
+
+final result: passed

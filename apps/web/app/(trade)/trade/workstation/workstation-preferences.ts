@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TRADABLE_SYMBOLS, type TradableSymbol } from '@wariba/contracts';
 import {
   DEFAULT_PREFERRED_LAYOUT,
@@ -16,6 +16,7 @@ import {
   NAVIGATOR_PREFERRED_MAX,
   NAVIGATOR_PREFERRED_MIN,
   clampToRange,
+  executionDockPolicyForWidth,
 } from './workspace-layout';
 
 /**
@@ -51,7 +52,7 @@ export const WORKSTATION_PREFERENCES_KEY = 'wariba.workstation.layout';
  *
  * Version 1 payloads are migrated rather than discarded: a trader who had
  * already sized their Navigator and dock keeps both, and simply gains an
- * Execution width at its default. Anything that is neither 1 nor 2 — including
+ * Execution width at its compact baseline. Anything that is neither 1 nor 2 — including
  * a *newer* version written by some future build — fails closed to the
  * defaults, so an unknown shape can never silently become authoritative.
  */
@@ -166,11 +167,11 @@ export const DESKTOP_MINIMUM_WIDTH = 1024;
 export const HYBRID_MAXIMUM_WIDTH = 1279;
 
 /**
- * Visual closure §22 — the 1024–1279 hybrid band.
+ * Visual closure §22 and the compact execution-width policy.
  *
- * The band keeps the chart and the Execution Center persistent and makes the
- * Navigator contextual, because choosing an instrument is occasional while
- * reading the chart and sizing an order are continuous.
+ * The hybrid band keeps the chart and Execution persistent and makes the
+ * Navigator contextual. Every desktop band also receives its own compact
+ * first-run Execution width; stored preferences remain viewport-independent.
  */
 export function isHybridWidth(width: number): boolean {
   return width >= DESKTOP_MINIMUM_WIDTH && width <= HYBRID_MAXIMUM_WIDTH;
@@ -179,14 +180,15 @@ export function isHybridWidth(width: number): boolean {
 /**
  * First-run layout for a viewport that has no stored preference yet.
  *
- * Kept as the single definition of what the band's default *is*; `TradeClient`
- * resolves it per render against the live viewport rather than freezing it at
- * mount, so a window resized across the boundary settles correctly either way.
+ * Kept as the single definition of viewport defaults; `TradeClient` resolves
+ * it per render rather than freezing it at mount.
  */
 export function defaultWorkstationPreferencesForWidth(width: number): WorkstationPreferences {
-  return isHybridWidth(width)
-    ? { ...DEFAULT_WORKSTATION_PREFERENCES, navigatorCollapsed: true }
-    : DEFAULT_WORKSTATION_PREFERENCES;
+  return {
+    ...DEFAULT_WORKSTATION_PREFERENCES,
+    executionPreferredWidth: executionDockPolicyForWidth(width).preferred,
+    navigatorCollapsed: isHybridWidth(width),
+  };
 }
 
 export interface WorkstationPreferencesController {
@@ -215,16 +217,18 @@ export interface WorkstationPreferencesController {
  * and stored values are applied after mount — the same hydrate-then-apply shape
  * `useOneClickTrading` already uses.
  */
-export function useWorkstationPreferences(): WorkstationPreferencesController {
+export function useWorkstationPreferences(viewportWidth: number): WorkstationPreferencesController {
   const [preferences, setPreferences] = useState<WorkstationPreferences>(
     DEFAULT_WORKSTATION_PREFERENCES,
   );
   const [hasStoredLayout, setHasStoredLayout] = useState(false);
+  const hasStoredLayoutRef = useRef(false);
 
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(WORKSTATION_PREFERENCES_KEY);
       if (stored === null) return;
+      hasStoredLayoutRef.current = true;
       setPreferences(parseWorkstationPreferences(stored));
       setHasStoredLayout(true);
     } catch {
@@ -233,8 +237,18 @@ export function useWorkstationPreferences(): WorkstationPreferencesController {
     }
   }, []);
 
+  useEffect(() => {
+    if (hasStoredLayoutRef.current) return;
+    // Keep the in-memory baseline aligned with the first-run composition. If
+    // the trader's first deliberate action is opening the hybrid Navigator,
+    // that action must not incidentally promote the global 248px Execution
+    // baseline over the 1024 band's rendered 236px default and shrink the chart.
+    setPreferences(defaultWorkstationPreferencesForWidth(viewportWidth));
+  }, [viewportWidth]);
+
   const update = useCallback((patch: Partial<WorkstationPreferences>) => {
     // Any deliberate change makes this browser's layout the trader's own.
+    hasStoredLayoutRef.current = true;
     setHasStoredLayout(true);
     setPreferences((previous) => {
       const next = { ...previous, ...patch };
@@ -269,7 +283,12 @@ export function useWorkstationPreferences(): WorkstationPreferencesController {
       resetNavigatorWidth: () => update({ navigatorPreferredWidth: NAVIGATOR_WIDTH_DEFAULT }),
       resetExecutionWidth: () => update({ executionPreferredWidth: EXECUTION_WIDTH_DEFAULT }),
       resetDockHeight: () => update({ activityDockPreferredHeight: DOCK_HEIGHT_DEFAULT }),
-      toggleFavorite: (symbol) =>
+      toggleFavorite: (symbol) => {
+        // Favorites share this browser-local payload. Mark it stored before the
+        // write so a later viewport change cannot replace the newly persisted
+        // favorite list with first-run layout defaults.
+        hasStoredLayoutRef.current = true;
+        setHasStoredLayout(true);
         setPreferences((previous) => {
           const favorites = previous.favorites.includes(symbol)
             ? previous.favorites.filter((entry) => entry !== symbol)
@@ -281,7 +300,8 @@ export function useWorkstationPreferences(): WorkstationPreferencesController {
             // See update() above.
           }
           return next;
-        }),
+        });
+      },
     }),
     [preferences, hasStoredLayout, update],
   );

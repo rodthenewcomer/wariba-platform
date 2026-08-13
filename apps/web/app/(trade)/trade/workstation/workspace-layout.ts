@@ -30,9 +30,35 @@ export const NAVIGATOR_DEFAULT_WIDTH = 244;
 export const NAVIGATOR_PREFERRED_MIN = 220;
 export const NAVIGATOR_PREFERRED_MAX = 360;
 
-export const EXECUTION_DEFAULT_WIDTH = 320;
-export const EXECUTION_PREFERRED_MIN = 304;
-export const EXECUTION_PREFERRED_MAX = 420;
+/**
+ * WX1 right-dock compaction policy.
+ *
+ * The stored preference keeps one viewport-independent range. The layout
+ * engine then applies the active viewport's hard maximum without writing that
+ * effective clamp back to storage. This preserves the preferred/effective
+ * contract while ensuring a large saved dock can never reclaim the chart at a
+ * smaller desktop width.
+ */
+export const EXECUTION_DEFAULT_WIDTH = 248;
+export const EXECUTION_PREFERRED_MIN = 224;
+export const EXECUTION_PREFERRED_MAX = 300;
+
+export interface ExecutionDockPolicy {
+  preferred: number;
+  softMin: number;
+  softMax: number;
+  hardMax: number;
+}
+
+export function executionDockPolicyForWidth(viewportWidth: number): ExecutionDockPolicy {
+  if (viewportWidth >= 1600) {
+    return { preferred: 260, softMin: 248, softMax: 280, hardMax: 300 };
+  }
+  if (viewportWidth >= 1400) {
+    return { preferred: 248, softMin: 236, softMax: 264, hardMax: 280 };
+  }
+  return { preferred: 236, softMin: 224, softMax: 248, hardMax: 260 };
+}
 
 export const DOCK_DEFAULT_POPULATED_HEIGHT = 220;
 export const DOCK_POPULATED_MIN = 112;
@@ -199,6 +225,8 @@ export function resolveWorkspaceLayout(
     };
   }
 
+  const executionPolicy = executionDockPolicyForWidth(conditions.viewportWidth);
+
   if (mode === 'hybrid') {
     const hybridMax = effectiveHybridNavigatorMax(conditions.viewportWidth);
     const navigatorWidth = clampToRange(
@@ -209,7 +237,7 @@ export function resolveWorkspaceLayout(
     const executionWidth = clampToRange(
       preferred.executionWidth,
       EXECUTION_PREFERRED_MIN,
-      EXECUTION_PREFERRED_MAX,
+      executionPolicy.hardMax,
     );
     return {
       mode,
@@ -217,7 +245,7 @@ export function resolveWorkspaceLayout(
       executionWidth,
       dockHeight,
       navigatorMax: hybridMax,
-      executionMax: EXECUTION_PREFERRED_MAX,
+      executionMax: executionPolicy.hardMax,
       dockMax,
       // The overlay floats, so the chart keeps the whole centre either way.
       chartWidth:
@@ -234,7 +262,7 @@ export function resolveWorkspaceLayout(
   let execution = clampToRange(
     preferred.executionWidth,
     EXECUTION_PREFERRED_MIN,
-    EXECUTION_PREFERRED_MAX,
+    executionPolicy.hardMax,
   );
 
   let overflow = navigator + execution - budget;
@@ -262,7 +290,7 @@ export function resolveWorkspaceLayout(
   const executionMax = clampToRange(
     budget - navigator,
     EXECUTION_PREFERRED_MIN,
-    EXECUTION_PREFERRED_MAX,
+    executionPolicy.hardMax,
   );
 
   return {

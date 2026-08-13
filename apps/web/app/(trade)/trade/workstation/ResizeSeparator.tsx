@@ -168,12 +168,18 @@ export function ResizeSeparator({
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    const decreaseKey = orientation === 'vertical' ? 'ArrowLeft' : 'ArrowDown';
-    const increaseKey = orientation === 'vertical' ? 'ArrowRight' : 'ArrowUp';
+    const negativeAxisKey = orientation === 'vertical' ? 'ArrowLeft' : 'ArrowUp';
+    const positiveAxisKey = orientation === 'vertical' ? 'ArrowRight' : 'ArrowDown';
     let next: number | null = null;
     const magnitude = event.shiftKey ? step * COARSE_STEP_MULTIPLIER : step;
-    if (event.key === decreaseKey) next = value - magnitude;
-    if (event.key === increaseKey) next = value + magnitude;
+    // Keyboard movement follows the seam on screen, exactly like the pointer:
+    // ArrowLeft moves a vertical seam left and ArrowUp moves a horizontal seam
+    // up. `direction` then maps that physical movement to the pane's value. This
+    // matters for the Execution Center, whose leading edge moves left as the
+    // right-hand pane grows; treating ArrowRight as a generic "increase" would
+    // move that seam in the opposite direction from the key the trader pressed.
+    if (event.key === negativeAxisKey) next = value - magnitude * direction;
+    if (event.key === positiveAxisKey) next = value + magnitude * direction;
     if (event.key === 'Home') next = min;
     if (event.key === 'End') next = max;
     if (next === null) return;

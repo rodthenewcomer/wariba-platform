@@ -577,6 +577,21 @@ export function TradeChart({
      * request per page (§19/§96). No timer, no polling.
      */
     const onVisibleRangeChange = (range: { from: number; to: number } | null) => {
+      // Evidence anchor for the resize engine. Updating data attributes keeps
+      // the proof outside React's render path: pane geometry may expose more
+      // bars on the left, but the live right edge must remain anchored. No chart
+      // object or transport detail is exposed, only the two logical coordinates
+      // lightweight-charts already publishes to this callback.
+      const node = containerRef.current;
+      if (node) {
+        if (range === null) {
+          node.removeAttribute('data-visible-logical-from');
+          node.removeAttribute('data-visible-logical-to');
+        } else {
+          node.setAttribute('data-visible-logical-from', String(range.from));
+          node.setAttribute('data-visible-logical-to', String(range.to));
+        }
+      }
       // The overlay coordinates always refresh: a resized plot must not keep
       // drawing yesterday's pixel positions.
       bumpChartVersion();

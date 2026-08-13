@@ -59,7 +59,6 @@ export function ExecutionMarketHeader({ symbol, spec, tick }: ExecutionMarketHea
           The copper rule marks this module as the one WARIBA instrument on the
           desk that spends money. */}
       <ModuleHeader
-        eyebrow="Exécution"
         title={symbol}
         accent="identity"
         status={
@@ -111,17 +110,17 @@ export function ExecutionMarketHeader({ symbol, spec, tick }: ExecutionMarketHea
        * The digits shown are the server's own strings at the instrument's
        * precision — nothing here rounds or reformats.
        */}
-      <div className="grid min-h-[var(--wariba-component-workstation-quote-deck-height)] grid-cols-[1fr_auto_1fr] items-stretch gap-2 border-b border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-quote-deck)] px-3 py-2.5">
+      <div className="grid min-h-[var(--wariba-component-workstation-quote-deck-height)] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-stretch gap-1.5 border-b border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-quote-deck)] px-2.5 py-1.5">
         <div
           ref={bidRef}
-          className="relative -mx-1 flex flex-col justify-center gap-1.5 rounded-[6px] px-1 pb-1.5"
+          className="relative flex min-w-0 flex-col justify-center gap-1 rounded-[6px] pb-1"
         >
           <span className="text-[length:var(--wariba-component-workstation-type-meta)] font-semibold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]">
-            Vente · Bid
+            Bid
           </span>
           <span
             data-testid="execution-bid"
-            className={`wariba-data text-[length:var(--wariba-component-workstation-type-quote-hero)] font-semibold leading-none tracking-[-0.02em] tabular-nums ${
+            className={`wariba-data truncate text-[length:var(--wariba-component-workstation-type-instrument)] font-semibold leading-none tracking-[-0.02em] tabular-nums ${
               quotesAreLive
                 ? 'text-[color:var(--wariba-component-workstation-trading-live-bid)]'
                 : 'text-[color:var(--wariba-component-workstation-text-tertiary)]'
@@ -131,7 +130,7 @@ export function ExecutionMarketHeader({ symbol, spec, tick }: ExecutionMarketHea
           </span>
           <span
             aria-hidden="true"
-            className={`absolute bottom-0 left-0 h-0.5 w-9 rounded-full ${
+            className={`absolute bottom-0 left-0 h-0.5 w-7 rounded-full ${
               quotesAreLive
                 ? 'bg-[color:var(--wariba-component-workstation-trading-live-bid)]'
                 : 'bg-[color:var(--wariba-component-workstation-border-strong)]'
@@ -141,25 +140,25 @@ export function ExecutionMarketHeader({ symbol, spec, tick }: ExecutionMarketHea
 
         {/* Spread sits between the two quotes as an enclosed chip: it is the
             relationship between them, not a third quote. */}
-        <div className="flex flex-col items-center justify-center gap-1">
+        <div className="flex flex-col items-center justify-center gap-0.5">
           <span className="text-[length:var(--wariba-component-workstation-type-meta)] font-semibold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]">
             Spread
           </span>
-          <span className="wariba-data rounded-[6px] bg-[color:var(--wariba-component-workstation-wash-neutral)] px-1.5 py-1 text-[length:var(--wariba-component-workstation-type-data)] font-medium leading-none tabular-nums text-[color:var(--wariba-component-workstation-text-secondary)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)]">
+          <span className="wariba-data rounded-[5px] bg-[color:var(--wariba-component-workstation-wash-neutral)] px-1 py-0.5 text-[length:var(--wariba-component-workstation-type-meta)] font-medium leading-none tabular-nums text-[color:var(--wariba-component-workstation-text-secondary)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)]">
             {spread ?? DASH}
           </span>
         </div>
 
         <div
           ref={askRef}
-          className="relative -mx-1 flex flex-col items-end justify-center gap-1.5 rounded-[6px] px-1 pb-1.5"
+          className="relative flex min-w-0 flex-col items-end justify-center gap-1 rounded-[6px] pb-1"
         >
           <span className="text-[length:var(--wariba-component-workstation-type-meta)] font-semibold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]">
-            Achat · Ask
+            Ask
           </span>
           <span
             data-testid="execution-ask"
-            className={`wariba-data text-[length:var(--wariba-component-workstation-type-quote-hero)] font-semibold leading-none tracking-[-0.02em] tabular-nums ${
+            className={`wariba-data max-w-full truncate text-[length:var(--wariba-component-workstation-type-instrument)] font-semibold leading-none tracking-[-0.02em] tabular-nums ${
               quotesAreLive
                 ? 'text-[color:var(--wariba-component-workstation-trading-live-ask)]'
                 : 'text-[color:var(--wariba-component-workstation-text-tertiary)]'
@@ -169,7 +168,7 @@ export function ExecutionMarketHeader({ symbol, spec, tick }: ExecutionMarketHea
           </span>
           <span
             aria-hidden="true"
-            className={`absolute bottom-0 right-0 h-0.5 w-9 rounded-full ${
+            className={`absolute bottom-0 right-0 h-0.5 w-7 rounded-full ${
               quotesAreLive
                 ? 'bg-[color:var(--wariba-component-workstation-trading-live-ask)]'
                 : 'bg-[color:var(--wariba-component-workstation-border-strong)]'
@@ -179,7 +178,7 @@ export function ExecutionMarketHeader({ symbol, spec, tick }: ExecutionMarketHea
       </div>
 
       {tick && !quotesAreLive ? (
-        <p className="border-l-2 border-[color:var(--wariba-component-workstation-trading-warning)] bg-[color:var(--wariba-component-workstation-wash-warning)] px-3 py-1.5 text-[length:var(--wariba-component-workstation-type-data)] font-semibold text-[color:var(--wariba-component-workstation-trading-warning)]">
+        <p className="border-l-2 border-[color:var(--wariba-component-workstation-trading-warning)] bg-[color:var(--wariba-component-workstation-wash-warning)] px-2.5 py-1 text-[length:var(--wariba-component-workstation-type-label)] font-semibold leading-tight text-[color:var(--wariba-component-workstation-trading-warning)]">
           {status === 'stale'
             ? 'Dernier prix connu — le flux n’est plus à jour.'
             : 'Dernier prix connu — marché fermé.'}

@@ -76,7 +76,7 @@ export function ExecutionField({
         {visibleLabel ? <span className="sr-only"> {label}</span> : null}
       </label>
       <div
-        className={`relative flex h-11 items-center overflow-hidden rounded-[8px] lg:h-10 bg-[color:var(--wariba-component-workstation-surface-canvas)] ring-1 ring-inset transition-[box-shadow] duration-[var(--wariba-component-workstation-motion-interaction)] focus-within:ring-2 ${
+        className={`relative flex h-11 items-center overflow-hidden rounded-[8px] bg-[color:var(--wariba-component-workstation-surface-canvas)] ring-1 ring-inset transition-[box-shadow] duration-[var(--wariba-component-workstation-motion-interaction)] focus-within:ring-2 lg:h-9 ${
           errorText
             ? 'ring-[color:var(--wariba-component-workstation-trading-rejection)]'
             : 'ring-[color:var(--wariba-component-workstation-border-hairline)] focus-within:ring-[color:var(--wariba-component-workstation-border-focus)]'
@@ -91,7 +91,7 @@ export function ExecutionField({
         {prefix ? (
           <span
             aria-hidden="true"
-            className={`pointer-events-none shrink-0 pl-2 pr-1.5 text-[length:var(--wariba-component-workstation-type-meta)] font-bold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-label)] ${
+            className={`pointer-events-none shrink-0 pl-1.5 pr-1 text-[length:var(--wariba-component-workstation-type-meta)] font-bold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-label)] ${
               prefixClassName ?? 'text-[color:var(--wariba-component-workstation-text-tertiary)]'
             }`}
           >
@@ -102,9 +102,9 @@ export function ExecutionField({
           id={id}
           aria-describedby={describedBy}
           aria-invalid={Boolean(errorText) || undefined}
-          className={`wariba-data h-full w-full border-0 bg-transparent text-[length:var(--wariba-component-workstation-type-data-strong)] tabular-nums text-[color:var(--wariba-component-workstation-text-primary)] placeholder:font-sans placeholder:text-[length:var(--wariba-component-workstation-type-meta)] placeholder:text-[color:var(--wariba-component-workstation-text-tertiary)] focus:outline-none ${
+          className={`wariba-data h-full min-w-0 w-full border-0 bg-transparent text-[length:var(--wariba-component-workstation-type-data-strong)] tabular-nums text-[color:var(--wariba-component-workstation-text-primary)] placeholder:font-sans placeholder:text-[length:var(--wariba-component-workstation-type-meta)] placeholder:text-[color:var(--wariba-component-workstation-text-tertiary)] focus:outline-none ${
             prefix ? 'pl-0' : 'pl-2.5'
-          } ${suffix ? 'pr-9' : 'pr-2.5'} ${inputClassName ?? ''}`}
+          } ${suffix ? 'pr-9' : 'pr-1.5'} ${inputClassName ?? ''}`}
           {...props}
         />
         {suffix ? (

@@ -181,8 +181,14 @@ export const WorkstationShell = memo(function WorkstationShell({
         data-testid="chart-track"
         className="relative flex min-h-[52dvh] min-w-0 flex-1 flex-col lg:min-h-0 lg:[grid-area:2/3/3/4]"
       >
-        {navigatorCollapsed ? (
-          <div className="hidden shrink-0 lg:block">{navigatorRestore}</div>
+        {/* The hybrid overlay must not change chart height when it opens. Its
+            closed-state restore control owns this fixed row; while the overlay
+            is open the row remains as geometry-only space, so the same plot box
+            stays under the trader's candles. */}
+        {navigatorCollapsed || navigatorOverlay ? (
+          <div className="hidden h-10 shrink-0 lg:block">
+            {navigatorCollapsed ? navigatorRestore : null}
+          </div>
         ) : null}
         {chart}
         {/*

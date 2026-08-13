@@ -37,6 +37,7 @@ export function OrderTypeSelector({ value, onChange }: OrderTypeSelectorProps) {
       value={value}
       options={ORDER_KIND_OPTIONS}
       onValueChange={onChange}
+      compact
       testId="order-type-selector"
     />
   );

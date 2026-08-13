@@ -74,17 +74,20 @@ from the engine's own constants.
 
 | Claim | Where it is proven |
 |---|---|
-| Chart floor holds under both panes at maximum | `1366-both-panes-near-maximum.png` — plot measured **520px**, the configured minimum exactly |
-| Navigator gives way before Execution | `1280-clamped-preferences.png` — Navigator 340 → **268**, Execution keeps its preferred **400** |
-| A clamp never destroys a preference | `resize-manifest.json → preferredWidthRestore`: effective 340 → 268 → **340**, stored preference **340** throughout |
-| Opening the hybrid overlay costs no chart width | `hybridChartWidthStable`: **648px** closed and open |
-| Resizing is not navigation | `chartStateAcrossResize`: `sourceEpoch` stable, drawings stable, execution draft stable, **0** history requests, **0** chart remounts |
+| Chart floor holds under both panes at maximum | `1366-both-panes-near-maximum.png` — module **690px**, plot **654px**, above the 520px module floor |
+| Execution clamp preserves preference | 280px at 1920 → effective **260px** at 1280 with 280 stored → **280px** after re-expansion |
+| Navigator responsive constraint preserves preference | 340px at 1920 → effective **0px** at the 900 mobile transition with 340 stored → **340px** after re-expansion |
+| Opening the 1024 hybrid overlay costs no chart geometry | module **732×504px** and plot **696×370px**, closed and open |
+| Resizing is not navigation | right edge **802→802**, source epoch stable, execution draft stable, **0** history requests, **0** chart remounts |
+| Accessible resize/reset | arrows **8px**, Shift+arrow **24px**; canonical reset Execution 260px at 1920, Navigator 244px, dock 220px |
 | No horizontal overflow at any sampled state | every sample records `horizontalOverflow: 0` |
 
 Regenerate with:
 
 ```bash
-pnpm --filter @wariba/web exec playwright test --grep @warix-resize-evidence
+pnpm --filter @wariba/web exec playwright test \
+  --config=playwright.dock-evidence.config.ts \
+  tests/e2e/warix-wx1-resize-evidence.spec.ts --project=desktop
 ```
 
 ## How to regenerate

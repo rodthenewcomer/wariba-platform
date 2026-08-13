@@ -142,7 +142,7 @@ export const ExecutionPanel = memo(function ExecutionPanel({
   return (
     <div
       data-testid="execution-center"
-      className="flex min-h-0 flex-1 flex-col bg-[color:var(--wariba-component-workstation-surface-module)]"
+      className="@container flex min-h-0 flex-1 flex-col bg-[color:var(--wariba-component-workstation-surface-module)]"
     >
       {/* The three quotes and the reason the trader cannot act: pinned, because
           neither is useful if it has scrolled away from the button. */}
@@ -176,7 +176,7 @@ export const ExecutionPanel = memo(function ExecutionPanel({
           ) : null}
         </ExecutionSection>
 
-        <ExecutionSection title="Quantité" testId="execution-quantity">
+        <ExecutionSection title="Qté" testId="execution-quantity">
           <QuantityControl
             spec={spec}
             value={draft.quantity}
@@ -186,7 +186,7 @@ export const ExecutionPanel = memo(function ExecutionPanel({
         </ExecutionSection>
 
         <ExecutionSection
-          title="Protection"
+          title="SL / TP"
           testId="execution-protection"
           footer={<ProtectionPreview preview={protectionPreview} />}
         >
@@ -211,7 +211,20 @@ export const ExecutionPanel = memo(function ExecutionPanel({
          */}
         {hasImpactDetail ? (
           <ExecutionSection title="Impact" testId="execution-impact">
-            <TradeImpactPanel impact={impact} />
+            <details className="group" data-testid="execution-impact-detail">
+              <summary className="flex min-h-7 cursor-pointer list-none items-center justify-between gap-2 rounded-[6px] bg-[color:var(--wariba-component-workstation-surface-control)] px-2 text-[length:var(--wariba-component-workstation-type-label)] font-semibold text-[color:var(--wariba-component-workstation-text-secondary)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]">
+                Détail impact
+                <span
+                  aria-hidden="true"
+                  className="text-[length:var(--wariba-component-workstation-type-meta)] transition-transform duration-[var(--wariba-component-workstation-motion-interaction)] group-open:rotate-45"
+                >
+                  +
+                </span>
+              </summary>
+              <div className="pt-1.5">
+                <TradeImpactPanel impact={impact} />
+              </div>
+            </details>
           </ExecutionSection>
         ) : null}
       </div>

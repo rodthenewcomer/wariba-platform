@@ -493,11 +493,11 @@
   --wariba-component-workstation-nav-width-min: 220px;
   --wariba-component-workstation-nav-width-max: 320px;
   --wariba-component-workstation-drawing-rail-width: 36px;
-  --wariba-component-workstation-exec-width: 320px;
-  --wariba-component-workstation-exec-width-compact: 320px;
-  --wariba-component-workstation-exec-width-wide: 320px;
-  --wariba-component-workstation-exec-width-min: 304px;
-  --wariba-component-workstation-exec-width-max: 360px;
+  --wariba-component-workstation-exec-width: 248px;
+  --wariba-component-workstation-exec-width-compact: 236px;
+  --wariba-component-workstation-exec-width-wide: 260px;
+  --wariba-component-workstation-exec-width-min: 224px;
+  --wariba-component-workstation-exec-width-max: 300px;
   --wariba-component-workstation-dock-height: 220px;
   --wariba-component-workstation-dock-height-compact: 200px;
   --wariba-component-workstation-dock-height-wide: 260px;
@@ -573,7 +573,7 @@
   --wariba-component-workstation-identity-mark: #D89A7D;
   --wariba-component-workstation-identity-rule: #BE6945;
   --wariba-component-workstation-type-quote-hero: 27px;
-  --wariba-component-workstation-type-quote-hero-compact: 22px;
+  --wariba-component-workstation-type-quote-hero-compact: 18px;
   --wariba-component-workstation-type-instrument: 15px;
   --wariba-component-workstation-type-metric: 16px;
   --wariba-component-workstation-type-metric-compact: 14px;
@@ -588,8 +588,8 @@
   --wariba-component-workstation-tracking-label: 0.06em;
   --wariba-component-workstation-tracking-decision: 0.03em;
   --wariba-component-workstation-navigator-row-height: 42px;
-  --wariba-component-workstation-quote-deck-height: 76px;
-  --wariba-component-workstation-decision-button-height: 52px;
+  --wariba-component-workstation-quote-deck-height: 60px;
+  --wariba-component-workstation-decision-button-height: 48px;
   --wariba-component-workstation-chart-footer-height: 24px;
 }
 

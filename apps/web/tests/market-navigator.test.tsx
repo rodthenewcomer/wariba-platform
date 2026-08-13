@@ -290,10 +290,15 @@ describe('workstation layout preferences', () => {
     // Below the desktop floor the shell is the mobile column, where the
     // navigator is a sheet and this flag decides nothing.
     expect(defaultWorkstationPreferencesForWidth(390).navigatorCollapsed).toBe(false);
-    // Nothing else about the layout changes with the viewport.
+    // The compact execution default is also viewport-aware.
+    expect(defaultWorkstationPreferencesForWidth(1920).executionPreferredWidth).toBe(260);
+    expect(defaultWorkstationPreferencesForWidth(1440).executionPreferredWidth).toBe(248);
+    expect(defaultWorkstationPreferencesForWidth(1366).executionPreferredWidth).toBe(236);
+    expect(defaultWorkstationPreferencesForWidth(1280).executionPreferredWidth).toBe(236);
+    // The remaining preferences do not drift with the viewport.
     const { navigatorCollapsed: _hybrid, ...hybridRest } =
       defaultWorkstationPreferencesForWidth(1024);
-    const { navigatorCollapsed: _wide, ...wideRest } = DEFAULT_WORKSTATION_PREFERENCES;
+    const { navigatorCollapsed: _wide, ...wideRest } = defaultWorkstationPreferencesForWidth(1280);
     expect(hybridRest).toEqual(wideRest);
   });
 

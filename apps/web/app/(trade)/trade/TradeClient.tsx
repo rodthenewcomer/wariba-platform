@@ -23,6 +23,7 @@ import {
   DOCK_HEIGHT_MIN,
   EXECUTION_WIDTH_MIN,
   NAVIGATOR_WIDTH_MIN,
+  defaultWorkstationPreferencesForWidth,
   useWorkstationPreferences,
 } from './workstation/workstation-preferences';
 import { resolveWorkspaceLayout } from './workstation/workspace-layout';
@@ -127,6 +128,7 @@ export function TradeClient({
   const isHybridDesktop = useIsHybridDesktop();
   const [mobileDockOpen, setMobileDockOpen] = useState(false);
   const [mobileMarketOpen, setMobileMarketOpen] = useState(false);
+  const viewport = useViewportSize();
   const {
     preferences,
     hasStoredLayout,
@@ -136,22 +138,22 @@ export function TradeClient({
     setNavigatorCollapsed,
     setDockCollapsed,
     resetNavigatorWidth,
-    resetExecutionWidth,
     resetDockHeight,
     toggleFavorite,
-  } = useWorkstationPreferences();
-  const viewport = useViewportSize();
+  } = useWorkstationPreferences(viewport.width);
   /*
-   * §22 — the hybrid default is resolved here, per render, not frozen at mount.
+   * Viewport defaults are resolved here, per render, not frozen at mount.
    *
-   * A trader who has never touched the layout gets the band's own default:
-   * collapsed in 1024–1279, expanded above it. Resizing a window across the
-   * boundary therefore does the right thing in both directions — the WX1
-   * evidence harness caught the mount-time version leaving 1366 collapsed after
-   * it had measured 1024. The moment the trader collapses or expands anything,
-   * `hasStoredLayout` flips and their choice wins at every width.
+   * A trader who has never touched the layout gets the hybrid band's Navigator
+   * state and the active desktop band's compact Execution width. Resizing
+   * across either boundary therefore applies the right first-run composition.
+   * The moment the trader changes a pane, `hasStoredLayout` flips and their
+   * preferred value wins, subject only to the active viewport's hard maximum.
    */
-  const navigatorCollapsed = hasStoredLayout ? preferences.navigatorCollapsed : isHybridDesktop;
+  const viewportDefaults = defaultWorkstationPreferencesForWidth(viewport.width);
+  const navigatorCollapsed = hasStoredLayout
+    ? preferences.navigatorCollapsed
+    : viewportDefaults.navigatorCollapsed;
   /** Stable identity: the overlay's effect re-runs whenever this changes. */
   const collapseNavigator = useCallback(() => setNavigatorCollapsed(true), [setNavigatorCollapsed]);
 
@@ -370,7 +372,9 @@ export function TradeClient({
   const layout = resolveWorkspaceLayout(
     {
       navigatorWidth: preferences.navigatorPreferredWidth,
-      executionWidth: preferences.executionPreferredWidth,
+      executionWidth: hasStoredLayout
+        ? preferences.executionPreferredWidth
+        : viewportDefaults.executionPreferredWidth,
       dockHeight: preferences.activityDockPreferredHeight,
     },
     {
@@ -491,7 +495,7 @@ export function TradeClient({
               min={EXECUTION_WIDTH_MIN}
               max={layout.executionMax}
               onCommit={setExecutionPreferredWidth}
-              onReset={resetExecutionWidth}
+              onReset={() => setExecutionPreferredWidth(viewportDefaults.executionPreferredWidth)}
               // The pane grows as the pointer moves *left*: its edge is the
               // leading one, between the chart and the panel.
               direction={-1}
