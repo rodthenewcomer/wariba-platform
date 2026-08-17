@@ -72,42 +72,18 @@ export const WorkstationAccountSwitcher = memo(function WorkstationAccountSwitch
         aria-hidden="true"
         className={`h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[active.statusVariant]}`}
       />
-      <span className="flex min-w-0 flex-col gap-[3px]">
-        <span className="flex items-baseline gap-1.5 leading-none">
-          <span className="hidden text-[length:var(--wariba-component-workstation-type-data-strong)] font-bold leading-none tracking-[-0.01em] text-[color:var(--wariba-component-workstation-text-primary)] sm:inline">
-            {active.programLabel}
-          </span>
-          {/* Phone widths carry the program code; the canonical public id returns
-              from `sm` upward and is always in the accessible name. */}
-          <span className="shrink-0 text-[length:var(--wariba-component-workstation-type-data-strong)] font-bold leading-none text-[color:var(--wariba-component-workstation-text-primary)] sm:hidden">
-            {active.programShortLabel}
-          </span>
-          <span className="wariba-data hidden shrink-0 text-[length:var(--wariba-component-workstation-type-meta)] leading-none text-[color:var(--wariba-component-workstation-text-tertiary)] 2xl:inline">
-            {active.nominalFormatted}
-          </span>
+      <span className="flex min-w-0 items-center leading-none">
+        <span className="hidden whitespace-nowrap text-[11px] font-bold leading-none tracking-[-0.01em] text-[color:var(--wariba-component-workstation-text-primary)] sm:inline">
+          {active.programLabel}
         </span>
-        <span className="wariba-data hidden shrink-0 text-[length:var(--wariba-component-workstation-type-meta)] leading-none tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-text-tertiary)] sm:inline">
-          {active.publicId}
+        {/* Phone widths carry the program code; the canonical public id returns
+              from `sm` upward and is always in the accessible name. */}
+        <span className="shrink-0 text-[11px] font-bold leading-none text-[color:var(--wariba-component-workstation-text-primary)] sm:hidden">
+          {active.programShortLabel}
         </span>
       </span>
     </span>
   );
-
-  // A single-account trader has nothing to switch to — show the identity,
-  // not a disclosure control that opens onto one row.
-  if (accounts.length <= 1) {
-    return (
-      <div
-        data-testid="workstation-account-identity"
-        className="flex min-h-11 shrink-0 items-center rounded-[var(--wariba-radius-sm)] px-1.5 py-1 lg:min-h-0 lg:px-2"
-      >
-        <span className="sr-only">
-          Compte {active.programLabel} {active.phaseLabel} {active.publicId}, {active.statusLabel}
-        </span>
-        {summary}
-      </div>
-    );
-  }
 
   return (
     <details
@@ -116,7 +92,7 @@ export const WorkstationAccountSwitcher = memo(function WorkstationAccountSwitch
     >
       <summary
         aria-label={`Compte actif : ${active.programLabel} ${active.publicId}. Changer de compte`}
-        className="flex min-h-11 shrink-0 cursor-pointer list-none items-center gap-1.5 rounded-[var(--wariba-radius-sm)] px-1.5 py-1 transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:min-h-0 lg:px-2 [&::-webkit-details-marker]:hidden"
+        className="flex h-8 shrink-0 cursor-pointer list-none items-center gap-1 rounded-[6px] px-1.5 transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:px-2 [&::-webkit-details-marker]:hidden"
       >
         {summary}
         <svg

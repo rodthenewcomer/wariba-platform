@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { BottomSheet, WariXCollapseLeftIcon, WariXExpandLeftIcon } from '@wariba/ui';
-import type { PendingOrderType, TradableSymbol } from '@wariba/contracts';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BottomSheet, WariXCalendarIcon, WariXHelpIcon } from '@wariba/ui';
+import { TRADABLE_SYMBOLS, type PendingOrderType, type TradableSymbol } from '@wariba/contracts';
 import { useOneClickTrading } from '../../../lib/one-click-trading';
 import { ChartWorkspace, type ChartWorkspaceActions } from './ChartWorkspace';
 import { MarketNavigator } from './MarketNavigator';
@@ -13,8 +13,12 @@ import { TradeDialogs, type TradeDialogActions, type TradeDialogState } from './
 import { createTicketDraftStore } from './ticket-draft';
 import { useTradeSession } from './trade-session';
 import { MobileMarketBar } from './workstation/MobileMarketBar';
+import { CalendarNewsPanel } from './workstation/CalendarNewsPanel';
+import { HelpCenterPanel } from './workstation/HelpCenterPanel';
 import { NavRail } from './workstation/NavRail';
 import { ResizeSeparator } from './workstation/ResizeSeparator';
+import { RightUtilityRail, type UtilityDrawerId } from './workstation/RightUtilityRail';
+import { UtilityDrawer } from './workstation/UtilityDrawer';
 import { WorkstationDock, type DockTab } from './workstation/WorkstationDock';
 import { WorkstationShell } from './workstation/WorkstationShell';
 import { WorkstationStatusBar } from './workstation/WorkstationStatusBar';
@@ -107,9 +111,23 @@ export function TradeClient({
       if (next === selectedSymbolRef.current) return;
       draftStore.clearPriceLevels();
       setSelectedSymbol(next);
+      const url = new URL(window.location.href);
+      url.searchParams.set('symbol', next);
+      window.history.replaceState(window.history.state, '', url);
     },
     [draftStore],
   );
+
+  useEffect(() => {
+    const requested = new URL(window.location.href).searchParams.get('symbol');
+    if (
+      !requested ||
+      !TRADABLE_SYMBOLS.includes(requested as TradableSymbol) ||
+      !symbolSpecs[requested as TradableSymbol]
+    )
+      return;
+    selectSymbol(requested as TradableSymbol);
+  }, [selectSymbol, symbolSpecs]);
 
   const [oneClickTrading] = useOneClickTrading();
   const oneClickTradingRef = useRef(oneClickTrading);
@@ -128,6 +146,8 @@ export function TradeClient({
   const isHybridDesktop = useIsHybridDesktop();
   const [mobileDockOpen, setMobileDockOpen] = useState(false);
   const [mobileMarketOpen, setMobileMarketOpen] = useState(false);
+  const [mobileUtilityOpen, setMobileUtilityOpen] = useState<'calendar' | 'help' | null>(null);
+  const [activeUtilityDrawer, setActiveUtilityDrawer] = useState<UtilityDrawerId | null>(null);
   const viewport = useViewportSize();
   const {
     preferences,
@@ -135,7 +155,6 @@ export function TradeClient({
     setNavigatorPreferredWidth,
     setExecutionPreferredWidth,
     setDockPreferredHeight,
-    setNavigatorCollapsed,
     setDockCollapsed,
     resetNavigatorWidth,
     resetDockHeight,
@@ -151,11 +170,10 @@ export function TradeClient({
    * preferred value wins, subject only to the active viewport's hard maximum.
    */
   const viewportDefaults = defaultWorkstationPreferencesForWidth(viewport.width);
-  const navigatorCollapsed = hasStoredLayout
-    ? preferences.navigatorCollapsed
-    : viewportDefaults.navigatorCollapsed;
-  /** Stable identity: the overlay's effect re-runs whenever this changes. */
-  const collapseNavigator = useCallback(() => setNavigatorCollapsed(true), [setNavigatorCollapsed]);
+  const closeUtilityDrawer = useCallback(() => setActiveUtilityDrawer(null), []);
+  const toggleUtilityDrawer = useCallback((drawer: UtilityDrawerId) => {
+    setActiveUtilityDrawer((current) => (current === drawer ? null : drawer));
+  }, []);
 
   const [ticketOpen, setTicketOpen] = useState(false);
   const [dialogs, setDialogs] = useState<TradeDialogState>({
@@ -332,10 +350,20 @@ export function TradeClient({
     patchDialogs({ closeAllOpen: true });
   }, [clearCloseAllResult, patchDialogs]);
 
-  const openNotifications = useCallback(
-    () => patchDialogs({ notificationCenterOpen: true }),
-    [patchDialogs],
-  );
+  const openNotifications = useCallback(() => {
+    closeUtilityDrawer();
+    patchDialogs({ notificationCenterOpen: true });
+  }, [closeUtilityDrawer, patchDialogs]);
+  const openActivityDock = useCallback(() => {
+    closeUtilityDrawer();
+    setTab('positions');
+    setDockCollapsed(false);
+  }, [closeUtilityDrawer, setDockCollapsed]);
+  const openAlertsDock = useCallback(() => {
+    closeUtilityDrawer();
+    setTab('alerts');
+    setDockCollapsed(false);
+  }, [closeUtilityDrawer, setDockCollapsed]);
   const openModifyPosition = useCallback(
     (positionId: string) => patchDialogs({ modifyPositionId: positionId }),
     [patchDialogs],
@@ -380,7 +408,7 @@ export function TradeClient({
     {
       viewportWidth: viewport.width,
       viewportHeight: viewport.height,
-      navigatorCollapsed,
+      navigatorCollapsed: activeUtilityDrawer !== 'markets',
       dockCollapsed: preferences.dockCollapsed,
       dockEmpty: !dockHasContent,
     },
@@ -454,6 +482,58 @@ export function TradeClient({
     />
   );
 
+  const activeAlertCount = session.alerts.filter((alert) => alert.enabled).length;
+  const passiveDrawerWidth = Math.min(340, Math.max(288, Math.round(viewport.width * 0.24)));
+  const utilityDrawerWidth =
+    activeUtilityDrawer === 'markets'
+      ? layout.navigatorWidth
+      : activeUtilityDrawer === 'trade'
+        ? layout.executionWidth
+        : passiveDrawerWidth;
+
+  const marketNavigator = (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <MarketNavigator
+        store={tickStore}
+        symbolSpecs={symbolSpecs}
+        selectedSymbol={selectedSymbol}
+        favorites={preferences.favorites}
+        onSelectSymbol={selectSymbol}
+        onToggleFavorite={toggleFavorite}
+        hideHeader
+      />
+    </div>
+  );
+
+  const utilityDrawer =
+    activeUtilityDrawer === null ? null : (
+      <UtilityDrawer
+        title={
+          activeUtilityDrawer === 'markets'
+            ? 'Marchés'
+            : activeUtilityDrawer === 'trade'
+              ? 'Trade'
+              : activeUtilityDrawer === 'calendar'
+                ? 'Calendrier et actualités'
+                : 'Centre d’aide'
+        }
+        eyebrow={activeUtilityDrawer === 'trade' ? 'Exécution' : 'WariX'}
+        width={utilityDrawerWidth}
+        onClose={closeUtilityDrawer}
+        testId={`utility-drawer-${activeUtilityDrawer}`}
+      >
+        {activeUtilityDrawer === 'markets' ? (
+          marketNavigator
+        ) : activeUtilityDrawer === 'trade' ? (
+          executionPanel
+        ) : activeUtilityDrawer === 'calendar' ? (
+          <CalendarNewsPanel />
+        ) : (
+          <HelpCenterPanel />
+        )}
+      </UtilityDrawer>
+    );
+
   return (
     <>
       {/* Appendix 07-C §15 — one shared aria-live region announcing every
@@ -463,60 +543,56 @@ export function TradeClient({
       </div>
 
       <WorkstationShell
-        navigatorWidth={layout.navigatorWidth}
-        executionWidth={layout.executionWidth}
-        navigatorCollapsed={navigatorCollapsed}
-        navigatorOverlay={isHybridDesktop}
-        onNavigatorOverlayDismiss={collapseNavigator}
         dockHeight={layout.dockHeight}
         dockCollapsed={preferences.dockCollapsed}
-        navigatorResizeHandle={
-          navigatorCollapsed || isHybridDesktop ? null : (
+        utilityDrawerWidth={utilityDrawerWidth}
+        utilityDrawerOpen={activeUtilityDrawer !== null}
+        utilityDrawerOverlay={isHybridDesktop}
+        onUtilityDrawerDismiss={closeUtilityDrawer}
+        utilityDrawerResizeHandle={
+          isDesktop && !isHybridDesktop && activeUtilityDrawer === 'markets' ? (
             <ResizeSeparator
               orientation="vertical"
-              label="Largeur du navigateur de marchés"
+              label="Largeur du drawer Marchés"
               value={layout.navigatorWidth}
               min={NAVIGATOR_WIDTH_MIN}
               max={layout.navigatorMax}
               onCommit={setNavigatorPreferredWidth}
               onReset={resetNavigatorWidth}
-              direction={1}
-              cssVariable="--warix-navigator-width"
-              testId="navigator-resize"
+              direction={-1}
+              cssVariable="--warix-utility-drawer-width"
+              testId="utility-drawer-resize"
             />
-          )
-        }
-        executionResizeHandle={
-          isDesktop ? (
+          ) : isDesktop && !isHybridDesktop && activeUtilityDrawer === 'trade' ? (
             <ResizeSeparator
               orientation="vertical"
-              label="Largeur du centre d’exécution"
+              label="Largeur du drawer Trade"
               value={layout.executionWidth}
               min={EXECUTION_WIDTH_MIN}
               max={layout.executionMax}
               onCommit={setExecutionPreferredWidth}
               onReset={() => setExecutionPreferredWidth(viewportDefaults.executionPreferredWidth)}
-              // The pane grows as the pointer moves *left*: its edge is the
-              // leading one, between the chart and the panel.
               direction={-1}
-              cssVariable="--warix-execution-width"
-              testId="execution-resize"
+              cssVariable="--warix-utility-drawer-width"
+              testId="utility-drawer-resize"
             />
           ) : null
         }
-        navigatorRestore={
-          <button
-            type="button"
-            onClick={() => setNavigatorCollapsed(false)}
-            aria-label="Afficher le navigateur de marchés"
-            data-testid="navigator-restore"
-            className="m-1 flex items-center gap-1.5 rounded-[7px] bg-[color:var(--wariba-component-workstation-surface-control)] px-2 py-1 text-[length:var(--wariba-component-workstation-type-label)] font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-text-secondary)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]"
-          >
-            <WariXExpandLeftIcon />
-            Marchés
-          </button>
-        }
         rail={<NavRail currentPath="/trade" />}
+        utilityRail={
+          <RightUtilityRail
+            activeDrawer={activeUtilityDrawer}
+            activityActive={!preferences.dockCollapsed && tab === 'positions'}
+            alertsActive={!preferences.dockCollapsed && tab === 'alerts'}
+            openPositionCount={openPositionCount}
+            activeAlertCount={activeAlertCount}
+            unreadCount={session.unreadCount}
+            onToggleDrawer={toggleUtilityDrawer}
+            onOpenActivity={openActivityDock}
+            onOpenAlerts={openAlertsDock}
+            onOpenNotifications={openNotifications}
+          />
+        }
         statusBar={
           <WorkstationStatusBar
             accounts={accounts}
@@ -524,8 +600,7 @@ export function TradeClient({
             balanceFormatted={snapshot ? `${snapshot.balance} USD` : '—'}
             equityFormatted={snapshot ? `${snapshot.equity} USD` : '—'}
             risk={session.risk}
-            connectionOk={session.connectionOk}
-            isResyncing={session.isResyncing}
+            connectionState={session.connectionState}
             unreadCount={session.unreadCount}
             onOpenNotifications={openNotifications}
           />
@@ -542,27 +617,6 @@ export function TradeClient({
             onOpenChange={setMobileMarketOpen}
           />
         }
-        navigator={
-          <MarketNavigator
-            store={tickStore}
-            symbolSpecs={symbolSpecs}
-            selectedSymbol={selectedSymbol}
-            favorites={preferences.favorites}
-            onSelectSymbol={selectSymbol}
-            onToggleFavorite={toggleFavorite}
-            headerAction={
-              <button
-                type="button"
-                onClick={() => setNavigatorCollapsed(true)}
-                aria-label="Replier le navigateur de marchés"
-                data-testid="navigator-collapse"
-                className="flex h-6 w-6 items-center justify-center rounded-[6px] text-[color:var(--wariba-component-workstation-text-tertiary)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]"
-              >
-                <WariXCollapseLeftIcon />
-              </button>
-            }
-          />
-        }
         chart={
           <ChartWorkspace
             store={tickStore}
@@ -570,6 +624,8 @@ export function TradeClient({
             historyTransport={session.historyTransport}
             symbol={selectedSymbol}
             spec={symbolSpecs[selectedSymbol]}
+            symbolSpecs={symbolSpecs}
+            onSelectSymbol={selectSymbol}
             snapshot={snapshot}
             fills={session.fills}
             alerts={session.alerts}
@@ -656,17 +712,29 @@ export function TradeClient({
                 </span>
               ) : null}
             </button>
+            <button
+              type="button"
+              aria-label="Ouvrir le calendrier et les actualités"
+              title="Calendrier et actualités"
+              data-testid="mobile-calendar-trigger"
+              onClick={() => setMobileUtilityOpen('calendar')}
+              className="flex min-h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-[color:var(--wariba-component-workstation-surface-control)] text-[color:var(--wariba-component-workstation-text-secondary)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong),0_2px_0_0_rgba(5,7,12,0.45)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] transition-[transform,box-shadow,color] duration-[var(--wariba-component-workstation-motion-interaction)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-0.5 active:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]"
+            >
+              <WariXCalendarIcon size="nav" />
+            </button>
+            <button
+              type="button"
+              aria-label="Ouvrir le centre d’aide"
+              title="Centre d’aide"
+              data-testid="mobile-help-trigger"
+              onClick={() => setMobileUtilityOpen('help')}
+              className="flex min-h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-[color:var(--wariba-component-workstation-surface-control)] text-[color:var(--wariba-component-workstation-text-secondary)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong),0_2px_0_0_rgba(5,7,12,0.45)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] transition-[transform,box-shadow,color] duration-[var(--wariba-component-workstation-motion-interaction)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-0.5 active:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]"
+            >
+              <WariXHelpIcon size="nav" />
+            </button>
           </div>
         }
-        // W4 §69/§70 — the Execution Center exists exactly once in the
-        // document, following the rule W2 §27 already set for the dock. Before
-        // W4 it was rendered here *and* inside the mobile sheet: the desktop
-        // copy was merely `hidden` by CSS on a phone, so both trees held a
-        // `useTick` subscription, both re-derived margin and impact on every
-        // tick, and every field appeared twice in the DOM — which is why the
-        // E2E suite had to reach for `.first()` and why "Ordre refusé" matched
-        // two nodes. (After viewport resolution; see use-viewport.ts.)
-        execution={isDesktop ? executionPanel : null}
+        utilityDrawer={isDesktop ? utilityDrawer : null}
         // W2 §27 — same rule for the dock: a hidden Positions panel would
         // still hold a useAllTicks subscription and still recompute live P&L
         // per tick.
@@ -706,6 +774,24 @@ export function TradeClient({
         flush
       >
         {!isDesktop && ticketOpen ? executionPanel : null}
+      </BottomSheet>
+
+      <BottomSheet
+        open={!isDesktop && mobileUtilityOpen === 'calendar'}
+        onClose={() => setMobileUtilityOpen(null)}
+        title="Calendrier et actualités"
+        size="tall"
+      >
+        {!isDesktop && mobileUtilityOpen === 'calendar' ? <CalendarNewsPanel /> : null}
+      </BottomSheet>
+
+      <BottomSheet
+        open={!isDesktop && mobileUtilityOpen === 'help'}
+        onClose={() => setMobileUtilityOpen(null)}
+        title="Centre d’aide"
+        size="tall"
+      >
+        {!isDesktop && mobileUtilityOpen === 'help' ? <HelpCenterPanel /> : null}
       </BottomSheet>
 
       <TradeDialogs

@@ -238,6 +238,7 @@ describe('mobile chart tools — W5 §66/§67/§70/§116', () => {
 
     await user.click(screen.getByTestId('chart-tools-sheet-trigger'));
     const sheet = screen.getByTestId('chart-tools-sheet');
+    await user.click(screen.getByTestId('chart-indicators-trigger-mobile'));
     for (const name of ['EMA 20', 'SMA 20', 'SMA 50', 'SMA 100']) {
       expect(screen.getByRole('checkbox', { name })).toBeInTheDocument();
     }
@@ -245,8 +246,10 @@ describe('mobile chart tools — W5 §66/§67/§70/§116', () => {
     await user.click(screen.getByRole('checkbox', { name: 'EMA 20' }));
 
     expect(screen.getByRole('checkbox', { name: 'EMA 20' })).not.toBeChecked();
-    // A trader comparing two averages should not have to reopen the sheet.
-    expect(sheet).toBeInTheDocument();
+    // The analysis library replaces the catalogue sheet and stays open while
+    // a trader compares averages.
+    expect(sheet).not.toBeInTheDocument();
+    expect(screen.getByTestId('indicator-library')).toBeInTheDocument();
     expect(chartDouble.spies.lineSeriesRemoved).toBe(1);
   });
 
@@ -256,6 +259,7 @@ describe('mobile chart tools — W5 §66/§67/§70/§116', () => {
     h.deliver(history(h.requests[0]?.requestId ?? '', '5s'));
 
     await user.click(screen.getByTestId('chart-tools-sheet-trigger'));
+    await user.click(screen.getByTestId('chart-tool-family-lines'));
     await user.click(screen.getByTestId('chart-tool-horizontal_line'));
 
     // Sheet gone, chart in drawing mode, and the mode is visible.
@@ -277,6 +281,7 @@ describe('mobile chart tools — W5 §66/§67/§70/§116', () => {
     h.deliver(history(h.requests[0]?.requestId ?? '', '5s'));
 
     await user.click(screen.getByTestId('chart-tools-sheet-trigger'));
+    await user.click(screen.getByTestId('chart-tool-family-lines'));
     await user.click(screen.getByTestId('chart-tool-horizontal_line'));
     chartDouble.spies.priceAtCoordinate = 1.086;
     fireEvent(h.container(), pointer('pointerdown', { clientX: 200, clientY: 250, pointerId: 4 }));
@@ -298,6 +303,7 @@ describe('mobile chart tools — W5 §66/§67/§70/§116', () => {
     h.deliver(history(h.requests[0]?.requestId ?? '', '5s'));
 
     await user.click(screen.getByTestId('chart-tools-sheet-trigger'));
+    await user.click(screen.getByTestId('chart-tool-family-lines'));
     await user.click(screen.getByTestId('chart-tool-trend_line'));
     await user.click(screen.getByRole('button', { name: 'Annuler' }));
 
@@ -318,7 +324,11 @@ describe('one configuration across breakpoints — W5 §71', () => {
     // history has to land before a drawing can be placed on it.
     mobile.deliver(history(mobile.requests.at(-1)?.requestId ?? '', '3m'));
     await user.click(screen.getByTestId('chart-tools-sheet-trigger'));
+    await user.click(screen.getByTestId('chart-indicators-trigger-mobile'));
     await user.click(screen.getByRole('checkbox', { name: 'SMA 50' }));
+    fireEvent(screen.getByRole('dialog', { name: 'Indicateurs' }), new Event('close'));
+    await user.click(screen.getByTestId('chart-tools-sheet-trigger'));
+    await user.click(screen.getByTestId('chart-tool-family-lines'));
     await user.click(screen.getByTestId('chart-tool-horizontal_line'));
     chartDouble.spies.priceAtCoordinate = 1.086;
     fireEvent(

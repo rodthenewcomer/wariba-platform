@@ -59,8 +59,7 @@ function statusBar(props: Partial<React.ComponentProps<typeof WorkstationStatusB
       balanceFormatted="10 000.00 USD"
       equityFormatted="10 050.00 USD"
       risk={RISK}
-      connectionOk
-      isResyncing={false}
+      connectionState="open"
       unreadCount={0}
       onOpenNotifications={() => {}}
       {...props}
@@ -180,24 +179,33 @@ describe('WorkstationStatusBar', () => {
     // exposes the state as data so tests never depend on French copy.
     const chip = screen.getByTestId('workstation-connection');
     expect(chip).toHaveAttribute('data-connection', 'open');
-    expect(chip).toHaveTextContent('Connecté');
+    // Final closure §H — a healthy feed is the dot and the accessible name, and
+    // no permanent word in the header. The condition that needs stating is the
+    // abnormal one, asserted below.
+    expect(chip).toHaveTextContent('');
+    expect(chip).toHaveAccessibleName('Flux en temps réel opérationnel');
     // "Actif" appears only as the account's own status inside the switcher.
     const metrics = within(screen.getByTestId('workstation-metrics'));
     expect(metrics.queryByText('Actif')).not.toBeInTheDocument();
   });
 
-  it('distinguishes resynchronising from disconnected', () => {
-    const resyncing = statusBar({ connectionOk: false, isResyncing: true });
-    expect(screen.getByTestId('workstation-connection')).toHaveAttribute(
-      'data-connection',
-      'resyncing',
-    );
+  it('distinguishes resynchronising from disconnected, and says so in words', () => {
+    const resyncing = statusBar({ connectionState: 'resyncing' });
+    const resyncingChip = screen.getByTestId('workstation-connection');
+    expect(resyncingChip).toHaveAttribute('data-connection', 'resyncing');
+    expect(resyncingChip).toHaveTextContent('Données retardées');
     resyncing.unmount();
-    statusBar({ connectionOk: false, isResyncing: false });
-    expect(screen.getByTestId('workstation-connection')).toHaveAttribute(
-      'data-connection',
-      'closed',
-    );
+
+    const reconnecting = statusBar({ connectionState: 'connecting' });
+    const reconnectingChip = screen.getByTestId('workstation-connection');
+    expect(reconnectingChip).toHaveAttribute('data-connection', 'closed');
+    expect(reconnectingChip).toHaveTextContent('Reconnexion…');
+    reconnecting.unmount();
+
+    statusBar({ connectionState: 'closed' });
+    const closedChip = screen.getByTestId('workstation-connection');
+    expect(closedChip).toHaveAttribute('data-connection', 'closed');
+    expect(closedChip).toHaveTextContent('Hors ligne');
   });
 
   it('does not present the selected symbol’s market status as account state', () => {

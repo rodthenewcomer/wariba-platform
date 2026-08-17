@@ -241,6 +241,8 @@ export interface MarketNavigatorProps {
   onToggleFavorite: (symbol: TradableSymbol) => void;
   /** Rendered beside the title — the collapse control on desktop, nothing in the mobile sheet. */
   headerAction?: ReactNode;
+  /** The utility drawer already owns the title and close action. */
+  hideHeader?: boolean;
 }
 
 /**
@@ -263,6 +265,7 @@ export const MarketNavigator = memo(function MarketNavigator({
   onSelectSymbol,
   onToggleFavorite,
   headerAction,
+  hideHeader = false,
 }: MarketNavigatorProps) {
   const [query, setQuery] = useState('');
   const searchId = useId();
@@ -325,13 +328,18 @@ export const MarketNavigator = memo(function MarketNavigator({
   );
 
   return (
-    <div data-testid="market-navigator" className="flex min-h-0 min-w-0 flex-col overflow-hidden">
-      <div className="flex h-8 shrink-0 items-center justify-between gap-2 border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-2.5 shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light)]">
-        <h2 className="text-[length:var(--wariba-component-workstation-type-section-label)] font-bold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-secondary)]">
-          Marchés
-        </h2>
-        {headerAction}
-      </div>
+    <div
+      data-testid="market-navigator"
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+    >
+      {hideHeader ? null : (
+        <div className="flex h-8 shrink-0 items-center justify-between gap-2 border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-2.5 shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light)]">
+          <h2 className="text-[length:var(--wariba-component-workstation-type-section-label)] font-bold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-secondary)]">
+            Marchés
+          </h2>
+          {headerAction}
+        </div>
+      )}
 
       {/* A real field, not a bare input on the panel background: sunken surface,
           hairline ring, cobalt focus ring. Search is the navigator's primary

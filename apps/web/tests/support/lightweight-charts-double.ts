@@ -27,6 +27,8 @@ export interface ChartDoubleSpies {
   lineSetData: { index: number; data: unknown[] }[];
   lineUpdate: { index: number; point: unknown }[];
   setVisibleLogicalRange: ReturnType<typeof vi.fn>;
+  setVisibleRange: ReturnType<typeof vi.fn>;
+  priceScaleApplyOptions: ReturnType<typeof vi.fn>;
   visibleLogicalRange: { from: number; to: number } | null;
   /** Test-controlled: what `coordinateToPrice` answers. */
   priceAtCoordinate: number;
@@ -52,6 +54,8 @@ export function createLightweightChartsDouble(): {
     lineSetData: [],
     lineUpdate: [],
     setVisibleLogicalRange: vi.fn(),
+    setVisibleRange: vi.fn(),
+    priceScaleApplyOptions: vi.fn(),
     visibleLogicalRange: { from: 0, to: 100 },
     priceAtCoordinate: 1.1,
     logicalAtCoordinate: 5,
@@ -64,6 +68,8 @@ export function createLightweightChartsDouble(): {
       spies.seriesPriceToCoordinate.mockClear();
       spies.fitContent.mockClear();
       spies.setVisibleLogicalRange.mockClear();
+      spies.setVisibleRange.mockClear();
+      spies.priceScaleApplyOptions.mockClear();
       spies.lineSeriesCreated.length = 0;
       spies.lineSeriesRemoved = 0;
       spies.lineSetData.length = 0;
@@ -91,6 +97,7 @@ export function createLightweightChartsDouble(): {
 
   const module = {
     CrosshairMode: { Normal: 0 },
+    PriceScaleMode: { Normal: 0, Logarithmic: 1, Percentage: 2, IndexedTo100: 3 },
     createChart: vi.fn(() => ({
       applyOptions: vi.fn(),
       addCandlestickSeries: () => candlestickSeries,
@@ -126,8 +133,10 @@ export function createLightweightChartsDouble(): {
         coordinateToLogical: vi.fn(() => spies.logicalAtCoordinate),
         getVisibleLogicalRange: () => spies.visibleLogicalRange,
         setVisibleLogicalRange: spies.setVisibleLogicalRange,
+        setVisibleRange: spies.setVisibleRange,
         fitContent: spies.fitContent,
       }),
+      priceScale: () => ({ applyOptions: spies.priceScaleApplyOptions }),
       remove: vi.fn(),
     })),
   };

@@ -51,7 +51,7 @@ const baseProps = {
 describe('buildContextMenuActions', () => {
   it('offers only Market Buy/Sell and Create alert when there is no position and no live tick', () => {
     const actions = buildContextMenuActions({ position: null, ...baseProps });
-    expect(actions.map((a) => a.key)).toEqual(['market_buy', 'market_sell', 'create_alert']);
+    expect(actions.map((a) => a.key)).toEqual(['market_buy', 'market_sell']);
   });
 
   it('adds SL/TP/partial-close/close actions once a position exists', () => {
@@ -64,7 +64,6 @@ describe('buildContextMenuActions', () => {
       'manage_tp',
       'partial_close',
       'close_position',
-      'create_alert',
     ]);
   });
 
@@ -87,7 +86,6 @@ describe('buildContextMenuActions', () => {
       'market_sell',
       'pending_sell_limit',
       'pending_buy_stop',
-      'create_alert',
     ]);
     expect(keys).not.toContain('pending_buy_limit');
     expect(keys).not.toContain('pending_sell_stop');
@@ -123,19 +121,33 @@ describe('ChartContextMenuContent', () => {
     expect(screen.getByText('Prix 1.08480')).toBeInTheDocument();
   });
 
-  it('disables every action and shows the reason when disabled', () => {
+  it('disables the price-dependent actions, and only those, when the quote is stale', () => {
     render(
       <ChartContextMenuContent
         position={POSITION}
         disabled
         disabledReason="Prix obsolète."
         {...baseProps}
+        onResetView={noop}
+        onOpenSettings={noop}
       />,
     );
     expect(screen.getByText('Prix obsolète.')).toBeInTheDocument();
-    for (const item of screen.getAllByRole('menuitem')) {
-      expect(item).toBeDisabled();
+    /*
+     * Scoped, not global — reopen §16.
+     *
+     * A stale quote disables the *price and trading* bands, because a price you
+     * cannot trust must not become an order. It deliberately leaves the chart
+     * and object bands alone: resetting a viewport or hiding a drawing has
+     * nothing to do with quote freshness, and greying them out would tell the
+     * trader something untrue. This spec previously asserted the global form,
+     * which was correct only while the menu had no non-trading actions.
+     */
+    for (const key of ['market_buy', 'market_sell', 'close_position', 'create_alert']) {
+      expect(screen.getByTestId(`chart-menu-${key}`)).toBeDisabled();
     }
+    expect(screen.getByTestId('chart-menu-reset_view')).toBeEnabled();
+    expect(screen.getByTestId('chart-menu-settings')).toBeEnabled();
   });
 
   it('calls the matching handler when an action is clicked', async () => {
@@ -183,7 +195,7 @@ describe('ChartContextMenuContent', () => {
         onCreateAlertHere={onCreateAlertHere}
       />,
     );
-    await user.click(screen.getByRole('menuitem', { name: 'Créer une alerte ici' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Créer une alerte @ 1.08480' }));
     expect(onCreateAlertHere).toHaveBeenCalledTimes(1);
   });
 });

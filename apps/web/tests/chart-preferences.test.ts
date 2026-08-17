@@ -3,6 +3,7 @@ import { CANDLE_TIMEFRAMES, DEFAULT_CANDLE_TIMEFRAME } from '@wariba/contracts';
 import {
   CHART_PREFERENCES_STORAGE_KEY,
   DEFAULT_CHART_PREFERENCES,
+  mergeShippedChartIndicators,
   parseChartPreferences,
 } from '../app/(trade)/trade/chart-preferences';
 import { DEFAULT_CHART_INDICATORS } from '../app/(trade)/trade/chart-indicator-model';
@@ -75,17 +76,46 @@ describe('parseChartPreferences — W5 §16/§40', () => {
     const stored = payload({
       'acc-1': {
         timeframe: '1m',
-        indicators: [DEFAULT_CHART_INDICATORS[0], { id: 'x', type: 'rsi', period: 14 }],
+        indicators: [
+          DEFAULT_CHART_INDICATORS.find((indicator) => indicator.id === 'ema-20'),
+          { id: 'x', type: 'rsi', period: 14 },
+        ],
       },
     });
-    expect(parseChartPreferences(stored, 'acc-1').indicators.map((entry) => entry.id)).toEqual([
+    const parsed = parseChartPreferences(stored, 'acc-1').indicators;
+    expect(parsed.find((entry) => entry.id === 'ema-20')?.enabled).toBe(true);
+    // The shipped presets the stored payload never mentioned come back through
+    // the catalogue migration, switched off rather than silently drawn.
+    expect(parsed.find((entry) => entry.id === 'sma-100')?.enabled).toBe(false);
+    expect(parsed.some((entry) => entry.id === 'x')).toBe(false);
+    expect(parsed).toHaveLength(DEFAULT_CHART_INDICATORS.length);
+  });
+
+  it('adds newly shipped presets to an older registry without activating or replacing them', () => {
+    const older = DEFAULT_CHART_INDICATORS.filter((indicator) =>
+      ['ema-20', 'sma-20'].includes(indicator.id),
+    ).map((indicator) =>
+      indicator.id === 'ema-20'
+        ? { ...indicator, style: { color: '#123456', width: 3 as const } }
+        : indicator,
+    );
+
+    const migrated = mergeShippedChartIndicators(older);
+    expect(migrated).toHaveLength(DEFAULT_CHART_INDICATORS.length);
+    expect(migrated.find((entry) => entry.id === 'ema-20')?.style).toEqual({
+      color: '#123456',
+      width: 3,
+    });
+    expect(migrated.find((entry) => entry.id === 'sma-100')?.enabled).toBe(false);
+    expect(migrated.filter((entry) => entry.enabled).map((entry) => entry.id)).toEqual([
       'ema-20',
+      'sma-20',
     ]);
   });
 
   it('restores the shipped preset when the stored list is empty or absent', () => {
     // A blank chart the trader has no obvious way to explain is worse than the
-    // default four lines they already know.
+    // default active lines and discoverable disabled presets they already know.
     expect(parseChartPreferences(payload({ 'acc-1': {} }), 'acc-1').indicators).toEqual([
       ...DEFAULT_CHART_INDICATORS,
     ]);
@@ -110,7 +140,12 @@ describe('parseChartPreferences — W5 §16/§40', () => {
     // The whole surface is a timeframe and a list of indicator instances. If a
     // future change adds a balance, a position or an order here, this fails.
     const parsed = parseChartPreferences(payload({ 'acc-1': { timeframe: '1m' } }), 'acc-1');
-    expect(Object.keys(parsed).sort()).toEqual(['indicators', 'timeframe']);
+    expect(Object.keys(parsed).sort()).toEqual([
+      'favorites',
+      'indicators',
+      'settings',
+      'timeframe',
+    ]);
     const indicatorKeys = Object.keys(parsed.indicators[0] ?? {}).sort();
     expect(indicatorKeys).toEqual(['enabled', 'id', 'period', 'style', 'type']);
   });

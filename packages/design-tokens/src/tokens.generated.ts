@@ -248,8 +248,9 @@ export const chart = {
   "position": "#6684FF",
   "stopLoss": "#C94D4D",
   "takeProfit": "#258A61",
-  "crosshair": "#555E6E",
+  "crosshair": "#C0C6D0",
   "crosshairLabel": "#1E2433",
   "currentPrice": "#9AA3B1",
+  "watermark": "#151A25",
   "axis": "#272D3A"
 } as const;

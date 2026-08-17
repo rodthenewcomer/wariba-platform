@@ -2,15 +2,25 @@
 
 import type { ComponentType } from 'react';
 import {
+  Activity,
   Bell,
+  BellRing,
+  CalendarDays,
+  ChartArea,
   ChartCandlestick,
+  ChartLine,
+  ChartNoAxesColumnIncreasing,
   ChartNoAxesCombined,
   Check,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   Ellipsis,
   Gauge,
   HandCoins,
+  LifeBuoy,
+  List,
+  ListRestart,
   Maximize2,
   Minus,
   MousePointer2,
@@ -18,6 +28,7 @@ import {
   Palette,
   PanelLeftClose,
   PanelLeftOpen,
+  PanelRightClose,
   RectangleHorizontal,
   RotateCcw,
   ScanLine,
@@ -28,6 +39,7 @@ import {
   Trash2,
   TrendingUp,
   WalletCards,
+  X,
   type LucideProps,
 } from 'lucide-react';
 import { cx } from '../lib/cx';
@@ -78,6 +90,24 @@ export const WariXAccountsIcon = createWorkstationIcon(WalletCards);
 export const WariXPayoutsIcon = createWorkstationIcon(HandCoins);
 export const WariXMoreIcon = createWorkstationIcon(Ellipsis);
 export const WariXNotificationsIcon = createWorkstationIcon(Bell);
+/** The right utility rail's canonical watchlist / markets-list glyph. */
+export const WariXMarketsIcon = createWorkstationIcon(List);
+export const WariXActivityIcon = createWorkstationIcon(Activity);
+export const WariXAlertsIcon = createWorkstationIcon(BellRing);
+export const WariXCalendarIcon = createWorkstationIcon(CalendarDays);
+export const WariXLogIcon = createWorkstationIcon(ListRestart);
+export const WariXHelpIcon = createWorkstationIcon(LifeBuoy);
+export const WariXCloseRightIcon = createWorkstationIcon(PanelRightClose);
+/**
+ * Dismissal, in the one glyph every product on earth uses for it.
+ *
+ * `PanelRightClose` describes *where* a surface goes when it leaves, which is
+ * an accurate but second-order fact; a trader scanning a drawer header for the
+ * way out looks for a cross. Kept beside it rather than replacing it — the
+ * panel glyph still belongs on controls that collapse a track rather than
+ * dismiss a surface.
+ */
+export const WariXCloseIcon = createWorkstationIcon(X);
 export const WariXRiskIcon = createWorkstationIcon(ShieldAlert);
 export const WariXSearchIcon = createWorkstationIcon(Search);
 export const WariXFavoriteIcon = createWorkstationIcon(Star);
@@ -89,9 +119,13 @@ export const WariXCollapseLeftIcon = createWorkstationIcon(PanelLeftClose);
 export const WariXExpandLeftIcon = createWorkstationIcon(PanelLeftOpen);
 export const WariXChevronUpIcon = createWorkstationIcon(ChevronUp);
 export const WariXChevronDownIcon = createWorkstationIcon(ChevronDown);
+export const WariXChevronRightIcon = createWorkstationIcon(ChevronRight);
 export const WariXPaletteIcon = createWorkstationIcon(Palette);
 export const WariXDeleteIcon = createWorkstationIcon(Trash2);
 export const WariXDoneIcon = createWorkstationIcon(Check);
+export const WariXBarsIcon = createWorkstationIcon(ChartNoAxesColumnIncreasing);
+export const WariXLineChartIcon = createWorkstationIcon(ChartLine);
+export const WariXAreaChartIcon = createWorkstationIcon(ChartArea);
 
 export const WariXSelectToolIcon = createWorkstationIcon(MousePointer2);
 export const WariXHorizontalLineToolIcon = createWorkstationIcon(Minus);

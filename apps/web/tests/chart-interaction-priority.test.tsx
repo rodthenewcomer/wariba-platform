@@ -32,6 +32,17 @@ const chartDouble = await vi.hoisted(async () => {
 });
 vi.mock('lightweight-charts', () => chartDouble.module);
 
+// jsdom has no native dialog controller. The browser implementation is covered
+// by the rendered checkpoint; component interaction tests need the open state.
+if (typeof HTMLDialogElement !== 'undefined') {
+  HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
+    this.open = true;
+  };
+  HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
+    this.open = false;
+  };
+}
+
 const { TradeChart } = await import('../app/(trade)/trade/TradeChart');
 const { stubContainerBox, stubResizeObserver } =
   await import('./support/lightweight-charts-double');
@@ -338,9 +349,14 @@ describe('trading overlays keep interaction priority in Select mode — §57/§1
 });
 
 describe('an active drawing tool owns the gesture — §58/§111', () => {
-  async function activateTrendLine(): Promise<void> {
+  async function openLines(): Promise<void> {
     const user = userEvent.setup();
-    await user.click(screen.getByTestId('chart-tools-trigger'));
+    await user.click(screen.getByTestId('chart-tool-family-lines'));
+  }
+
+  async function activateTrendLine(): Promise<void> {
+    await openLines();
+    const user = userEvent.setup();
     await user.click(screen.getByTestId('chart-tool-trend_line'));
   }
 
@@ -366,7 +382,7 @@ describe('an active drawing tool owns the gesture — §58/§111', () => {
       const h = renderChart();
       h.deliver(history(h.requests[0]?.requestId ?? ''));
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-      await user.click(screen.getByTestId('chart-tools-trigger'));
+      await user.click(screen.getByTestId('chart-tool-family-lines'));
       await user.click(screen.getByTestId('chart-tool-horizontal_line'));
 
       fireEvent(
@@ -396,7 +412,7 @@ describe('an active drawing tool owns the gesture — §58/§111', () => {
     const h = renderChart();
     h.deliver(history(h.requests[0]?.requestId ?? ''));
     const user = userEvent.setup();
-    await user.click(screen.getByTestId('chart-tools-trigger'));
+    await user.click(screen.getByTestId('chart-tool-family-lines'));
     await user.click(screen.getByTestId('chart-tool-horizontal_line'));
     expect(h.container()).toHaveAttribute('data-chart-tool', 'horizontal_line');
 

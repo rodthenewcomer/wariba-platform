@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   CHART_DRAWING_TYPES,
   DEFAULT_DRAWING_STYLE,
+  DRAWING_ANCHOR_COUNT,
   FIBONACCI_LEVELS,
   MAX_DRAWINGS_PER_SYMBOL,
   fibonacciLevelLabel,
@@ -72,13 +73,10 @@ const adapter: ChartCoordinateAdapter = {
 describe('serialization — W5 §104', () => {
   it('round-trips every supported drawing type', () => {
     for (const type of CHART_DRAWING_TYPES) {
-      const anchors =
-        type === 'horizontal_line'
-          ? [{ time: 100, price: '1.08000' }]
-          : [
-              { time: 100, price: '1.08000' },
-              { time: 200, price: '1.09000' },
-            ];
+      const anchors = Array.from({ length: DRAWING_ANCHOR_COUNT[type] }, (_, index) => ({
+        time: 100 + index * 100,
+        price: (1.08 + index * 0.01).toFixed(5),
+      }));
       const record = drawing({ type, anchors });
       const parsed = parseChartDrawing(JSON.parse(JSON.stringify(record)));
       expect(parsed, type).toEqual(record);
@@ -194,6 +192,57 @@ describe('projection — W5 §43/§48/§107/§109', () => {
 
   it('carries no extension levels in W5 (§43)', () => {
     expect(FIBONACCI_LEVELS.every((level) => level <= 1)).toBe(true);
+  });
+
+  it('projects the expanded analytical tools from canonical anchors', () => {
+    const info = projectDrawing(adapter, drawing({ type: 'info_line' }));
+    expect(info?.measure).toEqual({ price: '+0.01000', percent: '+0.93 %', duration: '1m' });
+
+    const angle = projectDrawing(adapter, drawing({ type: 'trend_angle' }));
+    expect(angle?.angleDegrees).toBeTypeOf('number');
+
+    const extension = projectDrawing(
+      adapter,
+      drawing({
+        type: 'fib_extension',
+        anchors: [
+          { time: 100, price: '1.00000' },
+          { time: 200, price: '2.00000' },
+          { time: 300, price: '1.50000' },
+        ],
+      }),
+    );
+    expect(extension?.levels?.map((level) => level.level)).toEqual([0, 0.618, 1, 1.272, 1.618]);
+  });
+
+  it('projects real multi-anchor channel and curved geometry', () => {
+    const channel = projectDrawing(
+      adapter,
+      drawing({
+        type: 'disjoint_channel',
+        anchors: [
+          { time: 100, price: '1.00000' },
+          { time: 200, price: '1.10000' },
+          { time: 300, price: '1.30000' },
+          { time: 400, price: '1.50000' },
+        ],
+      }),
+    );
+    expect(channel?.parallel).toEqual([channel?.points[2], channel?.points[3]]);
+
+    const curve = projectDrawing(
+      adapter,
+      drawing({
+        type: 'curve',
+        anchors: [
+          { time: 100, price: '1.00000' },
+          { time: 200, price: '1.30000' },
+          { time: 300, price: '0.90000' },
+          { time: 400, price: '1.20000' },
+        ],
+      }),
+    );
+    expect(curve?.points).toHaveLength(4);
   });
 });
 

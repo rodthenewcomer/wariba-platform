@@ -25,12 +25,54 @@ import { TRADABLE_SYMBOLS, type TradableSymbol } from '@wariba/contracts';
  * and a timeframe change (§77).
  */
 
+/**
+ * The tools WariX draws.
+ *
+ * The first five are W5's canonical set and their storage shape is unchanged —
+ * an existing stored drawing parses byte-for-byte as it did before. The tools
+ * after them are the reopen pass's additions (§10: *prefer a smaller real
+ * professional tool library over a fake giant one*), and each was chosen because
+ * it needs **no new storage concept**: every one is still one to four
+ * `(time, price)` anchors, so the persistence, validation, hit-testing and
+ * re-projection machinery all extend rather than fork.
+ *
+ * Appending only, never reordering: `parseChartDrawing` matches on the string,
+ * so the order here is cosmetic, but keeping additions at the end makes a diff
+ * against a trader's stored payload trivial to reason about.
+ */
 export const CHART_DRAWING_TYPES = [
   'horizontal_line',
   'trend_line',
   'ray',
   'rectangle',
   'fibonacci',
+  'horizontal_ray',
+  'vertical_line',
+  'cross_line',
+  'extended_line',
+  'arrow',
+  'ellipse',
+  'triangle',
+  'parallel_channel',
+  'price_range',
+  'date_range',
+  'date_price_range',
+  'info_line',
+  'trend_angle',
+  'flat_top_bottom',
+  'disjoint_channel',
+  'fib_extension',
+  'fib_channel',
+  'fib_circles',
+  'arrow_marker',
+  'arrow_mark_up',
+  'arrow_mark_down',
+  'arrow_mark_left',
+  'arrow_mark_right',
+  'rotated_rectangle',
+  'circle',
+  'arc',
+  'curve',
 ] as const;
 export type ChartDrawingType = (typeof CHART_DRAWING_TYPES)[number];
 
@@ -41,16 +83,50 @@ export const DRAWING_ANCHOR_COUNT: Record<ChartDrawingType, number> = {
   ray: 2,
   rectangle: 2,
   fibonacci: 2,
+  horizontal_ray: 1,
+  vertical_line: 1,
+  cross_line: 1,
+  extended_line: 2,
+  arrow: 2,
+  ellipse: 2,
+  triangle: 3,
+  parallel_channel: 3,
+  price_range: 2,
+  date_range: 2,
+  date_price_range: 2,
+  info_line: 2,
+  trend_angle: 2,
+  flat_top_bottom: 3,
+  disjoint_channel: 4,
+  fib_extension: 3,
+  fib_channel: 3,
+  fib_circles: 2,
+  arrow_marker: 2,
+  arrow_mark_up: 1,
+  arrow_mark_down: 1,
+  arrow_mark_left: 1,
+  arrow_mark_right: 1,
+  rotated_rectangle: 3,
+  circle: 2,
+  arc: 3,
+  curve: 4,
 };
 
+/** Tools whose whole point is the measurement they report between their anchors. */
+export const MEASURER_TYPES: readonly ChartDrawingType[] = [
+  'price_range',
+  'date_range',
+  'date_price_range',
+];
+
 /**
- * W5 §43 — the Fibonacci retracement levels, and only these.
- *
- * Extensions (1.272, 1.618, …) are deliberately absent: they project *beyond*
- * the measured move, which is a different tool with a different reading, and W5
- * does not implement it.
+ * W5 §43 — the Fibonacci retracement levels. The distinct three-anchor
+ * extension tool below owns the levels beyond the measured move.
  */
 export const FIBONACCI_LEVELS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1] as const;
+
+/** Projection levels used by the three-anchor extension tool. */
+export const FIBONACCI_EXTENSION_LEVELS = [0, 0.618, 1, 1.272, 1.618] as const;
 
 /**
  * W5 §56 — the per-symbol ceiling on stored drawings.
@@ -230,17 +306,41 @@ export function fibonacciLevelLabel(level: number): string {
   return Number.isInteger(percent) ? String(percent) : percent.toFixed(1);
 }
 
+const DRAWING_TYPE_LABEL: Record<ChartDrawingType, string> = {
+  horizontal_line: 'Ligne horizontale',
+  trend_line: 'Ligne de tendance',
+  ray: 'Demi-droite',
+  rectangle: 'Rectangle',
+  fibonacci: 'Fibonacci',
+  horizontal_ray: 'Demi-droite horizontale',
+  vertical_line: 'Ligne verticale',
+  cross_line: 'Croix',
+  extended_line: 'Droite étendue',
+  arrow: 'Flèche',
+  ellipse: 'Ellipse',
+  triangle: 'Triangle',
+  parallel_channel: 'Canal parallèle',
+  price_range: 'Amplitude de prix',
+  date_range: 'Amplitude de temps',
+  date_price_range: 'Amplitude prix et temps',
+  info_line: 'Ligne d’information',
+  trend_angle: 'Angle de tendance',
+  flat_top_bottom: 'Canal haut/bas plat',
+  disjoint_channel: 'Canal disjoint',
+  fib_extension: 'Extension de Fibonacci',
+  fib_channel: 'Canal de Fibonacci',
+  fib_circles: 'Cercles de Fibonacci',
+  arrow_marker: 'Marqueur flèche',
+  arrow_mark_up: 'Flèche vers le haut',
+  arrow_mark_down: 'Flèche vers le bas',
+  arrow_mark_left: 'Flèche vers la gauche',
+  arrow_mark_right: 'Flèche vers la droite',
+  rotated_rectangle: 'Rectangle pivoté',
+  circle: 'Cercle',
+  arc: 'Arc',
+  curve: 'Courbe',
+};
+
 export function drawingTypeLabel(type: ChartDrawingType): string {
-  switch (type) {
-    case 'horizontal_line':
-      return 'Ligne horizontale';
-    case 'trend_line':
-      return 'Ligne de tendance';
-    case 'ray':
-      return 'Demi-droite';
-    case 'rectangle':
-      return 'Rectangle';
-    case 'fibonacci':
-      return 'Fibonacci';
-  }
+  return DRAWING_TYPE_LABEL[type];
 }

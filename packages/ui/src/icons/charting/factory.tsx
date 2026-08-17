@@ -42,15 +42,15 @@ export interface ChartingIconProps {
 
 const PIXELS: Record<WorkstationIconSize, number> = {
   toolbar: 16,
-  rail: 18,
+  rail: 20,
   nav: 20,
   mobile: 22,
 };
 
 /** Structure weight. */
-export const STROKE = 1.5;
+export const STROKE = 1.4;
 /** Anchor-dot and detail weight — deliberately lighter than structure. */
-export const HAIR = 1.35;
+export const HAIR = 1.2;
 /** The radius every placement anchor is drawn at. */
 export const ANCHOR_R = 1.6;
 

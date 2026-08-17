@@ -1,35 +1,102 @@
 'use client';
 
-import { memo, useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { ToolbarButton, WariXFitIcon, WariXIndicatorsIcon } from '@wariba/ui';
-import { CANDLE_TIMEFRAMES, type CandleTimeframe } from '@wariba/contracts';
-import { CHART_TOOLS, toolLabel, type ChartTool } from './chart-tool-mode';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import {
-  canEnableAnotherIndicator,
-  indicatorLabel,
-  MAX_ACTIVE_INDICATORS,
-  type ChartIndicator,
-} from './chart-indicator-model';
-import { ChartToolIcon } from './ChartToolIcon';
+  ToolbarButton,
+  WariXAlertClockIcon,
+  WariXAreaChartIcon,
+  WariXBarsIcon,
+  WariXCameraIcon,
+  WariXCandlesIcon,
+  WariXChevronDownIcon,
+  WariXFitContentIcon,
+  WariXFullscreenExitIcon,
+  WariXFullscreenIcon,
+  WariXLineChartIcon,
+  WariXMoreIcon,
+  WariXPreferencesIcon,
+  WariXRedoIcon,
+  WariXRulerIcon,
+  WariXSearchIcon,
+  WariXStudiesIcon,
+  WariXUndoIcon,
+} from '@wariba/ui';
+import { CANDLE_TIMEFRAMES, type CandleTimeframe } from '@wariba/contracts';
+import { useViewportSize } from './use-viewport';
 
 /**
- * The chart toolbar — W5 §14, §38, §61-§63, §86-§89.
+ * The chart toolbar — W5 §14/§38/§61-§63/§86-§89, rebuilt for reopen §20.
  *
- * One compact analytical strip: canonical current timeframes stay reachable in
- * one click, indicators use a labelled popover, and WX1's six drawings live in
- * the separate desktop rail (or the single mobile Tools sheet).
- * Nothing here submits a trading command, and nothing here reads execution state.
+ * WX1's strip was an interval track, one indicator popover and a fit button.
+ * Against the reference that is not a charting toolbar's *grammar*: a trader
+ * scanning the top of a chart expects intervals, then studies, then
+ * preferences, then history, and a utility cluster pushed to the far right for
+ * fit, snapshot and fullscreen. The order is muscle memory, so it is the order
+ * used here.
  *
- * **Accessibility.** The timeframe control is a real radiogroup with roving tab
- * focus and arrow-key navigation (§86); the indicator toggles are real
- * checkboxes with names, not colour swatches (§87); the tool buttons carry
- * `aria-pressed` and text names (§88). No control depends on colour alone to say
- * which one is active.
+ * **What is deliberately absent.** §20 names POS Bracket, Add Chart Link and the
+ * tick selector as things not to add, and they are not here — they are broker
+ * features of another product, and a WariX button that opened nothing would be
+ * the exact "many controls" failure §42 warns about. Symbol search is absent for
+ * a different reason: WariX has a permanent Market Navigator pane two columns to
+ * the left, so a search box in the toolbar would be a second door to a room the
+ * trader is already standing in. On a phone, where the Navigator is *not*
+ * permanent, the search key is present — see TradeChart's compact row.
+ *
+ * **Accessibility.** The interval control is a real radiogroup with roving tab
+ * focus and arrow-key navigation (§86); every key carries a text name (§88). No
+ * control depends on colour alone to say which one is active.
  */
 
 interface TimeframeSelectorProps {
   timeframe: CandleTimeframe;
   onSelect(timeframe: CandleTimeframe): void;
+  /** How many interval keys the row can carry here; the rest move behind `⋯`. */
+  slots: number;
+}
+
+/**
+ * Final closure §5 — how many interval keys a phone row can carry.
+ *
+ * Measured on the rendered strip rather than estimated. The row also carries the
+ * instrument, its market state, the chart-type key, `ƒx` and the tools key —
+ * 230px of it at 390 — which leaves ~144px for the interval track. A key plus
+ * its gap costs 30, and the overflow key costs 28, so three keys and the
+ * disclosure fit with room to spare and four do not fit at readable type.
+ *
+ * That is why 390 carries three rather than the four a first sketch assumed: the
+ * alternative was 26px keys with 9px labels, and §5 rules out buying a key by
+ * shrinking type past reading. At 320 the same arithmetic leaves room for two.
+ *
+ * Desktop is never constrained — it has the width for all five and always shows
+ * them.
+ */
+export function timeframeSlotsForWidth(width: number, compact: boolean): number {
+  if (!compact) return CANDLE_TIMEFRAMES.length;
+  if (width >= 430) return CANDLE_TIMEFRAMES.length;
+  if (width >= 360) return 3;
+  return 2;
+}
+
+/**
+ * Which intervals stay on the row, given the number of slots.
+ *
+ * The head of the canonical order, with one rule on top: **the active interval
+ * is always one of them**. A trader who picked 3M at 430 and then rotated to a
+ * narrower window must still see which interval the chart is drawing — an
+ * active key hidden behind `⋯` would leave the row reading as though 5S were
+ * selected. When that happens the active key takes the last visible slot, so
+ * the order the trader learned is otherwise preserved.
+ */
+export function visibleTimeframes(
+  slots: number,
+  active: CandleTimeframe,
+): readonly CandleTimeframe[] {
+  const bounded = Math.max(1, Math.min(slots, CANDLE_TIMEFRAMES.length));
+  if (bounded === CANDLE_TIMEFRAMES.length) return CANDLE_TIMEFRAMES;
+  const head = CANDLE_TIMEFRAMES.slice(0, bounded);
+  if (head.includes(active)) return head;
+  return [...CANDLE_TIMEFRAMES.slice(0, bounded - 1), active];
 }
 
 /**
@@ -38,181 +105,253 @@ interface TimeframeSelectorProps {
  * Roving tabindex: one stop in the tab order, arrows move within the group. That
  * is the WAI-ARIA radio pattern, and it is what lets a keyboard trader change
  * interval without tabbing past four controls they did not want.
+ *
+ * §21 — the canonical intervals only. No 1h, 4h, 1D or 1W: WX1's history depth
+ * cannot serve them truthfully, and an interval that renders four bars is worse
+ * than an interval that is not offered. WX2 owns long-range depth, and this
+ * track will take the additions without changing shape.
  */
 const TimeframeSelector = memo(function TimeframeSelector({
   timeframe,
   onSelect,
+  slots,
 }: TimeframeSelectorProps) {
-  const refs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const overflowRef = useRef<HTMLDivElement | null>(null);
+  const [overflowOpen, setOverflowOpen] = useState(false);
 
-  const move = (direction: 1 | -1) => {
-    const index = CANDLE_TIMEFRAMES.indexOf(timeframe);
-    const next =
-      CANDLE_TIMEFRAMES[(index + direction + CANDLE_TIMEFRAMES.length) % CANDLE_TIMEFRAMES.length];
-    if (!next) return;
-    onSelect(next);
-    refs.current[next]?.focus();
+  const visible = visibleTimeframes(slots, timeframe);
+  const hidden = CANDLE_TIMEFRAMES.filter((option) => !visible.includes(option));
+
+  useEffect(() => {
+    if (!overflowOpen) return;
+    const dismiss = (event: PointerEvent) => {
+      if (!overflowRef.current?.contains(event.target as Node)) setOverflowOpen(false);
+    };
+    document.addEventListener('pointerdown', dismiss);
+    return () => document.removeEventListener('pointerdown', dismiss);
+  }, [overflowOpen]);
+
+  // Roving focus moves through the keys that are actually on the row — the
+  // overflowed intervals are reached through their own menu, not by arrowing
+  // into a control that is not rendered.
+  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const index = visible.indexOf(timeframe);
+    let next: number | null = null;
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = index + 1;
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = index - 1;
+    if (event.key === 'Home') next = 0;
+    if (event.key === 'End') next = visible.length - 1;
+    if (next === null) return;
+    event.preventDefault();
+    const bounded = (next + visible.length) % visible.length;
+    const target = visible[bounded];
+    if (target === undefined) return;
+    onSelect(target);
+    containerRef.current?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[bounded]?.focus();
   };
 
   return (
-    /*
-     * Visual closure §10 — a mode track, not five loose buttons.
-     *
-     * Sunken track, hairline ring, and the selected interval raised out of it
-     * with a cobalt top rule: the same grammar `SegmentedControl` uses for order
-     * type and `ToolRailButton` uses for the active drawing, so "which mode is
-     * on" reads identically everywhere in WariX.
-     *
-     * The track is a plain flex row of `shrink-0` keys with its own horizontal
-     * overflow. WX2's professional intervals can be appended to
-     * `CANDLE_TIMEFRAMES` and will lay out and scroll correctly with no further
-     * design work — which is §10's "design it so it can grow" requirement met
-     * structurally rather than promised.
-     */
-    <div
-      role="radiogroup"
-      aria-label="Intervalle du graphique"
-      data-testid="chart-timeframes"
-      /* The track's inset padding is desktop-only. On a phone the row is 44px
-         and the pre-chart chrome budget is exactly 116px, so 3px of track
-         padding would leave 38px keys — under the touch minimum, which the WX1
-         evidence harness measures. Mobile keys therefore fill the track. */
-      className="flex h-11 min-w-0 items-center gap-0.5 overflow-x-auto rounded-[9px] bg-[color:var(--wariba-component-workstation-surface-canvas)] p-0 ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] lg:h-9 lg:p-[3px]"
-      onKeyDown={(event) => {
-        if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-          event.preventDefault();
-          move(1);
-        } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-          event.preventDefault();
-          move(-1);
-        }
-      }}
-    >
-      {CANDLE_TIMEFRAMES.map((option) => {
-        const selected = option === timeframe;
-        return (
+    <div className="flex h-8 min-w-0 shrink-0 items-center gap-0.5 rounded-[7px] bg-[color:var(--wariba-component-workstation-surface-canvas)] p-0.5 ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)]">
+      <div
+        ref={containerRef}
+        role="radiogroup"
+        aria-label="Intervalle du graphique"
+        data-testid="chart-timeframe-group"
+        onKeyDown={onKeyDown}
+        className="flex min-w-0 shrink-0 items-center gap-0.5"
+      >
+        {visible.map((option) => {
+          const selected = option === timeframe;
+          return (
+            <button
+              key={option}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              tabIndex={selected ? 0 : -1}
+              onClick={() => onSelect(option)}
+              className={`wariba-data relative h-7 min-w-6 shrink-0 rounded-[5px] px-0.5 text-[10px] font-semibold uppercase tabular-nums transition-[background-color,color,box-shadow] duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:min-w-9 lg:px-1 lg:text-[length:var(--wariba-component-workstation-type-label)] ${
+                selected
+                  ? 'bg-[color:var(--wariba-component-workstation-surface-control)] text-[color:var(--wariba-component-workstation-text-primary)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong),var(--wariba-component-workstation-elevation-key)] after:absolute after:inset-x-2 after:top-0 after:h-0.5 after:rounded-b-full after:bg-[color:var(--wariba-component-workstation-interaction-selected)]'
+                  : 'text-[color:var(--wariba-component-workstation-text-tertiary)] hover:text-[color:var(--wariba-component-workstation-text-primary)]'
+              }`}
+            >
+              {option}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* §5 — the overflow is a stated destination, not a clipped edge. It only
+          exists when an interval is actually behind it, so a desktop row never
+          grows a control that leads nowhere. */}
+      {hidden.length > 0 ? (
+        <div ref={overflowRef} className="relative shrink-0">
           <button
-            key={option}
-            ref={(node) => {
-              refs.current[option] = node;
-            }}
             type="button"
-            role="radio"
-            aria-checked={selected}
-            tabIndex={selected ? 0 : -1}
-            onClick={() => onSelect(option)}
-            className={`wariba-data relative h-full min-w-11 shrink-0 rounded-[6px] px-2 text-[length:var(--wariba-component-workstation-type-label)] font-semibold uppercase tabular-nums transition-[background-color,color,box-shadow] duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:min-w-9 ${
-              selected
-                ? 'bg-[color:var(--wariba-component-workstation-surface-control)] text-[color:var(--wariba-component-workstation-text-primary)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong),var(--wariba-component-workstation-elevation-key)] after:absolute after:inset-x-2 after:top-0 after:h-0.5 after:rounded-b-full after:bg-[color:var(--wariba-component-workstation-interaction-selected)]'
+            aria-haspopup="menu"
+            aria-expanded={overflowOpen}
+            aria-label={`Autres intervalles : ${hidden.join(', ')}`}
+            data-testid="chart-timeframe-overflow"
+            onClick={() => setOverflowOpen((open) => !open)}
+            className={`flex h-7 min-w-7 shrink-0 items-center justify-center rounded-[5px] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] ${
+              overflowOpen
+                ? 'bg-[color:var(--wariba-component-workstation-surface-control)] text-[color:var(--wariba-component-workstation-text-primary)]'
                 : 'text-[color:var(--wariba-component-workstation-text-tertiary)] hover:text-[color:var(--wariba-component-workstation-text-primary)]'
             }`}
           >
-            {option}
+            <WariXMoreIcon className="h-4 w-4" />
           </button>
-        );
-      })}
+          {overflowOpen ? (
+            <div
+              role="menu"
+              aria-label="Autres intervalles"
+              data-testid="chart-timeframe-overflow-menu"
+              className="absolute left-1/2 top-[calc(100%+6px)] z-[var(--wariba-z-dropdown)] w-24 -translate-x-1/2 overflow-hidden rounded-[8px] border border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-popover)] p-1 shadow-[var(--wariba-component-workstation-elevation-popover)]"
+            >
+              {hidden.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={option === timeframe}
+                  data-testid={`chart-timeframe-overflow-${option}`}
+                  onClick={() => {
+                    onSelect(option);
+                    setOverflowOpen(false);
+                  }}
+                  className="wariba-data flex h-11 w-full items-center rounded-[6px] px-2.5 text-left text-[length:var(--wariba-component-workstation-type-data)] font-semibold uppercase tabular-nums text-[color:var(--wariba-component-workstation-text-secondary)] transition-colors hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)]"
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 });
 
-interface PopoverProps {
-  label: string;
-  testId: string;
-  icon: ReactNode;
-  active?: boolean;
-  children: (close: () => void) => React.ReactNode;
-}
-
-/** A small dismissible popover. Escape closes it, and the trigger regains focus (§89). */
-function ToolbarPopover({ label, testId, icon, active = false, children }: PopoverProps) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const id = useId();
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (event: PointerEvent) => {
-      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      // Only this popover's Escape — an active drawing owns Escape while the
-      // popover is shut, and the two must not both react to one press (§112).
-      event.stopPropagation();
-      setOpen(false);
-      triggerRef.current?.focus();
-    };
-    window.addEventListener('pointerdown', onPointerDown);
-    window.addEventListener('keydown', onKeyDown, true);
-    return () => {
-      window.removeEventListener('pointerdown', onPointerDown);
-      window.removeEventListener('keydown', onKeyDown, true);
-    };
-  }, [open]);
-
+function Seam() {
   return (
-    <div ref={containerRef} className="relative">
-      <ToolbarButton
-        ref={triggerRef}
-        label={label}
-        icon={icon}
-        showLabel
-        active={open || active}
-        data-testid={testId}
-        aria-expanded={open}
-        aria-controls={open ? id : undefined}
-        onClick={() => setOpen((value) => !value)}
-      />
-      {open && (
-        /*
-         * Refinement pass — chart instrumentation, not a settings card.
-         *
-         * Three changes carry it: a titled header band in the same small caps
-         * the workstation's module headers use, a *sunken* well for the list so
-         * the popover reads as a housing around instruments rather than as a
-         * floating sheet of options, and a 10px radius matching the rail and
-         * toolbar keys instead of the 12px card radius. It is attached to the
-         * toolbar that opened it, not hovering above the page.
-         */
-        <div
-          id={id}
-          className="absolute left-0 top-full z-[var(--wariba-z-popover)] mt-1.5 w-[15rem] overflow-hidden rounded-[10px] border border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-popover)] shadow-[var(--wariba-component-workstation-elevation-popover)] motion-safe:animate-[wariba-fade-in_var(--wariba-component-workstation-motion-popover)_ease-out]"
-        >
-          <div className="flex items-center justify-between gap-2 border-b border-[color:var(--wariba-component-workstation-border-hairline)] px-2.5 py-1.5 shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light)]">
-            <span className="text-[length:var(--wariba-component-workstation-type-section-label)] font-bold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-secondary)]">
-              {label}
-            </span>
-          </div>
-          <div className="bg-[color:var(--wariba-component-workstation-surface-canvas)] p-1.5">
-            {children(() => setOpen(false))}
-          </div>
-        </div>
-      )}
-    </div>
+    <span
+      aria-hidden="true"
+      className="h-5 w-px shrink-0 bg-[color:var(--wariba-component-workstation-border-hairline)]"
+    />
   );
 }
 
 export interface ChartToolbarProps {
+  symbol: string;
+  marketStatus: 'open' | 'closed' | 'stale' | null;
+  onOpenMarkets(): void;
   timeframe: CandleTimeframe;
   onSelectTimeframe(timeframe: CandleTimeframe): void;
-  indicators: readonly ChartIndicator[];
-  onToggleIndicator(id: string): void;
-  tool: ChartTool;
-  onSelectTool(tool: ChartTool): void;
+  chartStyle: ChartStyle;
+  onSelectChartStyle(style: ChartStyle): void;
+  /** Opens the Indicators library — a modal on desktop, a sheet on a phone (§13/§28). */
+  onOpenIndicators(): void;
+  indicatorsActive: boolean;
+  onOpenSettings(): void;
+  onOpenAlerts(): void;
+  onOpenTools?(): void;
+  drawingToolActive?: boolean;
   onResetView(): void;
-  /** Mobile presentations hide the inline popovers and use a sheet instead (§66). */
+  onSnapshot(): void;
+  onToggleFullscreen(): void;
+  fullscreen: boolean;
+  onUndo(): void;
+  onRedo(): void;
+  canUndo: boolean;
+  canRedo: boolean;
+  /** Mobile presentations hide everything but the interval track and use a sheet (§66). */
   compact?: boolean;
 }
 
+export type ChartStyle = 'candles' | 'bars' | 'line' | 'area';
+
+/**
+ * Final closure §4 — the market state is a *word*, not only a coloured dot.
+ *
+ * A green dot on its own asks the trader to remember a colour convention, and
+ * says nothing at all to anyone who cannot separate the hues. The word is the
+ * readout; the dot stays as its quiet reinforcement. Both are secondary type —
+ * the instrument is what this cluster is about, and a status that shouted would
+ * turn a chart toolbar into a status bar.
+ */
+const MARKET_STATUS_WORD: Record<'open' | 'closed' | 'stale', string> = {
+  open: 'Ouvert',
+  closed: 'Fermé',
+  stale: 'Retardé',
+};
+
+const MARKET_STATUS_DOT: Record<'open' | 'closed' | 'stale', string> = {
+  open: 'bg-[color:var(--wariba-component-workstation-trading-buy)]',
+  closed: 'bg-[color:var(--wariba-component-workstation-text-tertiary)]',
+  stale: 'bg-[color:var(--wariba-component-workstation-trading-warning)]',
+};
+
+interface ChartStyleEntry {
+  id: ChartStyle;
+  label: string;
+  icon: React.ReactNode;
+}
+
+/** Named separately so the fallback below is a value, not an indexed lookup. */
+const CANDLE_STYLE: ChartStyleEntry = {
+  id: 'candles',
+  label: 'Bougies',
+  icon: <WariXCandlesIcon />,
+};
+
+const CHART_STYLES: readonly ChartStyleEntry[] = [
+  CANDLE_STYLE,
+  { id: 'bars', label: 'Barres', icon: <WariXBarsIcon /> },
+  { id: 'line', label: 'Ligne', icon: <WariXLineChartIcon /> },
+  { id: 'area', label: 'Aire', icon: <WariXAreaChartIcon /> },
+];
+
 export const ChartToolbar = memo(function ChartToolbar({
+  symbol,
+  marketStatus,
+  onOpenMarkets,
   timeframe,
   onSelectTimeframe,
-  indicators,
-  onToggleIndicator,
+  chartStyle,
+  onSelectChartStyle,
+  onOpenIndicators,
+  indicatorsActive,
+  onOpenSettings,
+  onOpenAlerts,
+  onOpenTools,
+  drawingToolActive = false,
   onResetView,
+  onSnapshot,
+  onToggleFullscreen,
+  fullscreen,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
   compact = false,
 }: ChartToolbarProps) {
+  const [styleMenuOpen, setStyleMenuOpen] = useState(false);
+  const styleMenuRef = useRef<HTMLDivElement | null>(null);
+  const activeStyle = CHART_STYLES.find((style) => style.id === chartStyle) ?? CANDLE_STYLE;
+  const viewport = useViewportSize();
+  const timeframeSlots = timeframeSlotsForWidth(viewport.width, compact);
+
+  useEffect(() => {
+    if (!styleMenuOpen) return;
+    const dismiss = (event: PointerEvent) => {
+      if (!styleMenuRef.current?.contains(event.target as Node)) setStyleMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', dismiss);
+    return () => document.removeEventListener('pointerdown', dismiss);
+  }, [styleMenuOpen]);
+
   return (
     <div
       data-testid="chart-toolbar"
@@ -222,162 +361,254 @@ export const ChartToolbar = memo(function ChartToolbar({
          horizontal overflow; letting the toolbar shrink is what hands the track
          that job instead of pushing the row past the edge. No key drops below
          its 44px touch target — the track scrolls. */
-      className="flex h-11 min-w-0 shrink items-center gap-2 lg:h-9 lg:shrink-0"
+      className="flex h-11 w-full min-w-0 shrink items-center justify-between gap-1 lg:h-10 lg:shrink-0 lg:gap-2"
     >
-      <TimeframeSelector timeframe={timeframe} onSelect={onSelectTimeframe} />
-      {!compact && (
-        <>
-          <span
-            aria-hidden="true"
-            className="h-5 w-px shrink-0 bg-[color:var(--wariba-component-workstation-border-hairline)]"
+      {/* §5 — below 360 the row buys its room from spacing before it buys it
+          from a control or from type size. */}
+      <div className="flex min-w-0 items-center gap-0.5 min-[360px]:gap-1 lg:gap-2">
+        {/*
+         * §4 — instrument, market state, and the search that changes it, as one
+         * control.
+         *
+         * The magnifier stays on a phone too: without it the chip reads as a
+         * label rather than as the way to change instrument, and on a phone
+         * there is no Market Navigator column to fall back on. It sits *after*
+         * the ticker in the compact row and before it on desktop — the desktop
+         * strip reads left-to-right from the action, the phone row leads with
+         * the fact — which is one element reordered by flexbox, not two.
+         *
+         * It opens the same canonical surface it always did (`onOpenMarkets` →
+         * the Markets sheet on a phone, the symbol search modal on desktop).
+         * There is no second search here.
+         */}
+        <button
+          type="button"
+          aria-label={`Rechercher un instrument. Instrument actif : ${symbol}${
+            marketStatus === null ? '' : `. ${MARKET_STATUS_WORD[marketStatus]}`
+          }`}
+          data-testid="chart-symbol-search-trigger"
+          onClick={onOpenMarkets}
+          className="flex h-8 shrink-0 items-center gap-0.5 rounded-[7px] px-0.5 text-[color:var(--wariba-component-workstation-text-primary)] transition-colors hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] min-[360px]:gap-1 min-[360px]:px-1 lg:gap-1.5 lg:px-2"
+        >
+          {/* One step down below 360 — still the row's largest word, and still
+              read at a glance, which is the trade §5 asks for before anything
+              leaves the strip. */}
+          <span className="wariba-data truncate text-[11px] font-semibold min-[360px]:text-[length:var(--wariba-component-workstation-type-data)]">
+            {symbol}
+          </span>
+          <WariXSearchIcon
+            size="toolbar"
+            className="h-3.5 w-3.5 text-[color:var(--wariba-component-workstation-text-tertiary)] lg:order-first lg:h-4 lg:w-4 lg:text-[color:inherit]"
           />
-          {/* §10 — analysis is its own tool group, held together by proximity
-              and separated from the interval track by a seam. */}
-          <div className="flex shrink-0 items-center gap-1">
-            <ToolbarPopover
-              label="Indicateurs"
-              testId="chart-indicators-trigger"
-              icon={<WariXIndicatorsIcon />}
+          {marketStatus !== null ? (
+            <span
+              data-testid="chart-market-status"
+              data-market-status={marketStatus}
+              /* Half a step tighter than the chip's own rhythm: the dot and the
+                 word are one readout, and the room it saves is what keeps the
+                 longest state word ("Retardé") inside a 390px row. */
+              className="flex shrink-0 items-center gap-0.5 lg:gap-1"
             >
-              {() => <IndicatorOptions indicators={indicators} onToggle={onToggleIndicator} />}
-            </ToolbarPopover>
-            {/* §63 — fit only. It touches the time scale and nothing else: no
+              <span
+                aria-hidden="true"
+                className={`h-1.5 w-1.5 shrink-0 rounded-full ${MARKET_STATUS_DOT[marketStatus]}`}
+              />
+              <span
+                aria-hidden="true"
+                className="text-[9px] font-semibold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-text-tertiary)] lg:text-[10px]"
+              >
+                {MARKET_STATUS_WORD[marketStatus]}
+              </span>
+            </span>
+          ) : null}
+        </button>
+        {/* The seams separate three clusters on a desktop strip that has width
+            to spend on rhythm. On a phone the interval track's own ring already
+            does that work, and the pair costs 10px the row does not have. */}
+        {!compact ? <Seam /> : null}
+        <TimeframeSelector
+          timeframe={timeframe}
+          onSelect={onSelectTimeframe}
+          slots={timeframeSlots}
+        />
+        {!compact ? <Seam /> : null}
+        <div ref={styleMenuRef} className="relative shrink-0">
+          <ToolbarButton
+            label={`Type de graphique : ${activeStyle.label}`}
+            icon={
+              <span className="flex items-center gap-0.5">
+                {activeStyle.icon}
+                {/* The chevron is what tells a trader this key opens a *choice*
+                    of chart types rather than toggling one. It survives on a
+                    phone — §18 asks for chart type to be immediately
+                    discoverable — and gives up only below 360, where the row's
+                    remaining 4px belong to the intervals. */}
+                <WariXChevronDownIcon className="hidden h-3 w-3 min-[360px]:block" />
+              </span>
+            }
+            showLabel
+            labelClassName="hidden"
+            active={styleMenuOpen}
+            aria-haspopup="menu"
+            aria-expanded={styleMenuOpen}
+            data-testid="chart-type-trigger"
+            onClick={() => setStyleMenuOpen((open) => !open)}
+            className="h-8 min-w-8 px-1.5 lg:px-2"
+          />
+          {styleMenuOpen ? (
+            <div
+              role="menu"
+              aria-label="Type de graphique"
+              data-testid="chart-type-menu"
+              className="absolute right-0 top-[calc(100%+5px)] z-[var(--wariba-z-dropdown)] w-48 overflow-hidden rounded-[8px] border border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-popover)] p-1 shadow-[var(--wariba-component-workstation-elevation-popover)] sm:left-0 sm:right-auto"
+            >
+              {CHART_STYLES.map((style) => (
+                <button
+                  key={style.id}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={style.id === chartStyle}
+                  data-testid={`chart-type-${style.id}`}
+                  onClick={() => {
+                    onSelectChartStyle(style.id);
+                    setStyleMenuOpen(false);
+                  }}
+                  className={`flex h-9 w-full items-center gap-3 rounded-[6px] px-2 text-left text-[length:var(--wariba-component-workstation-type-data)] transition-colors ${
+                    style.id === chartStyle
+                      ? 'bg-[color:var(--wariba-component-workstation-wash-selected)] text-[color:var(--wariba-component-workstation-interaction-selected-text)]'
+                      : 'text-[color:var(--wariba-component-workstation-text-secondary)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)]'
+                  }`}
+                >
+                  {style.icon}
+                  <span>{style.label}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        <ToolbarButton
+          label="Indicateurs"
+          icon={<WariXStudiesIcon />}
+          showLabel
+          labelClassName="hidden xl:inline"
+          active={indicatorsActive}
+          aria-haspopup="dialog"
+          data-testid="chart-indicators-trigger"
+          onClick={onOpenIndicators}
+          className="h-8 min-w-8 px-1.5 lg:px-2"
+        />
+        {compact && onOpenTools ? (
+          <ToolbarButton
+            label="Outils"
+            icon={<WariXRulerIcon />}
+            active={drawingToolActive}
+            data-testid="chart-tools-sheet-trigger"
+            onClick={onOpenTools}
+            className="h-8 min-w-8 px-1.5"
+          />
+        ) : null}
+        {!compact ? (
+          <ToolbarButton
+            label="Préférences"
+            icon={<WariXPreferencesIcon />}
+            showLabel
+            labelClassName="hidden 2xl:inline"
+            aria-haspopup="dialog"
+            data-testid="chart-settings-trigger"
+            onClick={onOpenSettings}
+            className="h-8 min-w-8 px-1.5 lg:px-2"
+          />
+        ) : null}
+      </div>
+
+      {!compact && (
+        <div className="ml-auto flex shrink-0 items-center gap-1">
+          <Seam />
+          <ToolbarButton
+            label="Alerte"
+            icon={<WariXAlertClockIcon />}
+            showLabel
+            labelClassName="hidden xl:inline"
+            data-testid="chart-alerts-trigger"
+            onClick={onOpenAlerts}
+          />
+          <Seam />
+          <div className="flex shrink-0 items-center gap-0.5">
+            <ToolbarButton
+              label="Annuler"
+              icon={<WariXUndoIcon />}
+              disabled={!canUndo}
+              data-testid="chart-undo"
+              onClick={onUndo}
+            />
+            <ToolbarButton
+              label="Rétablir"
+              icon={<WariXRedoIcon />}
+              disabled={!canRedo}
+              data-testid="chart-redo"
+              onClick={onRedo}
+            />
+          </div>
+          <Seam />
+          <div className="flex shrink-0 items-center gap-0.5">
+            {/* §63/§17 — fit only. It touches the time scale and nothing else: no
                 drawing is deleted, no indicator is reset, no timeframe changes and
                 no command is sent. */}
             <ToolbarButton
-              label="Ajuster le graphique"
-              icon={<WariXFitIcon />}
+              label="Ajuster la vue"
+              icon={<WariXFitContentIcon />}
               data-testid="chart-reset-view"
               onClick={onResetView}
             />
+            <ToolbarButton
+              label="Capture du graphique"
+              icon={<WariXCameraIcon />}
+              data-testid="chart-snapshot"
+              onClick={onSnapshot}
+            />
+            <ToolbarButton
+              label={fullscreen ? 'Quitter le plein écran' : 'Plein écran'}
+              icon={fullscreen ? <WariXFullscreenExitIcon /> : <WariXFullscreenIcon />}
+              active={fullscreen}
+              data-testid="chart-fullscreen"
+              onClick={onToggleFullscreen}
+            />
           </div>
-        </>
+        </div>
       )}
     </div>
   );
 });
 
-export interface IndicatorOptionsProps {
-  indicators: readonly ChartIndicator[];
-  onToggle(id: string): void;
-}
-
 /**
- * §38/§87 — real checkboxes with names. Shared by the desktop popover and the
- * mobile sheet.
+ * Whether the document is currently showing an element fullscreen.
  *
- * Visual closure §18 — a palette row rather than a settings line. The row is a
- * chip that takes the indicator's own colour as a leading rule and lifts onto a
- * wash when active, the series colour is a drawn stroke rather than a dot, and
- * the native checkbox keeps its own accent colour so the control that carries
- * the state is still the control assistive technology and the E2E suite operate.
- * Nothing here becomes a div pretending to be a checkbox.
+ * Read from the platform rather than mirrored into state on toggle: a trader who
+ * presses Escape leaves fullscreen without going through our button, and a
+ * mirrored boolean would then show the wrong icon until the next click.
  */
-export const IndicatorOptions = memo(function IndicatorOptions({
-  indicators,
-  onToggle,
-}: IndicatorOptionsProps) {
-  const canEnableMore = canEnableAnotherIndicator(indicators);
-  return (
-    <fieldset className="flex flex-col gap-1" data-testid="chart-indicator-options">
-      <legend className="sr-only">Indicateurs du graphique</legend>
-      {indicators.map((indicator) => {
-        const label = indicatorLabel(indicator);
-        const blocked = !indicator.enabled && !canEnableMore;
-        return (
-          <label
-            key={indicator.id}
-            className={`relative flex min-h-11 items-center gap-2.5 overflow-hidden rounded-[8px] pl-2.5 pr-2 text-[length:var(--wariba-component-workstation-type-data)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] lg:min-h-9 ${
-              blocked
-                ? 'opacity-45'
-                : indicator.enabled
-                  ? 'cursor-pointer bg-[color:var(--wariba-component-workstation-wash-neutral)]'
-                  : 'cursor-pointer hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)]'
-            }`}
-          >
-            {/* The leading rule is the indicator's own colour, so the palette is
-                colour-coded without colour ever being the only identifier — the
-                name sits right beside it. */}
-            <span
-              aria-hidden="true"
-              className={`absolute bottom-0 left-0 top-0 w-0.5 ${indicator.enabled ? '' : 'opacity-30'}`}
-              style={{ backgroundColor: indicator.style.color }}
-            />
-            <input
-              type="checkbox"
-              checked={indicator.enabled}
-              disabled={blocked}
-              onChange={() => onToggle(indicator.id)}
-              className="h-4 w-4 shrink-0"
-              style={{ accentColor: indicator.style.color }}
-            />
-            <span
-              aria-hidden="true"
-              className={`h-[3px] w-5 shrink-0 rounded-full ${indicator.enabled ? '' : 'opacity-40'}`}
-              style={{ backgroundColor: indicator.style.color }}
-            />
-            <span
-              className={`wariba-data font-semibold tabular-nums ${
-                indicator.enabled
-                  ? 'text-[color:var(--wariba-component-workstation-text-primary)]'
-                  : 'text-[color:var(--wariba-component-workstation-text-secondary)]'
-              }`}
-            >
-              {label}
-            </span>
-          </label>
-        );
-      })}
-      {!canEnableMore && (
-        <p className="px-1.5 pt-1 text-[length:var(--wariba-component-workstation-type-label)] text-[color:var(--wariba-component-workstation-text-tertiary)]">
-          Maximum {MAX_ACTIVE_INDICATORS} indicateurs actifs.
-        </p>
-      )}
-    </fieldset>
-  );
-});
+export function useFullscreen(target: React.RefObject<HTMLElement | null>) {
+  const [fullscreen, setFullscreen] = useState(false);
 
-export interface ToolOptionsProps {
-  tool: ChartTool;
-  onSelect(tool: ChartTool): void;
+  useEffect(() => {
+    const onChange = () => setFullscreen(document.fullscreenElement !== null);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+
+  const toggle = useCallback(() => {
+    const node = target.current;
+    if (document.fullscreenElement !== null) {
+      void document.exitFullscreen().catch(() => {
+        // Denied or already exiting — the change event stays authoritative.
+      });
+      return;
+    }
+    void node?.requestFullscreen?.().catch(() => {
+      // Some browsers refuse without a user gesture chain; nothing to recover.
+    });
+  }, [target]);
+
+  return { fullscreen, toggle };
 }
-
-/**
- * §88 — every tool has a text name, so the toolbar is usable without seeing an
- * icon.
- *
- * Visual closure §18 — a tool palette: icon-forward tiles on a three-column
- * grid with the glyph above its name, rather than a stack of full-width text
- * rows that read as menu items. Each tile is 64px tall, comfortably past the
- * 44px touch minimum, and the selected tool takes the same cobalt wash + rule
- * the desktop rail uses so the two presentations of one choice look like one
- * choice.
- */
-export const ToolOptions = memo(function ToolOptions({ tool, onSelect }: ToolOptionsProps) {
-  return (
-    <div
-      role="group"
-      aria-label="Outils de dessin"
-      data-testid="chart-tool-options"
-      className="grid grid-cols-3 gap-1.5"
-    >
-      {CHART_TOOLS.map((option) => (
-        <button
-          key={option}
-          type="button"
-          aria-pressed={option === tool}
-          data-testid={`chart-tool-${option}`}
-          onClick={() => onSelect(option)}
-          className={`flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-[10px] px-1 py-2 text-center text-[length:var(--wariba-component-workstation-type-label)] font-semibold leading-tight transition-[background-color,color,box-shadow] duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] ${
-            option === tool
-              ? 'bg-[color:var(--wariba-component-workstation-wash-selected-strong)] text-[color:var(--wariba-component-workstation-interaction-selected-text)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-selected)]'
-              : 'bg-[color:var(--wariba-component-workstation-surface-control)] text-[color:var(--wariba-component-workstation-text-secondary)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)]'
-          }`}
-        >
-          <ChartToolIcon tool={option} size="mobile" />
-          <span className="line-clamp-2">{toolLabel(option)}</span>
-        </button>
-      ))}
-    </div>
-  );
-});

@@ -1,8 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { memo, useMemo } from 'react';
-import { ModuleHeader } from '@wariba/ui';
+import { memo, useMemo, useState } from 'react';
 import type {
   AccountSnapshot,
   PendingOrderDTO,
@@ -16,9 +15,9 @@ import type { RealtimeConnectionState } from '../../../lib/realtime-client';
 import type { ModifyPendingOrderParams } from './ModifyPendingOrderDialog';
 import type { FillMarker } from './TradeChart';
 import type { PendingOrderAction, PendingRiskAction } from './trade-session';
-import { MARKET_STATUS_LABEL } from './trade-labels';
 import { useTick, type TickStore } from './tick-store';
 import type { ChartHistoryTransport } from './chart-history';
+import { SymbolSearchModal } from './SymbolSearchModal';
 
 // lightweight-charts touches the DOM/canvas directly and has no useful
 // server-rendered output — Prompt 07's own performance requirement ("chart
@@ -60,6 +59,8 @@ export interface ChartWorkspaceProps {
   historyTransport: ChartHistoryTransport;
   symbol: TradableSymbol;
   spec: SymbolSpec | undefined;
+  symbolSpecs: Partial<Record<TradableSymbol, SymbolSpec>>;
+  onSelectSymbol(symbol: TradableSymbol): void;
   snapshot: AccountSnapshot | null;
   fills: FillMarker[];
   alerts: PriceAlertDTO[];
@@ -93,6 +94,8 @@ export const ChartWorkspace = memo(function ChartWorkspace({
   historyTransport,
   symbol,
   spec,
+  symbolSpecs,
+  onSelectSymbol,
   snapshot,
   fills,
   alerts,
@@ -104,6 +107,7 @@ export const ChartWorkspace = memo(function ChartWorkspace({
   actions,
   onOpenMobileMarkets,
 }: ChartWorkspaceProps) {
+  const [symbolSearchOpen, setSymbolSearchOpen] = useState(false);
   const tick = useTick(store, symbol);
 
   const symbolPositions: PositionDTO[] = useMemo(
@@ -125,65 +129,12 @@ export const ChartWorkspace = memo(function ChartWorkspace({
       aria-label={`Espace de travail ${symbol}`}
       className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-module)] lg:border-y"
     >
-      <ModuleHeader
-        title={symbol}
-        testId="chart-context-header"
-        className="hidden lg:flex"
-        accent="interaction"
-        status={
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-[6px] px-1.5 py-0.5 font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] ring-1 ring-inset ${
-              tick?.marketStatus === 'stale'
-                ? 'bg-[color:var(--wariba-component-workstation-wash-warning)] text-[color:var(--wariba-component-workstation-trading-warning)] ring-[color:var(--wariba-component-workstation-trading-warning)]/35'
-                : 'bg-[color:var(--wariba-component-workstation-wash-neutral)] text-[color:var(--wariba-component-workstation-text-secondary)] ring-[color:var(--wariba-component-workstation-border-hairline)]'
-            }`}
-          >
-            <span
-              aria-hidden="true"
-              className={`h-1.5 w-1.5 rounded-full ${
-                tick?.marketStatus === 'open'
-                  ? 'bg-[color:var(--wariba-component-workstation-trading-buy)]'
-                  : 'bg-current'
-              }`}
-            />
-            {tick ? MARKET_STATUS_LABEL[tick.marketStatus] : 'Indisponible'}
-          </span>
-        }
-        actions={
-          tick ? (
-            /* Visual closure §9 — the chart header's quotes are instrumentation
-               too. Micro-caps label above the figure, the figure in its own side
-               colour and a full step larger, so BID and ASK read as two readouts
-               rather than as four words in a row. */
-            <div className="flex items-center gap-3">
-              {(
-                [
-                  [
-                    'Bid',
-                    tick.bid,
-                    'text-[color:var(--wariba-component-workstation-trading-live-bid)]',
-                  ],
-                  [
-                    'Ask',
-                    tick.ask,
-                    'text-[color:var(--wariba-component-workstation-trading-live-ask)]',
-                  ],
-                ] as const
-              ).map(([label, value, tone]) => (
-                <span key={label} className="flex items-baseline gap-1.5 leading-none">
-                  <span className="text-[length:var(--wariba-component-workstation-type-meta)] font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]">
-                    {label}
-                  </span>
-                  <strong
-                    className={`wariba-data text-[length:var(--wariba-component-workstation-type-data-strong)] font-semibold tabular-nums ${tone}`}
-                  >
-                    {value}
-                  </strong>
-                </span>
-              ))}
-            </div>
-          ) : null
-        }
+      <SymbolSearchModal
+        open={symbolSearchOpen}
+        onClose={() => setSymbolSearchOpen(false)}
+        symbolSpecs={symbolSpecs}
+        selectedSymbol={symbol}
+        onSelectSymbol={onSelectSymbol}
       />
 
       <TradeChart
@@ -217,6 +168,8 @@ export const ChartWorkspace = memo(function ChartWorkspace({
         onDeleteAlert={actions.onDeleteAlert}
         onPendingOrderRequest={actions.onPendingOrderRequest}
         onCreateAlertHere={actions.onCreateAlertHere}
+        onOpenAlerts={actions.onOpenManageAlert}
+        onOpenSymbolSearch={() => setSymbolSearchOpen(true)}
         onOpenMobileMarkets={onOpenMobileMarkets}
       />
     </section>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import {
   createChart,
   CrosshairMode,
+  PriceScaleMode,
   type IChartApi,
   type ISeriesApi,
   type IPriceLine,
@@ -34,10 +35,7 @@ import {
   ToolbarButton,
   WariXDeleteIcon,
   WariXDoneIcon,
-  WariXFitIcon,
-  WariXIndicatorsIcon,
   WariXPaletteIcon,
-  WariXSearchIcon,
 } from '@wariba/ui';
 import type { RealtimeConnectionState } from '../../../lib/realtime-client';
 import { resolveLabelCollisions } from './chart-overlay-geometry';
@@ -58,15 +56,22 @@ import {
 } from './chart-history';
 import type { TickStore } from './tick-store';
 import { HISTORY_STATUS_MESSAGE } from './trade-copy';
-import { ChartToolbar, IndicatorOptions, ToolOptions } from './ChartToolbar';
-import { ChartLegend } from './ChartLegend';
+import { ChartToolbar, useFullscreen, type ChartStyle } from './ChartToolbar';
+import { ChartStatusLine, computeBarChange } from './ChartStatusLine';
+import { IndicatorLibrary } from './IndicatorLibrary';
+import { ChartModal } from './ChartModal';
+import { ChartSettingsModal } from './ChartSettingsModal';
+import { ObjectTreeModal } from './ObjectTreeModal';
+import { MobileToolsSheet } from './MobileToolsSheet';
 import { ChartDrawingLayer } from './ChartDrawingLayer';
 import { toRendererCandle } from './chart-renderer-adapters';
 import { drawingTypeLabel } from './chart-drawing-model';
-import { toolLabel } from './chart-tool-mode';
+import { cursorModeLabel, toolLabel } from './chart-tool-mode';
 import { legendCandle, useChartAnalysis } from './use-chart-analysis';
+import { CROSSHAIR_LINE_STYLE, type ChartTimezone } from './chart-settings-model';
 import { useIsDesktop } from './use-viewport';
 import { DrawingToolRail } from './DrawingToolRail';
+import { ChartBottomBar, type ChartScaleMode } from './ChartBottomBar';
 
 export interface FillMarker {
   id: string;
@@ -138,6 +143,8 @@ export interface TradeChartProps {
   onDeleteAlert: (alertId: string) => void;
   onPendingOrderRequest: (params: { orderType: PendingOrderType; triggerPrice: string }) => void;
   onCreateAlertHere: (thresholdPrice: string) => void;
+  onOpenAlerts: () => void;
+  onOpenSymbolSearch: () => void;
   onOpenMobileMarkets?: () => void;
 }
 
@@ -148,6 +155,30 @@ export interface TradeChartProps {
  * computed height and that is the bug to fix, not this number.
  */
 const CHART_FALLBACK_HEIGHT = 240;
+
+/**
+ * §15 Symbol → Timezone. Formatting only.
+ *
+ * The renderer hands back the same epoch seconds history stored; all this does
+ * is decide which clock renders them. `Intl` is asked for the zone once per
+ * call rather than a fixed offset being added, so a market that crosses a DST
+ * boundary is labelled correctly on both sides of it — an offset would have
+ * silently shifted every label by an hour twice a year.
+ */
+function buildTimeFormatter(timezone: ChartTimezone): (time: number) => string {
+  const options: Intl.DateTimeFormatOptions = {
+    year: '2-digit',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    ...(timezone === 'utc' ? { timeZone: 'UTC' } : {}),
+  };
+  const format = new Intl.DateTimeFormat('fr-FR', options);
+  return (time: number) => format.format(new Date(time * 1000));
+}
 
 function readToken(element: HTMLElement, name: string, fallback: string): string {
   const value = getComputedStyle(element).getPropertyValue(name).trim();
@@ -252,11 +283,17 @@ export function TradeChart({
   onDeleteAlert,
   onPendingOrderRequest,
   onCreateAlertHere,
+  onOpenAlerts,
+  onOpenSymbolSearch,
   onOpenMobileMarkets,
 }: TradeChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const cursorDotRef = useRef<HTMLSpanElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const barSeriesRef = useRef<ISeriesApi<'Bar'> | null>(null);
+  const lineSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const areaSeriesRef = useRef<ISeriesApi<'Area'> | null>(null);
   const bidLineRef = useRef<IPriceLine | null>(null);
   const askLineRef = useRef<IPriceLine | null>(null);
   const positionLinesRef = useRef<IPriceLine[]>([]);
@@ -331,6 +368,25 @@ export function TradeChart({
   const draggingDisabled = isStale || isDisconnected || commandPending;
   const isDesktop = useIsDesktop();
   const [chartToolsOpen, setChartToolsOpen] = useState(false);
+  const [indicatorsOpen, setIndicatorsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [objectTreeOpen, setObjectTreeOpen] = useState(false);
+  const [scaleMode, setScaleMode] = useState<ChartScaleMode>('normal');
+  const [autoScale, setAutoScale] = useState(true);
+  const [chartStyle, setChartStyle] = useState<ChartStyle>('candles');
+  // Stable transient-surface commands keep the memoised desktop chart chrome
+  // outside the tick render path. An inline setter here changes identity on
+  // every TradeChart render and defeats the ownership boundary even though the
+  // visible button state did not change.
+  const openChartTools = useCallback(() => setChartToolsOpen(true), []);
+  const openIndicators = useCallback(() => setIndicatorsOpen(true), []);
+  const openSettings = useCallback(() => setSettingsOpen(true), []);
+  const openObjectTree = useCallback(() => setObjectTreeOpen(true), []);
+  /** §18 — the brief confirmation after Copy price. No toast, no queue. */
+  const [copiedPrice, setCopiedPrice] = useState<string | null>(null);
+  const [chartLinkCopied, setChartLinkCopied] = useState(false);
+  const chartColumnRef = useRef<HTMLDivElement | null>(null);
+  const { fullscreen, toggle: toggleFullscreen } = useFullscreen(chartColumnRef);
 
   /**
    * W5 — the chart-analysis layer, reached through a ref.
@@ -394,6 +450,7 @@ export function TradeChart({
         textColor,
         fontFamily: readToken(container, '--wariba-font-mono', 'monospace'),
         fontSize: 11,
+        attributionLogo: false,
       },
       grid: {
         vertLines: { color: gridColor },
@@ -449,8 +506,35 @@ export function TradeChart({
       priceLineVisible: true,
       priceLineColor: currentPriceColor,
     });
+    const barSeries = chart.addBarSeries({
+      upColor,
+      downColor,
+      thinBars: true,
+      visible: false,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    const lineSeries = chart.addLineSeries({
+      color: upColor,
+      lineWidth: 2,
+      visible: false,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    const areaSeries = chart.addAreaSeries({
+      lineColor: upColor,
+      topColor: `${upColor}55`,
+      bottomColor: `${upColor}05`,
+      lineWidth: 2,
+      visible: false,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
     chartRef.current = chart;
     seriesRef.current = series;
+    barSeriesRef.current = barSeries;
+    lineSeriesRef.current = lineSeries;
+    areaSeriesRef.current = areaSeries;
     // W5 §123 — the indicator engine's series live and die with this chart.
     analysisRef.current?.attachRenderer(chart);
 
@@ -609,6 +693,9 @@ export function TradeChart({
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
+      barSeriesRef.current = null;
+      lineSeriesRef.current = null;
+      areaSeriesRef.current = null;
       bidLineRef.current = null;
       askLineRef.current = null;
       positionLinesRef.current = [];
@@ -630,11 +717,21 @@ export function TradeChart({
   const sink = useMemo<ChartHistorySeriesSink>(
     () => ({
       setData: (candles) => {
-        seriesRef.current?.setData(candles.map(toRendererCandle));
+        const ohlc = candles.map(toRendererCandle);
+        const closes = ohlc.map((candle) => ({ time: candle.time, value: candle.close }));
+        seriesRef.current?.setData(ohlc);
+        barSeriesRef.current?.setData(ohlc);
+        lineSeriesRef.current?.setData(closes);
+        areaSeriesRef.current?.setData(closes);
         analysisRef.current?.onSeriesReplaced();
       },
       update: (candle) => {
-        seriesRef.current?.update(toRendererCandle(candle));
+        const ohlc = toRendererCandle(candle);
+        const close = { time: ohlc.time, value: ohlc.close };
+        seriesRef.current?.update(ohlc);
+        barSeriesRef.current?.update(ohlc);
+        lineSeriesRef.current?.update(close);
+        areaSeriesRef.current?.update(close);
         analysisRef.current?.onSeriesLiveUpdate();
       },
       fitContent: () => chartRef.current?.timeScale().fitContent(),
@@ -659,7 +756,12 @@ export function TradeChart({
         const chart = chartRef.current;
         const timeScale = chart?.timeScale();
         const before = timeScale?.getVisibleLogicalRange() ?? null;
-        seriesRef.current?.setData(candles.map(toRendererCandle));
+        const ohlc = candles.map(toRendererCandle);
+        const closes = ohlc.map((candle) => ({ time: candle.time, value: candle.close }));
+        seriesRef.current?.setData(ohlc);
+        barSeriesRef.current?.setData(ohlc);
+        lineSeriesRef.current?.setData(closes);
+        areaSeriesRef.current?.setData(closes);
         analysisRef.current?.onSeriesReplaced();
         if (timeScale && before && prependedCount > 0) {
           timeScale.setVisibleLogicalRange({
@@ -739,8 +841,157 @@ export function TradeChart({
    */
   useEffect(() => {
     if (pricePrecision === null) return;
-    seriesRef.current?.applyOptions({ priceFormat: chartPriceFormatFor(pricePrecision) });
+    const priceFormat = chartPriceFormatFor(pricePrecision);
+    seriesRef.current?.applyOptions({ priceFormat });
+    barSeriesRef.current?.applyOptions({ priceFormat });
+    lineSeriesRef.current?.applyOptions({ priceFormat });
+    areaSeriesRef.current?.applyOptions({ priceFormat });
   }, [pricePrecision]);
+
+  /**
+   * Reopen §6-§8/§15/§23 — the Settings modal, applied to the renderer.
+   *
+   * A separate effect rather than options passed to `createChart`, for the same
+   * reason `priceFormat` is: the chart is created once on mount, while the
+   * trader's stored settings arrive from browser storage a tick later. Baking
+   * them in at creation would have shown the shipped defaults on every load and
+   * then swapped them, and a settings change would have required tearing the
+   * chart down. `applyOptions` is the renderer's own incremental path, so a
+   * checkbox in the modal repaints without touching series, history or drawings.
+   */
+  const chartSettings = analysis.settings;
+  useEffect(() => {
+    const chart = chartRef.current;
+    const container = containerRef.current;
+    if (!chart || !container) return;
+    const { canvas, scales, symbol: symbolSettings } = chartSettings;
+
+    const grid = readToken(container, '--wariba-chart-grid', '#1A2130');
+    const axis = readToken(container, '--wariba-chart-axis', '#3A4251');
+    const crosshairColor = readToken(container, '--wariba-chart-crosshair', '#C0C6D0');
+    const crosshairLabel = readToken(container, '--wariba-chart-crosshair-label', '#1E2433');
+    const watermarkColor = readToken(container, '--wariba-chart-watermark', '#151A25');
+    const textColor = readToken(container, '--wariba-chart-text-secondary', '#9AA3B1');
+
+    const showVert = canvas.grid === 'both' || canvas.grid === 'vertical';
+    const showHorz = canvas.grid === 'both' || canvas.grid === 'horizontal';
+    const line = CROSSHAIR_LINE_STYLE[canvas.crosshairStyle];
+
+    chart.applyOptions({
+      grid: {
+        vertLines: { visible: showVert, color: grid },
+        horzLines: { visible: showHorz, color: grid },
+      },
+      /*
+       * §8 — the crosshair is a primary reading tool, so it is drawn *above* the
+       * grid's tone rather than inside it. At ink-500 it measured a step away
+       * from the grid lines it crosses and disappeared over a dense candle run;
+       * ink-200 is off-white, unmistakable at a glance, and still a full step
+       * below the candle bodies so it cannot outrank live market data. Style is
+       * the second separator: dashed by default, which no drawing and no trading
+       * level uses.
+       */
+      crosshair: {
+        mode: canvas.crosshairMagnet ? CrosshairMode.Magnet : CrosshairMode.Normal,
+        vertLine: {
+          visible: analysis.cursorMode === 'cross',
+          color: crosshairColor,
+          width: 1,
+          style: line,
+          labelBackgroundColor: crosshairLabel,
+        },
+        horzLine: {
+          visible: analysis.cursorMode === 'cross',
+          color: crosshairColor,
+          width: 1,
+          style: line,
+          labelBackgroundColor: crosshairLabel,
+        },
+      },
+      /*
+       * §23 — a restrained instrument watermark. It is the chart's identity when
+       * several are open, and it is drawn at ink-870, one step off the plot
+       * background: legible as a shape, incapable of competing with a candle.
+       */
+      watermark: {
+        visible: canvas.watermark,
+        text: symbol,
+        color: watermarkColor,
+        fontSize: 64,
+        fontFamily: readToken(container, '--wariba-font-mono', 'monospace'),
+        horzAlign: 'center',
+        vertAlign: 'center',
+      },
+      rightPriceScale: {
+        visible: scales.placement === 'right',
+        borderVisible: canvas.scaleLines,
+        borderColor: axis,
+      },
+      leftPriceScale: {
+        visible: scales.placement === 'left',
+        borderVisible: canvas.scaleLines,
+        borderColor: axis,
+      },
+      timeScale: { borderVisible: canvas.scaleLines, borderColor: axis },
+      layout: {
+        textColor: scales.scaleText ? textColor : 'rgba(0,0,0,0)',
+        attributionLogo: false,
+      },
+      /*
+       * §15 Symbol → Timezone. The renderer draws its own axis labels, so a
+       * timezone is a formatter rather than a data transform: the candles keep
+       * their epoch-second `startTime` exactly as history recorded it, and only
+       * the label above them changes. Nothing in W3's history semantics moves.
+       */
+      localization: { timeFormatter: buildTimeFormatter(symbolSettings.timezone) },
+    });
+  }, [chartSettings, symbol, analysis.cursorMode]);
+
+  /** Candle appearance — §15 Symbol. */
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series) return;
+    const { symbol: s, scales } = chartSettings;
+    const container = containerRef.current;
+    const currentPriceColor = container
+      ? readToken(container, '--wariba-chart-current-price', '#9AA3B1')
+      : '#9AA3B1';
+    series.applyOptions({
+      upColor: s.bodyVisible && chartStyle === 'candles' ? s.upColor : 'rgba(0,0,0,0)',
+      downColor: s.bodyVisible && chartStyle === 'candles' ? s.downColor : 'rgba(0,0,0,0)',
+      borderVisible: s.bordersVisible && chartStyle === 'candles',
+      borderUpColor: s.borderUpColor,
+      borderDownColor: s.borderDownColor,
+      wickVisible: s.wicksVisible && chartStyle === 'candles',
+      wickUpColor: s.wickUpColor,
+      wickDownColor: s.wickDownColor,
+      /*
+       * §7 — one clear current-price reference. Dashed and neutral: it is the
+       * chart's anchor, not a trading semantic, and it must read *before* any
+       * other horizontal rule now that the permanent Bid/Ask pair is gone.
+       */
+      priceLineVisible: scales.currentPriceLine,
+      priceLineColor: currentPriceColor,
+      priceLineWidth: 1,
+      priceLineStyle: 2,
+    });
+    barSeriesRef.current?.applyOptions({
+      visible: chartStyle === 'bars',
+      upColor: s.upColor,
+      downColor: s.downColor,
+    });
+    lineSeriesRef.current?.applyOptions({
+      visible: chartStyle === 'line',
+      color: s.upColor,
+    });
+    areaSeriesRef.current?.applyOptions({
+      visible: chartStyle === 'area',
+      lineColor: s.upColor,
+      topColor: `${s.upColor}55`,
+      bottomColor: `${s.upColor}05`,
+    });
+    setChartVersion((v) => v + 1);
+  }, [chartSettings, chartStyle]);
 
   // Symbol or timeframe change: drop the interaction state that belonged to the
   // previous instrument/interval. The candle series itself is the history
@@ -753,16 +1004,42 @@ export function TradeChart({
     setContextMenu(null);
   }, [symbol, analysis.timeframe]);
 
-  // New tick for the selected symbol: bid/ask price lines only. Candle
-  // aggregation deliberately does NOT happen here — see the `store` prop.
+  /**
+   * Reopen §6 — the chart no longer paints Bid and Ask across the plot.
+   *
+   * Traced before it was changed, as §6 requires. The two lines came from right
+   * here: one `createPriceLine` per side, torn down and rebuilt on **every
+   * accepted tick**, each `axisLabelVisible` and each spanning the full plot
+   * width. Together with the series' own last-value line that put three
+   * permanent horizontal rules across every WariX chart, all three within a
+   * spread of each other, and the one a trader actually reads — the price — had
+   * no visual priority over the other two. The right price scale carried three
+   * stacked plates in the same band for the same reason.
+   *
+   * Bid and Ask did not lose a home: they are on screen continuously in the
+   * chart's own module header, in the Execution Center's quote deck and in the
+   * Navigator's BID/ASK columns. What they lost is the claim to be chart
+   * geometry. The setting stays for a trader who wants them back — it is off by
+   * default, which is the change.
+   *
+   * The rebuild-per-tick shape is kept for the same reason it existed:
+   * `createPriceLine` has no update-in-place API. It now runs only when the
+   * trader has asked for the lines.
+   */
+  const bidAskLinesEnabled = chartSettings.scales.bidAskLines;
   useEffect(() => {
-    if (!tick || !seriesRef.current) return;
-
-    // Bid/ask price lines (§23.2 "prix bid/ask distincts") — replaced each
-    // tick rather than moved, createPriceLine has no update-in-place API.
-    if (bidLineRef.current) seriesRef.current.removePriceLine(bidLineRef.current);
-    if (askLineRef.current) seriesRef.current.removePriceLine(askLineRef.current);
-    bidLineRef.current = seriesRef.current.createPriceLine({
+    const series = seriesRef.current;
+    if (!series) return;
+    if (bidLineRef.current) {
+      series.removePriceLine(bidLineRef.current);
+      bidLineRef.current = null;
+    }
+    if (askLineRef.current) {
+      series.removePriceLine(askLineRef.current);
+      askLineRef.current = null;
+    }
+    if (!bidAskLinesEnabled || !tick) return;
+    bidLineRef.current = series.createPriceLine({
       price: Number(tick.bid),
       color: colorsRef.current.bid,
       lineWidth: 1,
@@ -770,7 +1047,7 @@ export function TradeChart({
       axisLabelVisible: true,
       title: 'Bid',
     });
-    askLineRef.current = seriesRef.current.createPriceLine({
+    askLineRef.current = series.createPriceLine({
       price: Number(tick.ask),
       color: colorsRef.current.ask,
       lineWidth: 1,
@@ -779,7 +1056,7 @@ export function TradeChart({
       title: 'Ask',
     });
     setChartVersion((v) => v + 1);
-  }, [tick]);
+  }, [tick, bidAskLinesEnabled]);
 
   // Position + SL/TP native lines for the selected symbol — rebuilt
   // whenever the open-position list changes (a fill, a close, an SL/TP
@@ -1133,6 +1410,17 @@ export function TradeChart({
   };
 
   const handleContainerPointerMove = (event: React.PointerEvent) => {
+    const dot = cursorDotRef.current;
+    const container = containerRef.current;
+    if (dot && container) {
+      if (analysis.cursorMode === 'dot' && event.pointerType !== 'touch') {
+        const rect = container.getBoundingClientRect();
+        dot.style.display = 'block';
+        dot.style.transform = `translate3d(${event.clientX - rect.left - 4}px, ${event.clientY - rect.top - 4}px, 0)`;
+      } else {
+        dot.style.display = 'none';
+      }
+    }
     analysis.handlePointerMove(event);
     const start = longPressStartRef.current;
     if (!start || event.pointerType !== 'touch') return;
@@ -1300,6 +1588,15 @@ export function TradeChart({
   const currentPosition = positions[0] ?? null;
 
   const closeContextMenu = () => setContextMenu(null);
+  /*
+   * The clicked price, read at click time rather than closed over.
+   *
+   * `contextChartActions` is memoised so the menu's identity is stable; without
+   * this ref, Copy price would have captured whichever price the menu was opened
+   * at when the memo was last built, and copied that one forever.
+   */
+  const contextMenuPriceRef = useRef<string | null>(null);
+  contextMenuPriceRef.current = contextMenu?.price ?? null;
 
   // Read at render time rather than mirrored into state: this component already
   // re-renders on every accepted tick (the `tick` prop), so the count is fresh
@@ -1307,70 +1604,295 @@ export function TradeChart({
   const historySeries = history.series();
   const historyCandleCount = historySeries.finalized.length;
   const historyNewestBucket = historySeries.finalized.at(-1)?.startTime ?? '';
+  const historyFirstBucket = historySeries.finalized[0]?.startTime ?? null;
+  const historyLastBucket =
+    historySeries.current?.startTime ?? historySeries.finalized.at(-1)?.startTime ?? null;
+  const historyCoverageSeconds =
+    historyFirstBucket !== null && historyLastBucket !== null
+      ? Math.max(0, historyLastBucket - historyFirstBucket)
+      : 0;
   const historyMessage =
     historyState.status === 'idle' || historyState.status === 'ready'
       ? null
       : HISTORY_STATUS_MESSAGE[historyState.status];
+  /*
+   * §14 — the bar's own change, from the two candles the chart is already
+   * holding.
+   *
+   * The comparison bar is the one *before* whichever candle the status line is
+   * showing: hovering bar N must report N against N-1, not the live bar against
+   * its predecessor. Both come from the same finalized series the plot renders,
+   * so the number on screen is always derived from the bars on screen.
+   */
+  const statusCandle = legendCandle(history, hoveredCandle);
+  const barChange = useMemo(() => {
+    if (statusCandle === null) return null;
+    const { finalized, current } = history.series();
+    const series = current === null ? finalized : [...finalized, current];
+    const index = series.findIndex((candle) => candle.startTime === statusCandle.startTime);
+    const previous = index > 0 ? series[index - 1] : null;
+    return computeBarChange(statusCandle, previous?.close ?? null, pricePrecision);
+  }, [statusCandle, history, pricePrecision, chartVersion]);
+
+  /*
+   * §17 — fit the visible range, and nothing else.
+   *
+   * `fitContent` touches the time scale only: no drawing is deleted, no
+   * indicator is reset, no interval changes and no command is sent. It is
+   * deliberately the narrowest implementation available, because the wider ones
+   * (clearing and refetching history to "reset") would cross into W3's
+   * territory for a cosmetic action.
+   */
   const fitChart = useCallback(() => chartRef.current?.timeScale().fitContent(), []);
+
+  const zoomIn = useCallback(() => {
+    const scale = chartRef.current?.timeScale();
+    const range = scale?.getVisibleLogicalRange();
+    if (!scale || !range) return;
+    const center = (range.from + range.to) / 2;
+    const half = ((range.to - range.from) * 0.78) / 2;
+    scale.setVisibleLogicalRange({ from: center - half, to: center + half });
+  }, []);
+
+  const selectHorizon = useCallback(
+    (seconds: number) => {
+      const chart = chartRef.current;
+      if (!chart) return;
+      const series = history.series();
+      const oldest = series.finalized[0]?.startTime;
+      const newest = series.current?.startTime ?? series.finalized.at(-1)?.startTime;
+      if (oldest === undefined || newest === undefined) return;
+      const from = newest - seconds;
+      // A visible, disabled horizon is more honest than manufacturing empty
+      // time before the process-memory window WariX actually has.
+      if (oldest > from) return;
+      chart.timeScale().setVisibleRange({
+        from: from as UTCTimestamp,
+        to: newest as UTCTimestamp,
+      });
+    },
+    [history],
+  );
+
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const mode =
+      scaleMode === 'percentage'
+        ? PriceScaleMode.Percentage
+        : scaleMode === 'logarithmic'
+          ? PriceScaleMode.Logarithmic
+          : PriceScaleMode.Normal;
+    chart.priceScale('right').applyOptions({ mode, autoScale });
+    chart.priceScale('left').applyOptions({ mode, autoScale });
+  }, [scaleMode, autoScale]);
+
+  /** §20 — a PNG of exactly what is on screen, from the renderer's own export. */
+  const takeSnapshot = useCallback(() => {
+    const canvas = chartRef.current?.takeScreenshot();
+    if (!canvas) return;
+    const link = document.createElement('a');
+    link.download = `wariX-${symbol}-${analysis.timeframe}-${Date.now()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  }, [symbol, analysis.timeframe]);
+
+  const toggleMagnet = useCallback(() => {
+    analysis.applySettings({
+      ...analysis.settings,
+      canvas: {
+        ...analysis.settings.canvas,
+        crosshairMagnet: !analysis.settings.canvas.crosshairMagnet,
+      },
+    });
+  }, [analysis.applySettings, analysis.settings]);
+
+  /**
+   * §18 — copy the clicked price at the instrument's own precision.
+   *
+   * The value copied is the same string the menu displayed, which is the same
+   * string the overlay and the price scale render: a trader who pastes it into
+   * the Execution Center's trigger field gets a price the validator accepts,
+   * not a float with fifteen decimals.
+   */
+  const copyPrice = useCallback((price: string) => {
+    void navigator.clipboard
+      ?.writeText(price)
+      .then(() => setCopiedPrice(price))
+      .catch(() => {
+        // Clipboard denied (permissions, insecure origin). Nothing to recover:
+        // the menu closes either way and no state claims a copy happened.
+      });
+  }, []);
+
+  const copyChartLink = useCallback(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('symbol', symbol);
+    void navigator.clipboard
+      ?.writeText(url.toString())
+      .then(() => setChartLinkCopied(true))
+      .catch(() => setChartLinkCopied(false));
+  }, [symbol]);
+
+  useEffect(() => {
+    if (!chartLinkCopied) return;
+    const timer = setTimeout(() => setChartLinkCopied(false), 1600);
+    return () => clearTimeout(timer);
+  }, [chartLinkCopied]);
+
+  useEffect(() => {
+    if (copiedPrice === null) return;
+    const timer = setTimeout(() => setCopiedPrice(null), 1600);
+    return () => clearTimeout(timer);
+  }, [copiedPrice]);
+
+  /**
+   * §20 — Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z, over drawings.
+   *
+   * Ignored while focus is in a text field, so undo in the Execution Center's
+   * quantity input stays the browser's own undo and never silently removes a
+   * trend line the trader cannot see from there.
+   */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'z') return;
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) return;
+      event.preventDefault();
+      if (event.shiftKey) analysis.redo();
+      else analysis.undo();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [analysis]);
+
+  /**
+   * The chart-side context-menu actions, built once and shared.
+   *
+   * The desktop popover and the mobile long-press sheet render the same
+   * component, so they must be handed the same behaviour — passing these twice
+   * by hand is exactly how the two presentations drift apart.
+   */
+  const contextChartActions = {
+    onResetView: () => {
+      closeContextMenu();
+      chartRef.current?.timeScale().fitContent();
+    },
+    onCopyPrice: () => {
+      const price = contextMenuPriceRef.current;
+      closeContextMenu();
+      if (price !== null) copyPrice(price);
+    },
+    onOpenSettings: () => {
+      closeContextMenu();
+      setSettingsOpen(true);
+    },
+    onOpenObjectTree: () => {
+      closeContextMenu();
+      setObjectTreeOpen(true);
+    },
+    onToggleMagnet: () => {
+      closeContextMenu();
+      toggleMagnet();
+    },
+    magnet: analysis.settings.canvas.crosshairMagnet,
+    onRemoveDrawings: () => {
+      closeContextMenu();
+      analysis.removeAllDrawings();
+    },
+    drawingCount: analysis.drawings.length,
+    onRemoveIndicators: () => {
+      closeContextMenu();
+      analysis.disableAllIndicators();
+    },
+    indicatorCount: analysis.legend.length,
+    onToggleDrawingsHidden: () => {
+      closeContextMenu();
+      analysis.setDrawingsHidden(!analysis.drawingsHidden);
+    },
+    onToggleIndicatorsHidden: () => {
+      closeContextMenu();
+      analysis.setIndicatorsHidden(!analysis.indicatorsHidden);
+    },
+    drawingsHidden: analysis.drawingsHidden,
+    indicatorsHidden: analysis.indicatorsHidden,
+  };
 
   return (
     // W1 §9 — min-h-0 at every ownership boundary: without it a flex child
     // refuses to shrink below its content, and the chart column would push
     // the workstation grid past the viewport instead of taking what is left.
-    <div className="flex min-h-0 flex-1 flex-col bg-[color:var(--wariba-chart-background)]">
+    <div
+      ref={chartColumnRef}
+      className="flex min-h-0 flex-1 flex-col bg-[color:var(--wariba-chart-background)]"
+    >
       {/* W5 §61/§62 — one compact analytical strip. Timeframes are always
           directly reachable; on a phone the indicator and drawing controls
           collapse into a single "Outils" sheet so the strip cannot push the
           document sideways at 320 px (§66/§67). */}
-      <div className="flex h-11 min-w-0 shrink-0 items-center justify-between gap-0 border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-1 min-[360px]:gap-1 min-[360px]:px-2 lg:h-[var(--wariba-component-workstation-toolbar-height)] lg:px-2">
+      <div className="flex h-11 min-w-0 shrink-0 items-center border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-1 min-[360px]:px-2 lg:h-[var(--wariba-component-workstation-toolbar-height)] lg:px-2">
         <ChartToolbar
+          symbol={symbol}
+          marketStatus={tick?.marketStatus ?? null}
+          onOpenMarkets={
+            isDesktop ? onOpenSymbolSearch : (onOpenMobileMarkets ?? onOpenSymbolSearch)
+          }
           timeframe={analysis.timeframe}
           onSelectTimeframe={analysis.selectTimeframe}
-          indicators={analysis.indicators}
-          onToggleIndicator={analysis.toggleIndicator}
-          tool={analysis.tool}
-          onSelectTool={analysis.selectTool}
+          chartStyle={chartStyle}
+          onSelectChartStyle={setChartStyle}
+          onOpenIndicators={openIndicators}
+          /* Active means the library is the current transient surface. Enabled
+             studies are already visible in the status line and must not turn
+             this navigation control into a permanent primary CTA. */
+          indicatorsActive={indicatorsOpen}
+          onOpenSettings={openSettings}
+          onOpenAlerts={onOpenAlerts}
+          onOpenTools={openChartTools}
+          drawingToolActive={analysis.drawingModeActive}
           onResetView={fitChart}
+          onSnapshot={takeSnapshot}
+          onToggleFullscreen={toggleFullscreen}
+          fullscreen={fullscreen}
+          onUndo={analysis.undo}
+          onRedo={analysis.redo}
+          canUndo={analysis.canUndo}
+          canRedo={analysis.canRedo}
           compact={!isDesktop}
         />
-        <div className="flex shrink-0 items-center gap-0 min-[360px]:gap-1">
-          {/* Mobile toolbar keys take the same enclosure as the interval track
-              beside them — sunken surface, hairline ring — so the strip reads as
-              one row of instrument keys rather than two bare glyphs floating
-              beside a control. */}
-          {!isDesktop && onOpenMobileMarkets ? (
-            <ToolbarButton
-              label="Marchés"
-              icon={<WariXSearchIcon size="mobile" />}
-              showLabel
-              labelClassName="hidden min-[430px]:inline"
-              accessibleDetail={`${symbol} ${tick ? `${tick.bid} / ${tick.ask}` : '— / —'}`}
-              data-testid="mobile-market-trigger"
-              aria-haspopup="dialog"
-              onClick={onOpenMobileMarkets}
-              className="h-11 min-w-11 rounded-[9px] bg-[color:var(--wariba-component-workstation-surface-canvas)] px-2 ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)]"
-            />
-          ) : null}
-          {!isDesktop && (
-            <ToolbarButton
-              label="Outils"
-              icon={<WariXIndicatorsIcon size="mobile" />}
-              showLabel
-              labelClassName="hidden min-[430px]:inline"
-              active={analysis.drawingModeActive}
-              data-testid="chart-tools-sheet-trigger"
-              onClick={() => setChartToolsOpen(true)}
-              className="h-11 min-w-11 rounded-[9px] bg-[color:var(--wariba-component-workstation-surface-canvas)] px-2 ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)]"
-            />
-          )}
-        </div>
       </div>
       {/* The overlays below are absolutely positioned against this box, and
           the chart container fills it exactly (inset-0), so every
           priceToCoordinate/timeToCoordinate value stays measured from the
           same origin it was before the container started owning its height. */}
       <div className="flex min-h-0 min-w-0 flex-1">
-        {isDesktop ? <DrawingToolRail tool={analysis.tool} onSelect={analysis.selectTool} /> : null}
+        {isDesktop ? (
+          <DrawingToolRail
+            tool={analysis.tool}
+            onSelect={analysis.selectTool}
+            cursorMode={analysis.cursorMode}
+            onSelectCursorMode={analysis.selectCursorMode}
+            favorites={analysis.favorites}
+            onToggleFavorite={analysis.toggleFavorite}
+            magnet={analysis.settings.canvas.crosshairMagnet}
+            onToggleMagnet={toggleMagnet}
+            keepDrawingMode={analysis.keepDrawingMode}
+            onToggleKeepDrawingMode={analysis.toggleKeepDrawingMode}
+            drawingsLocked={analysis.drawingsLocked}
+            onToggleDrawingsLocked={analysis.toggleDrawingsLocked}
+            onZoomIn={zoomIn}
+            chartLinkCopied={chartLinkCopied}
+            onCopyChartLink={copyChartLink}
+            drawingsHidden={analysis.drawingsHidden}
+            indicatorsHidden={analysis.indicatorsHidden}
+            onSetDrawingsHidden={analysis.setDrawingsHidden}
+            onSetIndicatorsHidden={analysis.setIndicatorsHidden}
+            drawingCount={analysis.drawings.length}
+            onRemoveAllDrawings={analysis.removeAllDrawings}
+            onOpenObjectTree={openObjectTree}
+          />
+        ) : null}
         <div className="relative min-h-0 min-w-0 flex-1">
           <div
             ref={containerRef}
@@ -1403,6 +1925,7 @@ export function TradeChart({
             // W5 §131 — the active tool, exposed for evidence and tests. It is
             // chart-local state and appears nowhere in a global context.
             data-chart-tool={analysis.tool}
+            data-chart-cursor={analysis.cursorMode}
             data-drawing-count={analysis.projected.length}
             data-history-has-more-older={String(historyState.hasMoreOlder)}
             onContextMenuCapture={handleContextMenuEvent}
@@ -1410,6 +1933,24 @@ export function TradeChart({
             onPointerMoveCapture={handleContainerPointerMove}
             onPointerUpCapture={handleContainerPointerUp}
             onPointerCancelCapture={handleContainerPointerUp}
+            onPointerLeave={() => {
+              if (cursorDotRef.current) cursorDotRef.current.style.display = 'none';
+            }}
+            style={{
+              cursor:
+                analysis.cursorMode === 'dot'
+                  ? 'none'
+                  : analysis.cursorMode === 'arrow'
+                    ? 'default'
+                    : analysis.cursorMode === 'eraser'
+                      ? 'cell'
+                      : 'crosshair',
+            }}
+          />
+          <span
+            ref={cursorDotRef}
+            aria-hidden="true"
+            className="pointer-events-none absolute left-0 top-0 z-30 hidden h-2 w-2 rounded-full border border-[color:var(--wariba-chart-background)] bg-[color:var(--wariba-chart-crosshair)] shadow-[0_0_0_1px_var(--wariba-chart-crosshair)]"
           />
           {/* W5 §45 — the analytical drawing layer sits *below* every trading
             overlay in DOM order and never takes a pointer event, so a Fibonacci
@@ -1422,11 +1963,17 @@ export function TradeChart({
             width={plotSize.width}
             height={plotSize.height}
           />
-          <ChartLegend
-            candle={legendCandle(history, hoveredCandle)}
+          <ChartStatusLine
+            symbol={symbol}
+            timeframe={analysis.timeframe}
+            marketStatus={tick?.marketStatus ?? null}
+            candle={statusCandle}
             pricePrecision={pricePrecision}
+            change={barChange}
             indicators={analysis.legend}
+            settings={chartSettings.statusLine}
             compact={!isDesktop}
+            indicatorsHidden={analysis.indicatorsHidden}
           />
           {/* W3 §52-§55 — chart-local, subtle, and never covering the price or an
             execution control: pointer-events-none so it cannot intercept a
@@ -1644,11 +2191,16 @@ export function TradeChart({
               className="absolute right-2 top-2 z-20 flex items-center gap-2 rounded-[8px] bg-[color:var(--wariba-component-workstation-surface-popover)]/95 py-1 pl-2.5 pr-1 text-[length:var(--wariba-component-workstation-type-label)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-selected)] shadow-[var(--wariba-component-workstation-elevation-popover)]"
             >
               <span className="font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-interaction-selected-text)]">
-                {toolLabel(analysis.tool)}
+                {analysis.tool === 'select'
+                  ? cursorModeLabel(analysis.cursorMode)
+                  : toolLabel(analysis.tool)}
               </span>
               <button
                 type="button"
-                onClick={() => analysis.selectTool('select')}
+                onClick={() => {
+                  analysis.selectTool('select');
+                  analysis.selectCursorMode('cross');
+                }}
                 className="min-h-11 rounded-[6px] px-2 font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-text-secondary)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] lg:min-h-7"
               >
                 Annuler
@@ -1709,6 +2261,7 @@ export function TradeChart({
           )}
           {contextMenu && !contextMenu.isTouchOrigin && (
             <ChartContextMenuPopover
+              {...contextChartActions}
               x={contextMenu.x}
               y={contextMenu.y}
               onDismiss={closeContextMenu}
@@ -1766,62 +2319,15 @@ export function TradeChart({
           )}
         </div>
       </div>
-      {/* Visual closure §9 — the footer is the chart's nameplate: small caps,
-          tabular, one tone below the plot's own labels, on the raised surface so
-          the deep chart well is closed at the bottom edge rather than bleeding
-          into the dock. */}
-      {/*
-       * Final closure §4 — the footer states the chart's reading, not its
-       * implementation.
-       *
-       * It used to read "801 BOUGIES · HISTORIQUE EN MÉMOIRE". The second half
-       * is an architecture note: it told a trader that this build keeps history
-       * in the realtime process's memory, which is a fact about WariX's
-       * internals and not about their market. It is gone from the interface —
-       * the constraint itself is unchanged and is still recorded in the WX1
-       * implementation report, where an engineer looks for it.
-       *
-       * The bar count stays, because it does carry trader value: it says how
-       * much observed market this plot is drawn from, which is exactly what a
-       * trader needs to judge a moving average on a young session. It is
-       * labelled "barres" rather than left as a bare number, and reads as a
-       * scale note beside the interval.
-       *
-       * A degraded history state still speaks in full: loading, still building
-       * and unavailable each keep their own sentence, in a warning tone when
-       * the news is bad. Nothing is hidden, and nothing implementation-shaped
-       * is shown.
-       */}
-      <footer className="hidden h-[var(--wariba-component-workstation-chart-footer-height)] shrink-0 items-center justify-between gap-3 border-t border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-2.5 text-[length:var(--wariba-component-workstation-type-meta)] font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-text-tertiary)] lg:flex">
-        <span className="flex items-center gap-2">
-          <span>UTC</span>
-          <span
-            aria-hidden="true"
-            className="h-2.5 w-px bg-[color:var(--wariba-component-workstation-border-hairline)]"
-          />
-          <span className="wariba-data tabular-nums text-[color:var(--wariba-component-workstation-text-secondary)]">
-            {analysis.timeframe}
-          </span>
-        </span>
-        {historyState.status === 'ready' ? (
-          <span className="flex items-center gap-1.5">
-            <span className="wariba-data tabular-nums text-[color:var(--wariba-component-workstation-text-secondary)]">
-              {historyCandleCount}
-            </span>
-            <span>barres</span>
-          </span>
-        ) : (
-          <span
-            className={
-              historyState.status === 'error'
-                ? 'normal-case tracking-normal text-[color:var(--wariba-component-workstation-trading-warning)]'
-                : 'normal-case tracking-normal'
-            }
-          >
-            {historyMessage ?? 'En attente'}
-          </span>
-        )}
-      </footer>
+      <ChartBottomBar
+        timezone={chartSettings.symbol.timezone}
+        historyCoverageSeconds={historyCoverageSeconds}
+        onSelectHorizon={selectHorizon}
+        scaleMode={scaleMode}
+        onScaleModeChange={setScaleMode}
+        autoScale={autoScale}
+        onAutoScaleChange={setAutoScale}
+      />
       <BottomSheet
         open={Boolean(contextMenu?.isTouchOrigin)}
         onClose={closeContextMenu}
@@ -1829,6 +2335,7 @@ export function TradeChart({
       >
         {contextMenu && (
           <ChartContextMenuContent
+            {...contextChartActions}
             clickedPriceFormatted={contextMenu.price}
             position={currentPosition}
             tick={tick}
@@ -1901,58 +2408,120 @@ export function TradeChart({
          * instead of blank space. Every target stays at or above 44px.
          */}
         {chartToolsOpen && (
-          <div className="flex flex-col gap-4 pb-2" data-testid="chart-tools-sheet">
-            <section className="flex flex-col gap-2">
-              <h3 className="flex items-center gap-2 text-[length:var(--wariba-component-workstation-type-section-label)] font-bold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]">
-                Indicateurs
-                <span
-                  aria-hidden="true"
-                  className="h-px flex-1 bg-[color:var(--wariba-component-workstation-border-hairline)]"
-                />
-              </h3>
-              <IndicatorOptions
-                indicators={analysis.indicators}
-                onToggle={analysis.toggleIndicator}
-              />
-            </section>
-            <section className="flex flex-col gap-2">
-              <h3 className="flex items-center gap-2 text-[length:var(--wariba-component-workstation-type-section-label)] font-bold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]">
-                Dessin
-                <span
-                  aria-hidden="true"
-                  className="h-px flex-1 bg-[color:var(--wariba-component-workstation-border-hairline)]"
-                />
-              </h3>
-              <ToolOptions
-                tool={analysis.tool}
-                onSelect={(next) => {
-                  analysis.selectTool(next);
-                  setChartToolsOpen(false);
-                }}
-              />
-            </section>
-            <section className="flex flex-col gap-2">
-              <h3 className="flex items-center gap-2 text-[length:var(--wariba-component-workstation-type-section-label)] font-bold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]">
-                Vue
-                <span
-                  aria-hidden="true"
-                  className="h-px flex-1 bg-[color:var(--wariba-component-workstation-border-hairline)]"
-                />
-              </h3>
-              <ToolbarButton
-                label="Ajuster la vue"
-                icon={<WariXFitIcon size="mobile" />}
-                showLabel
-                onClick={() => {
-                  fitChart();
-                  setChartToolsOpen(false);
-                }}
-                className="min-h-12 w-full justify-start gap-2.5 rounded-[10px] bg-[color:var(--wariba-component-workstation-surface-control)] px-3"
-              />
-            </section>
-          </div>
+          <MobileToolsSheet
+            tool={analysis.tool}
+            onSelectTool={analysis.selectTool}
+            cursorMode={analysis.cursorMode}
+            onSelectCursorMode={analysis.selectCursorMode}
+            favorites={analysis.favorites}
+            onToggleFavorite={analysis.toggleFavorite}
+            onOpenIndicators={openIndicators}
+            onOpenSettings={openSettings}
+            onResetView={fitChart}
+            magnet={analysis.settings.canvas.crosshairMagnet}
+            onToggleMagnet={toggleMagnet}
+            keepDrawingMode={analysis.keepDrawingMode}
+            onToggleKeepDrawingMode={analysis.toggleKeepDrawingMode}
+            drawingsHidden={analysis.drawingsHidden}
+            indicatorsHidden={analysis.indicatorsHidden}
+            onSetDrawingsHidden={analysis.setDrawingsHidden}
+            onSetIndicatorsHidden={analysis.setIndicatorsHidden}
+            drawingCount={analysis.drawings.length}
+            onRemoveAllDrawings={analysis.removeAllDrawings}
+            onClose={() => setChartToolsOpen(false)}
+          />
         )}
       </BottomSheet>
+
+      {/*
+       * §13/§28 — one library, two presentations.
+       *
+       * Desktop gets the centred modal the reference uses; a phone gets a native
+       * sheet, because a 720px modal on a 390px screen is the "desktop shrunk"
+       * failure §26 rules out. Both render the same `IndicatorLibrary`, so the
+       * search, the favourites and the enabled states cannot drift apart.
+       */}
+      {isDesktop ? (
+        /* Final closure §11 — no explanatory subtitle. "Analyse seulement…" was
+           developer commentary about where indicator maths may not travel: a true
+           statement, but an architecture note printed inside a trading terminal.
+           The invariant it described is enforced in code (`chart-indicator-model`
+           states it), not by a caption a trader reads once. */
+        <ChartModal
+          open={indicatorsOpen}
+          onClose={() => setIndicatorsOpen(false)}
+          title="Indicateurs"
+          width={520}
+          height={420}
+          testId="chart-indicators-modal"
+        >
+          <IndicatorLibrary
+            indicators={analysis.indicators}
+            onToggle={analysis.toggleIndicator}
+            favorites={analysis.favorites}
+            onToggleFavorite={analysis.toggleFavorite}
+          />
+        </ChartModal>
+      ) : (
+        /* §12 — the sheet takes the height of its catalogue, not 90dvh. Four
+           real rows under a 90dvh sheet left half a phone screen empty and made
+           a short, honest list look like a page that had failed to load. `auto`
+           hugs the content and still scrolls under its own ceiling when the
+           catalogue grows. */
+        <BottomSheet
+          open={indicatorsOpen}
+          onClose={() => setIndicatorsOpen(false)}
+          title="Indicateurs"
+          flush
+        >
+          {indicatorsOpen && (
+            <IndicatorLibrary
+              indicators={analysis.indicators}
+              onToggle={analysis.toggleIndicator}
+              favorites={analysis.favorites}
+              onToggleFavorite={analysis.toggleFavorite}
+              compact
+            />
+          )}
+        </BottomSheet>
+      )}
+
+      <ChartSettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        settings={analysis.settings}
+        onApply={analysis.applySettings}
+        pricePrecision={pricePrecision}
+      />
+
+      <ObjectTreeModal
+        open={objectTreeOpen}
+        onClose={() => setObjectTreeOpen(false)}
+        symbol={symbol}
+        drawings={analysis.drawings}
+        selectedId={analysis.selectedId}
+        onSelectDrawing={analysis.select}
+        onRemoveDrawing={analysis.removeDrawing}
+        drawingsHidden={analysis.drawingsHidden}
+        onSetDrawingsHidden={analysis.setDrawingsHidden}
+        indicators={analysis.indicators}
+        onToggleIndicator={analysis.toggleIndicator}
+        indicatorsHidden={analysis.indicatorsHidden}
+        onSetIndicatorsHidden={analysis.setIndicatorsHidden}
+      />
+
+      {/* §18 — "subtle confirmation. No toast explosion." One line, centred over
+          the chart's own footer, gone in under two seconds. */}
+      {copiedPrice !== null && (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="chart-copied-price"
+          className="pointer-events-none fixed bottom-16 left-1/2 z-[var(--wariba-z-popover)] -translate-x-1/2 rounded-[8px] border border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-popover)] px-3 py-1.5 text-[length:var(--wariba-component-workstation-type-label)] text-[color:var(--wariba-component-workstation-text-secondary)] shadow-[var(--wariba-component-workstation-elevation-popover)]"
+        >
+          Prix {copiedPrice} copié
+        </div>
+      )}
     </div>
   );
 }

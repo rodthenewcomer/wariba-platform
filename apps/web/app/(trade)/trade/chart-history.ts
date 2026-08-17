@@ -574,12 +574,33 @@ export function createChartHistoryController(
     beginHydration(identity);
   }
 
-  const offResult = transport.onResult(onResult);
-  const offError = transport.onError(onError);
-  const offSocketOpen = transport.onSocketOpen(onSocketOpen);
+  let offResult: (() => void) | null = null;
+  let offError: (() => void) | null = null;
+  let offSocketOpen: (() => void) | null = null;
+
+  function attachTransport(): void {
+    if (offResult !== null) return;
+    offResult = transport.onResult(onResult);
+    offError = transport.onError(onError);
+    offSocketOpen = transport.onSocketOpen(onSocketOpen);
+  }
+
+  function detachTransport(): void {
+    offResult?.();
+    offError?.();
+    offSocketOpen?.();
+    offResult = null;
+    offError = null;
+    offSocketOpen = null;
+  }
 
   return {
     start(params) {
+      // Subscription setup belongs to the mounted lifecycle, not controller
+      // construction. React Strict Mode deliberately invokes state initializers
+      // more than once in development; keeping construction pure prevents a
+      // discarded controller from becoming the transport's only listener.
+      attachTransport();
       const changed =
         identity === null ||
         identity.symbol !== params.symbol ||
@@ -615,9 +636,7 @@ export function createChartHistoryController(
     dispose() {
       detachTicks?.();
       detachTicks = null;
-      offResult();
-      offError();
-      offSocketOpen();
+      detachTransport();
       listeners.clear();
     },
   };

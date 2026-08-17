@@ -223,9 +223,10 @@
   --wariba-chart-position: #6684FF;
   --wariba-chart-stop-loss: #C94D4D;
   --wariba-chart-take-profit: #258A61;
-  --wariba-chart-crosshair: #555E6E;
+  --wariba-chart-crosshair: #C0C6D0;
   --wariba-chart-crosshair-label: #1E2433;
   --wariba-chart-current-price: #9AA3B1;
+  --wariba-chart-watermark: #151A25;
   --wariba-chart-axis: #272D3A;
 
   /* Semantic — light (default) */
@@ -492,7 +493,8 @@
   --wariba-component-workstation-nav-width-wide: 244px;
   --wariba-component-workstation-nav-width-min: 220px;
   --wariba-component-workstation-nav-width-max: 320px;
-  --wariba-component-workstation-drawing-rail-width: 36px;
+  --wariba-component-workstation-drawing-rail-width: 42px;
+  --wariba-component-workstation-utility-rail-width: 48px;
   --wariba-component-workstation-exec-width: 248px;
   --wariba-component-workstation-exec-width-compact: 236px;
   --wariba-component-workstation-exec-width-wide: 260px;
@@ -506,7 +508,7 @@
   --wariba-component-workstation-dock-one-row-height: 112px;
   --wariba-component-workstation-activity-tab-height: 40px;
   --wariba-component-workstation-module-header-height: 32px;
-  --wariba-component-workstation-toolbar-height: 36px;
+  --wariba-component-workstation-toolbar-height: 40px;
   --wariba-component-workstation-toolbar-mobile-height: 44px;
   --wariba-component-workstation-mobile-market-height: 28px;
   --wariba-component-workstation-panel-padding: 8px;
@@ -729,4 +731,3 @@
   --shadow-md: var(--wariba-shadow-md);
   --shadow-lg: var(--wariba-shadow-lg);
 }
-
