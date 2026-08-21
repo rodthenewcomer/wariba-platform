@@ -28,7 +28,7 @@ describe('WariXPositionsTable', () => {
         emptyLabel="Aucune position ouverte."
       />,
     );
-    expect(screen.getByText('Aucune position ouverte.')).toBeInTheDocument();
+    expect(screen.getAllByText('Aucune position ouverte.')).toHaveLength(2);
   });
 
   it('renders one row per position with symbol, side, size, entry/current price, SL/TP, and live PnL', () => {
@@ -42,11 +42,15 @@ describe('WariXPositionsTable', () => {
         emptyLabel="Aucune position ouverte."
       />,
     );
-    expect(screen.getByText('EURUSD · Achat')).toBeInTheDocument();
+    // The desktop row draws the symbol and its direction as separate elements
+    // so each can carry its own weight and colour (visual closure §14), so they
+    // are asserted separately rather than as one run of text.
+    expect(screen.getByText('EURUSD')).toBeInTheDocument();
+    expect(screen.getByText('Achat')).toBeInTheDocument();
     expect(screen.getByText('0.10')).toBeInTheDocument();
     expect(screen.getByText('1.08300')).toBeInTheDocument();
     expect(screen.getByText('1.08450')).toBeInTheDocument();
-    expect(screen.getByText('+15.00 USD')).toBeInTheDocument();
+    expect(screen.getAllByText('+15.00 USD')).toHaveLength(2);
   });
 
   it('gives a losing position the danger tone and a winning one the success tone', () => {
@@ -62,7 +66,14 @@ describe('WariXPositionsTable', () => {
         emptyLabel="Aucune position ouverte."
       />,
     );
-    expect(screen.getByText('-8.00 USD').className).toContain('status-danger-text');
+    // Both presentations tone the figure, and both use the workstation's own
+    // financial-negative token rather than the generic status colour — the P&L
+    // is the loudest thing in the row, so it is coloured on the trading scale.
+    expect(
+      screen
+        .getAllByText('-8.00 USD')
+        .every((element) => element.className.includes('workstation-text-financial-negative')),
+    ).toBe(true);
   });
 
   it('calls onClose with the position id when Fermer is clicked', async () => {

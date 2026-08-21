@@ -10,10 +10,12 @@ import {
   DataTableHead,
   DataTableHeaderCell,
   DataTableRow,
+  MobileStructuredRow,
   Text,
 } from '@wariba/ui';
 import type { AlertDirection, AlertNotificationDTO, PriceAlertDTO } from '@wariba/contracts';
 import { formatOrderTimestamp } from '../../trade-labels';
+import { DockEmptyState } from './DockEmptyState';
 
 const DIRECTION_LABEL: Record<AlertDirection, string> = {
   cross_above: 'Franchit au-dessus de',
@@ -60,46 +62,35 @@ export const AlertsPanel = memo(function AlertsPanel({
         <Text variant="label-sm" color="tertiary">
           Alertes actives
         </Text>
-        <Button variant="ghost" size="sm" onClick={onManageAlerts}>
+        <Button variant="ghost" size="sm" className="min-h-11 lg:min-h-0" onClick={onManageAlerts}>
           Créer / gérer
         </Button>
       </div>
 
-      <DataTable>
-        <DataTableHead>
-          <DataTableRow>
-            <DataTableHeaderCell>Symbole</DataTableHeaderCell>
-            <DataTableHeaderCell>Condition</DataTableHeaderCell>
-            <DataTableHeaderCell align="right">Seuil</DataTableHeaderCell>
-            <DataTableHeaderCell align="right">État</DataTableHeaderCell>
-            <DataTableHeaderCell align="right">Actions</DataTableHeaderCell>
-          </DataTableRow>
-        </DataTableHead>
-        <DataTableBody>
-          {alerts.length === 0 ? (
-            <DataTableRow>
-              <DataTableCell
-                colSpan={5}
-                className="text-center text-[color:var(--wariba-text-secondary)]"
-              >
-                Aucune alerte.
-              </DataTableCell>
-            </DataTableRow>
-          ) : (
-            alerts.map((alert) => (
-              <DataTableRow key={alert.id}>
-                <DataTableCell>{alert.symbol}</DataTableCell>
-                <DataTableCell>{DIRECTION_LABEL[alert.direction]}</DataTableCell>
-                <DataTableCell numeric>{alert.thresholdPrice}</DataTableCell>
-                <DataTableCell align="right">
-                  <Badge variant={alert.enabled ? 'success' : 'neutral'}>
-                    {alert.enabled ? 'Active' : 'Désactivée'}
-                  </Badge>
-                </DataTableCell>
-                <DataTableCell align="right">
+      <div className="lg:hidden">
+        {alerts.length === 0 ? (
+          <DockEmptyState
+            title="Aucune alerte"
+            hint="Les alertes de prix que vous créez apparaîtront ici."
+          />
+        ) : (
+          alerts.map((alert) => (
+            <MobileStructuredRow
+              key={alert.id}
+              primary={alert.symbol}
+              secondary={DIRECTION_LABEL[alert.direction]}
+              trailing={alert.thresholdPrice}
+              details={
+                <Badge variant={alert.enabled ? 'success' : 'neutral'}>
+                  {alert.enabled ? 'Active' : 'Désactivée'}
+                </Badge>
+              }
+              action={
+                <div className="flex gap-1">
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="min-h-11"
                     disabled={pending}
                     onClick={() =>
                       alert.enabled ? onDisableAlert(alert.id) : onEnableAlert(alert.id)
@@ -110,18 +101,77 @@ export const AlertsPanel = memo(function AlertsPanel({
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="min-h-11 text-[color:var(--wariba-component-workstation-trading-rejection)]"
                     disabled={pending}
                     onClick={() => onDeleteAlert(alert.id)}
-                    className="text-[color:var(--wariba-status-danger-text)]"
                   >
                     Supprimer
                   </Button>
+                </div>
+              }
+            />
+          ))
+        )}
+      </div>
+      <div className="hidden lg:block">
+        <DataTable>
+          <DataTableHead>
+            <DataTableRow>
+              <DataTableHeaderCell>Symbole</DataTableHeaderCell>
+              <DataTableHeaderCell>Condition</DataTableHeaderCell>
+              <DataTableHeaderCell align="right">Seuil</DataTableHeaderCell>
+              <DataTableHeaderCell align="right">État</DataTableHeaderCell>
+              <DataTableHeaderCell align="right">Actions</DataTableHeaderCell>
+            </DataTableRow>
+          </DataTableHead>
+          <DataTableBody>
+            {alerts.length === 0 ? (
+              <DataTableRow>
+                <DataTableCell colSpan={5} className="p-0">
+                  <DockEmptyState
+                    title="Aucune alerte"
+                    hint="Les alertes de prix que vous créez apparaîtront ici."
+                  />
                 </DataTableCell>
               </DataTableRow>
-            ))
-          )}
-        </DataTableBody>
-      </DataTable>
+            ) : (
+              alerts.map((alert) => (
+                <DataTableRow key={alert.id}>
+                  <DataTableCell>{alert.symbol}</DataTableCell>
+                  <DataTableCell>{DIRECTION_LABEL[alert.direction]}</DataTableCell>
+                  <DataTableCell numeric>{alert.thresholdPrice}</DataTableCell>
+                  <DataTableCell align="right">
+                    <Badge variant={alert.enabled ? 'success' : 'neutral'}>
+                      {alert.enabled ? 'Active' : 'Désactivée'}
+                    </Badge>
+                  </DataTableCell>
+                  <DataTableCell align="right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={pending}
+                      onClick={() =>
+                        alert.enabled ? onDisableAlert(alert.id) : onEnableAlert(alert.id)
+                      }
+                    >
+                      {alert.enabled ? 'Désactiver' : 'Activer'}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={pending}
+                      onClick={() => onDeleteAlert(alert.id)}
+                      className="text-[color:var(--wariba-status-danger-text)]"
+                    >
+                      Supprimer
+                    </Button>
+                  </DataTableCell>
+                </DataTableRow>
+              ))
+            )}
+          </DataTableBody>
+        </DataTable>
+      </div>
 
       {recentTriggers.length > 0 && (
         <div className="flex flex-col gap-2">

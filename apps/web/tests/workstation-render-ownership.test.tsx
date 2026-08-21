@@ -241,6 +241,7 @@ const ACCOUNTS = [
     programShortLabel: 'ONE',
     phaseLabel: 'Évaluation',
     nominalFormatted: '10 000 USD',
+    sizeShortLabel: '10K',
     publicId: 'WRB-0001',
     statusLabel: 'Actif',
     statusVariant: 'success' as const,
@@ -252,6 +253,16 @@ const N_TICKS = 25;
 describe('workstation render ownership', () => {
   beforeEach(() => {
     renderCounts.clear();
+    /*
+     * These assertions are about the *wide* desktop cockpit — they read the
+     * Market Navigator's rows directly, which only exist while the Navigator is
+     * expanded. jsdom reports a 1024px window by default, and visual closure
+     * §22 makes 1024 the first width of the hybrid band where the Navigator now
+     * starts collapsed, so the width has to be stated rather than inherited.
+     * Declaring it is the honest fix: a test that reads a panel should say at
+     * which viewport that panel is on screen.
+     */
+    window.innerWidth = 1440;
   });
 
   afterEach(() => {
@@ -313,7 +324,8 @@ describe('workstation render ownership', () => {
 
     // Legitimate consumers: these must actually track the market (§17).
     expect(countOf('chartWorkspace') - baseline.chartWorkspace).toBe(N_TICKS);
-    expect(countOf('execution') - baseline.execution).toBe(N_TICKS);
+    // The accepted right rail does not mount Trade until its drawer is opened.
+    expect(countOf('execution') - baseline.execution).toBe(0);
 
     // Reported, not constrained. The visible Positions panel uses
     // `useAllTicks` because live P&L across every open position genuinely
@@ -374,6 +386,14 @@ describe('workstation render ownership', () => {
     expect(countOf('execution') - before.execution).toBe(0);
     expect(countOf('statusBar') - before.statusBar).toBe(0);
     expect(countOf('navigator') - before.navigator).toBe(0);
+    // eslint-disable-next-line no-console
+    console.log(
+      `UNSELECTED_RENDER_OWNERSHIP N_UNSELECTED_SYMBOL_TICKS=${N_TICKS} ` +
+        `CHART_WORKSPACE_EXTRA_RENDERS=${countOf('chartWorkspace') - before.chartWorkspace} ` +
+        `EXECUTION_EXTRA_RENDERS=${countOf('execution') - before.execution} ` +
+        `STATUS_BAR_EXTRA_RENDERS=${countOf('statusBar') - before.statusBar} ` +
+        `MARKET_NAVIGATOR_CHROME_EXTRA_RENDERS=${countOf('navigator') - before.navigator}`,
+    );
   });
 
   it('does not re-render anything above the Execution Center while the ticket is edited', async () => {
@@ -399,6 +419,10 @@ describe('workstation render ownership', () => {
       emit({ type: 'symbol_specs', payload: { specs: [SPEC] } });
       emit({ type: 'account.snapshot', payload: SNAPSHOT });
       emit({ type: 'market.tick', payload: tick(0) });
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Trade' }));
     });
 
     const before = {
@@ -478,6 +502,10 @@ describe('workstation render ownership', () => {
       emit({ type: 'market.tick', payload: tick(0) });
     });
 
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Trade' }));
+    });
+
     const quantity = screen.getByLabelText('Quantité (lots)') as HTMLInputElement;
     const stopLoss = screen.getByTestId('stop-loss-input') as HTMLInputElement;
     const takeProfit = screen.getByTestId('take-profit-input') as HTMLInputElement;
@@ -489,9 +517,16 @@ describe('workstation render ownership', () => {
     expect(stopLoss.value).toBe('1.08000');
 
     await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Trade' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Marchés' }));
+    });
+    await act(async () => {
       // The row's own select button, whose name opens with the symbol — not
       // the favorite toggle beside it ("Ajouter NAS100 aux favoris").
       fireEvent.click(screen.getByRole('button', { name: /^NAS100/ }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Trade' }));
     });
 
     expect((screen.getByTestId('stop-loss-input') as HTMLInputElement).value).toBe('');
@@ -520,6 +555,10 @@ describe('workstation render ownership', () => {
       emit({ type: 'market.tick', payload: tick(0) });
     });
 
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Trade' }));
+    });
+
     expect(screen.getAllByTestId('execution-center')).toHaveLength(1);
     expect(screen.getAllByLabelText('Quantité (lots)')).toHaveLength(1);
     expect(screen.getAllByTestId('execution-submit-buy')).toHaveLength(1);
@@ -542,6 +581,10 @@ describe('workstation render ownership', () => {
     await act(async () => {
       emit({ type: 'symbol_specs', payload: { specs: [SPEC] } });
       emit({ type: 'account.snapshot', payload: SNAPSHOT });
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Marchés' }));
     });
 
     const socketsBefore = openedSockets;

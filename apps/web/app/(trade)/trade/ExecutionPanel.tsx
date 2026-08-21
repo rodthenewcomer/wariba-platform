@@ -9,7 +9,7 @@ import { ExecutionMarketHeader } from './execution/ExecutionMarketHeader';
 import { ExecutionSection } from './execution/ExecutionSection';
 import { ExecutionStatus } from './execution/ExecutionStatus';
 import { OrderTypeSelector } from './execution/OrderTypeSelector';
-import { ProtectionSection } from './execution/ProtectionSection';
+import { ProtectionPreview, ProtectionSection } from './execution/ProtectionSection';
 import { QuantityControl } from './execution/QuantityControl';
 import { TradeImpactPanel } from './execution/TradeImpactPanel';
 import { TriggerPriceControl, creatableSidesFor } from './execution/TriggerPriceControl';
@@ -30,7 +30,6 @@ export interface ExecutionPanelProps {
   draftStore: TicketDraftStore;
   symbol: TradableSymbol;
   spec: SymbolSpec | undefined;
-  accountPublicId: string;
   /** The account's server-priced equity, for the SL/TP impact preview. Null before the first snapshot. */
   equity: string | null;
   risk: AccountRisk | null;
@@ -75,7 +74,6 @@ export const ExecutionPanel = memo(function ExecutionPanel({
   draftStore,
   symbol,
   spec,
-  accountPublicId,
   equity,
   risk,
   connectionOk,
@@ -144,17 +142,12 @@ export const ExecutionPanel = memo(function ExecutionPanel({
   return (
     <div
       data-testid="execution-center"
-      className="flex min-h-0 flex-1 flex-col bg-[color:var(--wariba-component-workstation-surface-raised)]"
+      className="@container flex min-h-0 flex-1 flex-col bg-[color:var(--wariba-component-workstation-surface-module)]"
     >
       {/* The three quotes and the reason the trader cannot act: pinned, because
           neither is useful if it has scrolled away from the button. */}
       <div className="shrink-0">
-        <ExecutionMarketHeader
-          symbol={symbol}
-          spec={spec}
-          tick={tick}
-          accountPublicId={accountPublicId}
-        />
+        <ExecutionMarketHeader symbol={symbol} spec={spec} tick={tick} />
         <ExecutionStatus gate={gate} rejection={rejection} risk={risk} />
       </div>
 
@@ -183,7 +176,7 @@ export const ExecutionPanel = memo(function ExecutionPanel({
           ) : null}
         </ExecutionSection>
 
-        <ExecutionSection title="Quantité" testId="execution-quantity">
+        <ExecutionSection title="Qté" testId="execution-quantity">
           <QuantityControl
             spec={spec}
             value={draft.quantity}
@@ -192,7 +185,11 @@ export const ExecutionPanel = memo(function ExecutionPanel({
           />
         </ExecutionSection>
 
-        <ExecutionSection title="Protection" testId="execution-protection">
+        <ExecutionSection
+          title="SL / TP"
+          testId="execution-protection"
+          footer={<ProtectionPreview preview={protectionPreview} />}
+        >
           <ProtectionSection
             spec={spec}
             stopLoss={draft.stopLoss}
@@ -201,7 +198,6 @@ export const ExecutionPanel = memo(function ExecutionPanel({
             takeProfit={draft.takeProfit}
             onTakeProfitChange={draftStore.setTakeProfit}
             takeProfitError={takeProfitError}
-            preview={protectionPreview}
           />
         </ExecutionSection>
 
@@ -215,15 +211,34 @@ export const ExecutionPanel = memo(function ExecutionPanel({
          */}
         {hasImpactDetail ? (
           <ExecutionSection title="Impact" testId="execution-impact">
-            <TradeImpactPanel impact={impact} />
+            <details className="group" data-testid="execution-impact-detail">
+              <summary className="flex min-h-7 cursor-pointer list-none items-center justify-between gap-2 rounded-[6px] bg-[color:var(--wariba-component-workstation-surface-control)] px-2 text-[length:var(--wariba-component-workstation-type-label)] font-semibold text-[color:var(--wariba-component-workstation-text-secondary)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]">
+                Détail impact
+                <span
+                  aria-hidden="true"
+                  className="text-[length:var(--wariba-component-workstation-type-meta)] transition-transform duration-[var(--wariba-component-workstation-motion-interaction)] group-open:rotate-45"
+                >
+                  +
+                </span>
+              </summary>
+              <div className="pt-1.5">
+                <TradeImpactPanel impact={impact} />
+              </div>
+            </details>
           </ExecutionSection>
         ) : null}
       </div>
 
       {/* Explicitly opaque, not merely last in the flow: the fields above
           scroll *under* this bar, and a transparent one would let a
-          half-scrolled input show through the buttons. */}
-      <div className="shrink-0 bg-[color:var(--wariba-component-workstation-surface-raised)]">
+          half-scrolled input show through the buttons.
+
+          Visual closure §12G — the decision zone is a distinct plane. It sits a
+          tone above the panel body, carries a strong top edge rather than a
+          hairline, and casts a real upward shadow onto the scrolling fields, so
+          the bottom of the Execution Center reads as the console the trader
+          commits from and not as the last section of a form. */}
+      <div className="shrink-0 border-t border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-decision-zone)] shadow-[var(--wariba-component-workstation-elevation-decision)]">
         {/* §9 — margin and both loss budgets stay with the actions, whatever
             the Impact section above happens to be scrolled to. */}
         <ExecutionImpactSummary impact={impact} />
@@ -233,6 +248,7 @@ export const ExecutionPanel = memo(function ExecutionPanel({
           creatableSides={creatableSides}
           disabled={gate.entryBlocked}
           pending={pending}
+          rejection={rejection}
           onSubmit={onSubmit}
         />
       </div>

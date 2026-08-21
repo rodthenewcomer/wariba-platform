@@ -27,18 +27,17 @@ async function login(page: import('@playwright/test').Page, email: string, passw
 }
 
 /**
- * The workstation shows the order ticket in the execution column on desktop
- * and behind a `lg:hidden` "Trader {symbol}" button on mobile, so waiting on
- * the ticket's own helper text is a desktop-only readiness signal.
+ * The workstation opens the order ticket from the right utility rail on
+ * desktop and behind a `lg:hidden` "Trader {symbol}" button on mobile.
  *
  * Each viewport waits for the control a real user of that viewport actually
  * operates — the assertions are equally strict on both, just anchored to the
  * correct entry point.
  *
  * Both branches must also wait for the session to be genuinely *usable*, not
- * merely painted. The desktop branch already does that implicitly: its helper
- * element (`quantity-bounds`) is rendered from the `symbol_specs` payload, so
- * it cannot appear before the specs land. The mobile branch had no
+ * merely painted. After the desktop drawer is opened, its helper element
+ * (`quantity-bounds`) is rendered from the `symbol_specs` payload, so it
+ * cannot appear before the specs land. The mobile branch had no
  * equivalent, and the chart context-menu tests depend on one — a long press
  * resolves its price through `series.coordinateToPrice`, which returns null
  * until the first tick has produced a candle and given the series a price
@@ -79,6 +78,10 @@ async function openTrade(page: import('@playwright/test').Page) {
 
   const width = page.viewportSize()?.width ?? DESKTOP_TICKET_BREAKPOINT;
   if (width >= DESKTOP_TICKET_BREAKPOINT) {
+    const tradeDestination = page.getByTestId('utility-trade');
+    await expect(tradeDestination).toBeVisible({ timeout: 30_000 });
+    await tradeDestination.click();
+    await expect(page.getByTestId('utility-drawer-trade')).toBeVisible();
     await expect(page.getByTestId('quantity-bounds')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('button', { name: 'Buy' }).first()).toBeEnabled();
     return;
@@ -198,7 +201,9 @@ test.describe('WariX order lifecycle', { tag: ['@trade'] }, () => {
       // match for 'Exécuté' too — exact: true also makes this case-sensitive,
       // which the status Badge's all-uppercase-styled but literally-cased
       // "Exécuté" text still satisfies exactly.
-      await expect(page.getByText('Exécuté', { exact: true })).toBeVisible();
+      await expect(
+        page.getByRole('tabpanel').locator('tbody').getByText('Exécuté', { exact: true }),
+      ).toBeVisible();
 
       await page.getByRole('tab', { name: /^Positions/ }).click();
       await page.getByRole('button', { name: 'Fermer EURUSD · Achat' }).click();
@@ -241,9 +246,10 @@ test.describe('WariX order lifecycle', { tag: ['@trade'] }, () => {
       // the Execution Center's own status notice (which stays put regardless
       // of which dock tab is active), so an unscoped match would be ambiguous.
       const ordersPanel = page.getByRole('tabpanel');
-      await expect(ordersPanel.getByText('Rejeté')).toBeVisible();
+      const desktopOrders = ordersPanel.locator('tbody');
+      await expect(desktopOrders.getByText('Rejeté')).toBeVisible();
       await expect(
-        ordersPanel.getByText('Cet ordre dépasserait votre exposition maximale autorisée'),
+        desktopOrders.getByText('Cet ordre dépasserait votre exposition maximale autorisée'),
       ).toBeVisible();
     },
   );
@@ -277,7 +283,7 @@ test.describe('WariX position risk modification', { tag: ['@trade', '@risk'] }, 
       // re-seeds the input and the button correctly stays disabled because
       // there is no longer an unsaved change.
       await Promise.all([expect(saveStopLoss).toBeDisabled(), saveStopLoss.click()]);
-      await expect(page.getByText('Modif. SL confirmé.')).toBeVisible();
+      await expect(page.getByTestId('workstation-feedback')).toContainText('Modif. SL confirmé.');
       await expect(stopLossInput).toHaveValue('1.00000');
       await expect(saveStopLoss).toBeDisabled();
 
@@ -295,7 +301,11 @@ test.describe('WariX position risk modification', { tag: ['@trade', '@risk'] }, 
       // a reconnect uses) and confirm the modification is reflected from the
       // server's own data, not just optimistic local state.
       await page.reload();
-      await expect(page.getByText('Connecté')).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByTestId('workstation-connection')).toHaveAttribute(
+        'data-connection',
+        'open',
+        { timeout: 30_000 },
+      );
       await page.getByRole('tab', { name: 'Positions' }).click();
       // Not getByText: the chart's own SL handle also renders "SL · 1.00000 ·
       // ... USD" once a position with a stop loss exists — ambiguous with the
@@ -394,7 +404,7 @@ test.describe('WariX mobile', { tag: ['@trade', '@mobile'] }, () => {
     await page.keyboard.press('Escape');
     await expect(sheet).not.toBeVisible();
     await openDockTab(page, /^Positions/);
-    await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toBeVisible();
+    await expect(page.locator('article').filter({ hasText: 'EURUSD · Achat' })).toBeVisible();
   });
 });
 
@@ -658,7 +668,7 @@ test.describe('WariX mobile chart context menu', { tag: ['@trade', '@mobile'] },
     await page.keyboard.press('Escape');
     await expect(ticketSheet).not.toBeVisible();
     await openDockTab(page, /^Positions/);
-    await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toBeVisible();
+    await expect(page.locator('article').filter({ hasText: 'EURUSD · Achat' })).toBeVisible();
     // Close the dock sheet again so the chart is reachable for the long press.
     await page.keyboard.press('Escape');
 

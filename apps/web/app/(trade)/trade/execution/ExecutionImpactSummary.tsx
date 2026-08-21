@@ -6,10 +6,18 @@ export interface ExecutionImpactSummaryProps {
   impact: TradeImpactView | null;
 }
 
+/**
+ * Final closure §3 — one vocabulary for the loss budgets, everywhere.
+ *
+ * The keys, the values and the test ids stay `dll`/`mll`: they name the server's
+ * own risk fields and nothing about the arithmetic changed. Only what the trader
+ * reads changed, from the engineering abbreviations to the two terms the account
+ * header, the risk detail and the programme rulebook already use.
+ */
 const COLUMNS = [
   { key: 'margin', label: 'MARGE', title: 'Marge estimée' },
-  { key: 'dll', label: 'DLL', title: 'Perte journalière restante' },
-  { key: 'mll', label: 'MLL', title: 'Perte maximale restante' },
+  { key: 'dll', label: 'PMJ', title: 'PMJ — Perte maximale journalière' },
+  { key: 'mll', label: 'PM', title: 'PM — Perte maximale' },
 ] as const;
 
 /**
@@ -30,9 +38,10 @@ const COLUMNS = [
  * difference from the detailed rows is that the shared "USD" is hoisted into
  * the header instead of repeating on each value.
  *
- * The abbreviations are the ones the status bar already uses ("DLL restant"),
- * and each carries its full French expansion as a `title` and in the accessible
- * name, so the compaction never costs a trader the meaning.
+ * The abbreviations are WariX's canonical risk terms — PMJ and PM, the same two
+ * the compact account header carries — and each keeps its full French expansion
+ * as a `title` and in the accessible name, so the compaction never costs a
+ * trader the meaning.
  */
 export function ExecutionImpactSummary({ impact }: ExecutionImpactSummaryProps) {
   if (!impact) return null;
@@ -44,22 +53,37 @@ export function ExecutionImpactSummary({ impact }: ExecutionImpactSummaryProps) 
   } as const;
 
   return (
+    /*
+     * Visual closure §12G — the three figures that decide the press, presented
+     * as instrumentation rather than as a caption. Micro-caps label above a
+     * tabular figure a full step larger, hairline-separated columns, and the
+     * whole strip sunk one tone below the decision zone it introduces — the
+     * same grammar the global instrumentation bar uses, so a trader reads the
+     * bottom of the panel the way they already read the top of the screen.
+     */
     <dl
       data-testid="execution-impact-summary"
-      className="grid grid-cols-3 gap-x-2 border-t border-[color:var(--wariba-component-workstation-seam)] px-3 py-1.5"
+      className="grid grid-cols-3 border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-canvas)] px-2.5 py-1.5"
     >
-      {COLUMNS.map((column) => (
-        <div key={column.key} className="flex min-w-0 flex-col gap-0.5">
+      {COLUMNS.map((column, index) => (
+        <div
+          key={column.key}
+          className={`flex min-w-0 flex-col gap-0.5 ${
+            index === 0
+              ? ''
+              : 'border-l border-[color:var(--wariba-component-workstation-border-hairline)] pl-1.5'
+          }`}
+        >
           <dt
             title={column.title}
-            className="text-[length:var(--wariba-font-size-data-xs)] uppercase tracking-[0.08em] text-[color:var(--wariba-text-tertiary)]"
+            className="text-[length:var(--wariba-component-workstation-type-meta)] font-semibold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]"
           >
             {column.label}
             <span className="sr-only"> — {column.title}, en dollars</span>
           </dt>
           <dd
             data-testid={`execution-impact-summary-${column.key}`}
-            className="wariba-data truncate text-[length:var(--wariba-font-size-data-sm)] font-medium tabular-nums text-[color:var(--wariba-text-primary)]"
+            className="wariba-data truncate text-[length:var(--wariba-component-workstation-type-data-strong)] font-semibold leading-none tabular-nums text-[color:var(--wariba-component-workstation-text-primary)]"
           >
             {value[column.key]}
           </dd>

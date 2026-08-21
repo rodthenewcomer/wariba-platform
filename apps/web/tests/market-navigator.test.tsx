@@ -12,9 +12,12 @@ import {
 import { createTickStore } from '../app/(trade)/trade/tick-store';
 import {
   DEFAULT_WORKSTATION_PREFERENCES,
+  defaultWorkstationPreferencesForWidth,
   parseWorkstationPreferences,
   NAVIGATOR_WIDTH_MAX,
   NAVIGATOR_WIDTH_MIN,
+  EXECUTION_WIDTH_MAX,
+  EXECUTION_WIDTH_MIN,
   DOCK_HEIGHT_MAX,
   DOCK_HEIGHT_MIN,
 } from '../app/(trade)/trade/workstation/workstation-preferences';
@@ -126,9 +129,13 @@ describe('MarketNavigator', () => {
 
   it('reports an unavailable quote honestly instead of a remembered one', () => {
     renderNavigator();
-    // No tick has been pushed into the store.
-    expect(screen.getAllByText('— / —').length).toBe(Object.keys(ACCOUNT_SPECS).length);
-    expect(screen.getAllByText('Indisponible').length).toBe(Object.keys(ACCOUNT_SPECS).length);
+    // No tick has been pushed into the store. Bid, ask and spread each hold
+    // their own aligned column now (visual closure §8), so an instrument with
+    // no quote shows three dashes rather than one "— / —" run — the point is
+    // unchanged: a placeholder in every price cell, never a remembered figure.
+    const symbolCount = Object.keys(ACCOUNT_SPECS).length;
+    expect(screen.getAllByText('—').length).toBe(symbolCount * 3);
+    expect(screen.getAllByText('Indisponible').length).toBe(symbolCount);
   });
 
   it('filters by search and states plainly when nothing matches', async () => {
@@ -192,28 +199,116 @@ describe('workstation layout preferences', () => {
     expect(parseWorkstationPreferences('"a string"')).toEqual(DEFAULT_WORKSTATION_PREFERENCES);
     expect(parseWorkstationPreferences('null')).toEqual(DEFAULT_WORKSTATION_PREFERENCES);
     expect(
-      parseWorkstationPreferences(JSON.stringify({ version: 99, navigatorWidth: 300 })),
+      parseWorkstationPreferences(JSON.stringify({ version: 99, navigatorPreferredWidth: 300 })),
     ).toEqual(DEFAULT_WORKSTATION_PREFERENCES);
   });
 
   it('clamps out-of-range dimensions rather than applying them', () => {
     const wide = parseWorkstationPreferences(
-      JSON.stringify({ version: 1, navigatorWidth: 9999, dockHeight: 9999 }),
+      JSON.stringify({
+        version: 2,
+        navigatorPreferredWidth: 9999,
+        executionPreferredWidth: 9999,
+        activityDockPreferredHeight: 9999,
+      }),
     );
-    expect(wide.navigatorWidth).toBe(NAVIGATOR_WIDTH_MAX);
-    expect(wide.dockHeight).toBe(DOCK_HEIGHT_MAX);
+    expect(wide.navigatorPreferredWidth).toBe(NAVIGATOR_WIDTH_MAX);
+    expect(wide.executionPreferredWidth).toBe(EXECUTION_WIDTH_MAX);
+    expect(wide.activityDockPreferredHeight).toBe(DOCK_HEIGHT_MAX);
 
     const tiny = parseWorkstationPreferences(
-      JSON.stringify({ version: 1, navigatorWidth: -50, dockHeight: 0 }),
+      JSON.stringify({
+        version: 2,
+        navigatorPreferredWidth: -50,
+        executionPreferredWidth: 1,
+        activityDockPreferredHeight: 0,
+      }),
     );
-    expect(tiny.navigatorWidth).toBe(NAVIGATOR_WIDTH_MIN);
-    expect(tiny.dockHeight).toBe(DOCK_HEIGHT_MIN);
+    expect(tiny.navigatorPreferredWidth).toBe(NAVIGATOR_WIDTH_MIN);
+    expect(tiny.executionPreferredWidth).toBe(EXECUTION_WIDTH_MIN);
+    expect(tiny.activityDockPreferredHeight).toBe(DOCK_HEIGHT_MIN);
 
     const nonsense = parseWorkstationPreferences(
-      JSON.stringify({ version: 1, navigatorWidth: 'wide', dockHeight: null }),
+      JSON.stringify({
+        version: 2,
+        navigatorPreferredWidth: 'wide',
+        executionPreferredWidth: {},
+        activityDockPreferredHeight: null,
+      }),
     );
-    expect(nonsense.navigatorWidth).toBe(DEFAULT_WORKSTATION_PREFERENCES.navigatorWidth);
-    expect(nonsense.dockHeight).toBe(DEFAULT_WORKSTATION_PREFERENCES.dockHeight);
+    expect(nonsense.navigatorPreferredWidth).toBe(
+      DEFAULT_WORKSTATION_PREFERENCES.navigatorPreferredWidth,
+    );
+    expect(nonsense.executionPreferredWidth).toBe(
+      DEFAULT_WORKSTATION_PREFERENCES.executionPreferredWidth,
+    );
+    expect(nonsense.activityDockPreferredHeight).toBe(
+      DEFAULT_WORKSTATION_PREFERENCES.activityDockPreferredHeight,
+    );
+  });
+
+  it('migrates a schema-1 payload instead of discarding the trader’s layout', () => {
+    // Schema 2 renamed the two dimensions and added the Execution width. A
+    // trader who had already sized their Navigator and dock keeps both; the new
+    // dimension starts at its default rather than at zero.
+    const migrated = parseWorkstationPreferences(
+      JSON.stringify({
+        version: 1,
+        navigatorWidth: 300,
+        dockHeight: 260,
+        navigatorCollapsed: true,
+        favorites: ['EURUSD'],
+      }),
+    );
+    expect(migrated.navigatorPreferredWidth).toBe(300);
+    expect(migrated.activityDockPreferredHeight).toBe(260);
+    expect(migrated.executionPreferredWidth).toBe(
+      DEFAULT_WORKSTATION_PREFERENCES.executionPreferredWidth,
+    );
+    expect(migrated.navigatorCollapsed).toBe(true);
+    expect(migrated.favorites).toEqual(['EURUSD']);
+  });
+
+  it('fails closed on a schema newer than this build understands', () => {
+    // A future version is not "mostly compatible" — it is unknown, and an
+    // unknown shape must never become authoritative.
+    expect(
+      parseWorkstationPreferences(
+        JSON.stringify({ version: 3, navigatorPreferredWidth: 300, executionPreferredWidth: 400 }),
+      ),
+    ).toEqual(DEFAULT_WORKSTATION_PREFERENCES);
+  });
+
+  it('collapses the navigator by default only in the 1024–1279 hybrid band', () => {
+    // Visual closure §22 — a first-run default, not a breakpoint change. The
+    // band still renders the full desktop grid; it simply starts with the
+    // occasional surface out of the way so the chart gets the 244px back.
+    expect(defaultWorkstationPreferencesForWidth(1024).navigatorCollapsed).toBe(true);
+    expect(defaultWorkstationPreferencesForWidth(1279).navigatorCollapsed).toBe(true);
+    expect(defaultWorkstationPreferencesForWidth(1280).navigatorCollapsed).toBe(false);
+    expect(defaultWorkstationPreferencesForWidth(1440).navigatorCollapsed).toBe(false);
+    // Below the desktop floor the shell is the mobile column, where the
+    // navigator is a sheet and this flag decides nothing.
+    expect(defaultWorkstationPreferencesForWidth(390).navigatorCollapsed).toBe(false);
+    // The compact execution default is also viewport-aware.
+    expect(defaultWorkstationPreferencesForWidth(1920).executionPreferredWidth).toBe(260);
+    expect(defaultWorkstationPreferencesForWidth(1440).executionPreferredWidth).toBe(248);
+    expect(defaultWorkstationPreferencesForWidth(1366).executionPreferredWidth).toBe(236);
+    expect(defaultWorkstationPreferencesForWidth(1280).executionPreferredWidth).toBe(236);
+    // The remaining preferences do not drift with the viewport.
+    const { navigatorCollapsed: _hybrid, ...hybridRest } =
+      defaultWorkstationPreferencesForWidth(1024);
+    const { navigatorCollapsed: _wide, ...wideRest } = defaultWorkstationPreferencesForWidth(1280);
+    expect(hybridRest).toEqual(wideRest);
+  });
+
+  it('lets a stored preference override the hybrid default', () => {
+    // A trader who opened the Navigator at 1100px has made a decision, and a
+    // stored payload is what carries it. `parse` never consults the viewport.
+    const stored = parseWorkstationPreferences(
+      JSON.stringify({ version: 1, navigatorCollapsed: false }),
+    );
+    expect(stored.navigatorCollapsed).toBe(false);
   });
 
   it('keeps only real tradable symbols in favorites, de-duplicated', () => {
@@ -229,11 +324,12 @@ describe('workstation layout preferences', () => {
   it('stores no financial or account state', () => {
     const keys = Object.keys(DEFAULT_WORKSTATION_PREFERENCES).sort();
     expect(keys).toEqual([
+      'activityDockPreferredHeight',
       'dockCollapsed',
-      'dockHeight',
+      'executionPreferredWidth',
       'favorites',
       'navigatorCollapsed',
-      'navigatorWidth',
+      'navigatorPreferredWidth',
     ]);
   });
 });

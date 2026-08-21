@@ -1,31 +1,44 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { BottomSheet } from '@wariba/ui';
-import type { PendingOrderType, TradableSymbol } from '@wariba/contracts';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  BottomSheet,
+  WariXActivityDestinationIcon,
+  WariXCalendarDestinationIcon,
+  WariXHelpDestinationIcon,
+  WariXTradeDestinationIcon,
+} from '@wariba/ui';
+import { TRADABLE_SYMBOLS, type PendingOrderType, type TradableSymbol } from '@wariba/contracts';
 import { useOneClickTrading } from '../../../lib/one-click-trading';
 import { ChartWorkspace, type ChartWorkspaceActions } from './ChartWorkspace';
 import { MarketNavigator } from './MarketNavigator';
-import { useIsDesktop } from './use-viewport';
+import { useIsDesktop, useIsHybridDesktop, useViewportSize } from './use-viewport';
 import { ExecutionPanel } from './ExecutionPanel';
 import { pendingOrderTypeFor } from './execution/execution-contract';
 import { TradeDialogs, type TradeDialogActions, type TradeDialogState } from './TradeDialogs';
 import { createTicketDraftStore } from './ticket-draft';
+import { formatMoney } from './trade-labels';
 import { useTradeSession } from './trade-session';
 import { MobileMarketBar } from './workstation/MobileMarketBar';
+import { CalendarNewsPanel } from './workstation/CalendarNewsPanel';
+import { HelpCenterPanel } from './workstation/HelpCenterPanel';
 import { NavRail } from './workstation/NavRail';
 import { ResizeSeparator } from './workstation/ResizeSeparator';
+import { RightUtilityRail, type UtilityDrawerId } from './workstation/RightUtilityRail';
+import { UtilityDrawer } from './workstation/UtilityDrawer';
 import { WorkstationDock, type DockTab } from './workstation/WorkstationDock';
+import { WorkstationFeedback } from './workstation/WorkstationFeedback';
 import { WorkstationShell } from './workstation/WorkstationShell';
 import { WorkstationStatusBar } from './workstation/WorkstationStatusBar';
 import type { WorkstationAccountOption } from './workstation/WorkstationAccountSwitcher';
 import {
-  DOCK_HEIGHT_MAX,
   DOCK_HEIGHT_MIN,
-  NAVIGATOR_WIDTH_MAX,
+  EXECUTION_WIDTH_MIN,
   NAVIGATOR_WIDTH_MIN,
+  defaultWorkstationPreferencesForWidth,
   useWorkstationPreferences,
 } from './workstation/workstation-preferences';
+import { resolveWorkspaceLayout } from './workstation/workspace-layout';
 
 export interface TradeClientProps {
   /** Server-validated: this account belongs to `userId` (see trade/page.tsx). */
@@ -106,9 +119,23 @@ export function TradeClient({
       if (next === selectedSymbolRef.current) return;
       draftStore.clearPriceLevels();
       setSelectedSymbol(next);
+      const url = new URL(window.location.href);
+      url.searchParams.set('symbol', next);
+      window.history.replaceState(window.history.state, '', url);
     },
     [draftStore],
   );
+
+  useEffect(() => {
+    const requested = new URL(window.location.href).searchParams.get('symbol');
+    if (
+      !requested ||
+      !TRADABLE_SYMBOLS.includes(requested as TradableSymbol) ||
+      !symbolSpecs[requested as TradableSymbol]
+    )
+      return;
+    selectSymbol(requested as TradableSymbol);
+  }, [selectSymbol, symbolSpecs]);
 
   const [oneClickTrading] = useOneClickTrading();
   const oneClickTradingRef = useRef(oneClickTrading);
@@ -122,15 +149,40 @@ export function TradeClient({
   // The two dock presentations are never concurrently active — see
   // use-viewport.ts for the SSR/hydration caveat on "one tree".
   const isDesktop = useIsDesktop();
+  // §22 — at 1024–1279 an opened Navigator floats over the chart rather than
+  // taking 244px from it. The band still renders the full desktop grid.
+  const isHybridDesktop = useIsHybridDesktop();
   const [mobileDockOpen, setMobileDockOpen] = useState(false);
+  const [mobileMarketOpen, setMobileMarketOpen] = useState(false);
+  const [mobileUtilityOpen, setMobileUtilityOpen] = useState<'calendar' | 'help' | null>(null);
+  const [activeUtilityDrawer, setActiveUtilityDrawer] = useState<UtilityDrawerId | null>(null);
+  const viewport = useViewportSize();
   const {
     preferences,
-    setNavigatorWidth,
-    setNavigatorCollapsed,
-    setDockHeight,
+    hasStoredLayout,
+    setNavigatorPreferredWidth,
+    setExecutionPreferredWidth,
+    setDockPreferredHeight,
     setDockCollapsed,
+    resetNavigatorWidth,
+    resetDockHeight,
     toggleFavorite,
-  } = useWorkstationPreferences();
+  } = useWorkstationPreferences(viewport.width);
+  /*
+   * Viewport defaults are resolved here, per render, not frozen at mount.
+   *
+   * A trader who has never touched the layout gets the hybrid band's Navigator
+   * state and the active desktop band's compact Execution width. Resizing
+   * across either boundary therefore applies the right first-run composition.
+   * The moment the trader changes a pane, `hasStoredLayout` flips and their
+   * preferred value wins, subject only to the active viewport's hard maximum.
+   */
+  const viewportDefaults = defaultWorkstationPreferencesForWidth(viewport.width);
+  const closeUtilityDrawer = useCallback(() => setActiveUtilityDrawer(null), []);
+  const toggleUtilityDrawer = useCallback((drawer: UtilityDrawerId) => {
+    setActiveUtilityDrawer((current) => (current === drawer ? null : drawer));
+  }, []);
+
   const [ticketOpen, setTicketOpen] = useState(false);
   const [dialogs, setDialogs] = useState<TradeDialogState>({
     closeAllOpen: false,
@@ -306,10 +358,25 @@ export function TradeClient({
     patchDialogs({ closeAllOpen: true });
   }, [clearCloseAllResult, patchDialogs]);
 
-  const openNotifications = useCallback(
-    () => patchDialogs({ notificationCenterOpen: true }),
-    [patchDialogs],
-  );
+  const openNotifications = useCallback(() => {
+    closeUtilityDrawer();
+    patchDialogs({ notificationCenterOpen: true });
+  }, [closeUtilityDrawer, patchDialogs]);
+  const openActivityDock = useCallback(() => {
+    closeUtilityDrawer();
+    setTab('positions');
+    setDockCollapsed(false);
+  }, [closeUtilityDrawer, setDockCollapsed]);
+  const openAlertsDock = useCallback(() => {
+    closeUtilityDrawer();
+    setTab('alerts');
+    setDockCollapsed(false);
+  }, [closeUtilityDrawer, setDockCollapsed]);
+  const openJournalDock = useCallback(() => {
+    closeUtilityDrawer();
+    setTab('trades');
+    setDockCollapsed(false);
+  }, [closeUtilityDrawer, setDockCollapsed]);
   const openModifyPosition = useCallback(
     (positionId: string) => patchDialogs({ modifyPositionId: positionId }),
     [patchDialogs],
@@ -324,6 +391,41 @@ export function TradeClient({
   );
 
   const openPositionCount = snapshot?.openPositions.length ?? 0;
+  const dockHasContent =
+    tab === 'positions'
+      ? openPositionCount > 0
+      : tab === 'orders'
+        ? (snapshot?.pendingOrders.length ?? 0) > 0 || (snapshot?.recentOrders.length ?? 0) > 0
+        : tab === 'trades'
+          ? (snapshot?.recentFills ?? []).some((fill) => fill.fillType === 'close')
+          : tab === 'alerts'
+            ? session.alerts.length > 0 || session.notifications.length > 0
+            : true;
+  /*
+   * The Workspace Layout Engine, applied.
+   *
+   * Preferred dimensions come from storage and change only when the trader
+   * resizes; effective dimensions are derived here on every render from those
+   * preferences and the live viewport. Nothing below ever writes an effective
+   * value back — that separation is what lets a 360px Navigator survive a spell
+   * at 1280 and come back when the window widens.
+   */
+  const layout = resolveWorkspaceLayout(
+    {
+      navigatorWidth: preferences.navigatorPreferredWidth,
+      executionWidth: hasStoredLayout
+        ? preferences.executionPreferredWidth
+        : viewportDefaults.executionPreferredWidth,
+      dockHeight: preferences.activityDockPreferredHeight,
+    },
+    {
+      viewportWidth: viewport.width,
+      viewportHeight: viewport.height,
+      navigatorCollapsed: activeUtilityDrawer !== 'markets',
+      dockCollapsed: preferences.dockCollapsed,
+      dockEmpty: !dockHasContent,
+    },
+  );
 
   const workstationDock = (
     <WorkstationDock
@@ -333,6 +435,8 @@ export function TradeClient({
       tab={tab}
       onTabChange={setTab}
       collapsed={preferences.dockCollapsed}
+      empty={!dockHasContent}
+      compact={!isDesktop}
       onToggleCollapsed={() => setDockCollapsed(!preferences.dockCollapsed)}
       pending={session.pending}
       onClosePosition={commands.closePosition}
@@ -357,15 +461,17 @@ export function TradeClient({
       }}
       resizeHandle={
         // The dock is only resizable where it is a grid track.
-        isDesktop && !preferences.dockCollapsed ? (
+        isDesktop && !preferences.dockCollapsed && dockHasContent ? (
           <ResizeSeparator
             orientation="horizontal"
             label="Hauteur du dock"
-            value={preferences.dockHeight}
+            value={layout.dockHeight}
             min={DOCK_HEIGHT_MIN}
-            max={DOCK_HEIGHT_MAX}
-            onChange={setDockHeight}
+            max={layout.dockMax}
+            onCommit={setDockPreferredHeight}
+            onReset={resetDockHeight}
             direction={-1}
+            cssVariable="--warix-dock-height"
             testId="dock-resize"
           />
         ) : null
@@ -379,7 +485,6 @@ export function TradeClient({
       draftStore={draftStore}
       symbol={selectedSymbol}
       spec={symbolSpecs[selectedSymbol]}
-      accountPublicId={accountPublicId}
       equity={snapshot?.equity ?? null}
       risk={session.risk}
       connectionOk={session.connectionOk}
@@ -390,6 +495,58 @@ export function TradeClient({
     />
   );
 
+  const activeAlertCount = session.alerts.filter((alert) => alert.enabled).length;
+  const passiveDrawerWidth = Math.min(340, Math.max(288, Math.round(viewport.width * 0.24)));
+  const utilityDrawerWidth =
+    activeUtilityDrawer === 'markets'
+      ? layout.navigatorWidth
+      : activeUtilityDrawer === 'trade'
+        ? layout.executionWidth
+        : passiveDrawerWidth;
+
+  const marketNavigator = (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <MarketNavigator
+        store={tickStore}
+        symbolSpecs={symbolSpecs}
+        selectedSymbol={selectedSymbol}
+        favorites={preferences.favorites}
+        onSelectSymbol={selectSymbol}
+        onToggleFavorite={toggleFavorite}
+        hideHeader
+      />
+    </div>
+  );
+
+  const utilityDrawer =
+    activeUtilityDrawer === null ? null : (
+      <UtilityDrawer
+        title={
+          activeUtilityDrawer === 'markets'
+            ? 'Marchés'
+            : activeUtilityDrawer === 'trade'
+              ? 'Trade'
+              : activeUtilityDrawer === 'calendar'
+                ? 'Calendrier et actualités'
+                : 'Centre d’aide'
+        }
+        eyebrow={activeUtilityDrawer === 'trade' ? 'Exécution' : 'WariX'}
+        width={utilityDrawerWidth}
+        onClose={closeUtilityDrawer}
+        testId={`utility-drawer-${activeUtilityDrawer}`}
+      >
+        {activeUtilityDrawer === 'markets' ? (
+          marketNavigator
+        ) : activeUtilityDrawer === 'trade' ? (
+          executionPanel
+        ) : activeUtilityDrawer === 'calendar' ? (
+          <CalendarNewsPanel />
+        ) : (
+          <HelpCenterPanel />
+        )}
+      </UtilityDrawer>
+    );
+
   return (
     <>
       {/* Appendix 07-C §15 — one shared aria-live region announcing every
@@ -398,56 +555,94 @@ export function TradeClient({
         {session.statusAnnouncement}
       </div>
 
+      {/*
+       * VX1-C §8-§11 — the same settled-command channel, drawn.
+       *
+       * The live region above stays the accessible one; this is its visible
+       * counterpart, and it is `aria-hidden` so the sentence is announced once
+       * rather than once per presentation. It carries no state of its own: tone,
+       * dwell and motion are the only decisions it makes.
+       */}
+      <WorkstationFeedback
+        announcement={session.statusAnnouncement}
+        sequence={session.statusSequence}
+        rejection={session.rejection}
+        compact={!isDesktop}
+      />
+
       <WorkstationShell
-        navigatorWidth={preferences.navigatorWidth}
-        navigatorCollapsed={preferences.navigatorCollapsed}
-        dockHeight={preferences.dockHeight}
+        dockHeight={layout.dockHeight}
         dockCollapsed={preferences.dockCollapsed}
-        navigatorResizeHandle={
-          preferences.navigatorCollapsed ? null : (
+        utilityDrawerWidth={utilityDrawerWidth}
+        utilityDrawerOpen={activeUtilityDrawer !== null}
+        utilityDrawerOverlay={isHybridDesktop}
+        onUtilityDrawerDismiss={closeUtilityDrawer}
+        utilityDrawerResizeHandle={
+          isDesktop && !isHybridDesktop && activeUtilityDrawer === 'markets' ? (
             <ResizeSeparator
               orientation="vertical"
-              label="Largeur du navigateur de marchés"
-              value={preferences.navigatorWidth}
+              label="Largeur du drawer Marchés"
+              value={layout.navigatorWidth}
               min={NAVIGATOR_WIDTH_MIN}
-              max={NAVIGATOR_WIDTH_MAX}
-              onChange={setNavigatorWidth}
-              direction={1}
-              testId="navigator-resize"
+              max={layout.navigatorMax}
+              onCommit={setNavigatorPreferredWidth}
+              onReset={resetNavigatorWidth}
+              direction={-1}
+              cssVariable="--warix-utility-drawer-width"
+              testId="utility-drawer-resize"
             />
-          )
-        }
-        navigatorRestore={
-          <button
-            type="button"
-            onClick={() => setNavigatorCollapsed(false)}
-            aria-label="Afficher le navigateur de marchés"
-            data-testid="navigator-restore"
-            className="m-1 flex items-center gap-1 rounded-[var(--wariba-radius-sm)] border border-[color:var(--wariba-component-workstation-seam)] px-2 py-1 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)] hover:bg-[color:var(--wariba-surface-selected)] hover:text-[color:var(--wariba-theme-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]"
-          >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              className="h-3.5 w-3.5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="m9 18 6-6-6-6" />
-            </svg>
-            Marchés
-          </button>
+          ) : isDesktop && !isHybridDesktop && activeUtilityDrawer === 'trade' ? (
+            <ResizeSeparator
+              orientation="vertical"
+              label="Largeur du drawer Trade"
+              value={layout.executionWidth}
+              min={EXECUTION_WIDTH_MIN}
+              max={layout.executionMax}
+              onCommit={setExecutionPreferredWidth}
+              onReset={() => setExecutionPreferredWidth(viewportDefaults.executionPreferredWidth)}
+              direction={-1}
+              cssVariable="--warix-utility-drawer-width"
+              testId="utility-drawer-resize"
+            />
+          ) : null
         }
         rail={<NavRail currentPath="/trade" />}
+        utilityRail={
+          <RightUtilityRail
+            activeDrawer={activeUtilityDrawer}
+            activityActive={!preferences.dockCollapsed && tab === 'positions'}
+            alertsActive={!preferences.dockCollapsed && tab === 'alerts'}
+            journalActive={!preferences.dockCollapsed && tab === 'trades'}
+            openPositionCount={openPositionCount}
+            activeAlertCount={activeAlertCount}
+            onToggleDrawer={toggleUtilityDrawer}
+            onOpenActivity={openActivityDock}
+            onOpenAlerts={openAlertsDock}
+            onOpenJournal={openJournalDock}
+          />
+        }
         statusBar={
           <WorkstationStatusBar
             accounts={accounts}
             activeAccountId={accountId}
             balanceFormatted={snapshot ? `${snapshot.balance} USD` : '—'}
             equityFormatted={snapshot ? `${snapshot.equity} USD` : '—'}
+            /*
+             * VX1 §8 — open P&L, as the server itself defines it.
+             *
+             * `equity − balance` is not a client-side model of unrealised
+             * profit: it is the identity the snapshot builder uses to produce
+             * `currentUnrealizedPnl` at the DTO boundary, applied to the two
+             * authoritative figures already on screen beside it. Nothing new is
+             * computed and no position is re-priced here.
+             */
+            openPnlFormatted={
+              snapshot
+                ? formatMoney(String(Number(snapshot.equity) - Number(snapshot.balance)))
+                : null
+            }
             risk={session.risk}
-            connectionOk={session.connectionOk}
-            isResyncing={session.isResyncing}
+            connectionState={session.connectionState}
             unreadCount={session.unreadCount}
             onOpenNotifications={openNotifications}
           />
@@ -460,36 +655,8 @@ export function TradeClient({
             favorites={preferences.favorites}
             onSelectSymbol={selectSymbol}
             onToggleFavorite={toggleFavorite}
-          />
-        }
-        navigator={
-          <MarketNavigator
-            store={tickStore}
-            symbolSpecs={symbolSpecs}
-            selectedSymbol={selectedSymbol}
-            favorites={preferences.favorites}
-            onSelectSymbol={selectSymbol}
-            onToggleFavorite={toggleFavorite}
-            headerAction={
-              <button
-                type="button"
-                onClick={() => setNavigatorCollapsed(true)}
-                aria-label="Replier le navigateur de marchés"
-                data-testid="navigator-collapse"
-                className="flex h-6 w-6 items-center justify-center rounded-[var(--wariba-radius-sm)] text-[color:var(--wariba-text-secondary)] hover:bg-[color:var(--wariba-surface-selected)] hover:text-[color:var(--wariba-theme-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]"
-              >
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 24 24"
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="m15 18-6-6 6-6" />
-                </svg>
-              </button>
-            }
+            open={mobileMarketOpen}
+            onOpenChange={setMobileMarketOpen}
           />
         }
         chart={
@@ -499,6 +666,8 @@ export function TradeClient({
             historyTransport={session.historyTransport}
             symbol={selectedSymbol}
             spec={symbolSpecs[selectedSymbol]}
+            symbolSpecs={symbolSpecs}
+            onSelectSymbol={selectSymbol}
             snapshot={snapshot}
             fills={session.fills}
             alerts={session.alerts}
@@ -508,6 +677,7 @@ export function TradeClient({
             rejectedOrderAction={session.rejectedOrderAction}
             commandPending={session.pending}
             actions={chartActions}
+            onOpenMobileMarkets={() => setMobileMarketOpen(true)}
           />
         }
         mobileExecutionAction={
@@ -524,49 +694,92 @@ export function TradeClient({
            */
           <div
             data-testid="mobile-action-rail"
-            className="flex items-stretch gap-2 border-t border-[color:var(--wariba-component-workstation-seam)] bg-[color:var(--wariba-component-workstation-surface-raised)] px-2 py-2"
+            className="flex items-stretch gap-2 border-t border-[color:var(--wariba-component-workstation-seam-strong)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-2.5 py-2 shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong)]"
           >
+            {/*
+             * Visual closure §16 / mobile gate §5 — an action rail of two keys.
+             *
+             * WX1 drew "Trader EURUSD" across the full width in the lightest
+             * cobalt the palette has (`action-primary` is cobalt-400 in the dark
+             * theme), which made a control that only *opens a sheet* the single
+             * loudest object on a chart-first screen. Four changes, no
+             * functionality touched:
+             *
+             * - The instrument leaves the visible label. It is already stated
+             *   directly above the chart in the market-context strip and again
+             *   in the sheet's own title, so repeating it here was the third
+             *   time. It stays in the accessible name, which is what actually
+             *   owes the context — so the control still announces "Trader
+             *   EURUSD" and every existing selector still resolves.
+             * - Cobalt-600 with white text instead of cobalt-400 with ink:
+             *   7.3:1, unmistakably the primary action, and no longer a pale
+             *   lavender slab competing with the candles.
+             * - Both keys take the desktop decision-key physique — rim light,
+             *   2px key shadow, and a press that bottoms out — so the rail reads
+             *   as two instruments rather than a CTA beside a ghost link.
+             * - The chevron says the sheet arrives from below, which is the
+             *   discoverability the shorter label gives up.
+             */}
             <button
               type="button"
               onClick={() => setTicketOpen(true)}
-              className="flex min-h-[var(--wariba-size-touch-target-minimum)] flex-1 items-center justify-center gap-1.5 rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-action-primary)] px-3 text-[color:var(--wariba-action-primary-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]"
+              aria-label={`Trader ${selectedSymbol}`}
+              className="flex min-h-11 flex-[3] items-center justify-center gap-2 rounded-[var(--wariba-component-workstation-radius-control)] bg-[color:var(--wariba-color-cobalt-600)] px-3 text-[color:var(--wariba-color-white)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.22),0_2px_0_0_rgba(5,7,12,0.55)] transition-[transform,box-shadow,filter] duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-0.5 active:brightness-90 active:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]"
             >
-              <span className="text-[length:var(--wariba-font-size-label-md)] font-semibold">
+              <WariXTradeDestinationIcon size="nav" />
+              <span
+                aria-hidden="true"
+                className="text-[length:var(--wariba-font-size-label-md)] font-bold tracking-[var(--wariba-component-workstation-tracking-decision)]"
+              >
                 Trader
-              </span>
-              <span className="wariba-data text-[length:var(--wariba-font-size-data-sm)] font-semibold">
-                {selectedSymbol}
               </span>
             </button>
             <button
               type="button"
               onClick={() => setMobileDockOpen(true)}
               data-testid="mobile-dock-trigger"
-              className="flex min-h-[var(--wariba-size-touch-target-minimum)] items-center justify-center gap-1.5 rounded-[var(--wariba-radius-sm)] border border-[color:var(--wariba-component-workstation-seam)] px-3 text-[color:var(--wariba-text-secondary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]"
+              className="flex min-h-11 flex-[2] items-center justify-center gap-1.5 rounded-[var(--wariba-component-workstation-radius-control)] bg-[color:var(--wariba-component-workstation-surface-control)] px-3 text-[color:var(--wariba-component-workstation-text-secondary)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong),0_2px_0_0_rgba(5,7,12,0.45)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] transition-[transform,box-shadow,color] duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-0.5 active:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]"
             >
-              <span className="text-[length:var(--wariba-font-size-label-md)] font-medium">
+              <WariXActivityDestinationIcon size="nav" />
+              <span className="text-[length:var(--wariba-font-size-label-md)] font-semibold">
                 Activité
               </span>
               {openPositionCount > 0 ? (
                 <span
+                  key={openPositionCount}
                   aria-label={`${openPositionCount} position ouverte`}
-                  className="wariba-data min-w-5 rounded-full bg-[color:var(--wariba-surface-selected)] px-1.5 text-center text-[length:var(--wariba-font-size-data-xs)] font-semibold text-[color:var(--wariba-theme-text)]"
+                  /* §21 — one pop when the count changes, never a heartbeat. The
+                     key is the count itself, so the animation replays exactly
+                     when the number a trader is watching actually moves. */
+                  className="wariba-data min-w-5 rounded-full bg-[color:var(--wariba-component-workstation-wash-selected-strong)] px-1.5 text-center text-[length:var(--wariba-component-workstation-type-meta)] font-bold leading-5 tabular-nums text-[color:var(--wariba-component-workstation-interaction-selected-text)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-seam-active)] motion-safe:animate-[wariba-badge-pop_var(--wariba-component-workstation-motion-standard)_var(--wariba-component-workstation-ease-settle)]"
                 >
                   {openPositionCount}
                 </span>
               ) : null}
             </button>
+            <button
+              type="button"
+              aria-label="Ouvrir le calendrier et les actualités"
+              title="Calendrier et actualités"
+              data-testid="mobile-calendar-trigger"
+              onClick={() => setMobileUtilityOpen('calendar')}
+              className="flex min-h-11 w-11 shrink-0 items-center justify-center rounded-[var(--wariba-component-workstation-radius-control)] bg-[color:var(--wariba-component-workstation-surface-control)] text-[color:var(--wariba-component-workstation-text-secondary)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong),0_2px_0_0_rgba(5,7,12,0.45)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] transition-[transform,box-shadow,color] duration-[var(--wariba-component-workstation-motion-interaction)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-0.5 active:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]"
+            >
+              <WariXCalendarDestinationIcon size="nav" />
+            </button>
+            <button
+              type="button"
+              aria-label="Ouvrir le centre d’aide"
+              title="Centre d’aide"
+              data-testid="mobile-help-trigger"
+              onClick={() => setMobileUtilityOpen('help')}
+              className="flex min-h-11 w-11 shrink-0 items-center justify-center rounded-[var(--wariba-component-workstation-radius-control)] bg-[color:var(--wariba-component-workstation-surface-control)] text-[color:var(--wariba-component-workstation-text-secondary)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong),0_2px_0_0_rgba(5,7,12,0.45)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] transition-[transform,box-shadow,color] duration-[var(--wariba-component-workstation-motion-interaction)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-0.5 active:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]"
+            >
+              <WariXHelpDestinationIcon size="nav" />
+            </button>
           </div>
         }
-        // W4 §69/§70 — the Execution Center exists exactly once in the
-        // document, following the rule W2 §27 already set for the dock. Before
-        // W4 it was rendered here *and* inside the mobile sheet: the desktop
-        // copy was merely `hidden` by CSS on a phone, so both trees held a
-        // `useTick` subscription, both re-derived margin and impact on every
-        // tick, and every field appeared twice in the DOM — which is why the
-        // E2E suite had to reach for `.first()` and why "Ordre refusé" matched
-        // two nodes. (After viewport resolution; see use-viewport.ts.)
-        execution={isDesktop ? executionPanel : null}
+        utilityDrawer={isDesktop ? utilityDrawer : null}
         // W2 §27 — same rule for the dock: a hidden Positions panel would
         // still hold a useAllTicks subscription and still recompute live P&L
         // per tick.
@@ -594,15 +807,45 @@ export function TradeClient({
         open={!isDesktop && ticketOpen}
         onClose={() => setTicketOpen(false)}
         title={`Trader ${selectedSymbol}`}
-        // Visual closure §3 — a working height, not a content hug: the market
-        // header, order type, quantity and the sticky Sell/Buy footer must all
-        // be reachable without the sheet swallowing the status context above
-        // it. `flush` hands the box to the panel so its own seams run edge to
-        // edge and its own sticky footer is the sheet's footer.
-        size="tall"
+        // The panel's own ModuleHeader is the sheet's visible header — see
+        // `hideTitle` on BottomSheet for why the instrument is not named twice.
+        hideTitle
+        /*
+         * VX1-D.1 §16 — the ticket is as tall as the ticket.
+         *
+         * It opened at a fixed 90dvh, which was the right call while the panel
+         * carried more rows than the phone could show. It no longer does: the
+         * content ends after the impact row, and the remaining third of the
+         * sheet was empty graphite above the Sell/Buy footer — pixels reserved
+         * for nothing, which is what made the sheet read as unfinished.
+         *
+         * `fitted` hugs the content and keeps the same 90dvh ceiling, so the
+         * decision keys sit directly under the last field they depend on and
+         * the sheet still grows if the panel ever gains rows. No card was
+         * stretched and no figure was invented to fill the gap.
+         */
+        size="fitted"
         flush
       >
         {!isDesktop && ticketOpen ? executionPanel : null}
+      </BottomSheet>
+
+      <BottomSheet
+        open={!isDesktop && mobileUtilityOpen === 'calendar'}
+        onClose={() => setMobileUtilityOpen(null)}
+        title="Calendrier et actualités"
+        size="tall"
+      >
+        {!isDesktop && mobileUtilityOpen === 'calendar' ? <CalendarNewsPanel /> : null}
+      </BottomSheet>
+
+      <BottomSheet
+        open={!isDesktop && mobileUtilityOpen === 'help'}
+        onClose={() => setMobileUtilityOpen(null)}
+        title="Centre d’aide"
+        size="tall"
+      >
+        {!isDesktop && mobileUtilityOpen === 'help' ? <HelpCenterPanel /> : null}
       </BottomSheet>
 
       <TradeDialogs

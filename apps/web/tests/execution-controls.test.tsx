@@ -296,12 +296,18 @@ describe('ExecutionActions', () => {
 
     const buy = screen.getByTestId('execution-submit-buy');
     const sell = screen.getByTestId('execution-submit-sell');
-    // Outline instead of fill — and deliberately not `opacity`, which would
-    // composite the label with its own background and fail contrast on a
-    // control that is still live.
-    expect(buy.className).toContain('bg-transparent');
+    // Outlined wash instead of the saturated fill — and deliberately not
+    // `opacity`, which would composite the label with its own background and
+    // fail contrast on a control that is still live. The side stays
+    // identifiable through its own ring and its own 16% wash, and it loses the
+    // physical key treatment so it no longer reads as the primary action.
+    expect(buy.className).not.toContain(
+      'bg-[color:var(--wariba-component-workstation-trading-buy)]',
+    );
+    expect(buy.className).toContain('wash-buy');
+    expect(buy.className).toContain('ring-[color:var(--wariba-component-workstation-trading-buy)]');
     expect(buy.className).not.toContain('opacity-');
-    expect(sell.className).toContain('var(--wariba-status-danger-strong)');
+    expect(sell.className).toContain('bg-[color:var(--wariba-component-workstation-trading-sell)]');
 
     expect(screen.getByTestId('execution-side-unavailable-buy')).toHaveTextContent(
       'Non valide au cours actuel',
@@ -478,11 +484,23 @@ describe('ExecutionImpactSummary', () => {
     expect(IMPACT.maximumLossRemainingFormatted).toBe(`${IMPACT.compact.maximumLossRemaining} USD`);
   });
 
+  /**
+   * Final closure §3 — the strip speaks WariX's risk vocabulary.
+   *
+   * The keys and the values are the server's (`dll`/`mll`); only what a trader
+   * reads changed, to the two terms the account header and the programme
+   * rulebook already use. The expansion stays, because an abbreviation without
+   * one is a puzzle.
+   */
   it('expands its abbreviations for assistive tech and on hover', () => {
     render(<ExecutionImpactSummary impact={IMPACT} />);
-    const dll = screen.getByText('DLL', { exact: false });
-    expect(dll).toHaveAttribute('title', 'Perte journalière restante');
-    expect(dll.textContent).toContain('en dollars');
+    // The term appears twice on the strip — as the column's own label and inside
+    // its screen-reader expansion — so this asserts on the label element itself.
+    const daily = screen
+      .getAllByText('PMJ', { exact: false })
+      .find((node) => node.tagName === 'DT');
+    expect(daily).toHaveAttribute('title', 'PMJ — Perte maximale journalière');
+    expect(daily?.textContent).toContain('en dollars');
   });
 
   it('renders nothing rather than placeholders before the data exists', () => {

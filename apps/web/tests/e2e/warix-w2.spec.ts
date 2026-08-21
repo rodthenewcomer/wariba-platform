@@ -124,12 +124,29 @@ test.describe('WariX trading dock', { tag: ['@trade'] }, () => {
     await login(page, tradeAccount.email, tradeAccount.password);
     await openWorkstation(page);
 
+    // Give the intelligent dock real row-level content before inspecting its
+    // panel body. WX1 intentionally keeps an empty active panel at 48px and
+    // hides that empty body; a filled-and-closed market order supplies both
+    // recent order truth and the close-fill truth used by Trades.
+    await page.getByTestId('execution-submit-buy').click();
+    await page.getByRole('tab', { name: /^Positions/ }).click();
+    const position = page.getByRole('cell', { name: 'EURUSD · Achat', exact: true });
+    await expect(position).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Fermer EURUSD · Achat' }).click();
+    await expect(position).toHaveCount(0);
+
     await page.getByRole('tab', { name: /^Orders/ }).click();
     await expect(page.getByRole('button', { name: 'En attente' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Récents' })).toBeVisible();
-    await expect(page.getByText('Aucun ordre en attente.')).toBeVisible();
+    const ordersTable = page.getByRole('tabpanel').locator('tbody');
+    // The empty state is now a workstation state block — a title without a full
+    // stop, plus a line naming what will appear here (visual closure §17) — so
+    // the cell's accessible name is the two together. The assertion is on the
+    // title, which is the fact under test: the pending view reports emptiness
+    // rather than showing a row.
+    await expect(ordersTable.getByRole('cell', { name: /Aucun ordre en attente/ })).toBeVisible();
     await page.getByRole('button', { name: 'Récents' }).click();
-    await expect(page.getByText('Aucun ordre.')).toBeVisible();
+    await expect(ordersTable.getByRole('cell', { name: 'EURUSD' }).first()).toBeVisible();
 
     await page.getByRole('tab', { name: /^Trades/ }).click();
     // Fill-driven evidence, not order truth (W2 §19).
@@ -138,12 +155,15 @@ test.describe('WariX trading dock', { tag: ['@trade'] }, () => {
     }
 
     await page.getByRole('tab', { name: /^Alerts/ }).click();
-    await expect(page.getByText('Aucune alerte.')).toBeVisible();
+    const dock = page.getByTestId('workstation-dock');
+    await expect(dock).toHaveAttribute('data-empty', 'true');
+    await expect(dock.getByText('Aucune activité')).toBeVisible();
+    await expect.poll(async () => Math.round((await dock.boundingBox())?.height ?? 0)).toBe(48);
 
     await page.getByRole('tab', { name: /^Account/ }).click();
     // Scoped to the dock: the public id also appears in the status bar's
     // account switcher, which is not what this asserts.
-    const account = page.getByTestId('workstation-dock');
+    const account = dock;
     await expect(account.getByText(tradeAccount.accountPublicId)).toBeVisible();
     await expect(account.getByText(/WARIBA ONE/)).toBeVisible();
   });
@@ -155,12 +175,45 @@ test.describe('WariX trading dock', { tag: ['@trade'] }, () => {
     await login(page, tradeAccount.email, tradeAccount.password);
     await openWorkstation(page);
 
+    // A single live row expands the intelligent dock once and makes the
+    // populated-track resize separator available. Empty dock state is fixed
+    // at 48px by WX1 and is deliberately not resizable.
+    await page.getByTestId('execution-submit-buy').click();
+    await page.getByRole('tab', { name: /^Positions/ }).click();
+    await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId('dock-resize')).toBeVisible();
+
     const canvas = page
       .getByRole('group', { name: /Graphique/ })
       .locator('canvas')
       .first();
     await expect(canvas).toBeVisible({ timeout: 30_000 });
-    const before = (await canvas.boundingBox())?.height ?? 0;
+    /*
+     * The dock's arrival animates: the shell transitions `grid-template-rows`
+     * over 140ms as the empty 48px dock grows to its populated height, and the
+     * chart canvas shrinks with it. Sampling the baseline the instant the
+     * separator appears reads a mid-transition height, so the round-trip
+     * assertion below compares a settling number against a settled one and
+     * fails by whatever the animation happened to have covered.
+     *
+     * Waiting for two identical consecutive reads pins the baseline to the
+     * settled layout. The property under test is unchanged — collapsing gives
+     * the space to the chart and expanding gives it back — it is simply now
+     * measured at a moment when the layout is holding still.
+     */
+    const settledCanvasHeight = async (): Promise<number> => {
+      let previous = -1;
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        const height = Math.round((await canvas.boundingBox())?.height ?? 0);
+        if (height > 0 && height === previous) return height;
+        previous = height;
+        await page.waitForTimeout(100);
+      }
+      return previous;
+    };
+    const before = await settledCanvasHeight();
 
     await page.getByTestId('workstation-dock-collapse').click();
     await expect

@@ -27,6 +27,8 @@ export interface ChartDoubleSpies {
   lineSetData: { index: number; data: unknown[] }[];
   lineUpdate: { index: number; point: unknown }[];
   setVisibleLogicalRange: ReturnType<typeof vi.fn>;
+  setVisibleRange: ReturnType<typeof vi.fn>;
+  priceScaleApplyOptions: ReturnType<typeof vi.fn>;
   visibleLogicalRange: { from: number; to: number } | null;
   /** Test-controlled: what `coordinateToPrice` answers. */
   priceAtCoordinate: number;
@@ -52,6 +54,8 @@ export function createLightweightChartsDouble(): {
     lineSetData: [],
     lineUpdate: [],
     setVisibleLogicalRange: vi.fn(),
+    setVisibleRange: vi.fn(),
+    priceScaleApplyOptions: vi.fn(),
     visibleLogicalRange: { from: 0, to: 100 },
     priceAtCoordinate: 1.1,
     logicalAtCoordinate: 5,
@@ -64,6 +68,8 @@ export function createLightweightChartsDouble(): {
       spies.seriesPriceToCoordinate.mockClear();
       spies.fitContent.mockClear();
       spies.setVisibleLogicalRange.mockClear();
+      spies.setVisibleRange.mockClear();
+      spies.priceScaleApplyOptions.mockClear();
       spies.lineSeriesCreated.length = 0;
       spies.lineSeriesRemoved = 0;
       spies.lineSetData.length = 0;
@@ -89,12 +95,27 @@ export function createLightweightChartsDouble(): {
     coordinateToPrice: vi.fn(() => spies.priceAtCoordinate),
   };
 
+  const createBaseSeries = () => ({
+    update: vi.fn(),
+    setData: vi.fn(),
+    applyOptions: vi.fn(),
+    priceToCoordinate: spies.seriesPriceToCoordinate,
+    coordinateToPrice: vi.fn(() => spies.priceAtCoordinate),
+  });
+  const barSeries = createBaseSeries();
+  const lineChartSeries = createBaseSeries();
+  const areaSeries = createBaseSeries();
+
   const module = {
     CrosshairMode: { Normal: 0 },
+    PriceScaleMode: { Normal: 0, Logarithmic: 1, Percentage: 2, IndexedTo100: 3 },
     createChart: vi.fn(() => ({
       applyOptions: vi.fn(),
       addCandlestickSeries: () => candlestickSeries,
+      addBarSeries: () => barSeries,
+      addAreaSeries: () => areaSeries,
       addLineSeries: (options: Record<string, unknown>) => {
+        if (options.visible === false) return lineChartSeries;
         const index = spies.lineSeriesCreated.length;
         spies.lineSeriesCreated.push({ options });
         return {
@@ -126,8 +147,10 @@ export function createLightweightChartsDouble(): {
         coordinateToLogical: vi.fn(() => spies.logicalAtCoordinate),
         getVisibleLogicalRange: () => spies.visibleLogicalRange,
         setVisibleLogicalRange: spies.setVisibleLogicalRange,
+        setVisibleRange: spies.setVisibleRange,
         fitContent: spies.fitContent,
       }),
+      priceScale: () => ({ applyOptions: spies.priceScaleApplyOptions, width: () => 64 }),
       remove: vi.fn(),
     })),
   };

@@ -37,13 +37,16 @@ export function createChartHistoryTransportHub(): ChartHistoryTransportHub {
   const errorListeners = new Set<(error: MarketHistoryErrorMessage) => void>();
   const socketOpenListeners = new Set<() => void>();
   let send: ((request: MarketHistoryRequest) => void) | null = null;
+  let pending: MarketHistoryRequest | null = null;
 
   return {
     request(request) {
-      // Before the first connection, or between a drop and a reconnect, there
-      // is nothing to send on. Dropping the request is correct rather than
-      // queueing it: the reconnect fires `onSocketOpen`, which makes the
-      // controller start a fresh hydration with a fresh generation anyway.
+      // Keep the latest read request until a correlated response lands. This
+      // closes the narrow mount race where the controller starts while the
+      // socket object exists but has not reached OPEN yet: RealtimeClient
+      // correctly drops writes in that state, and the socket-open callback now
+      // retries that same bounded read instead of leaving the chart loading.
+      pending = request;
       send?.(request);
     },
     onResult(listener) {
@@ -59,23 +62,31 @@ export function createChartHistoryTransportHub(): ChartHistoryTransportHub {
       return () => socketOpenListeners.delete(listener);
     },
     attach(client) {
-      send = (request) => client.requestMarketHistory(request);
+      const attachedSend = (request: MarketHistoryRequest) => client.requestMarketHistory(request);
+      send = attachedSend;
       const offOpen = client.onSocketOpen(() => {
+        if (pending) send?.(pending);
         for (const listener of socketOpenListeners) listener();
       });
       return () => {
         offOpen();
-        send = null;
+        // A superseded connection can finish closing after its replacement is
+        // already attached. Only clear the sender this attachment installed;
+        // otherwise that late cleanup disconnects chart history from the live
+        // socket while quotes continue normally.
+        if (send === attachedSend) send = null;
       };
     },
     deliver(envelope) {
       if (envelope.type === 'market_history_result') {
         const result = envelope.payload as MarketHistoryResult;
+        if (pending?.requestId === result.requestId) pending = null;
         for (const listener of resultListeners) listener(result);
         return true;
       }
       if (envelope.type === 'market_history_error') {
         const error = envelope.payload as MarketHistoryErrorMessage;
+        if (pending?.requestId === error.requestId) pending = null;
         for (const listener of errorListeners) listener(error);
         return true;
       }

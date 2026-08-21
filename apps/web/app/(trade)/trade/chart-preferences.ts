@@ -12,6 +12,11 @@ import {
   parseChartIndicator,
   type ChartIndicator,
 } from './chart-indicator-model';
+import {
+  DEFAULT_CHART_SETTINGS,
+  parseChartSettings,
+  type ChartDisplaySettings,
+} from './chart-settings-model';
 
 /**
  * Chart-analysis preferences — W5 §16/§40/§71/§79/§124/§139.
@@ -39,16 +44,77 @@ const VERSION = 1;
 export interface ChartAnalysisPreferences {
   timeframe: CandleTimeframe;
   indicators: ChartIndicator[];
+  /**
+   * Display settings — the reopen pass's Settings modal.
+   *
+   * Added to the *existing* v1 payload rather than behind a version bump, and
+   * that is deliberate: a bump would have made `parseChartPreferences` fail
+   * closed on every trader's stored file and silently reset their timeframe and
+   * their indicator lines. An absent `settings` key is not corruption, it
+   * is a payload written before this feature existed, and it resolves to the
+   * shipped defaults exactly as it should.
+   */
+  settings: ChartDisplaySettings;
+  /** Tool and indicator ids a trader has starred. Order is the trader's own. */
+  favorites: string[];
 }
 
 export const DEFAULT_CHART_PREFERENCES: ChartAnalysisPreferences = {
   timeframe: DEFAULT_CANDLE_TIMEFRAME,
   indicators: [...DEFAULT_CHART_INDICATORS],
+  settings: DEFAULT_CHART_SETTINGS,
+  favorites: [],
 };
+
+/** A stored favourite id is opaque here; the catalogue decides what resolves. */
+const MAX_FAVORITES = 64;
+const MAX_FAVORITE_ID_LENGTH = 64;
+
+function parseFavorites(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  for (const entry of value) {
+    if (typeof entry !== 'string') continue;
+    if (entry.length === 0 || entry.length > MAX_FAVORITE_ID_LENGTH) continue;
+    seen.add(entry);
+    if (seen.size >= MAX_FAVORITES) break;
+  }
+  return [...seen];
+}
+
+/**
+ * Adds newly shipped, disabled presets to an older account-local registry.
+ *
+ * Existing entries always win, including their enabled state and styling. This
+ * is a catalogue migration, not a chart reset: adding EMA 200 to WariX must make
+ * the row discoverable for an existing trader without switching a new line on,
+ * replacing their colour, or discarding a custom valid instance.
+ */
+export function mergeShippedChartIndicators(
+  indicators: readonly ChartIndicator[],
+): ChartIndicator[] {
+  const known = new Set(indicators.map((indicator) => indicator.id));
+  return normalizeChartIndicators([
+    ...indicators,
+    ...DEFAULT_CHART_INDICATORS.filter((indicator) => !known.has(indicator.id)).map(
+      (indicator) => ({
+        ...indicator,
+        enabled: false,
+      }),
+    ),
+  ]);
+}
+
+interface StoredAccountEntry {
+  timeframe?: unknown;
+  indicators?: unknown;
+  settings?: unknown;
+  favorites?: unknown;
+}
 
 interface StoredPayload {
   version: number;
-  accounts: Record<string, { timeframe?: unknown; indicators?: unknown }>;
+  accounts: Record<string, StoredAccountEntry>;
 }
 
 /**
@@ -59,7 +125,8 @@ interface StoredPayload {
  * it. An indicator list whose records do not all validate keeps the ones that
  * do — a single corrupt entry should not cost a trader their other three lines —
  * but an empty or absent list yields the shipped preset, not a blank chart the
- * trader has no obvious way to explain.
+ * trader has no obvious way to explain. Older valid lists gain new shipped
+ * presets in the disabled state through `mergeShippedChartIndicators`.
  */
 export function parseChartPreferences(
   raw: string | null,
@@ -97,7 +164,9 @@ export function parseChartPreferences(
     indicators:
       indicators.length === 0
         ? [...DEFAULT_CHART_INDICATORS]
-        : normalizeChartIndicators(indicators),
+        : mergeShippedChartIndicators(indicators),
+    settings: parseChartSettings(entry.settings),
+    favorites: parseFavorites(entry.favorites),
   };
 }
 
@@ -116,6 +185,8 @@ export interface ChartPreferencesController {
   loaded: boolean;
   setTimeframe(timeframe: CandleTimeframe): void;
   setIndicators(indicators: readonly ChartIndicator[]): void;
+  setSettings(settings: ChartDisplaySettings): void;
+  toggleFavorite(id: string): void;
 }
 
 /**
@@ -160,7 +231,12 @@ export function useChartPreferences(accountId: string): ChartPreferencesControll
               }
             }
           }
-          accounts[accountId] = { timeframe: next.timeframe, indicators: next.indicators };
+          accounts[accountId] = {
+            timeframe: next.timeframe,
+            indicators: next.indicators,
+            settings: next.settings,
+            favorites: next.favorites,
+          };
           window.localStorage.setItem(
             CHART_PREFERENCES_STORAGE_KEY,
             JSON.stringify({ version: VERSION, accounts }),
@@ -180,6 +256,13 @@ export function useChartPreferences(accountId: string): ChartPreferencesControll
       loaded,
       setTimeframe: (timeframe) => update({ timeframe }),
       setIndicators: (indicators) => update({ indicators: normalizeChartIndicators(indicators) }),
+      setSettings: (settings) => update({ settings }),
+      toggleFavorite: (id) =>
+        update({
+          favorites: preferences.favorites.includes(id)
+            ? preferences.favorites.filter((entry) => entry !== id)
+            : [...preferences.favorites, id].slice(0, MAX_FAVORITES),
+        }),
     }),
     [preferences, loaded, update],
   );

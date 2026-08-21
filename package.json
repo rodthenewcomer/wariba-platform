@@ -15,6 +15,7 @@
     }
   },
   "scripts": {
+    "owner:bootstrap": "pnpm --filter @wariba/database owner:bootstrap",
     "dev": "turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",

@@ -11,7 +11,7 @@
  * `Decimal` helpers would have put a display concern behind the same boundary as
  * execution arithmetic and invited exactly the coupling W5 §33/§84 forbids.
  *
- * The registry is a list of *instances*, not four hard-coded line components:
+ * The registry is a list of *instances*, not hard-coded line components:
  * adding RSI or ATR in a later milestone means adding a `type` and a calculator,
  * not another bespoke series lifecycle in TradeChart.
  */
@@ -63,14 +63,23 @@ export function indicatorLabel(indicator: Pick<ChartIndicator, 'type' | 'period'
 }
 
 /**
- * W5 §25/§128 — the default WariX preset.
+ * W5 §25/§128 — the WariX moving-average library, at WX1's approved scope.
  *
- * The four are deliberately distinguishable by more than hue: each carries its
- * name in the legend and in its accessible label, so a trader who cannot
- * separate the two blues still knows which line is which (§128). SMA 50's red is
- * the chart's stop-loss red, which is why the legend never renders these as bare
- * swatches — a red line on a chart is analysis here, and an operational level
- * elsewhere, and only the label disambiguates them.
+ * Four instances, all four drawn on the chart by default, each distinguishable
+ * by more than hue: every one carries its name in the legend and in its
+ * accessible label, so a trader who cannot separate the two blues still knows
+ * which line is which (§128). SMA 50's red is the chart's stop-loss red, which
+ * is why the legend never renders these as bare swatches — a red line on a chart
+ * is analysis here and an operational level elsewhere, and only the label
+ * disambiguates them.
+ *
+ * **Why the catalogue is exactly this, and not ten rows.** WX1 also shipped six
+ * further periods (EMA 9/50/100/200, SMA 9/200) switched off. They compute
+ * correctly, but no product decision ever approved them: they were catalogue
+ * surface, and their only visible effect was a phone sheet padded out with rows
+ * a trader had not asked for. Final closure §10/§12 draws the line at the
+ * approved set. The engine is unchanged and still computes any valid period, so
+ * restoring a preset later is one line here rather than a feature.
  *
  * Colours are resolved from `--wariba-chart-indicator-*` tokens at chart
  * creation; these literals are the same fallbacks the rest of TradeChart uses

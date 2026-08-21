@@ -138,6 +138,16 @@ export interface TradeSession {
   closeAllResult: CloseAllOutcome[] | null;
   clearCloseAllResult(): void;
   statusAnnouncement: string;
+  /**
+   * Increments on every announcement, including a repeated one.
+   *
+   * The message alone cannot drive a visual confirmation: two market buys in a
+   * row produce the identical sentence, and a surface keyed on the string would
+   * show the first and silently swallow the second. The sequence is what makes
+   * "something settled again" observable without changing a word of what is
+   * announced.
+   */
+  statusSequence: number;
   alerts: PriceAlertDTO[];
   notifications: AlertNotificationDTO[];
   unreadCount: number;
@@ -197,7 +207,14 @@ export function useTradeSession({
   const [pendingOrderAction, setPendingOrderAction] = useState<PendingOrderAction | null>(null);
   const [rejectedOrderAction, setRejectedOrderAction] = useState<PendingOrderAction | null>(null);
   const rejectedOrderActionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [statusAnnouncement, setStatusAnnouncement] = useState('');
+  const [status, setStatus] = useState<{ message: string; sequence: number }>({
+    message: '',
+    sequence: 0,
+  });
+  /** One writer for the announcement channel, so the sequence can never drift. */
+  const setStatusAnnouncement = useCallback((message: string) => {
+    setStatus((previous) => ({ message, sequence: previous.sequence + 1 }));
+  }, []);
   const [closeAllResult, setCloseAllResult] = useState<CloseAllOutcome[] | null>(null);
   const [fills, setFills] = useState<FillMarker[]>([]);
   const [alerts, setAlerts] = useState<PriceAlertDTO[]>([]);
@@ -737,7 +754,8 @@ export function useTradeSession({
     rejectedOrderAction,
     closeAllResult,
     clearCloseAllResult,
-    statusAnnouncement,
+    statusAnnouncement: status.message,
+    statusSequence: status.sequence,
     alerts,
     notifications,
     unreadCount,

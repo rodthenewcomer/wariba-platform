@@ -10,6 +10,7 @@ import type {
   TradableSymbol,
 } from '@wariba/contracts';
 import { createTickStore, type TickStore } from '../app/(trade)/trade/tick-store';
+import { useTick } from '../app/(trade)/trade/tick-store';
 import { CHART_DRAWINGS_STORAGE_KEY } from '../app/(trade)/trade/chart-drawing-store';
 
 /**
@@ -33,6 +34,35 @@ const chartDouble = await vi.hoisted(async () => {
   return createLightweightChartsDouble();
 });
 vi.mock('lightweight-charts', () => chartDouble.module);
+
+const staticRenderCounts = vi.hoisted(() => ({ toolbar: 0, drawingRail: 0 }));
+
+vi.mock('../app/(trade)/trade/ChartToolbar', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../app/(trade)/trade/ChartToolbar')>();
+  const React = await import('react');
+  return {
+    ...actual,
+    ChartToolbar: React.memo(function CountedChartToolbar(
+      props: React.ComponentProps<typeof actual.ChartToolbar>,
+    ) {
+      staticRenderCounts.toolbar += 1;
+      return React.createElement(actual.ChartToolbar, props);
+    }),
+  };
+});
+
+vi.mock('../app/(trade)/trade/DrawingToolRail', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../app/(trade)/trade/DrawingToolRail')>();
+  const React = await import('react');
+  return {
+    DrawingToolRail: React.memo(function CountedDrawingToolRail(
+      props: React.ComponentProps<typeof actual.DrawingToolRail>,
+    ) {
+      staticRenderCounts.drawingRail += 1;
+      return React.createElement(actual.DrawingToolRail, props);
+    }),
+  };
+});
 
 const { TradeChart } = await import('../app/(trade)/trade/TradeChart');
 const { stubContainerBox, stubResizeObserver } =
@@ -120,13 +150,59 @@ function Workstation({ store, transport }: { store: TickStore; transport: unknow
         onDeleteAlert={NOOP}
         onPendingOrderRequest={NOOP}
         onCreateAlertHere={NOOP}
+        onOpenAlerts={NOOP}
+        onOpenSymbolSearch={NOOP}
       />
     </div>
   );
 }
 
-function renderWorkstation(): Harness {
+function ReactiveTickWorkstation({ store, transport }: { store: TickStore; transport: unknown }) {
+  const tick = useTick(store, 'EURUSD');
+  return (
+    <div>
+      <Chrome />
+      <TradeChart
+        symbol={'EURUSD' as TradableSymbol}
+        accountId="acc-1"
+        store={store}
+        historyTransport={transport as never}
+        tick={tick}
+        positions={[]}
+        fills={[]}
+        connectionState="open"
+        spec={SPEC}
+        accountEquity="10000"
+        dailyLossRemaining="500"
+        pendingRiskAction={null}
+        commandPending={false}
+        pendingOrders={[]}
+        alerts={[]}
+        pendingOrderAction={null}
+        rejectedOrderAction={null}
+        onCommitLevel={NOOP}
+        onOpenManage={NOOP}
+        onClosePosition={NOOP}
+        onMarketOrderRequest={NOOP}
+        onOpenPartialClose={NOOP}
+        onModifyPendingOrderTrigger={NOOP}
+        onOpenManagePendingOrder={NOOP}
+        onCancelPendingOrder={NOOP}
+        onModifyAlertThreshold={NOOP}
+        onOpenManageAlert={NOOP}
+        onDeleteAlert={NOOP}
+        onPendingOrderRequest={NOOP}
+        onCreateAlertHere={NOOP}
+        onOpenAlerts={NOOP}
+        onOpenSymbolSearch={NOOP}
+      />
+    </div>
+  );
+}
+
+function renderWorkstation(reactiveTick = false): Harness {
   const store = createTickStore();
+  if (reactiveTick) store.update(tickAt(-1));
   const requests: MarketHistoryRequest[] = [];
   const resultListeners = new Set<(r: MarketHistoryResult) => void>();
   const errorListeners = new Set<(e: MarketHistoryErrorMessage) => void>();
@@ -143,7 +219,13 @@ function renderWorkstation(): Harness {
     onSocketOpen: () => () => {},
   };
 
-  render(<Workstation store={store} transport={transport} />);
+  render(
+    reactiveTick ? (
+      <ReactiveTickWorkstation store={store} transport={transport} />
+    ) : (
+      <Workstation store={store} transport={transport} />
+    ),
+  );
 
   return {
     store,
@@ -218,6 +300,8 @@ beforeEach(() => {
   chartDouble.spies.reset();
   window.localStorage.clear();
   chromeRenders = 0;
+  staticRenderCounts.toolbar = 0;
+  staticRenderCounts.drawingRail = 0;
   stubContainerBox(1200, 600);
   stubResizeObserver();
 });
@@ -225,6 +309,27 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('an accepted tick reaches the canvas and stops — W5 §72/§120', () => {
+  it(`keeps WX1 static toolbar and drawing rail at zero renders for ${N_TICKS} selected ticks`, () => {
+    const h = renderWorkstation(true);
+    h.deliver(history(h.requests[0]?.requestId ?? ''));
+    const toolbarBaseline = staticRenderCounts.toolbar;
+    const railBaseline = staticRenderCounts.drawingRail;
+
+    act(() => {
+      for (let index = 0; index < N_TICKS; index += 1) h.store.update(tickAt(index));
+    });
+
+    const toolbarExtra = staticRenderCounts.toolbar - toolbarBaseline;
+    const railExtra = staticRenderCounts.drawingRail - railBaseline;
+    expect(toolbarExtra).toBe(0);
+    expect(railExtra).toBe(0);
+    // eslint-disable-next-line no-console
+    console.log(
+      `STATIC_CHART_RENDER_OWNERSHIP N_SELECTED_SYMBOL_TICKS=${N_TICKS} ` +
+        `STATIC_TOOLBAR_EXTRA_RENDERS=${toolbarExtra} DRAWING_RAIL_EXTRA_RENDERS=${railExtra}`,
+    );
+  });
+
   it(`re-renders no chrome for ${N_TICKS} ticks with four indicators and drawings on screen`, () => {
     storedDrawings(5);
     const h = renderWorkstation();

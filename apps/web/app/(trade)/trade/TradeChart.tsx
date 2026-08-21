@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import {
   createChart,
   CrosshairMode,
+  PriceScaleMode,
   type IChartApi,
   type ISeriesApi,
   type IPriceLine,
@@ -26,21 +27,31 @@ import {
   quotedPrice,
   roundPriceToTick,
   computeLevelPnlPreview,
+  isProtectionLevelValid,
+  protectionPlacementFor,
   computeRiskRewardRatio,
   pendingOrderDistancePoints,
 } from '@wariba/domain';
-import { BottomSheet } from '@wariba/ui';
+import {
+  BottomSheet,
+  ToolbarButton,
+  WariXDeleteIcon,
+  WariXDoneIcon,
+  WariXPaletteIcon,
+} from '@wariba/ui';
 import type { RealtimeConnectionState } from '../../../lib/realtime-client';
 import { resolveLabelCollisions } from './chart-overlay-geometry';
 import { chartPriceFormatFor } from './chart-price-format';
 import {
-  PositionBadge,
-  LevelChip,
-  LevelHandle,
+  PositionProtectionControls,
   DragPreviewPanel,
+  PositionChip,
+  TradeLevelChip,
   type LevelSyncState,
+  type TradeObjectEdge,
 } from './ChartPositionOverlay';
 import { PendingOrderLine, AlertLine } from './ChartPendingOverlay';
+import { ChartPriceScalePlates, type PriceScalePlate } from './ChartPriceScalePlates';
 import { ChartContextMenuPopover, ChartContextMenuContent } from './ChartContextMenu';
 import {
   createChartHistoryController,
@@ -48,15 +59,26 @@ import {
   type ChartHistoryTransport,
 } from './chart-history';
 import type { TickStore } from './tick-store';
-import { HISTORY_STATUS_MESSAGE } from './trade-copy';
-import { ChartToolbar, IndicatorOptions, ToolOptions } from './ChartToolbar';
-import { ChartLegend } from './ChartLegend';
+import { HISTORY_CONNECTING_MESSAGE, HISTORY_STATUS_MESSAGE } from './trade-copy';
+import { resolveExecutionMarkers } from './chart-execution-markers';
+import { resolveDragCardTop, type OccupiedBand } from './chart-drag-card-layout';
+import { formatLotSize, formatMoney } from './trade-labels';
+import { ChartToolbar, useFullscreen, type ChartStyle } from './ChartToolbar';
+import { ChartStatusLine, computeBarChange } from './ChartStatusLine';
+import { IndicatorLibrary } from './IndicatorLibrary';
+import { ChartModal } from './ChartModal';
+import { ChartSettingsModal } from './ChartSettingsModal';
+import { ObjectTreeModal } from './ObjectTreeModal';
+import { MobileToolsSheet } from './MobileToolsSheet';
 import { ChartDrawingLayer } from './ChartDrawingLayer';
 import { toRendererCandle } from './chart-renderer-adapters';
 import { drawingTypeLabel } from './chart-drawing-model';
-import { toolLabel } from './chart-tool-mode';
+import { cursorModeLabel, toolLabel } from './chart-tool-mode';
 import { legendCandle, useChartAnalysis } from './use-chart-analysis';
+import { CROSSHAIR_LINE_STYLE, type ChartTimezone } from './chart-settings-model';
 import { useIsDesktop } from './use-viewport';
+import { DrawingToolRail } from './DrawingToolRail';
+import { ChartBottomBar, type ChartScaleMode } from './ChartBottomBar';
 
 export interface FillMarker {
   id: string;
@@ -128,6 +150,9 @@ export interface TradeChartProps {
   onDeleteAlert: (alertId: string) => void;
   onPendingOrderRequest: (params: { orderType: PendingOrderType; triggerPrice: string }) => void;
   onCreateAlertHere: (thresholdPrice: string) => void;
+  onOpenAlerts: () => void;
+  onOpenSymbolSearch: () => void;
+  onOpenMobileMarkets?: () => void;
 }
 
 /**
@@ -137,6 +162,30 @@ export interface TradeChartProps {
  * computed height and that is the bug to fix, not this number.
  */
 const CHART_FALLBACK_HEIGHT = 240;
+
+/**
+ * §15 Symbol → Timezone. Formatting only.
+ *
+ * The renderer hands back the same epoch seconds history stored; all this does
+ * is decide which clock renders them. `Intl` is asked for the zone once per
+ * call rather than a fixed offset being added, so a market that crosses a DST
+ * boundary is labelled correctly on both sides of it — an offset would have
+ * silently shifted every label by an hour twice a year.
+ */
+function buildTimeFormatter(timezone: ChartTimezone): (time: number) => string {
+  const options: Intl.DateTimeFormatOptions = {
+    year: '2-digit',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    ...(timezone === 'utc' ? { timeZone: 'UTC' } : {}),
+  };
+  const format = new Intl.DateTimeFormat('fr-FR', options);
+  return (time: number) => format.format(new Date(time * 1000));
+}
 
 function readToken(element: HTMLElement, name: string, fallback: string): string {
   const value = getComputedStyle(element).getPropertyValue(name).trim();
@@ -161,9 +210,62 @@ interface DragSession {
   /** Screen Y where the drag started — a mouseup within DRAG_CLICK_THRESHOLD_PX of this is treated as a tap, not a drag. */
   startClientY: number;
   moved: boolean;
+  /** Pointer Y in *plot* coordinates, for the validation card's placement. */
+  pointerY?: number;
 }
 
 const DRAG_CLICK_THRESHOLD_PX = 4;
+
+/**
+ * How far from the plot's edge a pinned trade object comes to rest (VX1 §21).
+ *
+ * Half a chip: enough that the chip is fully drawn inside the plot rather than
+ * half-swallowed by the toolbar above it or the time scale below.
+ */
+const OVERLAY_EDGE_PADDING = 22;
+
+/**
+ * The band a trade chip is allowed to occupy — VX1-D.1.1 §2/§3.
+ *
+ * **The level line never moves.** Everything here is about the *chip*: the
+ * horizontal stroke and its axis plate stay at `priceToCoordinate(price)`
+ * whatever happens below, and a chip that has been pinned draws a caret so it
+ * can never be read as standing on the price it appears to touch.
+ *
+ * `TOP_CHIP_SAFE_BOUNDARY` is measured from the OHLC and indicator legends,
+ * which is why it is computed per render rather than fixed: the legend grows
+ * with the number of indicators, and a take profit pinned under a four-row
+ * legend on a phone was landing behind it.
+ *
+ * `BOTTOM_CHIP_SAFE_BOUNDARY` reserves the time axis on every viewport, plus —
+ * on a phone only — one lane for command feedback. That lane is the whole of
+ * §3: the confirmation toast is centred over the plot on a 390px screen, and
+ * the chips sit at 20% from the left, so the two *will* collide the moment a
+ * stop loss happens to be low on the chart. Excluding the lane from the chip
+ * band makes the collision impossible by construction rather than resolved
+ * after the fact.
+ */
+const MOBILE_FEEDBACK_LANE = 64;
+
+/**
+ * The validation card's height, for placement purposes.
+ *
+ * A measured height would need a layout pass per frame of a drag; the card has
+ * one shape — a heading row, a price and a two-line reason — so a constant is
+ * both accurate enough and free. Erring slightly large is the safe direction:
+ * it only makes the rule more cautious about what it sits near.
+ */
+const DRAG_CARD_HEIGHT = 104;
+
+/**
+ * The price as a plate prints it — the canonical string, at the instrument's own
+ * precision, never rounded to something prettier.
+ */
+function formatPlatePrice(price: string, precision: number | null): string {
+  if (precision === null) return price;
+  const parsed = Number(price);
+  return Number.isFinite(parsed) ? parsed.toFixed(precision) : price;
+}
 
 /** Drag/exact-price session for a pending order's trigger price or an alert's threshold price — see orderDrag's doc comment below. */
 interface OrderDragSession {
@@ -241,10 +343,17 @@ export function TradeChart({
   onDeleteAlert,
   onPendingOrderRequest,
   onCreateAlertHere,
+  onOpenAlerts,
+  onOpenSymbolSearch,
+  onOpenMobileMarkets,
 }: TradeChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const cursorDotRef = useRef<HTMLSpanElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const barSeriesRef = useRef<ISeriesApi<'Bar'> | null>(null);
+  const lineSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const areaSeriesRef = useRef<ISeriesApi<'Area'> | null>(null);
   const bidLineRef = useRef<IPriceLine | null>(null);
   const askLineRef = useRef<IPriceLine | null>(null);
   const positionLinesRef = useRef<IPriceLine[]>([]);
@@ -277,6 +386,34 @@ export function TradeChart({
    * The ResizeObserver below is the one writer.
    */
   const [plotSize, setPlotSize] = useState({ width: 0, height: 0 });
+  /**
+   * True while a pane-resize-induced relayout is settling.
+   *
+   * Read by the visible-range subscription so a geometry change cannot be
+   * mistaken for the trader panning into older history.
+   */
+  const resizingRef = useRef(false);
+
+  /**
+   * VX1 §21 — the rendered height of the OHLC/indicator legend.
+   *
+   * A trade object pinned to the top edge has to come to rest *below* the
+   * legend, and the legend is one row when collapsed and six with four
+   * indicators expanded. Measured rather than assumed, because a hard-coded
+   * inset would put a pinned Take Profit through the OHLC row on exactly the
+   * charts that have the most to read.
+   */
+  const [legendHeight, setLegendHeight] = useState(0);
+
+  /**
+   * The price scale's own width, so WariX's plates sit exactly over it.
+   *
+   * Read from the chart rather than assumed: the scale sizes itself to the
+   * widest label it draws, which differs between a 5-decimal FX pair and a
+   * 2-decimal index.
+   */
+  const [priceScaleWidth, setPriceScaleWidth] = useState(0);
+
   /** W5 §65 — the candle under the crosshair, held imperatively (see the subscription below). */
   const [hoveredCandle, setHoveredCandle] = useState<MarketCandle | null>(null);
   const [drag, setDrag] = useState<DragSession | null>(null);
@@ -284,6 +421,17 @@ export function TradeChart({
   useEffect(() => {
     dragRef.current = drag;
   }, [drag]);
+  /*
+   * The positions the global pointer-up handler judges a release against.
+   *
+   * That handler is attached once and closes over its first render, so reading
+   * `positions` directly there would validate a drag against whatever the book
+   * looked like when the listener was installed. A ref is the same pattern
+   * `dragRef` already uses, for the same reason.
+   */
+  const positionsRef = useRef(positions);
+  positionsRef.current = positions;
+
   // Appendix 07-D — a second, parallel drag session for pending-order
   // trigger-price and alert threshold-price lines. Kept independent from
   // `drag` above (position SL/TP) rather than folded into one generalized
@@ -311,6 +459,25 @@ export function TradeChart({
   const draggingDisabled = isStale || isDisconnected || commandPending;
   const isDesktop = useIsDesktop();
   const [chartToolsOpen, setChartToolsOpen] = useState(false);
+  const [indicatorsOpen, setIndicatorsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [objectTreeOpen, setObjectTreeOpen] = useState(false);
+  const [scaleMode, setScaleMode] = useState<ChartScaleMode>('normal');
+  const [autoScale, setAutoScale] = useState(true);
+  const [chartStyle, setChartStyle] = useState<ChartStyle>('candles');
+  // Stable transient-surface commands keep the memoised desktop chart chrome
+  // outside the tick render path. An inline setter here changes identity on
+  // every TradeChart render and defeats the ownership boundary even though the
+  // visible button state did not change.
+  const openChartTools = useCallback(() => setChartToolsOpen(true), []);
+  const openIndicators = useCallback(() => setIndicatorsOpen(true), []);
+  const openSettings = useCallback(() => setSettingsOpen(true), []);
+  const openObjectTree = useCallback(() => setObjectTreeOpen(true), []);
+  /** §18 — the brief confirmation after Copy price. No toast, no queue. */
+  const [copiedPrice, setCopiedPrice] = useState<string | null>(null);
+  const [chartLinkCopied, setChartLinkCopied] = useState(false);
+  const chartColumnRef = useRef<HTMLDivElement | null>(null);
+  const { fullscreen, toggle: toggleFullscreen } = useFullscreen(chartColumnRef);
 
   /**
    * W5 — the chart-analysis layer, reached through a ref.
@@ -335,7 +502,9 @@ export function TradeChart({
     const gridColor = readToken(container, '--wariba-chart-grid', '#272D3A');
     const textColor = readToken(container, '--wariba-chart-text-secondary', '#9AA3B1');
     const axisColor = readToken(container, '--wariba-chart-axis', '#3A4251');
-    const crosshairColor = readToken(container, '--wariba-chart-crosshair', '#9AA3B1');
+    const crosshairColor = readToken(container, '--wariba-chart-crosshair', '#555E6E');
+    const crosshairLabel = readToken(container, '--wariba-chart-crosshair-label', '#1E2433');
+    const currentPriceColor = readToken(container, '--wariba-chart-current-price', '#9AA3B1');
     const upColor = readToken(container, '--wariba-chart-candle-up', '#258A61');
     const downColor = readToken(container, '--wariba-chart-candle-down', '#C94D4D');
     colorsRef.current = {
@@ -356,17 +525,49 @@ export function TradeChart({
       // height. `measure()` runs synchronously right after creation.
       ...(container.clientWidth > 0 ? { width: container.clientWidth } : {}),
       height: container.clientHeight || CHART_FALLBACK_HEIGHT,
-      layout: { background: { color: background }, textColor },
+      /*
+       * Visual closure §9 — the chart environment is typography too.
+       *
+       * The price and time scales are drawn into the canvas by the library, so
+       * they are the one part of WariX that CSS cannot reach: left at the
+       * library's default sans they were the only proportional figures on a
+       * screen where every other number is tabular mono, and they read as
+       * "third-party widget" rather than as part of the instrument. Handing the
+       * renderer the WARIBA mono stack at 11px is what makes the scales belong
+       * to the same product as the quote deck beside them.
+       */
+      layout: {
+        background: { color: background },
+        textColor,
+        fontFamily: readToken(container, '--wariba-font-mono', 'monospace'),
+        fontSize: 11,
+        attributionLogo: false,
+      },
       grid: {
         vertLines: { color: gridColor },
         horzLines: { color: gridColor },
       },
       rightPriceScale: { borderColor: axisColor },
       timeScale: { borderColor: axisColor, timeVisible: true, secondsVisible: true },
+      /*
+       * Final closure §5 — the crosshair's own labels are WARIBA surfaces.
+       *
+       * `labelBackgroundColor` defaulted to the crosshair line colour, an ink-300
+       * grey, so hovering the chart put a large light-grey plate on the time axis
+       * ("13 Aug '26 11:16:15" in the mobile drawing evidence) and another on the
+       * price scale. Those are the only two chrome elements in WariX that a
+       * trader summons dozens of times a minute, and they read as a different
+       * product. They now take the workstation's own control tone; the renderer
+       * picks a light label colour against it automatically.
+       *
+       * The line itself drops from ink-300 to ink-500: a crosshair is a
+       * temporary analytical aid and must sit *below* the live trading overlays
+       * in the visual hierarchy (§26), which a near-white line did not.
+       */
       crosshair: {
         mode: CrosshairMode.Normal,
-        vertLine: { color: crosshairColor, labelBackgroundColor: crosshairColor },
-        horzLine: { color: crosshairColor, labelBackgroundColor: crosshairColor },
+        vertLine: { color: crosshairColor, labelBackgroundColor: crosshairLabel },
+        horzLine: { color: crosshairColor, labelBackgroundColor: crosshairLabel },
       },
     });
     const series = chart.addCandlestickSeries({
@@ -376,9 +577,55 @@ export function TradeChart({
       borderDownColor: downColor,
       wickUpColor: upColor,
       wickDownColor: downColor,
+      /*
+       * Final closure §6 — the current-price label is market context, not a
+       * trading semantic.
+       *
+       * Traced rather than guessed: the green plate between Ask and Bid on the
+       * price scale is lightweight-charts' own *last value* label, which by
+       * default inherits the last bar's colour. So it rendered emerald after an
+       * up candle and coral after a down one — the two colours WariX reserves
+       * for Buy and Sell. A trader glancing at the scale saw a Buy-coloured
+       * price that had nothing to do with buying, and the same label changed
+       * semantic colour every few seconds.
+       *
+       * Pinning `priceLineColor` makes the label and its dotted line neutral
+       * ink. The value is unchanged and still the series' own last close — only
+       * its colour stops claiming a meaning it does not have. One colour, one
+       * meaning: aqua Bid, copper Ask, neutral current.
+       */
+      priceLineVisible: true,
+      priceLineColor: currentPriceColor,
+    });
+    const barSeries = chart.addBarSeries({
+      upColor,
+      downColor,
+      thinBars: true,
+      visible: false,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    const lineSeries = chart.addLineSeries({
+      color: upColor,
+      lineWidth: 2,
+      visible: false,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    const areaSeries = chart.addAreaSeries({
+      lineColor: upColor,
+      topColor: `${upColor}55`,
+      bottomColor: `${upColor}05`,
+      lineWidth: 2,
+      visible: false,
+      priceLineVisible: false,
+      lastValueVisible: false,
     });
     chartRef.current = chart;
     seriesRef.current = series;
+    barSeriesRef.current = barSeries;
+    lineSeriesRef.current = lineSeries;
+    areaSeriesRef.current = areaSeries;
     // W5 §123 — the indicator engine's series live and die with this chart.
     analysisRef.current?.attachRenderer(chart);
 
@@ -398,6 +645,21 @@ export function TradeChart({
       hoveredTime = time;
       if (time === null) {
         setHoveredCandle(null);
+        return;
+      }
+      /*
+       * The live bar is answered from the history controller's own store.
+       *
+       * Introduced in VX1-D.1 to keep interpolated geometry out of the legend,
+       * and kept after that layer was reverted, because it is the better read
+       * on its own terms: the legend, the price plates and the impact estimates
+       * now all quote the same object, so the OHLC row can never disagree with
+       * the plate beside it. Settled bars behind the live one are historical
+       * truth in the series and are read from there.
+       */
+      const live = historyRef.current.series().current;
+      if (live && live.startTime === time) {
+        setHoveredCandle(live);
         return;
       }
       const bar = param.seriesData.get(series) as
@@ -442,6 +704,29 @@ export function TradeChart({
      */
     let lastWidth = 0;
     let lastHeight = 0;
+    /*
+     * Workspace Layout Engine — geometry must never look like navigation.
+     *
+     * Widening the chart (by narrowing a pane) shows more bars, which moves
+     * `range.from` leftward and can cross the backfill threshold. Without this
+     * guard, dragging the Navigator narrower would issue a history request the
+     * trader never asked for — the addendum's "no history request merely
+     * because pane geometry changed", and a real hazard rather than a
+     * theoretical one.
+     *
+     * The flag covers only range changes that are a *direct consequence* of
+     * `applyOptions`, and is released two frames later. A human pan cannot
+     * begin and cross the threshold inside ~32ms, so a genuine pan-left
+     * immediately after a resize still backfills normally.
+     */
+    let resizeFrames = 0;
+    const releaseResizeGuard = () => {
+      resizeFrames -= 1;
+      if (resizeFrames <= 0) {
+        resizeFrames = 0;
+        resizingRef.current = false;
+      }
+    };
     const measure = () => {
       const node = containerRef.current;
       if (!node) return;
@@ -449,11 +734,22 @@ export function TradeChart({
       const height = node.clientHeight;
       if (width <= 0 || height <= 0) return;
       if (width === lastWidth && height === lastHeight) return;
+      // The first measurement is the chart being *sized*, not resized: it is the
+      // mount, and hydration's own history request belongs to it. Guarding it
+      // would suppress a genuine pan-left in the moments after load.
+      const isInitialMeasure = lastWidth === 0 && lastHeight === 0;
       lastWidth = width;
       lastHeight = height;
+      if (!isInitialMeasure) {
+        resizingRef.current = true;
+        resizeFrames += 1;
+      }
       chart.applyOptions({ width, height });
       setPlotSize({ width, height });
       bumpChartVersion();
+      if (!isInitialMeasure) {
+        requestAnimationFrame(() => requestAnimationFrame(releaseResizeGuard));
+      }
     };
     measure();
 
@@ -471,7 +767,26 @@ export function TradeChart({
      * request per page (§19/§96). No timer, no polling.
      */
     const onVisibleRangeChange = (range: { from: number; to: number } | null) => {
+      // Evidence anchor for the resize engine. Updating data attributes keeps
+      // the proof outside React's render path: pane geometry may expose more
+      // bars on the left, but the live right edge must remain anchored. No chart
+      // object or transport detail is exposed, only the two logical coordinates
+      // lightweight-charts already publishes to this callback.
+      const node = containerRef.current;
+      if (node) {
+        if (range === null) {
+          node.removeAttribute('data-visible-logical-from');
+          node.removeAttribute('data-visible-logical-to');
+        } else {
+          node.setAttribute('data-visible-logical-from', String(range.from));
+          node.setAttribute('data-visible-logical-to', String(range.to));
+        }
+      }
+      // The overlay coordinates always refresh: a resized plot must not keep
+      // drawing yesterday's pixel positions.
       bumpChartVersion();
+      // The *request* is what geometry may not cause.
+      if (resizingRef.current) return;
       if (range !== null) historyRef.current?.maybeRequestOlder(range.from);
     };
     chart.timeScale().subscribeVisibleLogicalRangeChange(onVisibleRangeChange);
@@ -484,6 +799,9 @@ export function TradeChart({
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
+      barSeriesRef.current = null;
+      lineSeriesRef.current = null;
+      areaSeriesRef.current = null;
       bidLineRef.current = null;
       askLineRef.current = null;
       positionLinesRef.current = [];
@@ -505,11 +823,37 @@ export function TradeChart({
   const sink = useMemo<ChartHistorySeriesSink>(
     () => ({
       setData: (candles) => {
-        seriesRef.current?.setData(candles.map(toRendererCandle));
+        const ohlc = candles.map(toRendererCandle);
+        const closes = ohlc.map((candle) => ({ time: candle.time, value: candle.close }));
+        seriesRef.current?.setData(ohlc);
+        barSeriesRef.current?.setData(ohlc);
+        lineSeriesRef.current?.setData(closes);
+        areaSeriesRef.current?.setData(closes);
         analysisRef.current?.onSeriesReplaced();
       },
       update: (candle) => {
-        seriesRef.current?.update(toRendererCandle(candle));
+        /*
+         * One accepted tick, drawn once, with the price the feed actually sent.
+         *
+         * VX1-D.1 routed this through an easing layer that re-issued
+         * `series.update()` with intermediate OHLC. It looked right, and the
+         * cost was not worth it: the chart's own `seriesData` then held numbers
+         * the market never printed, so every consumer that reads a bar back out
+         * of the renderer — the crosshair today, anything added tomorrow —
+         * became a place a fabricated price could surface. Guarding one caller
+         * is not a guarantee; not writing the value is.
+         *
+         * VX1-D.1.1 §5 reverts it. The series is authoritative again, and the
+         * terminal stays alive through the effects that never touch market
+         * truth: the travelling price plate, quote feedback, P&L and account
+         * motion, the feed glyph, execution physics and drag.
+         */
+        const ohlc = toRendererCandle(candle);
+        const close = { time: ohlc.time, value: ohlc.close };
+        seriesRef.current?.update(ohlc);
+        barSeriesRef.current?.update(ohlc);
+        lineSeriesRef.current?.update(close);
+        areaSeriesRef.current?.update(close);
         analysisRef.current?.onSeriesLiveUpdate();
       },
       fitContent: () => chartRef.current?.timeScale().fitContent(),
@@ -534,7 +878,12 @@ export function TradeChart({
         const chart = chartRef.current;
         const timeScale = chart?.timeScale();
         const before = timeScale?.getVisibleLogicalRange() ?? null;
-        seriesRef.current?.setData(candles.map(toRendererCandle));
+        const ohlc = candles.map(toRendererCandle);
+        const closes = ohlc.map((candle) => ({ time: candle.time, value: candle.close }));
+        seriesRef.current?.setData(ohlc);
+        barSeriesRef.current?.setData(ohlc);
+        lineSeriesRef.current?.setData(closes);
+        areaSeriesRef.current?.setData(closes);
         analysisRef.current?.onSeriesReplaced();
         if (timeScale && before && prependedCount > 0) {
           timeScale.setVisibleLogicalRange({
@@ -614,8 +963,164 @@ export function TradeChart({
    */
   useEffect(() => {
     if (pricePrecision === null) return;
-    seriesRef.current?.applyOptions({ priceFormat: chartPriceFormatFor(pricePrecision) });
+    const priceFormat = chartPriceFormatFor(pricePrecision);
+    seriesRef.current?.applyOptions({ priceFormat });
+    barSeriesRef.current?.applyOptions({ priceFormat });
+    lineSeriesRef.current?.applyOptions({ priceFormat });
+    areaSeriesRef.current?.applyOptions({ priceFormat });
   }, [pricePrecision]);
+
+  /**
+   * Reopen §6-§8/§15/§23 — the Settings modal, applied to the renderer.
+   *
+   * A separate effect rather than options passed to `createChart`, for the same
+   * reason `priceFormat` is: the chart is created once on mount, while the
+   * trader's stored settings arrive from browser storage a tick later. Baking
+   * them in at creation would have shown the shipped defaults on every load and
+   * then swapped them, and a settings change would have required tearing the
+   * chart down. `applyOptions` is the renderer's own incremental path, so a
+   * checkbox in the modal repaints without touching series, history or drawings.
+   */
+  const chartSettings = analysis.settings;
+  useEffect(() => {
+    const chart = chartRef.current;
+    const container = containerRef.current;
+    if (!chart || !container) return;
+    const { canvas, scales, symbol: symbolSettings } = chartSettings;
+
+    const grid = readToken(container, '--wariba-chart-grid', '#1A2130');
+    const axis = readToken(container, '--wariba-chart-axis', '#3A4251');
+    const crosshairColor = readToken(container, '--wariba-chart-crosshair', '#C0C6D0');
+    const crosshairLabel = readToken(container, '--wariba-chart-crosshair-label', '#1E2433');
+    const watermarkColor = readToken(container, '--wariba-chart-watermark', '#151A25');
+    const textColor = readToken(container, '--wariba-chart-text-secondary', '#9AA3B1');
+
+    const showVert = canvas.grid === 'both' || canvas.grid === 'vertical';
+    const showHorz = canvas.grid === 'both' || canvas.grid === 'horizontal';
+    const line = CROSSHAIR_LINE_STYLE[canvas.crosshairStyle];
+
+    chart.applyOptions({
+      grid: {
+        vertLines: { visible: showVert, color: grid },
+        horzLines: { visible: showHorz, color: grid },
+      },
+      /*
+       * §8 — the crosshair is a primary reading tool, so it is drawn *above* the
+       * grid's tone rather than inside it. At ink-500 it measured a step away
+       * from the grid lines it crosses and disappeared over a dense candle run;
+       * ink-200 is off-white, unmistakable at a glance, and still a full step
+       * below the candle bodies so it cannot outrank live market data. Style is
+       * the second separator: dashed by default, which no drawing and no trading
+       * level uses.
+       */
+      crosshair: {
+        mode: canvas.crosshairMagnet ? CrosshairMode.Magnet : CrosshairMode.Normal,
+        vertLine: {
+          visible: analysis.cursorMode === 'cross',
+          color: crosshairColor,
+          width: 1,
+          style: line,
+          labelBackgroundColor: crosshairLabel,
+        },
+        horzLine: {
+          visible: analysis.cursorMode === 'cross',
+          color: crosshairColor,
+          width: 1,
+          style: line,
+          labelBackgroundColor: crosshairLabel,
+        },
+      },
+      /*
+       * §23 — a restrained instrument watermark. It is the chart's identity when
+       * several are open, and it is drawn at ink-870, one step off the plot
+       * background: legible as a shape, incapable of competing with a candle.
+       */
+      watermark: {
+        visible: canvas.watermark,
+        text: symbol,
+        color: watermarkColor,
+        fontSize: 64,
+        fontFamily: readToken(container, '--wariba-font-mono', 'monospace'),
+        horzAlign: 'center',
+        vertAlign: 'center',
+      },
+      rightPriceScale: {
+        visible: scales.placement === 'right',
+        borderVisible: canvas.scaleLines,
+        borderColor: axis,
+      },
+      leftPriceScale: {
+        visible: scales.placement === 'left',
+        borderVisible: canvas.scaleLines,
+        borderColor: axis,
+      },
+      timeScale: { borderVisible: canvas.scaleLines, borderColor: axis },
+      layout: {
+        textColor: scales.scaleText ? textColor : 'rgba(0,0,0,0)',
+        attributionLogo: false,
+      },
+      /*
+       * §15 Symbol → Timezone. The renderer draws its own axis labels, so a
+       * timezone is a formatter rather than a data transform: the candles keep
+       * their epoch-second `startTime` exactly as history recorded it, and only
+       * the label above them changes. Nothing in W3's history semantics moves.
+       */
+      localization: { timeFormatter: buildTimeFormatter(symbolSettings.timezone) },
+    });
+  }, [chartSettings, symbol, analysis.cursorMode]);
+
+  /** Candle appearance — §15 Symbol. */
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series) return;
+    const { symbol: s, scales } = chartSettings;
+    const container = containerRef.current;
+    const currentPriceColor = container
+      ? readToken(container, '--wariba-chart-current-price', '#9AA3B1')
+      : '#9AA3B1';
+    series.applyOptions({
+      upColor: s.bodyVisible && chartStyle === 'candles' ? s.upColor : 'rgba(0,0,0,0)',
+      downColor: s.bodyVisible && chartStyle === 'candles' ? s.downColor : 'rgba(0,0,0,0)',
+      borderVisible: s.bordersVisible && chartStyle === 'candles',
+      borderUpColor: s.borderUpColor,
+      borderDownColor: s.borderDownColor,
+      wickVisible: s.wicksVisible && chartStyle === 'candles',
+      wickUpColor: s.wickUpColor,
+      wickDownColor: s.wickDownColor,
+      /*
+       * §7, and VX1 §11 — one clear current-price reference, and it is *market*
+       * context rather than a trading semantic.
+       *
+       * Finely dotted and ice: dotted so it never reads as one of the three
+       * trade rules (solid entry, dashed TP, dashed SL), and ice because a
+       * current price that turned emerald whenever the trader happened to be
+       * long would be claiming a meaning the market does not have.
+       */
+      priceLineVisible: scales.currentPriceLine,
+      priceLineColor: currentPriceColor,
+      priceLineWidth: 1,
+      priceLineStyle: 1,
+      // Same reason as the trade levels above: WariX draws this plate itself so
+      // it can step aside for an entry a few ticks away instead of covering it.
+      lastValueVisible: false,
+    });
+    barSeriesRef.current?.applyOptions({
+      visible: chartStyle === 'bars',
+      upColor: s.upColor,
+      downColor: s.downColor,
+    });
+    lineSeriesRef.current?.applyOptions({
+      visible: chartStyle === 'line',
+      color: s.upColor,
+    });
+    areaSeriesRef.current?.applyOptions({
+      visible: chartStyle === 'area',
+      lineColor: s.upColor,
+      topColor: `${s.upColor}55`,
+      bottomColor: `${s.upColor}05`,
+    });
+    setChartVersion((v) => v + 1);
+  }, [chartSettings, chartStyle]);
 
   // Symbol or timeframe change: drop the interaction state that belonged to the
   // previous instrument/interval. The candle series itself is the history
@@ -628,16 +1133,42 @@ export function TradeChart({
     setContextMenu(null);
   }, [symbol, analysis.timeframe]);
 
-  // New tick for the selected symbol: bid/ask price lines only. Candle
-  // aggregation deliberately does NOT happen here — see the `store` prop.
+  /**
+   * Reopen §6 — the chart no longer paints Bid and Ask across the plot.
+   *
+   * Traced before it was changed, as §6 requires. The two lines came from right
+   * here: one `createPriceLine` per side, torn down and rebuilt on **every
+   * accepted tick**, each `axisLabelVisible` and each spanning the full plot
+   * width. Together with the series' own last-value line that put three
+   * permanent horizontal rules across every WariX chart, all three within a
+   * spread of each other, and the one a trader actually reads — the price — had
+   * no visual priority over the other two. The right price scale carried three
+   * stacked plates in the same band for the same reason.
+   *
+   * Bid and Ask did not lose a home: they are on screen continuously in the
+   * chart's own module header, in the Execution Center's quote deck and in the
+   * Navigator's BID/ASK columns. What they lost is the claim to be chart
+   * geometry. The setting stays for a trader who wants them back — it is off by
+   * default, which is the change.
+   *
+   * The rebuild-per-tick shape is kept for the same reason it existed:
+   * `createPriceLine` has no update-in-place API. It now runs only when the
+   * trader has asked for the lines.
+   */
+  const bidAskLinesEnabled = chartSettings.scales.bidAskLines;
   useEffect(() => {
-    if (!tick || !seriesRef.current) return;
-
-    // Bid/ask price lines (§23.2 "prix bid/ask distincts") — replaced each
-    // tick rather than moved, createPriceLine has no update-in-place API.
-    if (bidLineRef.current) seriesRef.current.removePriceLine(bidLineRef.current);
-    if (askLineRef.current) seriesRef.current.removePriceLine(askLineRef.current);
-    bidLineRef.current = seriesRef.current.createPriceLine({
+    const series = seriesRef.current;
+    if (!series) return;
+    if (bidLineRef.current) {
+      series.removePriceLine(bidLineRef.current);
+      bidLineRef.current = null;
+    }
+    if (askLineRef.current) {
+      series.removePriceLine(askLineRef.current);
+      askLineRef.current = null;
+    }
+    if (!bidAskLinesEnabled || !tick) return;
+    bidLineRef.current = series.createPriceLine({
       price: Number(tick.bid),
       color: colorsRef.current.bid,
       lineWidth: 1,
@@ -645,7 +1176,7 @@ export function TradeChart({
       axisLabelVisible: true,
       title: 'Bid',
     });
-    askLineRef.current = seriesRef.current.createPriceLine({
+    askLineRef.current = series.createPriceLine({
       price: Number(tick.ask),
       color: colorsRef.current.ask,
       lineWidth: 1,
@@ -654,7 +1185,7 @@ export function TradeChart({
       title: 'Ask',
     });
     setChartVersion((v) => v + 1);
-  }, [tick]);
+  }, [tick, bidAskLinesEnabled]);
 
   // Position + SL/TP native lines for the selected symbol — rebuilt
   // whenever the open-position list changes (a fill, a close, an SL/TP
@@ -666,6 +1197,29 @@ export function TradeChart({
     for (const line of positionLinesRef.current) series.removePriceLine(line);
     positionLinesRef.current = [];
 
+    /*
+     * VX1 §13/§14/§15 — one line grammar, three identities.
+     *
+     * Entry is a solid cobalt rule: it is a fact, and the only one of the three
+     * that cannot be moved. The two protective levels are dashed because they
+     * are intentions — emerald for the one that pays, coral for the one that
+     * costs — and dashes are what separates "where I said to get out" from
+     * "where I got in" at a glance, before colour is even read.
+     *
+     * The `title` is gone from all three. lightweight-charts prints it *on* the
+     * line, which is a second label saying what the chip attached to the same
+     * line already says in a typeface WariX controls; the coloured axis plate
+     * keeps carrying the price.
+     */
+    /*
+     * VX1-A.1 §1 — the stroke is the library's, the plate is ours.
+     *
+     * `axisLabelVisible` is off on all three: lightweight-charts draws its
+     * labels into the canvas with no collision handling, so an entry a few ticks
+     * from the market printed two plates on top of each other. The plates are
+     * drawn as HTML by `ChartPriceScalePlates`, which lays them out by priority
+     * and connects any it had to displace back to its own line.
+     */
     for (const position of positions) {
       positionLinesRef.current.push(
         series.createPriceLine({
@@ -673,8 +1227,8 @@ export function TradeChart({
           color: colorsRef.current.position,
           lineWidth: 2,
           lineStyle: 0,
-          axisLabelVisible: true,
-          title: position.side === 'buy' ? 'Achat' : 'Vente',
+          axisLabelVisible: false,
+          title: '',
         }),
       );
       if (position.stopLoss) {
@@ -684,8 +1238,8 @@ export function TradeChart({
             color: colorsRef.current.stopLoss,
             lineWidth: 1,
             lineStyle: 2,
-            axisLabelVisible: true,
-            title: 'SL',
+            axisLabelVisible: false,
+            title: '',
           }),
         );
       }
@@ -696,8 +1250,8 @@ export function TradeChart({
             color: colorsRef.current.takeProfit,
             lineWidth: 1,
             lineStyle: 2,
-            axisLabelVisible: true,
-            title: 'TP',
+            axisLabelVisible: false,
+            title: '',
           }),
         );
       }
@@ -757,11 +1311,21 @@ export function TradeChart({
       previewLineRef.current = null;
     }
     if (drag) {
+      /*
+       * VX1-A.1 §5 — the line brightens with the grab.
+       *
+       * The preview used to be neutral grey, which read as a third kind of line
+       * rather than as *this* level being moved. It now takes the level's own
+       * colour at solid weight against its dashed resting form: same identity,
+       * unmistakably the one in hand. It remains a separate line from the
+       * confirmed one, which never advances until the server says so.
+       */
       previewLineRef.current = series.createPriceLine({
         price: Number(drag.previewPrice),
-        color: colorsRef.current.preview,
+        color:
+          drag.field === 'stop_loss' ? colorsRef.current.stopLoss : colorsRef.current.takeProfit,
         lineWidth: 2,
-        lineStyle: 1,
+        lineStyle: 0,
         axisLabelVisible: true,
         title: drag.field === 'stop_loss' ? 'SL (aperçu)' : 'TP (aperçu)',
       });
@@ -789,21 +1353,41 @@ export function TradeChart({
     }
   }, [orderDrag]);
 
-  // Fill markers (§22.6 "historique d'exécution") — session-only, see the
-  // component doc comment above for why nothing retroactive is possible.
+  /*
+   * Execution history (§22.6) — VX1-D.1.1 §4.
+   *
+   * **Why the labels are gone.** Every fill used to print `Entrée 1.09330` or
+   * `Clôture 1.09338` beside its bar. One trade looked fine. A session of
+   * scalping does not: the sandbox feed keeps the price in a narrow band, so a
+   * handful of open/close cycles stacks four, six, eight full-strength labels
+   * on top of each other around the live edge — directly over the entry line,
+   * the current-price plate and whichever protective level happens to be
+   * nearby. The clutter grows without bound and it grows *exactly* where the
+   * trader is reading.
+   *
+   * The arrows stay: they are the execution-history layer, and they mark where
+   * and which way each fill happened without competing for the same pixels as
+   * the live trade objects. Nothing is lost, because the *active* entry is
+   * already stated three times over — by its own line, its chip and its axis
+   * plate — and every historical fill keeps its exact price, with a timestamp,
+   * in the dock's Trades panel, which is where a fill is looked up.
+   */
   useEffect(() => {
     if (!seriesRef.current) return;
-    const markers: SeriesMarker<Time>[] = fills
-      .map((fill) => ({
-        time: fill.time as UTCTimestamp,
-        position: (fill.side === 'buy' ? 'belowBar' : 'aboveBar') as 'belowBar' | 'aboveBar',
-        color: fill.effect === 'open' ? colorsRef.current.position : colorsRef.current.axis,
-        shape: (fill.side === 'buy' ? 'arrowUp' : 'arrowDown') as 'arrowUp' | 'arrowDown',
-        text: `${fill.effect === 'open' ? 'Ouverture' : 'Clôture'} ${fill.price}`,
-      }))
-      .sort((a, b) => (a.time as number) - (b.time as number));
+    const markers: SeriesMarker<Time>[] = resolveExecutionMarkers(fills, {
+      compact: !isDesktop,
+    }).map((cluster) => ({
+      time: cluster.time as UTCTimestamp,
+      position: (cluster.side === 'buy' ? 'belowBar' : 'aboveBar') as 'belowBar' | 'aboveBar',
+      color: cluster.effect === 'open' ? colorsRef.current.position : colorsRef.current.axis,
+      shape: (cluster.side === 'buy' ? 'arrowUp' : 'arrowDown') as 'arrowUp' | 'arrowDown',
+      // §2 — one marker plus a count, never a column of arrows. A single fill
+      // stays a bare arrow, so the count only ever appears when it is telling
+      // the trader something they could not otherwise see.
+      ...(cluster.count > 1 ? { text: `×${cluster.count}` } : {}),
+    }));
     seriesRef.current.setMarkers(markers);
-  }, [fills]);
+  }, [fills, isDesktop]);
 
   // Global pointermove/pointerup — attached once, gated on dragRef so this
   // works uniformly for mouse and touch without duplicating the handlers,
@@ -825,7 +1409,14 @@ export function TradeChart({
         pricePrecision: spec.pricePrecision,
       });
       const moved = Math.abs(event.clientY - session.startClientY) > DRAG_CLICK_THRESHOLD_PX;
-      setDrag({ ...session, previewPrice: rounded, moved: moved || session.moved });
+      setDrag({
+        ...session,
+        previewPrice: rounded,
+        moved: moved || session.moved,
+        // VX1-D.1.2 §1 — which way the gesture is going, so the validation card
+        // can take the half of the plot the trader is *not* looking at.
+        pointerY: y,
+      });
     };
     const handleUp = (event: PointerEvent) => {
       const session = dragRef.current;
@@ -835,7 +1426,32 @@ export function TradeChart({
       // entry instead of committing a drag — see LevelChip/LevelHandle's
       // onActivate, which already handles the "click" case directly; this
       // only fires the drag commit for an actual drag gesture.
-      if (session.moved) {
+      /*
+       * VX1-D.1 §8 — released in an illegal zone, nothing is sent.
+       *
+       * A "stop loss" above the entry of a long is not a stop loss placed
+       * badly; it is not a stop loss. Sending it would spend a round trip to be
+       * told so, and would leave the trader watching a line snap back with no
+       * explanation. So the level simply stays where the server last confirmed
+       * it — the authoritative price never moved, because a drag preview never
+       * writes one.
+       *
+       * This is not a second risk engine: nothing here evaluates margin, loss
+       * budgets or exposure. Those remain the server's, and a *legal* level is
+       * still sent for the server to accept or refuse on its own terms.
+       */
+      const position = positionsRef.current.find(
+        (candidate) => candidate.id === session.positionId,
+      );
+      const legal =
+        position === undefined ||
+        isProtectionLevelValid({
+          side: position.side,
+          kind: session.field,
+          entryPrice: position.averageOpenPrice,
+          levelPrice: session.previewPrice,
+        });
+      if (session.moved && legal) {
         onCommitLevel({
           positionId: session.positionId,
           field: session.field,
@@ -1008,6 +1624,17 @@ export function TradeChart({
   };
 
   const handleContainerPointerMove = (event: React.PointerEvent) => {
+    const dot = cursorDotRef.current;
+    const container = containerRef.current;
+    if (dot && container) {
+      if (analysis.cursorMode === 'dot' && event.pointerType !== 'touch') {
+        const rect = container.getBoundingClientRect();
+        dot.style.display = 'block';
+        dot.style.transform = `translate3d(${event.clientX - rect.left - 4}px, ${event.clientY - rect.top - 4}px, 0)`;
+      } else {
+        dot.style.display = 'none';
+      }
+    }
     analysis.handlePointerMove(event);
     const start = longPressStartRef.current;
     if (!start || event.pointerType !== 'touch') return;
@@ -1020,6 +1647,27 @@ export function TradeChart({
     analysis.handlePointerUp(event);
     clearLongPressTimer();
   };
+
+  useEffect(() => {
+    const root = containerRef.current?.parentElement;
+    if (!root || typeof ResizeObserver === 'undefined') return;
+    const node = root.querySelector('[data-testid="chart-status-line"]');
+    if (!node) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      setLegendHeight(Math.round(entry.contentRect.height));
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const width = chart.priceScale('right').width();
+    setPriceScaleWidth((current) => (current === width ? current : width));
+  }, [chartVersion, plotSize.width, pricePrecision]);
 
   const referencePriceFor = (position: PositionDTO): string | null => {
     if (!tick) return null;
@@ -1044,27 +1692,92 @@ export function TradeChart({
     const levelInputs: { id: string; y: number; height: number }[] = [];
     const badgeY = new Map<string, number>();
     const levelY = new Map<string, number>();
+    const edge = new Map<string, TradeObjectEdge>();
+
+    /*
+     * VX1 §21 — a trade object never leaves the viewport.
+     *
+     * `priceToCoordinate` happily returns a coordinate above the plot's top or
+     * below its bottom: a Take Profit set outside the visible price band mapped
+     * to a negative y and the chip rendered *behind the toolbar*, which is how a
+     * trader ends up believing a level they set does not exist. The level is
+     * pinned to the edge it left through instead, and says which way it went —
+     * the price on it is unchanged, only where its chip is drawn.
+     */
+    const height = plotSize.height;
+    const place = (id: string, price: string, itemHeight: number, into: typeof badgeInputs) => {
+      const raw = series.priceToCoordinate(Number(price));
+      if (raw === null) return;
+      if (height <= 0) {
+        into.push({ id, y: raw, height: itemHeight });
+        return;
+      }
+      /*
+       * Two different facts, deliberately not conflated.
+       *
+       * **Where the chip may sit** is a layout question: the top band belongs to
+       * the OHLC and indicator legend, so a chip is placed below it even when
+       * its line is up there — the line is still drawn at the true price, and a
+       * chip through the legend would cost two readable things to save one.
+       *
+       * **Whether the level is off-screen** is a market question, and only that
+       * earns the caret. A Take Profit sitting under the legend is visible and
+       * says so; a Take Profit above the visible price band is not, and its chip
+       * says which way to look.
+       */
+      const top = Math.max(OVERLAY_EDGE_PADDING, legendHeight + OVERLAY_EDGE_PADDING);
+      const bottom = height - OVERLAY_EDGE_PADDING - (isDesktop ? 0 : MOBILE_FEEDBACK_LANE);
+      /*
+       * The caret marks *displacement*, not merely being off-plot.
+       *
+       * WX1 set it only when the price fell outside the canvas entirely, so a
+       * chip clamped into the safe band — pinned under the legend, or lifted
+       * out of the feedback lane — sat silently at a coordinate that was not
+       * its price. That is the one thing a trade object may never do. Any chip
+       * that had to move now says which way its level actually is.
+       */
+      const y = Math.min(Math.max(raw, top), bottom);
+      if (raw < top) edge.set(id, 'above');
+      else if (raw > bottom) edge.set(id, 'below');
+      into.push({ id, y, height: itemHeight });
+    };
 
     for (const position of positions) {
-      const y = series.priceToCoordinate(Number(position.averageOpenPrice));
-      if (y !== null) badgeInputs.push({ id: `badge:${position.id}`, y, height: 26 });
-      if (position.stopLoss) {
-        const slY = series.priceToCoordinate(Number(position.stopLoss));
-        if (slY !== null) levelInputs.push({ id: `sl:${position.id}`, y: slY, height: 22 });
-      }
-      if (position.takeProfit) {
-        const tpY = series.priceToCoordinate(Number(position.takeProfit));
-        if (tpY !== null) levelInputs.push({ id: `tp:${position.id}`, y: tpY, height: 22 });
-      }
+      place(`badge:${position.id}`, position.averageOpenPrice, 28, badgeInputs);
+      if (position.stopLoss) place(`sl:${position.id}`, position.stopLoss, 28, levelInputs);
+      if (position.takeProfit) place(`tp:${position.id}`, position.takeProfit, 28, levelInputs);
     }
-    for (const placement of resolveLabelCollisions(badgeInputs)) {
-      badgeY.set(placement.id, placement.y);
+    /*
+     * VX1-B — one batch, not two.
+     *
+     * WX1 resolved badges and levels separately because they lived in different
+     * columns: the position badge hugged the right edge, the SL/TP handles sat
+     * beside it, and neither could cover the other. VX1 moved every trade object
+     * into the same column on its own line, which made that separation a bug —
+     * an entry a few ticks under a take profit rendered one chip through the
+     * other. They now compete for the same vertical space, because they occupy
+     * it.
+     */
+    for (const placement of resolveLabelCollisions([...badgeInputs, ...levelInputs])) {
+      if (placement.id.startsWith('badge:')) badgeY.set(placement.id, placement.y);
+      else levelY.set(placement.id, placement.y);
     }
-    for (const placement of resolveLabelCollisions(levelInputs)) {
-      levelY.set(placement.id, placement.y);
-    }
-    return { badgeY, levelY };
-  }, [positions, spec, chartVersion]);
+    return { badgeY, levelY, edge };
+    /*
+     * `tick` is a dependency on purpose, and it is the only one that fires
+     * often.
+     *
+     * The price scale can move without any of the others changing: autoscale
+     * re-fits as new candles arrive, and dragging the price axis re-ranges it
+     * with no time-scale event at all — the one signal this component listens to
+     * for pan and zoom. Recomputing on the tick keeps every chip standing on its
+     * own line within a frame of the market moving, instead of drifting off it
+     * until something else happens to bump `chartVersion`.
+     *
+     * The cost is three `priceToCoordinate` calls and a sort per tick, against a
+     * renderer that has just redrawn the whole plot.
+     */
+  }, [positions, spec, chartVersion, plotSize.height, legendHeight, isDesktop, tick]);
 
   // Appendix 07-D — same collision-aware Y placement as `overlay` above, but
   // resolved as its own independent batch: pending-order and alert lines are
@@ -1093,12 +1806,124 @@ export function TradeChart({
     return placementY;
   }, [pendingOrders, alerts, spec, chartVersion]);
 
+  /*
+   * VX1-D.1 §8 / VX1-D.1.1 §1 — is this drag heading somewhere a level of this
+   * kind may live, and if not, what should be said about it?
+   *
+   * The rule is the domain's (`isProtectionLevelValid`), read against the
+   * position's own authoritative entry — this file re-derives nothing and owns
+   * no second risk engine. What it decides is presentation, and the preview
+   * below depends on the answer: an invalid level is not a level with bad
+   * numbers, it is not a level, so it is not given numbers at all.
+   */
+  const dragValidity = useMemo(() => {
+    if (!drag) return null;
+    const position = positions.find((candidate) => candidate.id === drag.positionId);
+    if (!position) return null;
+    const valid = isProtectionLevelValid({
+      side: position.side,
+      kind: drag.field,
+      entryPrice: position.averageOpenPrice,
+      levelPrice: drag.previewPrice,
+    });
+    if (valid) return { valid: true as const, reason: null };
+    const mustSit =
+      protectionPlacementFor(position.side, drag.field) === 'above_entry' ? 'au-dessus de' : 'sous';
+    const name = drag.field === 'stop_loss' ? 'Stop Loss' : 'Take Profit';
+    return {
+      valid: false as const,
+      reason: `Un ${name} doit être ${mustSit} l’entrée ${position.averageOpenPrice}.`,
+    };
+  }, [drag, positions]);
+
+  /*
+   * VX1-D.1.2 §1 — the validation card's own coordinate.
+   *
+   * Everything the card must not cover is already resolved by the time this
+   * runs: the chips have their final Y from the overlay batch (pinned ones
+   * included), while the current-price plate and the active preview label sit
+   * on the scale at their own authoritative coordinates. They are handed to
+   * the layout rule as occupied bands; it picks the half of the plot opposite
+   * the drag and, failing that, the least covered position between the
+   * boundaries.
+   *
+   * The card is the only thing that yields. No level, no chip and no plate is
+   * moved to make room for an explanation.
+   */
+  const dragCardTop = useMemo(() => {
+    if (!drag || plotSize.height <= 0) return legendHeight + 12;
+    const occupied: OccupiedBand[] = [];
+    const band = (y: number | undefined, height: number) => {
+      if (y === undefined) return;
+      occupied.push({ top: y - height / 2, bottom: y + height / 2 });
+    };
+    for (const position of positions) {
+      band(overlay?.badgeY.get(`badge:${position.id}`), 28);
+      band(overlay?.levelY.get(`sl:${position.id}`), 28);
+      band(overlay?.levelY.get(`tp:${position.id}`), 28);
+    }
+    // The market's own plate, read from the same series the scale is drawn from.
+    const series = seriesRef.current;
+    const live = history.series().current;
+    const last = live?.close ?? tick?.bid ?? null;
+    if (series && last !== null) {
+      const y = series.priceToCoordinate(Number(last));
+      if (y !== null) band(y, 20);
+    }
+    // The native preview line and its `SL/TP (aperçu)` axis label never yield.
+    // Reserve their real price coordinate and move only this explanatory card.
+    if (series) {
+      const y = series.priceToCoordinate(Number(drag.previewPrice));
+      if (y !== null) band(y, 28);
+    }
+    return resolveDragCardTop({
+      plotHeight: plotSize.height,
+      legendHeight,
+      // The same lane the chips are kept out of, so the card cannot drift into
+      // the feedback zone either.
+      bottomReserved: isDesktop
+        ? OVERLAY_EDGE_PADDING
+        : OVERLAY_EDGE_PADDING + MOBILE_FEEDBACK_LANE,
+      cardHeight: DRAG_CARD_HEIGHT,
+      dragDirection:
+        drag.pointerY !== undefined && drag.pointerY < drag.startClientY ? 'up' : 'down',
+      occupied,
+    });
+    // `tick` keeps the current-price band fresh while the market moves under a
+    // held pointer, which is precisely when a card can drift onto the plate.
+  }, [drag, positions, overlay, plotSize.height, legendHeight, isDesktop, history, tick]);
+
   const dragPreviewCard = useMemo(() => {
     if (!drag || !spec) return null;
     const position = positions.find((p) => p.id === drag.positionId);
     if (!position) return null;
     const reference = referencePriceFor(position);
     if (!reference) return null;
+
+    /*
+     * VX1-D.1.1 §1 — an invalid level gets no economics at all.
+     *
+     * The projected P&L, the share of equity, the risk/reward and the daily
+     * budget after execution are all answers to "what happens if this level
+     * fills". A stop above a long's entry cannot fill as a stop, so every one
+     * of those figures would be describing an order that does not exist — and
+     * the worst of them is the money, which for an invalid stop comes out
+     * *positive*: a Stop Loss showing a profit. The card therefore states the
+     * price, names the problem, and stops.
+     */
+    if (dragValidity && !dragValidity.valid) {
+      return {
+        kind: drag.field,
+        priceFormatted: drag.previewPrice,
+        distancePointsFormatted: null,
+        pnlFormatted: null,
+        percentOfAccountFormatted: null,
+        riskRewardFormatted: null,
+        dailyLossRemainingAfterFormatted: null,
+        invalidReason: dragValidity.reason,
+      };
+    }
+
     const preview = computeLevelPnlPreview({
       levelPrice: drag.previewPrice,
       referencePrice: reference,
@@ -1130,8 +1955,9 @@ export function TradeChart({
       riskRewardFormatted: riskReward,
       dailyLossRemainingAfterFormatted:
         drag.field === 'stop_loss' && dailyLossRemaining ? `${dailyLossRemaining} USD` : null,
+      invalidReason: null,
     };
-  }, [drag, positions, spec, accountEquity, dailyLossRemaining, tick]);
+  }, [drag, dragValidity, positions, spec, accountEquity, dailyLossRemaining, tick]);
 
   const overlayLabel = useMemo(() => {
     if (isDisconnected)
@@ -1141,7 +1967,9 @@ export function TradeChart({
   }, [isDisconnected, isStale, connectionState]);
 
   const syncStateFor = (positionId: string, field: RiskLevelField): LevelSyncState => {
-    if (drag && drag.positionId === positionId && drag.field === field) return 'dragging_preview';
+    if (drag && drag.positionId === positionId && drag.field === field) {
+      return dragValidity && !dragValidity.valid ? 'invalid_zone' : 'dragging_preview';
+    }
     if (
       pendingRiskAction &&
       pendingRiskAction.positionId === positionId &&
@@ -1175,6 +2003,15 @@ export function TradeChart({
   const currentPosition = positions[0] ?? null;
 
   const closeContextMenu = () => setContextMenu(null);
+  /*
+   * The clicked price, read at click time rather than closed over.
+   *
+   * `contextChartActions` is memoised so the menu's identity is stable; without
+   * this ref, Copy price would have captured whichever price the menu was opened
+   * at when the memo was last built, and copied that one forever.
+   */
+  const contextMenuPriceRef = useRef<string | null>(null);
+  contextMenuPriceRef.current = contextMenu?.price ?? null;
 
   // Read at render time rather than mirrored into state: this component already
   // re-renders on every accepted tick (the `tick` prop), so the count is fresh
@@ -1182,112 +2019,462 @@ export function TradeChart({
   const historySeries = history.series();
   const historyCandleCount = historySeries.finalized.length;
   const historyNewestBucket = historySeries.finalized.at(-1)?.startTime ?? '';
+  const historyFirstBucket = historySeries.finalized[0]?.startTime ?? null;
+  const historyLastBucket =
+    historySeries.current?.startTime ?? historySeries.finalized.at(-1)?.startTime ?? null;
+  const historyCoverageSeconds =
+    historyFirstBucket !== null && historyLastBucket !== null
+      ? Math.max(0, historyLastBucket - historyFirstBucket)
+      : 0;
+  /*
+   * VX1-C §5/§6 — the plot always says why it is empty.
+   *
+   * `idle` means the history controller has not started, which happens exactly
+   * while the transport is still coming up. WX1 rendered nothing there, so a
+   * trader on a slow link watched a blank chart with no explanation. The
+   * connection sentence covers that gap and disappears the moment history takes
+   * over — and neither claims data that has not arrived.
+   */
+  const connectingWithoutHistory =
+    connectionState !== 'open' && historyCandleCount === 0 && historyState.status !== 'error';
   const historyMessage =
     historyState.status === 'idle' || historyState.status === 'ready'
-      ? null
+      ? connectingWithoutHistory
+        ? HISTORY_CONNECTING_MESSAGE
+        : null
       : HISTORY_STATUS_MESSAGE[historyState.status];
+  /*
+   * VX1-C.1 §4 — the chart states its connection once.
+   *
+   * Both notices were correct and both fired together: the veil said
+   * "Reconnexion…" across the plot while the chip in the corner said "Connexion
+   * au flux…", for one interrupted socket. They answer different questions, so
+   * neither is deleted — each simply keeps the case it is the better answer to.
+   *
+   * The veil's job is to disown *candles that are already drawn*: it dims a plot
+   * a trader can see and tells them it is frozen. With an empty plot there is
+   * nothing to disown, and a full-bleed grey wash over blank canvas says less
+   * than the quiet chip does. So an empty chart speaks through the chip alone,
+   * and a populated one through the veil alone — one sentence either way.
+   */
+  const plotOverlayLabel = connectingWithoutHistory ? null : overlayLabel;
+  /*
+   * §14 — the bar's own change, from the two candles the chart is already
+   * holding.
+   *
+   * The comparison bar is the one *before* whichever candle the status line is
+   * showing: hovering bar N must report N against N-1, not the live bar against
+   * its predecessor. Both come from the same finalized series the plot renders,
+   * so the number on screen is always derived from the bars on screen.
+   */
+  const statusCandle = legendCandle(history, hoveredCandle);
+  /**
+   * The plates WariX draws on the price scale (VX1-A.1 §1).
+   *
+   * Every entry here is a price that already exists on the chart as a line: the
+   * three trade levels, and the market's own last traded price. Nothing is
+   * computed — the strings are the canonical values, formatted at the
+   * instrument's precision — and the layout decision (who yields to whom) lives
+   * in `chart-price-plate-layout`, away from any of this.
+   */
+  const pricePlates = useMemo<PriceScalePlate[]>(() => {
+    const series = seriesRef.current;
+    if (!series || !spec) return [];
+    void chartVersion;
+    const plates: PriceScalePlate[] = [];
+    const push = (id: string, kind: PriceScalePlate['kind'], price: string) => {
+      const y = series.priceToCoordinate(Number(price));
+      if (y === null) return;
+      if (plotSize.height > 0 && (y < 0 || y > plotSize.height)) return;
+      plates.push({ id, kind, priceFormatted: formatPlatePrice(price, pricePrecision), y });
+    };
+    for (const position of positions) {
+      push(`plate:entry:${position.id}`, 'entry', position.averageOpenPrice);
+      if (position.stopLoss) push(`plate:sl:${position.id}`, 'stop_loss', position.stopLoss);
+      if (position.takeProfit) push(`plate:tp:${position.id}`, 'take_profit', position.takeProfit);
+    }
+    // The *live* close, never the hovered candle: this plate reports where the
+    // market is, and it must not follow a crosshair down the chart.
+    const live = history.series().current;
+    const last = live?.close ?? tick?.bid ?? null;
+    if (last !== null && chartSettings.scales.currentPriceLine) {
+      push('plate:current', 'current', last);
+    }
+    return plates;
+  }, [
+    positions,
+    spec,
+    chartVersion,
+    plotSize.height,
+    pricePrecision,
+    tick,
+    history,
+    chartSettings.scales.currentPriceLine,
+  ]);
+
+  const barChange = useMemo(() => {
+    if (statusCandle === null) return null;
+    const { finalized, current } = history.series();
+    const series = current === null ? finalized : [...finalized, current];
+    const index = series.findIndex((candle) => candle.startTime === statusCandle.startTime);
+    const previous = index > 0 ? series[index - 1] : null;
+    return computeBarChange(statusCandle, previous?.close ?? null, pricePrecision);
+  }, [statusCandle, history, pricePrecision, chartVersion]);
+
+  /*
+   * §17 — fit the visible range, and nothing else.
+   *
+   * `fitContent` touches the time scale only: no drawing is deleted, no
+   * indicator is reset, no interval changes and no command is sent. It is
+   * deliberately the narrowest implementation available, because the wider ones
+   * (clearing and refetching history to "reset") would cross into W3's
+   * territory for a cosmetic action.
+   */
+  const fitChart = useCallback(() => chartRef.current?.timeScale().fitContent(), []);
+
+  const zoomIn = useCallback(() => {
+    const scale = chartRef.current?.timeScale();
+    const range = scale?.getVisibleLogicalRange();
+    if (!scale || !range) return;
+    const center = (range.from + range.to) / 2;
+    const half = ((range.to - range.from) * 0.78) / 2;
+    scale.setVisibleLogicalRange({ from: center - half, to: center + half });
+  }, []);
+
+  const selectHorizon = useCallback(
+    (seconds: number) => {
+      const chart = chartRef.current;
+      if (!chart) return;
+      const series = history.series();
+      const oldest = series.finalized[0]?.startTime;
+      const newest = series.current?.startTime ?? series.finalized.at(-1)?.startTime;
+      if (oldest === undefined || newest === undefined) return;
+      const from = newest - seconds;
+      // A visible, disabled horizon is more honest than manufacturing empty
+      // time before the process-memory window WariX actually has.
+      if (oldest > from) return;
+      chart.timeScale().setVisibleRange({
+        from: from as UTCTimestamp,
+        to: newest as UTCTimestamp,
+      });
+    },
+    [history],
+  );
+
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const mode =
+      scaleMode === 'percentage'
+        ? PriceScaleMode.Percentage
+        : scaleMode === 'logarithmic'
+          ? PriceScaleMode.Logarithmic
+          : PriceScaleMode.Normal;
+    chart.priceScale('right').applyOptions({ mode, autoScale });
+    chart.priceScale('left').applyOptions({ mode, autoScale });
+  }, [scaleMode, autoScale]);
+
+  /** §20 — a PNG of exactly what is on screen, from the renderer's own export. */
+  const takeSnapshot = useCallback(() => {
+    const canvas = chartRef.current?.takeScreenshot();
+    if (!canvas) return;
+    const link = document.createElement('a');
+    link.download = `wariX-${symbol}-${analysis.timeframe}-${Date.now()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  }, [symbol, analysis.timeframe]);
+
+  const toggleMagnet = useCallback(() => {
+    analysis.applySettings({
+      ...analysis.settings,
+      canvas: {
+        ...analysis.settings.canvas,
+        crosshairMagnet: !analysis.settings.canvas.crosshairMagnet,
+      },
+    });
+  }, [analysis.applySettings, analysis.settings]);
+
+  /**
+   * §18 — copy the clicked price at the instrument's own precision.
+   *
+   * The value copied is the same string the menu displayed, which is the same
+   * string the overlay and the price scale render: a trader who pastes it into
+   * the Execution Center's trigger field gets a price the validator accepts,
+   * not a float with fifteen decimals.
+   */
+  const copyPrice = useCallback((price: string) => {
+    void navigator.clipboard
+      ?.writeText(price)
+      .then(() => setCopiedPrice(price))
+      .catch(() => {
+        // Clipboard denied (permissions, insecure origin). Nothing to recover:
+        // the menu closes either way and no state claims a copy happened.
+      });
+  }, []);
+
+  const copyChartLink = useCallback(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('symbol', symbol);
+    void navigator.clipboard
+      ?.writeText(url.toString())
+      .then(() => setChartLinkCopied(true))
+      .catch(() => setChartLinkCopied(false));
+  }, [symbol]);
+
+  useEffect(() => {
+    if (!chartLinkCopied) return;
+    const timer = setTimeout(() => setChartLinkCopied(false), 1600);
+    return () => clearTimeout(timer);
+  }, [chartLinkCopied]);
+
+  useEffect(() => {
+    if (copiedPrice === null) return;
+    const timer = setTimeout(() => setCopiedPrice(null), 1600);
+    return () => clearTimeout(timer);
+  }, [copiedPrice]);
+
+  /**
+   * §20 — Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z, over drawings.
+   *
+   * Ignored while focus is in a text field, so undo in the Execution Center's
+   * quantity input stays the browser's own undo and never silently removes a
+   * trend line the trader cannot see from there.
+   */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'z') return;
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) return;
+      event.preventDefault();
+      if (event.shiftKey) analysis.redo();
+      else analysis.undo();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [analysis]);
+
+  /**
+   * The chart-side context-menu actions, built once and shared.
+   *
+   * The desktop popover and the mobile long-press sheet render the same
+   * component, so they must be handed the same behaviour — passing these twice
+   * by hand is exactly how the two presentations drift apart.
+   */
+  const contextChartActions = {
+    onResetView: () => {
+      closeContextMenu();
+      chartRef.current?.timeScale().fitContent();
+    },
+    onCopyPrice: () => {
+      const price = contextMenuPriceRef.current;
+      closeContextMenu();
+      if (price !== null) copyPrice(price);
+    },
+    onOpenSettings: () => {
+      closeContextMenu();
+      setSettingsOpen(true);
+    },
+    onOpenObjectTree: () => {
+      closeContextMenu();
+      setObjectTreeOpen(true);
+    },
+    onToggleMagnet: () => {
+      closeContextMenu();
+      toggleMagnet();
+    },
+    magnet: analysis.settings.canvas.crosshairMagnet,
+    onRemoveDrawings: () => {
+      closeContextMenu();
+      analysis.removeAllDrawings();
+    },
+    drawingCount: analysis.drawings.length,
+    onRemoveIndicators: () => {
+      closeContextMenu();
+      analysis.disableAllIndicators();
+    },
+    indicatorCount: analysis.legend.length,
+    onToggleDrawingsHidden: () => {
+      closeContextMenu();
+      analysis.setDrawingsHidden(!analysis.drawingsHidden);
+    },
+    onToggleIndicatorsHidden: () => {
+      closeContextMenu();
+      analysis.setIndicatorsHidden(!analysis.indicatorsHidden);
+    },
+    drawingsHidden: analysis.drawingsHidden,
+    indicatorsHidden: analysis.indicatorsHidden,
+  };
 
   return (
     // W1 §9 — min-h-0 at every ownership boundary: without it a flex child
     // refuses to shrink below its content, and the chart column would push
     // the workstation grid past the viewport instead of taking what is left.
-    <div className="flex min-h-0 flex-1 flex-col gap-2">
+    <div
+      ref={chartColumnRef}
+      className="flex min-h-0 flex-1 flex-col bg-[color:var(--wariba-chart-background)]"
+    >
       {/* W5 §61/§62 — one compact analytical strip. Timeframes are always
           directly reachable; on a phone the indicator and drawing controls
           collapse into a single "Outils" sheet so the strip cannot push the
           document sideways at 320 px (§66/§67). */}
-      <div className="flex min-w-0 shrink-0 items-center justify-between gap-2">
+      {/* VX1-B §3/§4 — the toolbar is a raised module with its own top rim light
+          and a hairline seam onto the plot, so the chart reads as sitting *in*
+          the workstation rather than beside a bar. */}
+      <div className="flex h-11 min-w-0 shrink-0 items-center border-b border-[color:var(--wariba-component-workstation-seam-hairline)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-1 shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light)] min-[360px]:px-2 lg:h-[var(--wariba-component-workstation-toolbar-height)] lg:px-2">
         <ChartToolbar
+          symbol={symbol}
+          marketStatus={tick?.marketStatus ?? null}
+          onOpenMarkets={
+            isDesktop ? onOpenSymbolSearch : (onOpenMobileMarkets ?? onOpenSymbolSearch)
+          }
           timeframe={analysis.timeframe}
           onSelectTimeframe={analysis.selectTimeframe}
-          indicators={analysis.indicators}
-          onToggleIndicator={analysis.toggleIndicator}
-          tool={analysis.tool}
-          onSelectTool={analysis.selectTool}
-          onResetView={() => chartRef.current?.timeScale().fitContent()}
+          chartStyle={chartStyle}
+          onSelectChartStyle={setChartStyle}
+          onOpenIndicators={openIndicators}
+          /* Active means the library is the current transient surface. Enabled
+             studies are already visible in the status line and must not turn
+             this navigation control into a permanent primary CTA. */
+          indicatorsActive={indicatorsOpen}
+          onOpenSettings={openSettings}
+          onOpenAlerts={onOpenAlerts}
+          onOpenTools={openChartTools}
+          drawingToolActive={analysis.drawingModeActive}
+          onResetView={fitChart}
+          onSnapshot={takeSnapshot}
+          onToggleFullscreen={toggleFullscreen}
+          fullscreen={fullscreen}
+          onUndo={analysis.undo}
+          onRedo={analysis.redo}
+          canUndo={analysis.canUndo}
+          canRedo={analysis.canRedo}
           compact={!isDesktop}
         />
-        <div className="flex shrink-0 items-center gap-2">
-          {!isDesktop && (
-            <button
-              type="button"
-              data-testid="chart-tools-sheet-trigger"
-              onClick={() => setChartToolsOpen(true)}
-              className={`rounded-[var(--wariba-radius-sm)] px-2 py-1 text-[length:var(--wariba-font-size-label-sm)] font-medium ${
-                analysis.drawingModeActive
-                  ? 'bg-[color:var(--wariba-surface-selected)] text-[color:var(--wariba-theme-text)]'
-                  : 'text-[color:var(--wariba-text-secondary)]'
-              }`}
-            >
-              Outils
-            </button>
-          )}
-          <span className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]">
-            UTC
-          </span>
-        </div>
       </div>
       {/* The overlays below are absolutely positioned against this box, and
           the chart container fills it exactly (inset-0), so every
           priceToCoordinate/timeToCoordinate value stays measured from the
           same origin it was before the container started owning its height. */}
-      <div className="relative min-h-0 flex-1">
-        <div
-          ref={containerRef}
-          /**
-           * `isolate` is load-bearing, not decoration.
-           *
-           * lightweight-charts puts `z-index: 1` on its canvas. Because nothing
-           * between that canvas and this column created a stacking context, the
-           * `1` competed directly with every sibling overlay's `z-index: auto`
-           * — and won. The drawing layer was painting *underneath the chart*:
-           * the geometry was correct, the strokes were correct, and none of it
-           * was ever visible. Trading overlays were one CSS change away from the
-           * same fate.
-           *
-           * `isolation: isolate` makes this container a stacking context, so the
-           * library's z-index stays the library's business and painting order
-           * among the siblings below is decided by DOM order again — which is
-           * exactly what §57's hierarchy is written against: drawing layer
-           * first, trading overlays after, so operational controls stay on top.
-           */
-          className="absolute inset-0 isolate"
-          role="group"
-          aria-label={`Graphique ${symbol}`}
-          // Visual closure §6 — the precision the renderer was actually given.
-          // lightweight-charts draws its labels into a canvas, so no test can
-          // read "1.08504" back off the price scale; this exposes the one
-          // input that decides it, and `chart-price-format.test.ts` proves that
-          // input produces the right label. Together the chain is complete.
-          data-price-precision={pricePrecision ?? undefined}
-          // W5 §131 — the active tool, exposed for evidence and tests. It is
-          // chart-local state and appears nowhere in a global context.
-          data-chart-tool={analysis.tool}
-          data-drawing-count={analysis.projected.length}
-          data-history-has-more-older={String(historyState.hasMoreOlder)}
-          onContextMenuCapture={handleContextMenuEvent}
-          onPointerDownCapture={handleContainerPointerDown}
-          onPointerMoveCapture={handleContainerPointerMove}
-          onPointerUpCapture={handleContainerPointerUp}
-          onPointerCancelCapture={handleContainerPointerUp}
-        />
-        {/* W5 §45 — the analytical drawing layer sits *below* every trading
+      <div className="flex min-h-0 min-w-0 flex-1">
+        {isDesktop ? (
+          <DrawingToolRail
+            tool={analysis.tool}
+            onSelect={analysis.selectTool}
+            cursorMode={analysis.cursorMode}
+            onSelectCursorMode={analysis.selectCursorMode}
+            favorites={analysis.favorites}
+            onToggleFavorite={analysis.toggleFavorite}
+            magnet={analysis.settings.canvas.crosshairMagnet}
+            onToggleMagnet={toggleMagnet}
+            keepDrawingMode={analysis.keepDrawingMode}
+            onToggleKeepDrawingMode={analysis.toggleKeepDrawingMode}
+            drawingsLocked={analysis.drawingsLocked}
+            onToggleDrawingsLocked={analysis.toggleDrawingsLocked}
+            onZoomIn={zoomIn}
+            chartLinkCopied={chartLinkCopied}
+            onCopyChartLink={copyChartLink}
+            drawingsHidden={analysis.drawingsHidden}
+            indicatorsHidden={analysis.indicatorsHidden}
+            onSetDrawingsHidden={analysis.setDrawingsHidden}
+            onSetIndicatorsHidden={analysis.setIndicatorsHidden}
+            drawingCount={analysis.drawings.length}
+            onRemoveAllDrawings={analysis.removeAllDrawings}
+            onOpenObjectTree={openObjectTree}
+          />
+        ) : null}
+        <div className="relative min-h-0 min-w-0 flex-1">
+          <div
+            ref={containerRef}
+            /**
+             * `isolate` is load-bearing, not decoration.
+             *
+             * lightweight-charts puts `z-index: 1` on its canvas. Because nothing
+             * between that canvas and this column created a stacking context, the
+             * `1` competed directly with every sibling overlay's `z-index: auto`
+             * — and won. The drawing layer was painting *underneath the chart*:
+             * the geometry was correct, the strokes were correct, and none of it
+             * was ever visible. Trading overlays were one CSS change away from the
+             * same fate.
+             *
+             * `isolation: isolate` makes this container a stacking context, so the
+             * library's z-index stays the library's business and painting order
+             * among the siblings below is decided by DOM order again — which is
+             * exactly what §57's hierarchy is written against: drawing layer
+             * first, trading overlays after, so operational controls stay on top.
+             */
+            className="absolute inset-0 isolate"
+            role="group"
+            aria-label={`Graphique ${symbol}`}
+            // Visual closure §6 — the precision the renderer was actually given.
+            // lightweight-charts draws its labels into a canvas, so no test can
+            // read "1.08504" back off the price scale; this exposes the one
+            // input that decides it, and `chart-price-format.test.ts` proves that
+            // input produces the right label. Together the chain is complete.
+            data-price-precision={pricePrecision ?? undefined}
+            // W5 §131 — the active tool, exposed for evidence and tests. It is
+            // chart-local state and appears nowhere in a global context.
+            data-chart-tool={analysis.tool}
+            data-chart-cursor={analysis.cursorMode}
+            data-drawing-count={analysis.projected.length}
+            data-history-has-more-older={String(historyState.hasMoreOlder)}
+            onContextMenuCapture={handleContextMenuEvent}
+            onPointerDownCapture={handleContainerPointerDown}
+            onPointerMoveCapture={handleContainerPointerMove}
+            onPointerUpCapture={handleContainerPointerUp}
+            onPointerCancelCapture={handleContainerPointerUp}
+            onPointerLeave={() => {
+              if (cursorDotRef.current) cursorDotRef.current.style.display = 'none';
+            }}
+            style={{
+              cursor:
+                analysis.cursorMode === 'dot'
+                  ? 'none'
+                  : analysis.cursorMode === 'arrow'
+                    ? 'default'
+                    : analysis.cursorMode === 'eraser'
+                      ? 'cell'
+                      : 'crosshair',
+            }}
+          />
+          <span
+            ref={cursorDotRef}
+            aria-hidden="true"
+            className="pointer-events-none absolute left-0 top-0 z-30 hidden h-2 w-2 rounded-full border border-[color:var(--wariba-chart-background)] bg-[color:var(--wariba-chart-crosshair)] shadow-[0_0_0_1px_var(--wariba-chart-crosshair)]"
+          />
+          {/* W5 §45 — the analytical drawing layer sits *below* every trading
             overlay in DOM order and never takes a pointer event, so a Fibonacci
             grid can neither cover an open position's badge nor swallow the drag
             that moves a stop loss (§57/§110/§127). */}
-        <ChartDrawingLayer
-          projected={analysis.projected}
-          selectedId={analysis.selectedId}
-          draft={analysis.projectedDraft}
-          width={plotSize.width}
-          height={plotSize.height}
-        />
-        <ChartLegend
-          candle={legendCandle(history, hoveredCandle)}
-          pricePrecision={pricePrecision}
-          indicators={analysis.legend}
-        />
-        {/* W3 §52-§55 — chart-local, subtle, and never covering the price or an
+          <ChartDrawingLayer
+            projected={analysis.projected}
+            selectedId={analysis.selectedId}
+            draft={analysis.projectedDraft}
+            width={plotSize.width}
+            height={plotSize.height}
+          />
+          {/* VX1-A.1 §1 — WariX's own price plates, laid out by priority over
+              the library's scale. Above the drawing layer, below the trade
+              chips: a plate is read, never pressed. */}
+          <ChartPriceScalePlates
+            plates={pricePlates}
+            width={priceScaleWidth}
+            height={plotSize.height}
+            compact={!isDesktop}
+          />
+          <ChartStatusLine
+            symbol={symbol}
+            timeframe={analysis.timeframe}
+            marketStatus={tick?.marketStatus ?? null}
+            candle={statusCandle}
+            pricePrecision={pricePrecision}
+            change={barChange}
+            indicators={analysis.legend}
+            settings={chartSettings.statusLine}
+            compact={!isDesktop}
+            indicatorsHidden={analysis.indicatorsHidden}
+          />
+          {/* W3 §52-§55 — chart-local, subtle, and never covering the price or an
             execution control: pointer-events-none so it cannot intercept a
             crosshair, a drag or a long press. One restrained polite status
             region for the whole history lifecycle, so a transition is announced
@@ -1299,312 +2486,392 @@ export function TradeChart({
             makes "the same process memory survived this browser reload"
             provable rather than asserted; the newest finalized bucket pins
             *which* observed history is on screen. */}
-        <div
-          data-testid="chart-history-status"
-          data-history-status={historyState.status}
-          data-history-candles={historyCandleCount}
-          data-history-epoch={historyState.sourceEpoch ?? ''}
-          data-history-newest={historyNewestBucket}
-          // W5 §135 — moved to the bottom edge now that the OHLC/indicator
-          // legend owns the top-left corner, so a history error and the legend
-          // never stack into a block that hides the chart on a 390 px screen.
-          className="pointer-events-none absolute bottom-2 left-2 z-10"
-        >
-          {historyMessage && (
-            <span
-              role="status"
-              aria-live="polite"
-              className="rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-surface-raised)]/85 px-2 py-1 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]"
-            >
-              {historyMessage}
-            </span>
-          )}
-        </div>
-        {overlay &&
-          positions.map((position) => {
-            const y = overlay.badgeY.get(`badge:${position.id}`);
-            if (y === undefined) return null;
-            const reference = referencePriceFor(position);
-            const pnl = reference
-              ? computeRealizedPnl({
-                  openPrice: position.averageOpenPrice,
-                  closePrice: reference,
-                  quantity: position.openQuantity,
-                  contractSize: spec?.contractSize ?? '1',
-                  positionSide: position.side,
-                })
-              : null;
-            const sign = pnl !== null && Number(pnl) >= 0 ? '+' : '';
-            return (
-              <PositionBadge
-                key={position.id}
-                y={y}
-                label={`${position.side === 'buy' ? 'ACHAT' : 'VENTE'} ${position.openQuantity} ${position.symbol}`}
-                priceFormatted={position.averageOpenPrice}
-                pnlFormatted={pnl !== null ? `${sign}${pnl} USD` : '—'}
-                pnlTone={
-                  pnl === null
-                    ? 'neutral'
-                    : Number(pnl) > 0
-                      ? 'positive'
-                      : Number(pnl) < 0
-                        ? 'negative'
-                        : 'neutral'
+          <div
+            data-testid="chart-history-status"
+            data-history-status={historyState.status}
+            data-history-candles={historyCandleCount}
+            data-history-epoch={historyState.sourceEpoch ?? ''}
+            data-history-newest={historyNewestBucket}
+            // W5 §135 — moved to the bottom edge now that the OHLC/indicator
+            // legend owns the top-left corner, so a history error and the legend
+            // never stack into a block that hides the chart on a 390 px screen.
+            className="pointer-events-none absolute bottom-2 left-2 z-10"
+          >
+            {historyMessage && (
+              /*
+               * VX1-B §34 — a status chip, not a line of developer text.
+               *
+               * The same compact graphite surface the rest of the workstation
+               * uses, with a small pulsing mark while history is actually in
+               * flight. No spinner and no skeleton over the plot: the chart is
+               * already drawing live candles behind this, and the only missing
+               * thing is depth.
+               */
+              <span
+                role="status"
+                aria-live="polite"
+                data-history-message={historyState.status}
+                className="flex items-center gap-1.5 rounded-[var(--wariba-component-workstation-radius-control)] border border-[color:var(--wariba-component-workstation-seam-hairline)] bg-[color:var(--wariba-component-workstation-surface-popover)]/92 px-2 py-1 text-[length:var(--wariba-component-workstation-type-label)] font-semibold text-[color:var(--wariba-component-workstation-text-secondary)] shadow-[var(--wariba-component-workstation-elevation-key)]"
+              >
+                <span
+                  aria-hidden="true"
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                    historyState.status === 'error'
+                      ? 'bg-[color:var(--wariba-component-workstation-trading-sell)]'
+                      : historyState.status === 'loading'
+                        ? 'bg-[color:var(--wariba-component-workstation-market-current)] motion-safe:animate-pulse'
+                        : 'bg-[color:var(--wariba-component-workstation-text-tertiary)]'
+                  }`}
+                />
+                {historyMessage}
+              </span>
+            )}
+          </div>
+          {overlay &&
+            positions.map((position) => {
+              const y = overlay.badgeY.get(`badge:${position.id}`);
+              if (y === undefined) return null;
+              const reference = referencePriceFor(position);
+              const pnl = reference
+                ? computeRealizedPnl({
+                    openPrice: position.averageOpenPrice,
+                    closePrice: reference,
+                    quantity: position.openQuantity,
+                    contractSize: spec?.contractSize ?? '1',
+                    positionSide: position.side,
+                  })
+                : null;
+              return (
+                <PositionChip
+                  key={position.id}
+                  y={y}
+                  side={position.side}
+                  quantityFormatted={formatLotSize(position.openQuantity)}
+                  // VX1 §12/§16 — the money, in the currency the account is
+                  // denominated in, computed exactly as it was before by
+                  // `computeRealizedPnl` against the canonical reference price.
+                  pnlFormatted={pnl !== null ? formatMoney(pnl) : '—'}
+                  pnlTone={
+                    pnl === null
+                      ? 'neutral'
+                      : Number(pnl) > 0
+                        ? 'positive'
+                        : Number(pnl) < 0
+                          ? 'negative'
+                          : 'neutral'
+                  }
+                  syncState={draggingDisabled ? 'stale_disabled' : 'confirmed'}
+                  syncLabel={overlayLabel}
+                  edge={overlay.edge.get(`badge:${position.id}`) ?? null}
+                  entryPriceFormatted={position.averageOpenPrice}
+                  symbol={position.symbol}
+                  onManage={() => onOpenManage(position.id)}
+                  onClose={() => onClosePosition(position.id)}
+                  closeDisabled={commandPending}
+                  showCloseButton
+                  compact={!isDesktop}
+                />
+              );
+            })}
+          {overlay &&
+            positions.map((position) => {
+              const reference = referencePriceFor(position);
+              const chips: React.ReactNode[] = [];
+              /*
+               * VX1-D.1 §5 — a level, or an action, never a mixture.
+               *
+               * A field that *has* a price gets a real level chip whose Y comes
+               * from `priceToCoordinate`, so a long's take profit lands above
+               * its entry because its price is above it — never because of the
+               * order this loop happens to run in. A field with no price gets
+               * no chip at all: both missing fields are collected and offered
+               * once, as the action cluster below.
+               */
+              const missing: RiskLevelField[] = [];
+              (['stop_loss', 'take_profit'] as const).forEach((field) => {
+                const value = field === 'stop_loss' ? position.stopLoss : position.takeProfit;
+                const levelKey = field === 'stop_loss' ? `sl:${position.id}` : `tp:${position.id}`;
+                if (value) {
+                  const y = overlay.levelY.get(levelKey);
+                  if (y === undefined || !spec || !reference) return;
+                  const preview = computeLevelPnlPreview({
+                    levelPrice: value,
+                    referencePrice: reference,
+                    positionSide: position.side,
+                    quantity: position.openQuantity,
+                    contractSize: spec.contractSize,
+                    pricePrecision: spec.pricePrecision,
+                    accountEquity,
+                  });
+                  chips.push(
+                    <TradeLevelChip
+                      key={levelKey}
+                      y={y}
+                      kind={field}
+                      priceFormatted={value}
+                      // The same `computeLevelPnlPreview` estimate WX1 showed —
+                      // only its presentation moved to the front of the chip.
+                      pnlFormatted={formatMoney(preview.estimatedPnl)}
+                      quantityFormatted={formatLotSize(position.openQuantity)}
+                      syncState={syncStateFor(position.id, field)}
+                      edge={overlay.edge.get(levelKey) ?? null}
+                      disabled={draggingDisabled}
+                      onPointerDown={startDrag(position.id, field, value)}
+                      onActivate={() => onOpenManage(position.id)}
+                      onRemove={() =>
+                        onCommitLevel({ positionId: position.id, field, value: null })
+                      }
+                      compact={!isDesktop}
+                      onKeyboardAdjust={(direction) => {
+                        if (!spec) return;
+                        const point = Number(`1e-${spec.pricePrecision}`);
+                        const next = roundPriceToTick({
+                          price: String(Number(value) + direction * point),
+                          pricePrecision: spec.pricePrecision,
+                        });
+                        onCommitLevel({ positionId: position.id, field, value: next });
+                      }}
+                    />,
+                  );
+                } else {
+                  missing.push(field);
                 }
-                syncState={draggingDisabled ? 'stale_disabled' : 'confirmed'}
-                syncLabel={overlayLabel}
-                onManage={() => onOpenManage(position.id)}
-                onClose={() => onClosePosition(position.id)}
-                closeDisabled={commandPending}
-                showCloseButton
-              />
-            );
-          })}
-        {overlay &&
-          positions.map((position) => {
-            const reference = referencePriceFor(position);
-            const chips: React.ReactNode[] = [];
-            (['stop_loss', 'take_profit'] as const).forEach((field) => {
-              const value = field === 'stop_loss' ? position.stopLoss : position.takeProfit;
-              const levelKey = field === 'stop_loss' ? `sl:${position.id}` : `tp:${position.id}`;
-              if (value) {
-                const y = overlay.levelY.get(levelKey);
-                if (y === undefined || !spec || !reference) return;
-                const preview = computeLevelPnlPreview({
-                  levelPrice: value,
-                  referencePrice: reference,
-                  positionSide: position.side,
-                  quantity: position.openQuantity,
-                  contractSize: spec.contractSize,
-                  pricePrecision: spec.pricePrecision,
-                  accountEquity,
-                });
-                const sign = Number(preview.estimatedPnl) >= 0 ? '+' : '';
-                chips.push(
-                  <LevelHandle
-                    key={levelKey}
-                    y={y}
-                    kind={field}
-                    priceFormatted={value}
-                    pnlFormatted={`${sign}${preview.estimatedPnl} USD`}
-                    syncState={syncStateFor(position.id, field)}
-                    disabled={draggingDisabled}
-                    onPointerDown={startDrag(position.id, field, value)}
-                    onActivate={() => onOpenManage(position.id)}
-                    onRemove={() => onCommitLevel({ positionId: position.id, field, value: null })}
-                    onKeyboardAdjust={(direction) => {
-                      if (!spec) return;
-                      const point = Number(`1e-${spec.pricePrecision}`);
-                      const next = roundPriceToTick({
-                        price: String(Number(value) + direction * point),
-                        pricePrecision: spec.pricePrecision,
-                      });
-                      onCommitLevel({ positionId: position.id, field, value: next });
-                    }}
-                  />,
-                );
-              } else if (reference) {
+              });
+
+              if (missing.length > 0 && reference) {
                 const badgeY = overlay.badgeY.get(`badge:${position.id}`);
-                const y =
-                  badgeY !== undefined ? badgeY + 24 * (field === 'stop_loss' ? 1 : 2) : undefined;
-                if (y === undefined) return;
-                chips.push(
-                  <LevelChip
-                    key={`chip:${field}:${position.id}`}
-                    y={y}
-                    kind={field}
-                    disabled={draggingDisabled}
-                    disabledReason={
-                      isStale
-                        ? 'Prix obsolète — indisponible tant que le marché n’est pas à jour.'
-                        : null
-                    }
-                    onPointerDown={startDrag(position.id, field, reference)}
-                    onActivate={() => onOpenManage(position.id)}
-                  />,
-                );
+                if (badgeY !== undefined) {
+                  chips.push(
+                    <PositionProtectionControls
+                      key={`protect:${position.id}`}
+                      y={badgeY + (isDesktop ? 26 : 24)}
+                      disabled={draggingDisabled}
+                      disabledReason={
+                        isStale
+                          ? 'Prix obsolète — indisponible tant que le marché n’est pas à jour.'
+                          : null
+                      }
+                      onStopPointerDown={startDrag(position.id, 'stop_loss', reference)}
+                      onTargetPointerDown={startDrag(position.id, 'take_profit', reference)}
+                      onActivate={() => onOpenManage(position.id)}
+                      compact={!isDesktop}
+                    />,
+                  );
+                }
               }
-            });
-            return chips;
-          })}
-        {pendingOverlay &&
-          spec &&
-          tick &&
-          pendingOrders.map((order) => {
-            const y = pendingOverlay.get(`pending:${order.id}`);
-            if (y === undefined) return null;
-            const mid = ((Number(tick.bid) + Number(tick.ask)) / 2).toFixed(spec.pricePrecision);
-            return (
-              <PendingOrderLine
-                key={order.id}
-                y={y}
-                orderType={order.orderType}
-                quantityFormatted={order.quantity}
-                priceFormatted={order.triggerPrice}
-                distancePointsFormatted={pendingOrderDistancePoints({
-                  triggerPrice: order.triggerPrice,
-                  referencePrice: mid,
-                  pricePrecision: spec.pricePrecision,
-                })}
-                syncState={orderSyncStateFor('pending_order', order.id)}
-                disabled={draggingDisabled}
-                onPointerDown={startOrderDrag('pending_order', order.id, order.triggerPrice)}
-                onActivate={() => onOpenManagePendingOrder(order.id)}
-                onRemove={() => onCancelPendingOrder(order.id)}
-                onKeyboardAdjust={(direction) => {
-                  const point = Number(`1e-${spec.pricePrecision}`);
-                  const next = roundPriceToTick({
-                    price: String(Number(order.triggerPrice) + direction * point),
+              return chips;
+            })}
+          {pendingOverlay &&
+            spec &&
+            tick &&
+            pendingOrders.map((order) => {
+              const y = pendingOverlay.get(`pending:${order.id}`);
+              if (y === undefined) return null;
+              const mid = ((Number(tick.bid) + Number(tick.ask)) / 2).toFixed(spec.pricePrecision);
+              return (
+                <PendingOrderLine
+                  key={order.id}
+                  y={y}
+                  orderType={order.orderType}
+                  quantityFormatted={order.quantity}
+                  priceFormatted={order.triggerPrice}
+                  distancePointsFormatted={pendingOrderDistancePoints({
+                    triggerPrice: order.triggerPrice,
+                    referencePrice: mid,
                     pricePrecision: spec.pricePrecision,
-                  });
-                  onModifyPendingOrderTrigger({ pendingOrderId: order.id, triggerPrice: next });
-                }}
-              />
-            );
-          })}
-        {pendingOverlay &&
-          spec &&
-          alerts.map((alert) => {
-            const y = pendingOverlay.get(`alert:${alert.id}`);
-            if (y === undefined) return null;
-            return (
-              <AlertLine
-                key={alert.id}
-                y={y}
-                direction={alert.direction}
-                priceFormatted={alert.thresholdPrice}
-                syncState={orderSyncStateFor('alert', alert.id)}
-                disabled={draggingDisabled}
-                onPointerDown={startOrderDrag('alert', alert.id, alert.thresholdPrice)}
-                onActivate={() => onOpenManageAlert(alert.id)}
-                onRemove={() => onDeleteAlert(alert.id)}
-                onKeyboardAdjust={(direction) => {
-                  const point = Number(`1e-${spec.pricePrecision}`);
-                  const next = roundPriceToTick({
-                    price: String(Number(alert.thresholdPrice) + direction * point),
-                    pricePrecision: spec.pricePrecision,
-                  });
-                  onModifyAlertThreshold({ alertId: alert.id, thresholdPrice: next });
-                }}
-              />
-            );
-          })}
-        {dragPreviewCard && <DragPreviewPanel {...dragPreviewCard} />}
-        {/* W5 §68 — while a tool is held, say so subtly and give the trader an
+                  })}
+                  syncState={orderSyncStateFor('pending_order', order.id)}
+                  disabled={draggingDisabled}
+                  onPointerDown={startOrderDrag('pending_order', order.id, order.triggerPrice)}
+                  onActivate={() => onOpenManagePendingOrder(order.id)}
+                  onRemove={() => onCancelPendingOrder(order.id)}
+                  onKeyboardAdjust={(direction) => {
+                    const point = Number(`1e-${spec.pricePrecision}`);
+                    const next = roundPriceToTick({
+                      price: String(Number(order.triggerPrice) + direction * point),
+                      pricePrecision: spec.pricePrecision,
+                    });
+                    onModifyPendingOrderTrigger({ pendingOrderId: order.id, triggerPrice: next });
+                  }}
+                />
+              );
+            })}
+          {pendingOverlay &&
+            spec &&
+            alerts.map((alert) => {
+              const y = pendingOverlay.get(`alert:${alert.id}`);
+              if (y === undefined) return null;
+              return (
+                <AlertLine
+                  key={alert.id}
+                  y={y}
+                  direction={alert.direction}
+                  priceFormatted={alert.thresholdPrice}
+                  syncState={orderSyncStateFor('alert', alert.id)}
+                  disabled={draggingDisabled}
+                  onPointerDown={startOrderDrag('alert', alert.id, alert.thresholdPrice)}
+                  onActivate={() => onOpenManageAlert(alert.id)}
+                  onRemove={() => onDeleteAlert(alert.id)}
+                  onKeyboardAdjust={(direction) => {
+                    const point = Number(`1e-${spec.pricePrecision}`);
+                    const next = roundPriceToTick({
+                      price: String(Number(alert.thresholdPrice) + direction * point),
+                      pricePrecision: spec.pricePrecision,
+                    });
+                    onModifyAlertThreshold({ alertId: alert.id, thresholdPrice: next });
+                  }}
+                />
+              );
+            })}
+          {dragPreviewCard && (
+            <DragPreviewPanel {...dragPreviewCard} top={dragCardTop} compact={!isDesktop} />
+          )}
+          {/* W5 §68 — while a tool is held, say so subtly and give the trader an
             explicit way out. Escape does the same thing from the keyboard
             (§89/§112); this is the touch equivalent, because a phone has none. */}
-        {analysis.drawingModeActive && (
-          <div
-            data-testid="chart-active-tool"
-            className="absolute right-2 top-2 z-20 flex items-center gap-2 rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-component-workstation-surface-raised)]/95 px-2 py-1 text-[length:var(--wariba-font-size-label-sm)]"
-          >
-            <span className="text-[color:var(--wariba-text-secondary)]">
-              {toolLabel(analysis.tool)}
-            </span>
-            <button
-              type="button"
-              onClick={() => analysis.selectTool('select')}
-              className="font-medium text-[color:var(--wariba-theme-text)] underline underline-offset-2"
+          {analysis.drawingModeActive && (
+            <div
+              data-testid="chart-active-tool"
+              className="absolute right-2 top-2 z-20 flex items-center gap-2 rounded-[8px] bg-[color:var(--wariba-component-workstation-surface-popover)]/95 py-1 pl-2.5 pr-1 text-[length:var(--wariba-component-workstation-type-label)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-selected)] shadow-[var(--wariba-component-workstation-elevation-popover)]"
             >
-              Annuler
-            </button>
-          </div>
-        )}
-        {/* W5 §52/§69 — the selected drawing's own actions. Deliberately no Buy,
+              <span className="font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-interaction-selected-text)]">
+                {analysis.tool === 'select'
+                  ? cursorModeLabel(analysis.cursorMode)
+                  : toolLabel(analysis.tool)}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  analysis.selectTool('select');
+                  analysis.selectCursorMode('cross');
+                }}
+                className="min-h-11 rounded-[6px] px-2 font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-text-secondary)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] lg:min-h-7"
+              >
+                Annuler
+              </button>
+            </div>
+          )}
+          {/* W5 §52/§69 — the selected drawing's own actions. Deliberately no Buy,
             no Sell and no order control anywhere near it: a drawing UI must not
             be one mis-tap away from submitting a trade. Deleting here removes a
             drawing and nothing else — drawing ids and trading overlay ids are
             separate namespaces (§113). */}
-        {analysis.selectedDrawing && (
-          <div
-            data-testid="chart-drawing-actions"
-            className="absolute bottom-2 right-2 z-20 flex items-center gap-1 rounded-[var(--wariba-radius-sm)] border border-[color:var(--wariba-component-workstation-seam)] bg-[color:var(--wariba-component-workstation-surface-raised)]/95 px-1.5 py-1 text-[length:var(--wariba-font-size-label-sm)]"
-          >
-            <span className="px-1 text-[color:var(--wariba-text-tertiary)]">
-              {drawingTypeLabel(analysis.selectedDrawing.type)}
-            </span>
-            <button
-              type="button"
-              onClick={analysis.cycleSelectedColor}
-              className="rounded-[var(--wariba-radius-sm)] px-1.5 py-0.5 text-[color:var(--wariba-text-secondary)] hover:text-[color:var(--wariba-theme-text)]"
+          {analysis.selectedDrawing && (
+            /*
+             * Visual closure §19 — chart-native, and out of the price scale.
+             *
+             * WX1 pinned this to `bottom-2 right-2`, which is exactly where
+             * lightweight-charts draws the right price scale and the last
+             * price/bid/ask labels: the control for the drawing you just made
+             * covered the numbers you made it against. It is now centred above
+             * the time axis — clear of the price scale on the right, clear of
+             * the OHLC legend at the top left, clear of the history chip at the
+             * bottom left, and on the opposite side of the workstation from
+             * every trading action, which §19 requires. The enclosure takes the
+             * selected drawing's own aqua so the bar and the drawing it acts on
+             * read as one object.
+             */
+            <div
+              data-testid="chart-drawing-actions"
+              className="absolute bottom-9 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-[10px] border border-[color:var(--wariba-component-workstation-analytics-selected-drawing)]/45 bg-[color:var(--wariba-component-workstation-surface-popover)]/95 p-1 text-[length:var(--wariba-component-workstation-type-label)] shadow-[var(--wariba-component-workstation-elevation-popover)]"
             >
-              Style
-            </button>
-            <button
-              type="button"
-              data-testid="chart-drawing-delete"
-              onClick={analysis.deleteSelected}
-              className="rounded-[var(--wariba-radius-sm)] px-1.5 py-0.5 text-[color:var(--wariba-status-danger-text,#C94D4D)] hover:underline"
-            >
-              Supprimer
-            </button>
-            <button
-              type="button"
-              onClick={analysis.clearSelection}
-              className="rounded-[var(--wariba-radius-sm)] px-1.5 py-0.5 text-[color:var(--wariba-text-secondary)] hover:text-[color:var(--wariba-theme-text)]"
-            >
-              Terminé
-            </button>
-          </div>
-        )}
-        {contextMenu && !contextMenu.isTouchOrigin && (
-          <ChartContextMenuPopover
-            x={contextMenu.x}
-            y={contextMenu.y}
-            onDismiss={closeContextMenu}
-            clickedPriceFormatted={contextMenu.price}
-            position={currentPosition}
-            tick={tick}
-            disabled={draggingDisabled}
-            disabledReason={
-              isStale
-                ? 'Prix obsolète — actions indisponibles tant que le marché n’est pas à jour.'
-                : isDisconnected
-                  ? 'Connexion au serveur en cours…'
-                  : null
-            }
-            onMarketBuy={() => {
-              closeContextMenu();
-              onMarketOrderRequest('buy');
-            }}
-            onMarketSell={() => {
-              closeContextMenu();
-              onMarketOrderRequest('sell');
-            }}
-            onManageStopLoss={() => {
-              closeContextMenu();
-              if (currentPosition) onOpenManage(currentPosition.id);
-            }}
-            onManageTakeProfit={() => {
-              closeContextMenu();
-              if (currentPosition) onOpenManage(currentPosition.id);
-            }}
-            onPartialClose={() => {
-              closeContextMenu();
-              if (currentPosition) onOpenPartialClose(currentPosition.id);
-            }}
-            onClosePosition={() => {
-              closeContextMenu();
-              if (currentPosition) onClosePosition(currentPosition.id);
-            }}
-            onPendingOrderRequest={(orderType) => {
-              closeContextMenu();
-              onPendingOrderRequest({ orderType, triggerPrice: contextMenu.price });
-            }}
-            onCreateAlertHere={() => {
-              closeContextMenu();
-              onCreateAlertHere(contextMenu.price);
-            }}
-          />
-        )}
-        {overlayLabel && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[color:var(--wariba-chart-background)]/60">
-            <span className="rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-background-elevated)] px-3 py-1.5 text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-status-warning-text)]">
-              {overlayLabel}
-            </span>
-          </div>
-        )}
+              <span className="whitespace-nowrap border-r border-[color:var(--wariba-component-workstation-border-hairline)] px-2 font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-analytics-selected-drawing)]">
+                {drawingTypeLabel(analysis.selectedDrawing.type)}
+              </span>
+              <ToolbarButton
+                label="Style"
+                icon={<WariXPaletteIcon />}
+                showLabel
+                labelClassName="hidden min-[430px]:inline"
+                onClick={analysis.cycleSelectedColor}
+                className="h-11 px-2 lg:h-8"
+              />
+              <ToolbarButton
+                label="Supprimer"
+                icon={<WariXDeleteIcon />}
+                showLabel
+                labelClassName="hidden min-[430px]:inline"
+                data-testid="chart-drawing-delete"
+                onClick={analysis.deleteSelected}
+                className="h-11 px-2 text-[color:var(--wariba-component-workstation-trading-rejection)] hover:bg-[color:var(--wariba-component-workstation-wash-sell)] hover:text-[color:var(--wariba-component-workstation-trading-rejection)] lg:h-8"
+              />
+              <ToolbarButton
+                label="Terminé"
+                icon={<WariXDoneIcon />}
+                onClick={analysis.clearSelection}
+                className="h-11 min-w-11 px-2 lg:h-8 lg:min-w-8"
+              />
+            </div>
+          )}
+          {contextMenu && !contextMenu.isTouchOrigin && (
+            <ChartContextMenuPopover
+              {...contextChartActions}
+              x={contextMenu.x}
+              y={contextMenu.y}
+              onDismiss={closeContextMenu}
+              clickedPriceFormatted={contextMenu.price}
+              position={currentPosition}
+              tick={tick}
+              disabled={draggingDisabled}
+              disabledReason={
+                isStale
+                  ? 'Prix obsolète — actions indisponibles tant que le marché n’est pas à jour.'
+                  : isDisconnected
+                    ? 'Connexion au serveur en cours…'
+                    : null
+              }
+              onMarketBuy={() => {
+                closeContextMenu();
+                onMarketOrderRequest('buy');
+              }}
+              onMarketSell={() => {
+                closeContextMenu();
+                onMarketOrderRequest('sell');
+              }}
+              onManageStopLoss={() => {
+                closeContextMenu();
+                if (currentPosition) onOpenManage(currentPosition.id);
+              }}
+              onManageTakeProfit={() => {
+                closeContextMenu();
+                if (currentPosition) onOpenManage(currentPosition.id);
+              }}
+              onPartialClose={() => {
+                closeContextMenu();
+                if (currentPosition) onOpenPartialClose(currentPosition.id);
+              }}
+              onClosePosition={() => {
+                closeContextMenu();
+                if (currentPosition) onClosePosition(currentPosition.id);
+              }}
+              onPendingOrderRequest={(orderType) => {
+                closeContextMenu();
+                onPendingOrderRequest({ orderType, triggerPrice: contextMenu.price });
+              }}
+              onCreateAlertHere={() => {
+                closeContextMenu();
+                onCreateAlertHere(contextMenu.price);
+              }}
+            />
+          )}
+          {plotOverlayLabel && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[color:var(--wariba-chart-background)]/60">
+              <span className="rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-background-elevated)] px-3 py-1.5 text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-status-warning-text)]">
+                {plotOverlayLabel}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
+      <ChartBottomBar
+        timezone={chartSettings.symbol.timezone}
+        historyCoverageSeconds={historyCoverageSeconds}
+        onSelectHorizon={selectHorizon}
+        scaleMode={scaleMode}
+        onScaleModeChange={setScaleMode}
+        autoScale={autoScale}
+        onAutoScaleChange={setAutoScale}
+      />
       <BottomSheet
         open={Boolean(contextMenu?.isTouchOrigin)}
         onClose={closeContextMenu}
@@ -1612,6 +2879,7 @@ export function TradeChart({
       >
         {contextMenu && (
           <ChartContextMenuContent
+            {...contextChartActions}
             clickedPriceFormatted={contextMenu.price}
             position={currentPosition}
             tick={tick}
@@ -1672,32 +2940,132 @@ export function TradeChart({
             children stay mounted otherwise — which would put a second, hidden
             copy of every indicator checkbox and tool button in the accessibility
             tree alongside the desktop popover's. */}
+        {/*
+         * Visual closure §18 — a chart tool palette, not a settings panel.
+         *
+         * WX1 stacked three loosely-titled sections of full-width rows with a
+         * lot of empty sheet below them. Each section now announces itself with
+         * the same small-caps rule the workstation uses everywhere, indicators
+         * are colour-ruled chips, drawings are a three-column icon grid, and the
+         * view action is a full-width key rather than a lone button floating at
+         * the left edge — so the sheet fills its own height with structure
+         * instead of blank space. Every target stays at or above 44px.
+         */}
         {chartToolsOpen && (
-          <div className="flex flex-col gap-4 pb-2" data-testid="chart-tools-sheet">
-            <section className="flex flex-col gap-1.5">
-              <h3 className="text-[length:var(--wariba-font-size-label-sm)] font-medium text-[color:var(--wariba-text-tertiary)]">
-                Indicateurs
-              </h3>
-              <IndicatorOptions
-                indicators={analysis.indicators}
-                onToggle={analysis.toggleIndicator}
-              />
-            </section>
-            <section className="flex flex-col gap-1.5">
-              <h3 className="text-[length:var(--wariba-font-size-label-sm)] font-medium text-[color:var(--wariba-text-tertiary)]">
-                Dessin
-              </h3>
-              <ToolOptions
-                tool={analysis.tool}
-                onSelect={(next) => {
-                  analysis.selectTool(next);
-                  setChartToolsOpen(false);
-                }}
-              />
-            </section>
-          </div>
+          <MobileToolsSheet
+            tool={analysis.tool}
+            onSelectTool={analysis.selectTool}
+            cursorMode={analysis.cursorMode}
+            onSelectCursorMode={analysis.selectCursorMode}
+            favorites={analysis.favorites}
+            onToggleFavorite={analysis.toggleFavorite}
+            onOpenIndicators={openIndicators}
+            onOpenSettings={openSettings}
+            onResetView={fitChart}
+            magnet={analysis.settings.canvas.crosshairMagnet}
+            onToggleMagnet={toggleMagnet}
+            keepDrawingMode={analysis.keepDrawingMode}
+            onToggleKeepDrawingMode={analysis.toggleKeepDrawingMode}
+            drawingsHidden={analysis.drawingsHidden}
+            indicatorsHidden={analysis.indicatorsHidden}
+            onSetDrawingsHidden={analysis.setDrawingsHidden}
+            onSetIndicatorsHidden={analysis.setIndicatorsHidden}
+            drawingCount={analysis.drawings.length}
+            onRemoveAllDrawings={analysis.removeAllDrawings}
+            onClose={() => setChartToolsOpen(false)}
+          />
         )}
       </BottomSheet>
+
+      {/*
+       * §13/§28 — one library, two presentations.
+       *
+       * Desktop gets the centred modal the reference uses; a phone gets a native
+       * sheet, because a 720px modal on a 390px screen is the "desktop shrunk"
+       * failure §26 rules out. Both render the same `IndicatorLibrary`, so the
+       * search, the favourites and the enabled states cannot drift apart.
+       */}
+      {isDesktop ? (
+        /* Final closure §11 — no explanatory subtitle. "Analyse seulement…" was
+           developer commentary about where indicator maths may not travel: a true
+           statement, but an architecture note printed inside a trading terminal.
+           The invariant it described is enforced in code (`chart-indicator-model`
+           states it), not by a caption a trader reads once. */
+        <ChartModal
+          open={indicatorsOpen}
+          onClose={() => setIndicatorsOpen(false)}
+          title="Indicateurs"
+          width={520}
+          height={420}
+          testId="chart-indicators-modal"
+        >
+          <IndicatorLibrary
+            indicators={analysis.indicators}
+            onToggle={analysis.toggleIndicator}
+            favorites={analysis.favorites}
+            onToggleFavorite={analysis.toggleFavorite}
+          />
+        </ChartModal>
+      ) : (
+        /* §12 — the sheet takes the height of its catalogue, not 90dvh. Four
+           real rows under a 90dvh sheet left half a phone screen empty and made
+           a short, honest list look like a page that had failed to load. `auto`
+           hugs the content and still scrolls under its own ceiling when the
+           catalogue grows. */
+        <BottomSheet
+          open={indicatorsOpen}
+          onClose={() => setIndicatorsOpen(false)}
+          title="Indicateurs"
+          flush
+        >
+          {indicatorsOpen && (
+            <IndicatorLibrary
+              indicators={analysis.indicators}
+              onToggle={analysis.toggleIndicator}
+              favorites={analysis.favorites}
+              onToggleFavorite={analysis.toggleFavorite}
+              compact
+            />
+          )}
+        </BottomSheet>
+      )}
+
+      <ChartSettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        settings={analysis.settings}
+        onApply={analysis.applySettings}
+        pricePrecision={pricePrecision}
+      />
+
+      <ObjectTreeModal
+        open={objectTreeOpen}
+        onClose={() => setObjectTreeOpen(false)}
+        symbol={symbol}
+        drawings={analysis.drawings}
+        selectedId={analysis.selectedId}
+        onSelectDrawing={analysis.select}
+        onRemoveDrawing={analysis.removeDrawing}
+        drawingsHidden={analysis.drawingsHidden}
+        onSetDrawingsHidden={analysis.setDrawingsHidden}
+        indicators={analysis.indicators}
+        onToggleIndicator={analysis.toggleIndicator}
+        indicatorsHidden={analysis.indicatorsHidden}
+        onSetIndicatorsHidden={analysis.setIndicatorsHidden}
+      />
+
+      {/* §18 — "subtle confirmation. No toast explosion." One line, centred over
+          the chart's own footer, gone in under two seconds. */}
+      {copiedPrice !== null && (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="chart-copied-price"
+          className="pointer-events-none fixed bottom-16 left-1/2 z-[var(--wariba-z-popover)] -translate-x-1/2 rounded-[8px] border border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-popover)] px-3 py-1.5 text-[length:var(--wariba-component-workstation-type-label)] text-[color:var(--wariba-component-workstation-text-secondary)] shadow-[var(--wariba-component-workstation-elevation-popover)]"
+        >
+          Prix {copiedPrice} copié
+        </div>
+      )}
     </div>
   );
 }

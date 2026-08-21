@@ -2,8 +2,10 @@
 
 import type { TradableSymbol } from '@wariba/contracts';
 import {
+  CHART_DRAWING_TYPES,
   DEFAULT_DRAWING_STYLE,
   DRAWING_ANCHOR_COUNT,
+  drawingTypeLabel,
   type ChartDrawing,
   type ChartDrawingAnchor,
   type ChartDrawingType,
@@ -18,31 +20,27 @@ import {
  * drawing gesture from being visible to the dock, the navigator or the
  * Execution Center.
  */
-export const CHART_TOOLS = [
-  'select',
-  'horizontal_line',
-  'trend_line',
-  'ray',
-  'rectangle',
-  'fibonacci',
-] as const;
+export const CHART_TOOLS = ['select', ...CHART_DRAWING_TYPES] as const;
 export type ChartTool = (typeof CHART_TOOLS)[number];
 
-export function toolLabel(tool: ChartTool): string {
-  switch (tool) {
-    case 'select':
-      return 'Sélection';
-    case 'horizontal_line':
-      return 'Ligne horizontale';
-    case 'trend_line':
-      return 'Ligne de tendance';
-    case 'ray':
-      return 'Demi-droite';
-    case 'rectangle':
-      return 'Rectangle';
-    case 'fibonacci':
-      return 'Fibonacci';
+export const CHART_CURSOR_MODES = ['cross', 'dot', 'arrow', 'eraser'] as const;
+export type ChartCursorMode = (typeof CHART_CURSOR_MODES)[number];
+
+export function cursorModeLabel(mode: ChartCursorMode): string {
+  switch (mode) {
+    case 'cross':
+      return 'Croix';
+    case 'dot':
+      return 'Point';
+    case 'arrow':
+      return 'Flèche';
+    case 'eraser':
+      return 'Gomme';
   }
+}
+
+export function toolLabel(tool: ChartTool): string {
+  return tool === 'select' ? 'Sélection' : drawingTypeLabel(tool);
 }
 
 export function toolDrawingType(tool: ChartTool): ChartDrawingType | null {
@@ -142,3 +140,66 @@ export function moveToPrice(drawing: ChartDrawing, price: string, now: () => num
     updatedAt: now(),
   };
 }
+
+/**
+ * Moves a whole drawing to a new anchor, on the axes that drawing actually
+ * asserts.
+ *
+ * This is the generalisation `moveToPrice` was the first case of, and the axis
+ * mask is the reason it is not simply "set both": a horizontal line that drifted
+ * sideways on a body drag would rewrite a time anchor for no visible reason,
+ * and a vertical line that drifted vertically would do the same to a price. Each
+ * one-anchor tool declares what it means, and the drag writes only that.
+ */
+export function moveToAnchor(
+  drawing: ChartDrawing,
+  anchor: ChartDrawingAnchor,
+  now: () => number,
+): ChartDrawing {
+  const axes = BODY_DRAG_AXES[drawing.type];
+  if (axes === null) return drawing;
+  return {
+    ...drawing,
+    anchors: drawing.anchors.map((existing) => ({
+      time: axes.time ? anchor.time : existing.time,
+      price: axes.price ? anchor.price : existing.price,
+    })),
+    updatedAt: now(),
+  };
+}
+
+/** Which axes a body drag may write, per tool. `null` — this tool has no body drag. */
+const BODY_DRAG_AXES: Record<ChartDrawingType, { time: boolean; price: boolean } | null> = {
+  horizontal_line: { time: false, price: true },
+  horizontal_ray: { time: true, price: true },
+  vertical_line: { time: true, price: false },
+  cross_line: { time: true, price: true },
+  trend_line: null,
+  ray: null,
+  extended_line: null,
+  arrow: null,
+  rectangle: null,
+  ellipse: null,
+  triangle: null,
+  parallel_channel: null,
+  fibonacci: null,
+  price_range: null,
+  date_range: null,
+  date_price_range: null,
+  info_line: null,
+  trend_angle: null,
+  flat_top_bottom: null,
+  disjoint_channel: null,
+  fib_extension: null,
+  fib_channel: null,
+  fib_circles: null,
+  arrow_marker: null,
+  arrow_mark_up: { time: true, price: true },
+  arrow_mark_down: { time: true, price: true },
+  arrow_mark_left: { time: true, price: true },
+  arrow_mark_right: { time: true, price: true },
+  rotated_rectangle: null,
+  circle: null,
+  arc: null,
+  curve: null,
+};

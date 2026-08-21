@@ -1,8 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { memo, useMemo } from 'react';
-import { Text } from '@wariba/ui';
+import { memo, useMemo, useState } from 'react';
 import type {
   AccountSnapshot,
   PendingOrderDTO,
@@ -16,9 +15,9 @@ import type { RealtimeConnectionState } from '../../../lib/realtime-client';
 import type { ModifyPendingOrderParams } from './ModifyPendingOrderDialog';
 import type { FillMarker } from './TradeChart';
 import type { PendingOrderAction, PendingRiskAction } from './trade-session';
-import { MARKET_STATUS_LABEL } from './trade-labels';
 import { useTick, type TickStore } from './tick-store';
 import type { ChartHistoryTransport } from './chart-history';
+import { SymbolSearchModal } from './SymbolSearchModal';
 
 // lightweight-charts touches the DOM/canvas directly and has no useful
 // server-rendered output — Prompt 07's own performance requirement ("chart
@@ -60,6 +59,8 @@ export interface ChartWorkspaceProps {
   historyTransport: ChartHistoryTransport;
   symbol: TradableSymbol;
   spec: SymbolSpec | undefined;
+  symbolSpecs: Partial<Record<TradableSymbol, SymbolSpec>>;
+  onSelectSymbol(symbol: TradableSymbol): void;
   snapshot: AccountSnapshot | null;
   fills: FillMarker[];
   alerts: PriceAlertDTO[];
@@ -69,6 +70,7 @@ export interface ChartWorkspaceProps {
   rejectedOrderAction: PendingOrderAction | null;
   commandPending: boolean;
   actions: ChartWorkspaceActions;
+  onOpenMobileMarkets(): void;
 }
 
 /**
@@ -92,6 +94,8 @@ export const ChartWorkspace = memo(function ChartWorkspace({
   historyTransport,
   symbol,
   spec,
+  symbolSpecs,
+  onSelectSymbol,
   snapshot,
   fills,
   alerts,
@@ -101,7 +105,9 @@ export const ChartWorkspace = memo(function ChartWorkspace({
   rejectedOrderAction,
   commandPending,
   actions,
+  onOpenMobileMarkets,
 }: ChartWorkspaceProps) {
+  const [symbolSearchOpen, setSymbolSearchOpen] = useState(false);
   const tick = useTick(store, symbol);
 
   const symbolPositions: PositionDTO[] = useMemo(
@@ -121,25 +127,15 @@ export const ChartWorkspace = memo(function ChartWorkspace({
   return (
     <section
       aria-label={`Espace de travail ${symbol}`}
-      className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 p-[var(--wariba-component-workstation-panel-padding)]"
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-module)] lg:border-y"
     >
-      <div className="flex shrink-0 items-center gap-2 text-[length:var(--wariba-font-size-label-sm)]">
-        <Text as="span" variant="label-sm" color="tertiary">
-          Marché
-        </Text>
-        <span className="wariba-data font-semibold text-[color:var(--wariba-theme-text)]">
-          {symbol}
-        </span>
-        <span
-          className={`font-medium ${
-            tick?.marketStatus === 'stale'
-              ? 'text-[color:var(--wariba-status-warning-text)]'
-              : 'text-[color:var(--wariba-text-secondary)]'
-          }`}
-        >
-          {tick ? MARKET_STATUS_LABEL[tick.marketStatus] : '—'}
-        </span>
-      </div>
+      <SymbolSearchModal
+        open={symbolSearchOpen}
+        onClose={() => setSymbolSearchOpen(false)}
+        symbolSpecs={symbolSpecs}
+        selectedSymbol={symbol}
+        onSelectSymbol={onSelectSymbol}
+      />
 
       <TradeChart
         symbol={symbol}
@@ -172,6 +168,9 @@ export const ChartWorkspace = memo(function ChartWorkspace({
         onDeleteAlert={actions.onDeleteAlert}
         onPendingOrderRequest={actions.onPendingOrderRequest}
         onCreateAlertHere={actions.onCreateAlertHere}
+        onOpenAlerts={actions.onOpenManageAlert}
+        onOpenSymbolSearch={() => setSymbolSearchOpen(true)}
+        onOpenMobileMarkets={onOpenMobileMarkets}
       />
     </section>
   );

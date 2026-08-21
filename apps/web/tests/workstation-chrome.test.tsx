@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { AccountRisk, AccountSnapshot } from '@wariba/contracts';
@@ -6,6 +6,7 @@ import { NavRail } from '../app/(trade)/trade/workstation/NavRail';
 import { WorkstationDock } from '../app/(trade)/trade/workstation/WorkstationDock';
 import { WorkstationStatusBar } from '../app/(trade)/trade/workstation/WorkstationStatusBar';
 import { WorkstationAccountSwitcher } from '../app/(trade)/trade/workstation/WorkstationAccountSwitcher';
+import { RightUtilityRail } from '../app/(trade)/trade/workstation/RightUtilityRail';
 import { createTickStore } from '../app/(trade)/trade/tick-store';
 
 const EVALUATION = {
@@ -15,6 +16,7 @@ const EVALUATION = {
   programShortLabel: 'ONE',
   phaseLabel: 'Évaluation',
   nominalFormatted: '10 000 USD',
+  sizeShortLabel: '10K',
   publicId: 'WRB-EVAL-01',
   statusLabel: 'Actif',
   statusVariant: 'success' as const,
@@ -27,6 +29,7 @@ const PERFORMANCE = {
   programShortLabel: 'PERF',
   phaseLabel: 'Performance',
   nominalFormatted: '50 000 USD',
+  sizeShortLabel: '50K',
   publicId: 'WRB-PERF-01',
   statusLabel: 'Actif',
   statusVariant: 'success' as const,
@@ -51,6 +54,15 @@ const RISK: AccountRisk = {
   shortDurationMonitoring: { status: 'normal', count24h: 0 },
 } as AccountRisk;
 
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
+    this.setAttribute('open', '');
+  };
+  HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
+    this.removeAttribute('open');
+  };
+});
+
 function statusBar(props: Partial<React.ComponentProps<typeof WorkstationStatusBar>> = {}) {
   return render(
     <WorkstationStatusBar
@@ -58,9 +70,9 @@ function statusBar(props: Partial<React.ComponentProps<typeof WorkstationStatusB
       activeAccountId={EVALUATION.id}
       balanceFormatted="10 000.00 USD"
       equityFormatted="10 050.00 USD"
+      openPnlFormatted="+$50.00"
       risk={RISK}
-      connectionOk
-      isResyncing={false}
+      connectionState="open"
       unreadCount={0}
       onOpenNotifications={() => {}}
       {...props}
@@ -90,6 +102,65 @@ describe('NavRail', () => {
     const hrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href'));
     expect(hrefs).toEqual(['/trade', '/hub', '/comptes', '/payouts', '/plus']);
     expect(hrefs.some((href) => href?.startsWith('/control'))).toBe(false);
+  });
+});
+
+describe('RightUtilityRail', () => {
+  it('exposes exactly the seven WariX destinations with unique symbols', () => {
+    render(
+      <RightUtilityRail
+        activeDrawer={null}
+        activityActive={false}
+        alertsActive={false}
+        journalActive={false}
+        openPositionCount={0}
+        activeAlertCount={0}
+        onToggleDrawer={vi.fn()}
+        onOpenActivity={vi.fn()}
+        onOpenAlerts={vi.fn()}
+        onOpenJournal={vi.fn()}
+      />,
+    );
+
+    const rail = screen.getByRole('complementary', { name: 'Destinations WariX' });
+    const buttons = within(rail).getAllByRole('button');
+    expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Marchés',
+      'Trade',
+      'Activité',
+      'Alertes',
+      'Calendrier',
+      'Journal',
+      'Aide',
+    ]);
+    expect(
+      new Set(
+        buttons.map((button) => button.querySelector('svg')?.getAttribute('data-warix-symbol')),
+      ),
+    ).toEqual(new Set(['markets', 'trade', 'activity', 'alerts', 'calendar', 'journal', 'help']));
+  });
+
+  it('routes Journal to the canonical trading record callback', async () => {
+    const onOpenJournal = vi.fn();
+    render(
+      <RightUtilityRail
+        activeDrawer={null}
+        activityActive={false}
+        alertsActive={false}
+        journalActive
+        openPositionCount={0}
+        activeAlertCount={0}
+        onToggleDrawer={vi.fn()}
+        onOpenActivity={vi.fn()}
+        onOpenAlerts={vi.fn()}
+        onOpenJournal={onOpenJournal}
+      />,
+    );
+
+    const journal = screen.getByRole('button', { name: 'Journal' });
+    expect(journal).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(journal);
+    expect(onOpenJournal).toHaveBeenCalledOnce();
   });
 });
 
@@ -135,10 +206,14 @@ describe('WorkstationAccountSwitcher', () => {
     expect(screen.queryByText(/acc-eval/i)).not.toBeInTheDocument();
   });
 
-  it('renders identity without a disclosure when there is nothing to switch to', () => {
+  it('keeps the canonical account navigation available with one account', async () => {
     render(<WorkstationAccountSwitcher accounts={[EVALUATION]} activeAccountId={EVALUATION.id} />);
-    expect(screen.queryByRole('navigation', { name: 'Changer de compte' })).not.toBeInTheDocument();
-    expect(screen.getByTestId('workstation-account-identity')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('group').querySelector('summary') as HTMLElement);
+    const menu = screen.getByRole('navigation', { name: 'Changer de compte' });
+    const links = within(menu).getAllByRole('link');
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAttribute('href', '/trade?account=acc-eval');
+    expect(links[0]).toHaveAttribute('aria-current', 'page');
   });
 });
 
@@ -152,13 +227,15 @@ describe('WorkstationStatusBar', () => {
     // (W2 §25). All three are in the DOM, so assert presence, not uniqueness.
     const metrics = within(screen.getByTestId('workstation-metrics'));
     expect(metrics.getAllByText('Equity').length).toBeGreaterThan(0);
-    expect(metrics.getAllByText('10 050.00 USD').length).toBeGreaterThan(0);
-    expect(metrics.getAllByText('DLL restant').length).toBeGreaterThan(0);
-    expect(metrics.getAllByText('400.00 USD').length).toBeGreaterThan(0);
-    expect(metrics.getAllByText('Perte max restante').length).toBeGreaterThan(0);
-    // The phone-width variants drop the ` USD` suffix but never the figure.
-    expect(metrics.getAllByText('Eq').length).toBeGreaterThan(0);
-    expect(metrics.getAllByText('DLL').length).toBeGreaterThan(0);
+    expect(metrics.getByTestId('metric-pmj')).toHaveTextContent('PMJ');
+    expect(metrics.getByTestId('metric-pm')).toHaveTextContent('PM');
+    // Visual closure §6 — the currency is drawn a step below its figure, so the
+    // amount and its unit are separate elements inside one `<dd>`. The announced
+    // and displayed value is still "10 050.00 USD"; only the type size differs
+    // between the two halves.
+    expect(metrics.getAllByText('10 050.00').length).toBeGreaterThan(0);
+    expect(metrics.getAllByText('400.00').length).toBeGreaterThan(0);
+    expect(metrics.getByTestId('metric-equity')).toHaveTextContent('Equity10 050.00');
   });
 
   it('reports transport state exactly once, and never as account status', () => {
@@ -173,24 +250,45 @@ describe('WorkstationStatusBar', () => {
     // exposes the state as data so tests never depend on French copy.
     const chip = screen.getByTestId('workstation-connection');
     expect(chip).toHaveAttribute('data-connection', 'open');
-    expect(chip).toHaveTextContent('Connecté');
+    // VX1-C.1 §3 — a healthy feed is the signal glyph and the accessible name,
+    // and no word at all in the header.
+    expect(chip).toHaveTextContent('');
+    expect(chip).toHaveAccessibleName('Flux de marché opérationnel');
     // "Actif" appears only as the account's own status inside the switcher.
     const metrics = within(screen.getByTestId('workstation-metrics'));
     expect(metrics.queryByText('Actif')).not.toBeInTheDocument();
   });
 
-  it('distinguishes resynchronising from disconnected', () => {
-    const resyncing = statusBar({ connectionOk: false, isResyncing: true });
-    expect(screen.getByTestId('workstation-connection')).toHaveAttribute(
-      'data-connection',
-      'resyncing',
-    );
+  /*
+   * VX1-C.1 §4 — the header distinguishes the states, and says none of them.
+   *
+   * A degraded feed used to be announced three times at once: "Hors ligne" in
+   * the header, "Reconnexion…" over the plot and "Connexion au flux…" in the
+   * chart's status chip. The header gives up its words — the sentence stays in
+   * the accessible name and the tooltip, where it is available on demand and
+   * costs no width — and the chart keeps the single local notice, because that
+   * is where the missing data is.
+   */
+  it('distinguishes resynchronising from disconnected without printing either', () => {
+    const resyncing = statusBar({ connectionState: 'resyncing' });
+    const resyncingChip = screen.getByTestId('workstation-connection');
+    expect(resyncingChip).toHaveAttribute('data-connection', 'resyncing');
+    expect(resyncingChip).toHaveTextContent('');
+    expect(resyncingChip).toHaveAccessibleName('Données retardées');
     resyncing.unmount();
-    statusBar({ connectionOk: false, isResyncing: false });
-    expect(screen.getByTestId('workstation-connection')).toHaveAttribute(
-      'data-connection',
-      'closed',
-    );
+
+    const reconnecting = statusBar({ connectionState: 'connecting' });
+    const reconnectingChip = screen.getByTestId('workstation-connection');
+    expect(reconnectingChip).toHaveAttribute('data-connection', 'closed');
+    expect(reconnectingChip).toHaveTextContent('');
+    expect(reconnectingChip).toHaveAccessibleName('Reconnexion au flux…');
+    reconnecting.unmount();
+
+    statusBar({ connectionState: 'closed' });
+    const closedChip = screen.getByTestId('workstation-connection');
+    expect(closedChip).toHaveAttribute('data-connection', 'closed');
+    expect(closedChip).toHaveTextContent('');
+    expect(closedChip).toHaveAccessibleName('Flux hors ligne');
   });
 
   it('does not present the selected symbol’s market status as account state', () => {
@@ -200,11 +298,13 @@ describe('WorkstationStatusBar', () => {
     expect(screen.queryByText(/Périmé/)).not.toBeInTheDocument();
   });
 
-  it('surfaces short-duration monitoring rather than hiding it', () => {
+  it('keeps short-duration monitoring available in the canonical risk detail', async () => {
     statusBar({
       risk: { ...RISK, shortDurationMonitoring: { status: 'entry_locked', count24h: 6 } },
     });
-    expect(screen.getByText('Ouvertures suspendues')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Détail des règles de risque' }));
+    expect(screen.getByText('Clôtures profitables < 60 s (24 h)')).toBeInTheDocument();
+    expect(screen.getByText('6')).toBeInTheDocument();
   });
 
   it('shows an unread notification count', () => {

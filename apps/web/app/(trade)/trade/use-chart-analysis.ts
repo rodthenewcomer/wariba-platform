@@ -19,7 +19,9 @@ import {
   MAX_DRAWINGS_PER_SYMBOL,
   type ChartDrawing,
   type ChartDrawingAnchor,
+  type ChartDrawingStyle,
 } from './chart-drawing-model';
+import { DEFAULT_CHART_SETTINGS, type ChartDisplaySettings } from './chart-settings-model';
 import { createChartDrawingStore } from './chart-drawing-store';
 import {
   createChartIndicatorEngine,
@@ -33,8 +35,9 @@ import {
   beginDraft,
   draftAnchors,
   moveAnchor,
-  moveToPrice,
+  moveToAnchor,
   toolDrawingType,
+  type ChartCursorMode,
   type ChartTool,
   type DraftDrawing,
 } from './chart-tool-mode';
@@ -82,8 +85,36 @@ export interface ChartAnalysis {
   toggleIndicator(id: string): void;
   legend: IndicatorLegendEntry[];
 
+  /** Display settings — the Settings modal's model. */
+  settings: ChartDisplaySettings;
+  applySettings(settings: ChartDisplaySettings): void;
+  resetSettings(): void;
+
+  /** Starred tool and indicator ids, in the trader's own order. */
+  favorites: string[];
+  toggleFavorite(id: string): void;
+  isFavorite(id: string): boolean;
+
+  /**
+   * Visibility — reversible, and never destructive (§11).
+   *
+   * Chart-local rather than persisted, on purpose: hiding is a momentary "let me
+   * see the candles" gesture, and a trader who reloads expecting their analysis
+   * back and finds a blank chart has been given a bug, not a preference.
+   */
+  drawingsHidden: boolean;
+  indicatorsHidden: boolean;
+  setDrawingsHidden(hidden: boolean): void;
+  setIndicatorsHidden(hidden: boolean): void;
+
   tool: ChartTool;
   selectTool(tool: ChartTool): void;
+  cursorMode: ChartCursorMode;
+  selectCursorMode(mode: ChartCursorMode): void;
+  keepDrawingMode: boolean;
+  toggleKeepDrawingMode(): void;
+  drawingsLocked: boolean;
+  toggleDrawingsLocked(): void;
   /** True while a drawing tool owns the pointer — TradeChart suppresses its trade gestures (§58). */
   drawingModeActive: boolean;
 
@@ -91,10 +122,24 @@ export interface ChartAnalysis {
   projectedDraft: ProjectedDrawing | null;
   selectedId: string | null;
   selectedDrawing: ChartDrawing | null;
+  select(id: string | null): void;
   clearSelection(): void;
   deleteSelected(): void;
   cycleSelectedColor(): void;
+  setSelectedStyle(style: Partial<ChartDrawingStyle>): void;
   atDrawingLimit: boolean;
+  /** Every stored drawing for this symbol — the object tree's source. */
+  drawings: ChartDrawing[];
+  removeDrawing(id: string): void;
+  removeAllDrawings(): void;
+  /** Switches every indicator off. Reversible from the library; nothing is deleted. */
+  disableAllIndicators(): void;
+
+  /** Drawing history — §20. Never reaches an order, a level or an alert. */
+  undo(): void;
+  redo(): void;
+  canUndo: boolean;
+  canRedo: boolean;
 
   /** Called by TradeChart's chart-creation effect, and its cleanup. */
   attachRenderer(chart: IChartApi): void;
@@ -128,8 +173,14 @@ interface DrawingDrag {
 export function useChartAnalysis(deps: ChartAnalysisDeps): ChartAnalysis {
   const { accountId, symbol, pricePrecision, history, chartRef, seriesRef, containerRef } = deps;
 
-  const { preferences, loaded, setTimeframe, setIndicators } = useChartPreferences(accountId);
+  const { preferences, loaded, setTimeframe, setIndicators, setSettings, toggleFavorite } =
+    useChartPreferences(accountId);
   const [tool, setTool] = useState<ChartTool>('select');
+  const [cursorMode, setCursorMode] = useState<ChartCursorMode>('cross');
+  const [keepDrawingMode, setKeepDrawingMode] = useState(false);
+  const [drawingsLocked, setDrawingsLocked] = useState(false);
+  const [drawingsHidden, setDrawingsHidden] = useState(false);
+  const [indicatorsHidden, setIndicatorsHidden] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftDrawing | null>(null);
   const [drag, setDrag] = useState<DrawingDrag | null>(null);
@@ -174,8 +225,26 @@ export function useChartAnalysis(deps: ChartAnalysisDeps): ChartAnalysis {
     // it, every mount would build the four default series, then destroy the ones
     // the trader had switched off a frame later (§122/§123).
     if (!loaded) return;
-    engineRef.current?.configure(preferences.indicators, preferences.timeframe);
-  }, [loaded, preferences.indicators, preferences.timeframe, symbol, engineVersion]);
+    /*
+     * §11 — hiding is `configure` with everything switched off, not a second
+     * code path. The engine already owns series lifecycle, so routing visibility
+     * through it means an unhidden indicator is rebuilt by exactly the same call
+     * that built it the first time, and no series can be orphaned by a toggle.
+     * The stored configuration is untouched; only what is handed to the renderer
+     * changes.
+     */
+    const configured = indicatorsHidden
+      ? preferences.indicators.map((indicator) => ({ ...indicator, enabled: false }))
+      : preferences.indicators;
+    engineRef.current?.configure(configured, preferences.timeframe);
+  }, [
+    loaded,
+    preferences.indicators,
+    preferences.timeframe,
+    symbol,
+    engineVersion,
+    indicatorsHidden,
+  ]);
 
   // §78/§131 — a symbol or timeframe change cancels an unfinished drawing and
   // returns to Select. A half-created object is never persisted, so there is
@@ -200,6 +269,7 @@ export function useChartAnalysis(deps: ChartAnalysisDeps): ChartAnalysis {
    */
   const projected = useMemo(() => {
     void deps.chartVersion;
+    if (drawingsHidden) return [];
     const live = dragRef.current;
     const result: ProjectedDrawing[] = [];
     for (const drawing of drawings) {
@@ -208,7 +278,7 @@ export function useChartAnalysis(deps: ChartAnalysisDeps): ChartAnalysis {
       if (entry !== null) result.push(entry);
     }
     return result;
-  }, [drawings, adapter, deps.chartVersion, drag]);
+  }, [drawings, adapter, deps.chartVersion, drag, drawingsHidden]);
 
   const projectedDraft = useMemo(() => {
     void deps.chartVersion;
@@ -231,6 +301,75 @@ export function useChartAnalysis(deps: ChartAnalysisDeps): ChartAnalysis {
     [drawings, selectedId],
   );
 
+  /**
+   * §20 — undo and redo, over the drawing store.
+   *
+   * Snapshot-based rather than command-based, and that is the right trade here:
+   * a drawing list for one symbol is at most a hundred small records (§56
+   * bounds it), so keeping whole snapshots costs almost nothing and removes the
+   * entire class of bug where an inverse operation is written wrong. There is no
+   * "undo the anchor move by moving it back" to get subtly out of step with the
+   * move itself.
+   *
+   * Scoped to drawings, deliberately. Ctrl+Z on a charting workstation means
+   * "undo my last annotation"; it must never reach an order, a stop loss or an
+   * alert, and it cannot, because the only thing these functions can write is
+   * the drawing store.
+   */
+  const undoStack = useRef<ChartDrawing[][]>([]);
+  const redoStack = useRef<ChartDrawing[][]>([]);
+  const [historyVersion, setHistoryVersion] = useState(0);
+
+  // A different symbol has a different drawing list, so its history is a
+  // different history. Carrying the stack across would let an undo restore
+  // EURUSD's lines onto XAUUSD.
+  useEffect(() => {
+    undoStack.current = [];
+    redoStack.current = [];
+    setHistoryVersion((value) => value + 1);
+  }, [symbol]);
+
+  const recordUndo = useCallback(() => {
+    undoStack.current.push(store.list(symbol));
+    redoStack.current = [];
+    setHistoryVersion((value) => value + 1);
+  }, [store, symbol]);
+
+  /** Reconciles the store to a snapshot by difference — no clear-and-rebuild. */
+  const applySnapshot = useCallback(
+    (target: readonly ChartDrawing[]) => {
+      const current = store.list(symbol);
+      const targetById = new Map(target.map((drawing) => [drawing.id, drawing]));
+      for (const drawing of current) {
+        if (!targetById.has(drawing.id)) store.remove(symbol, drawing.id);
+      }
+      const currentById = new Map(current.map((drawing) => [drawing.id, drawing]));
+      for (const drawing of target) {
+        const existing = currentById.get(drawing.id);
+        if (existing === undefined) store.add(drawing);
+        else if (existing.updatedAt !== drawing.updatedAt) store.replace(drawing);
+      }
+      setSelectedId((selected) => (targetById.has(selected ?? '') ? selected : null));
+    },
+    [store, symbol],
+  );
+
+  const undo = useCallback(() => {
+    const previous = undoStack.current.pop();
+    if (previous === undefined) return;
+    redoStack.current.push(store.list(symbol));
+    applySnapshot(previous);
+    setHistoryVersion((value) => value + 1);
+  }, [applySnapshot, store, symbol]);
+
+  const redo = useCallback(() => {
+    const next = redoStack.current.pop();
+    if (next === undefined) return;
+    undoStack.current.push(store.list(symbol));
+    applySnapshot(next);
+    setHistoryVersion((value) => value + 1);
+  }, [applySnapshot, store, symbol]);
+
   const anchorAt = useCallback(
     (point: ProjectedPoint): ChartDrawingAnchor | null => {
       const time = adapter.xToTime(point.x);
@@ -252,22 +391,36 @@ export function useChartAnalysis(deps: ChartAnalysisDeps): ChartAnalysis {
           () => Date.now(),
         );
         if (advanced.status === 'pending') return advanced.draft;
+        recordUndo();
         store.add(advanced.drawing);
         setSelectedId(advanced.drawing.id);
         // §49/§68 — back to Select once the drawing is placed, so the next
         // gesture is a trading gesture again unless the trader says otherwise.
-        setTool('select');
+        if (!keepDrawingMode) setTool('select');
         return null;
       });
     },
-    [store],
+    [store, recordUndo, keepDrawingMode],
   );
 
   const handlePointerDown = useCallback(
     (event: React.PointerEvent): boolean => {
       const container = containerRef.current;
       if (!container) return false;
+      if (drawingsLocked) return false;
       const point = localPoint(container, event.clientX, event.clientY);
+
+      if (tool === 'select' && cursorMode === 'eraser') {
+        event.preventDefault();
+        event.stopPropagation();
+        const hit = findDrawingAt(projected, point);
+        if (hit !== null) {
+          recordUndo();
+          store.remove(symbol, hit.id);
+          setSelectedId((current) => (current === hit.id ? null : current));
+        }
+        return true;
+      }
 
       const drawingType = toolDrawingType(tool);
       if (drawingType !== null) {
@@ -286,9 +439,10 @@ export function useChartAnalysis(deps: ChartAnalysisDeps): ChartAnalysis {
             () => Date.now(),
           );
           if (advanced.status === 'complete') {
+            recordUndo();
             store.add(advanced.drawing);
             setSelectedId(advanced.drawing.id);
-            setTool('select');
+            if (!keepDrawingMode) setTool('select');
           } else {
             setDraft(advanced.draft);
           }
@@ -328,7 +482,21 @@ export function useChartAnalysis(deps: ChartAnalysisDeps): ChartAnalysis {
       setDrag(next);
       return true;
     },
-    [containerRef, tool, draft, symbol, store, commitDraftAnchor, anchorAt, projected, selectedId],
+    [
+      containerRef,
+      tool,
+      cursorMode,
+      draft,
+      symbol,
+      store,
+      commitDraftAnchor,
+      anchorAt,
+      projected,
+      selectedId,
+      recordUndo,
+      keepDrawingMode,
+      drawingsLocked,
+    ],
   );
 
   const handlePointerMove = useCallback(
@@ -345,7 +513,7 @@ export function useChartAnalysis(deps: ChartAnalysisDeps): ChartAnalysis {
         if (anchor === null) return;
         const updated =
           session.grab.kind === 'body'
-            ? moveToPrice(session.draft, anchor.price, () => Date.now())
+            ? moveToAnchor(session.draft, anchor, () => Date.now())
             : moveAnchor(session.draft, session.grab.index, anchor, () => Date.now());
         const next = { ...session, draft: updated };
         dragRef.current = next;
@@ -374,9 +542,10 @@ export function useChartAnalysis(deps: ChartAnalysisDeps): ChartAnalysis {
       dragRef.current = null;
       setDrag(null);
       // §73/§125 — one write, at the end of the gesture.
+      recordUndo();
       store.replace(session.draft);
     },
-    [containerRef, store],
+    [containerRef, store, recordUndo],
   );
 
   /**
@@ -401,6 +570,11 @@ export function useChartAnalysis(deps: ChartAnalysisDeps): ChartAnalysis {
           setTool('select');
           return;
         }
+        if (cursorMode === 'eraser') {
+          event.stopPropagation();
+          setCursorMode('cross');
+          return;
+        }
         if (selectedId !== null) setSelectedId(null);
         return;
       }
@@ -410,12 +584,24 @@ export function useChartAnalysis(deps: ChartAnalysisDeps): ChartAnalysis {
       const tag = target?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) return;
       event.preventDefault();
+      recordUndo();
       store.remove(symbol, selectedId);
       setSelectedId(null);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [draft, tool, selectedId, store, symbol]);
+  }, [draft, tool, cursorMode, selectedId, store, symbol, recordUndo]);
+
+  /*
+   * The stacks live in refs so a push does not re-render the chart, but the
+   * toolbar's two buttons still have to enable and disable. `historyVersion` is
+   * the one bit of state that says "the stacks changed"; reading the depths here
+   * keeps them in step without turning every drawing edit into a state update
+   * carrying an array.
+   */
+  void historyVersion;
+  const canUndo = undoStack.current.length > 0;
+  const canRedo = redoStack.current.length > 0;
 
   const legend = useMemo(() => {
     void deps.chartVersion;
@@ -466,17 +652,50 @@ export function useChartAnalysis(deps: ChartAnalysisDeps): ChartAnalysis {
     [preferences.indicators, setIndicators],
   );
 
-  const selectTool = useCallback((next: ChartTool) => {
-    setDraft(null);
-    setSelectedId(null);
-    setTool(next);
+  const selectTool = useCallback(
+    (next: ChartTool) => {
+      if (drawingsLocked && next !== 'select') return;
+      setDraft(null);
+      setSelectedId(null);
+      setTool(next);
+      if (next !== 'select') setCursorMode('cross');
+    },
+    [drawingsLocked],
+  );
+
+  const selectCursorMode = useCallback(
+    (next: ChartCursorMode) => {
+      if (drawingsLocked && next === 'eraser') return;
+      setDraft(null);
+      setSelectedId(null);
+      setTool('select');
+      setCursorMode(next);
+    },
+    [drawingsLocked],
+  );
+
+  const toggleKeepDrawingMode = useCallback(() => setKeepDrawingMode((current) => !current), []);
+  const toggleDrawingsLocked = useCallback(() => {
+    setDrawingsLocked((current) => {
+      const next = !current;
+      if (next) {
+        setDraft(null);
+        setDrag(null);
+        dragRef.current = null;
+        setSelectedId(null);
+        setTool('select');
+        setCursorMode('cross');
+      }
+      return next;
+    });
   }, []);
 
   const deleteSelected = useCallback(() => {
     if (selectedId === null) return;
+    recordUndo();
     store.remove(symbol, selectedId);
     setSelectedId(null);
-  }, [selectedId, store, symbol]);
+  }, [selectedId, store, symbol, recordUndo]);
 
   /** §53 — restrained styling: cycle the palette, no colour picker, no editor. */
   const cycleSelectedColor = useCallback(() => {
@@ -485,12 +704,53 @@ export function useChartAnalysis(deps: ChartAnalysisDeps): ChartAnalysis {
     // validator (a colour it rejected would silently drop the drawing on reload).
     const index = DRAWING_COLORS.indexOf(selectedDrawing.style.color);
     const color = DRAWING_COLORS[(index + 1) % DRAWING_COLORS.length] ?? DRAWING_COLORS[0];
+    recordUndo();
     store.replace({
       ...selectedDrawing,
       style: { ...selectedDrawing.style, color },
       updatedAt: Date.now(),
     });
-  }, [selectedDrawing, store]);
+  }, [selectedDrawing, store, recordUndo]);
+
+  /** §25 — the contextual bar's style popover writes through here. */
+  const setSelectedStyle = useCallback(
+    (style: Partial<ChartDrawingStyle>) => {
+      if (selectedDrawing === null) return;
+      recordUndo();
+      store.replace({
+        ...selectedDrawing,
+        style: { ...selectedDrawing.style, ...style },
+        updatedAt: Date.now(),
+      });
+    },
+    [selectedDrawing, store, recordUndo],
+  );
+
+  const removeDrawing = useCallback(
+    (id: string) => {
+      recordUndo();
+      store.remove(symbol, id);
+      setSelectedId((current) => (current === id ? null : current));
+    },
+    [store, symbol, recordUndo],
+  );
+
+  /** §16 — "Remove N drawings". This symbol's only; another instrument's analysis is not the trader's target here. */
+  const removeAllDrawings = useCallback(() => {
+    recordUndo();
+    for (const drawing of drawings) store.remove(symbol, drawing.id);
+    setSelectedId(null);
+  }, [drawings, store, symbol, recordUndo]);
+
+  const disableAllIndicators = useCallback(() => {
+    setIndicators(preferences.indicators.map((indicator) => ({ ...indicator, enabled: false })));
+  }, [preferences.indicators, setIndicators]);
+
+  const applySettings = useCallback(
+    (settings: ChartDisplaySettings) => setSettings(settings),
+    [setSettings],
+  );
+  const resetSettings = useCallback(() => setSettings(DEFAULT_CHART_SETTINGS), [setSettings]);
 
   return {
     timeframe: preferences.timeframe,
@@ -498,18 +758,44 @@ export function useChartAnalysis(deps: ChartAnalysisDeps): ChartAnalysis {
     selectTimeframe: setTimeframe,
     indicators: preferences.indicators,
     toggleIndicator,
-    legend,
+    legend: indicatorsHidden ? [] : legend,
+    settings: preferences.settings,
+    applySettings,
+    resetSettings,
+    favorites: preferences.favorites,
+    toggleFavorite,
+    isFavorite: (id: string) => preferences.favorites.includes(id),
+    drawingsHidden,
+    indicatorsHidden,
+    setDrawingsHidden,
+    setIndicatorsHidden,
     tool,
     selectTool,
-    drawingModeActive: tool !== 'select',
+    cursorMode,
+    selectCursorMode,
+    keepDrawingMode,
+    toggleKeepDrawingMode,
+    drawingsLocked,
+    toggleDrawingsLocked,
+    drawingModeActive: !drawingsLocked && (tool !== 'select' || cursorMode === 'eraser'),
     projected,
     projectedDraft,
     selectedId,
     selectedDrawing,
+    select: setSelectedId,
     clearSelection: () => setSelectedId(null),
     deleteSelected,
     cycleSelectedColor,
+    setSelectedStyle,
     atDrawingLimit: drawings.length >= MAX_DRAWINGS_PER_SYMBOL,
+    drawings,
+    removeDrawing,
+    removeAllDrawings,
+    disableAllIndicators,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
     attachRenderer,
     detachRenderer,
     onSeriesReplaced,

@@ -1,0 +1,385 @@
+# WariX WX1 — Kinetic Professional Workstation 2026 implementation report
+
+## 1. Outcome
+
+WX1 transforms the accepted W5 interface into a dense, chart-dominant WariX workstation while
+preserving the W1–W5 execution, history, indicator, drawing, risk and render-ownership contracts.
+It is a presentation and interaction milestone only.
+
+Precondition evidence:
+
+```text
+WX0_MERGE_COMMIT = e8db6accf2ac80b75db9454ac49ccf6920c3b582
+WX1_BASE_SHA = e8db6accf2ac80b75db9454ac49ccf6920c3b582
+```
+
+## 2. Implemented scope
+
+- WARIBA-owned kinetic semantic aliases for workstation surfaces, text, interaction, trading,
+  analytics, borders, geometry and motion.
+- WARIBA UI primitives: `MetricReadout`, `ModuleHeader`, `ToolbarButton`, `ToolRailButton`,
+  `SegmentedControl`, `CompactEmptyState` and `MobileStructuredRow`.
+- A 44 px instrumentation bar, 56 px product rail, 244 px Market Navigator, 36 px drawing rail,
+  fluid chart, viewport-compact Execution Center and 48 px empty dock.
+- A chart context header, current-contract timeframe toolbar, indicator popover, compact footer and
+  exact six-tool desktop drawing rail.
+- A professional drawing context bar using only existing W5 persistence and style semantics.
+- A recomposed Execution Center with quote deck, segmented type, compact quantity/protection,
+  canonical impact and fixed decision zone.
+- An intelligent activity dock and structured mobile activity rows.
+- A mobile-native `44 + 28 + 44 = 116 px` pre-chart composition. The 44 px account and toolbar
+  bands preserve practical touch targets; the 28 px market context is passive.
+- CSS-only interaction motion with reduced-motion support and no market-tick subscription.
+- Lucide icons exported only through `@wariba/ui` WARIBA wrappers.
+
+## 3. Explicit non-scope and invariant closure
+
+No database, migration, worker, domain financial math, risk, payout, provider interface, candle
+semantics, history contract or realtime market behavior changes are part of WX1.
+
+No WX2 interval or history capability is exposed. The only available intervals remain:
+
+```text
+5s  15s  30s  1m  3m
+```
+
+`LONG_RANGE_HISTORY_PROVIDER_READY` remains `false`.
+
+## 4. UI foundation decisions
+
+| Candidate | WX1 result |
+|---|---|
+| `@wariba/ui` | Sole product-facing UI foundation; extended with owned primitives |
+| Base UI | Not adopted; native primitives retained after pilot review |
+| shadcn | No initializer, theme or dependency; reference patterns only |
+| Motion | No new adoption; CSS handles WX1 transitions, no tick subscription |
+| Lucide | Adopted through WARIBA-owned `@wariba/ui` wrappers only |
+
+## 5. Measured geometry
+
+| Measurement | Result |
+|---|---:|
+| Navigator default | 244 px |
+| Execution default | 260 px @1920 · 248 px @1440 · 236 px @1280–1366 |
+| Drawing rail | 36 px |
+| Empty dock | 48 px |
+| Top instrumentation | 44 px |
+| 1366 chart viewport share | 26.50% → 39.39% |
+| 1366 chart center-workspace share | 42.44% → 46.66% |
+| 390 chart viewport share | 68.29% → 78.91% |
+| 390 chart center-workspace share | 78.41% → 90.12% |
+| 390 pre-chart chrome | 174 px → 116 px |
+| Minimum WARIBA-owned mobile touch target | 44 px |
+
+All tested desktop, tablet and mobile widths report zero horizontal document overflow.
+
+## 6. Render ownership
+
+For 25 selected-symbol ticks, shell chrome, product rail, status bar, account switcher, dock chrome,
+closed dialogs, Navigator chrome, static chart controls and drawing rail add zero renders. The chart,
+execution quote and visible Positions P&L update 25 times because their displayed values change.
+
+For 25 unselected-symbol ticks, the chart, execution instrument, global status and Navigator chrome
+add zero renders; only the visible quote row for that symbol may update.
+
+Five draft edits remain isolated to the Execution Center. Forty drawing pointer moves cause zero
+workstation-chrome renders and zero persistence writes before pointer-up; the completed drawing is
+persisted once.
+
+## 7. Accessibility and evidence
+
+The WX1 evidence harness covers representative desktop, chart-first mobile, Tools sheet and
+Execution sheet states with full-page Axe. Contrast samples cover Buy, Sell, warning, rejection,
+selected analytical tool and focus. The canonical manifest is:
+
+```text
+docs/04-ux/evidence/warix-wx1-kinetic-workstation/evidence-manifest.json
+```
+
+The full screenshot bundle and agent handoff instructions are in:
+
+```text
+docs/04-ux/evidence/warix-wx1-kinetic-workstation/README.md
+```
+
+## 8. Known limitations
+
+- Lightweight Charts keeps its licensed 35×19 px attribution link. The harness records this
+  third-party exception separately; every WARIBA-owned mobile control is at least 44 px.
+- Pointer drawing is not keyboard-editable in WX1, matching the accepted scope.
+- Historical depth is bounded by current realtime process memory and does not survive restart.
+- Human visual approval remains mandatory.
+- **Right-anchored trading overlays overlap the chart's own price scale.** With a position open, the
+  position badge's actions and the empty SL/TP slots sit over the right axis and can cover the
+  Bid/Ask labels. This is W5 overlay geometry — `ChartPositionOverlay` is untouched by the visual
+  closure — and fixing it means insetting every right-anchored overlay by the runtime price-scale
+  width, which moves drag targets W5 certified. Not attempted at the immutable-HEAD stage.
+- **The crosshair price label can cover the Bid or Ask axis label.** Both are drawn into the same
+  canvas by lightweight-charts, which always paints the crosshair label last; the library exposes no
+  ordering control. The only lever is hiding the crosshair label entirely, which the closure
+  explicitly forbids. The label is transient and correctly themed.
+- **Mobile sheets have no snap points.** The addendum invites an audit of
+  drag/snap behaviour for the Execution, Activity and Tools sheets. `BottomSheet`
+  is a native `<dialog>` whose height is a CSS class, and adding snap detents
+  means owning a gesture controller, inertia and a focus-safe interruption
+  model — a sheet rewrite at the immutable-HEAD stage of a visual closure. Kept
+  as-is and recorded as a future enhancement; desktop pane resizing does not
+  depend on it.
+- **The mobile drawing-context bar is proven at its widest label, not per type.** `drawingTypeLabel`
+  has five values whose two longest are 17 characters ("Ligne horizontale", "Ligne de tendance");
+  the bar's width is driven by that label, so a type that holds one line at 17 characters cannot
+  wrap at 11 or 9. Per-type drawing geometry is captured deterministically on desktop by the WX1
+  evidence harness.
+
+## 9. Deferred to WX2
+
+Canonical professional interval registration, durable/provider-backed historical bars, durable
+source identity, caching, pagination, restart continuity, provider/live cutover and sufficient depth
+remain WX2 work. No screenshot or control implies these capabilities exist.
+
+## 10. Visual art direction closure
+
+Human visual review of the first WX1 candidate returned **FAIL on perceived visual quality** — the
+architecture was accepted, the expression was not. This section records the closure that followed.
+
+### 10.1 What changed
+
+| Area | Change |
+|---|---|
+| Surfaces | A real L0–L4 ink ladder (`#05070C` → `#0D111A` → `#151A25` → `#1E2433` → `#333B4D`) with rim light on raised planes. The chart is the deepest tone in the product. |
+| Typography | An instrument ladder: 27px quote hero, 16px lead metric, 14px support, 13px module title, 10px small-caps section labels. Rank is size, not dimming. |
+| Instrumentation | Grouped and seamed — identity, equity, loss budgets, programme — with stacked label-over-value. Risk states tint their own group. |
+| Navigator | Labelled `BID / ASK / SPR.` columns, aqua/copper quotes, cobalt-washed selection, sticky category bands, market state by exception. |
+| Chart | Deep well, dimmed grid, mono price and time scales, themed crosshair labels, neutral current-price label, integrated drawing rail. |
+| Execution | A gutter-railed spec plate rather than a stacked form; quote deck, integrated quantity instrument, `SL`/`TP` tagged fields, full-width estimate, physical decision keys. |
+| Dock | Workstation tabs, chip counts, side-coloured rows, P&L at the top of the row hierarchy, state-block empty states. |
+| Mobile | Compact account instrumentation, an action rail of two keys, the desktop execution instrument translated to touch, a tool palette, and Account behind an overflow control instead of truncated to "ACC". |
+| 1024–1279 | A hybrid workstation: chart and execution persistent, Navigator contextual and overlaid so opening it never reflows the plot. |
+
+### 10.2 Defects found and fixed during the closure
+
+Four were pre-existing and would have shipped:
+
+1. `--wariba-surface-selected` and `--wariba-surface-raised` are not tokens this design system
+   defines. Fourteen hover and selected states rendered with no background at all, including the
+   quick-quantity chips and the Orders view switcher.
+2. `BottomSheet` and `Dialog` painted their scrim with `--wariba-background-inverse`, which is bone
+   under the dark trade theme — every mobile sheet opened behind a 64% white veil.
+3. `Tooltip` painted `--wariba-background-inverse` on `--wariba-text-inverse`, so every workstation
+   tooltip was a cream box on the dark workstation. Fixed at the primitive with dedicated
+   `component.tooltip.*` tokens that are fixed values in both themes.
+4. The chart's last-value label inherited the last bar's colour, so the current price rendered
+   emerald after an up candle and coral after a down one — the two colours reserved for Buy and
+   Sell. It is now pinned neutral.
+
+Two were introduced by the closure and caught by the gates:
+
+5. Grouping metrics produced `dl > div > div > dt/dd`; a `<dl>` sanctions one level of `<div>`
+   grouping. Axe flagged it `serious` on every workstation page. Each metric now carries its own
+   `<dl>`.
+6. The `SL` tag measured 4.46:1 and a faded `USD` 3.91:1, both under AA. Both retoned.
+
+### 10.3 Developer-facing language removed
+
+The chart footer read `801 BOUGIES · HISTORIQUE EN MÉMOIRE`. The second half described WariX's
+storage architecture, not the trader's market. The footer now reads the interval, the timezone and
+the observed bar count; the process-memory constraint remains recorded in §8 of this report, where
+an engineer looks for it.
+
+### 10.4 Semantic colour law
+
+| Colour | Single meaning |
+|---|---|
+| Cobalt | Interaction and selection |
+| Copper | WARIBA identity, and the Ask side |
+| Aqua | Bid, and the selected analytical object |
+| Emerald | Buy, profit, healthy market status |
+| Coral | Sell, loss, rejection |
+| Amber | Warning and degraded transport |
+| Neutral ink | Current/mid market context, including the chart's last-value label |
+
+### 10.5 1024–1279 decision
+
+Measured, not assumed. The fixed tracks cost 620px at every width: at 1440 the chart keeps 820px, at
+1024 only 404px, and the rendered comparison showed the indicator legend wrapping three lines over
+the candles. The band therefore keeps chart and execution persistent and makes the Navigator
+contextual — an overlay inside the chart cell, so the plot never reflows when it opens. It is a
+first-run default resolved per render against the live viewport; any stored preference wins, and a
+window resized out of the band restores the full cockpit.
+
+### 10.6 Kinetic interaction
+
+Press, selection, popover, sheet and overlay transitions all run on the workstation motion tokens,
+and `globals.css` collapses every animation and transition to 1ms under `prefers-reduced-motion` —
+a stylesheet-level guarantee rather than a per-component one, asserted by
+`apps/web/tests/workstation-hybrid.test.tsx`.
+
+Quote directional feedback (§9-G) is implemented on the execution quote deck and **causes no React
+render**. The obvious implementation — state plus a timer — would re-render the deck twice per tick
+and put a `setTimeout` on every instrument, which is the tick-driven animation §30 rules out.
+`use-quote-direction.ts` instead writes a `data-quote-direction` attribute onto a node the component
+already owns and lets a CSS animation expire; React is not involved after the first paint. It is
+attached only where the tick is already consumed, so it adds no `TickStore` subscription, and a
+260ms cooldown keeps a fast market from strobing. The figure itself is never animated — it updates
+through the ordinary render path the instant the tick lands.
+
+### 10.7 Authoritative risk visualisation
+
+The daily-loss budget carries a consumption rule under its figure. The ratio comes from
+`computeDailyLossUsedRatio` (@wariba/domain), fed the three authoritative fields the risk DTO
+already carries — `reference`, `floor`, `used` — and evaluated with decimal.js. It is the same call
+`deriveRiskRibbonStatus` already makes for the metric's tone, so the rule and the colour cannot
+disagree, and **no arithmetic on money happens in the browser**.
+
+Only the daily loss gets a rule. `maximumLoss` carries `floor`, `remaining` and `breached` but no
+`used` and no reference, so no canonical ratio exists for it; deriving one client-side would be
+exactly the invented math the closure forbids. Max loss keeps tone escalation and nothing more.
+
+### 10.8 Hybrid overlay behaviour
+
+`NavigatorOverlay` owns the dismissal contract the hybrid band needs: Escape, a pointer outside,
+focus into the panel on open and back to the opener on every dismissal path. Deliberately **no
+scrim and no focus trap** — a scrim would dim the market being read, and trapping focus would stop
+Tab reaching the chart and the Execution Center, both of which stay live while the Navigator is
+open. It is a desktop panel, not a modal.
+
+### 10.9 Workspace Layout Engine
+
+Resizing is not drag handles bolted onto panels; it is an engine with two kinds
+of number, and keeping them apart is the whole design.
+
+**Preferred** dimensions are what the trader chose. They live in
+`workstation-preferences.ts` at schema 2, they belong to the browser, and only a
+deliberate resize changes them. **Effective** dimensions are what fits right
+now: `workspace-layout.ts` derives them on every render and never writes one
+back. The rendered closure proof sets Execution to 280px at 1920, observes the
+1280 hard clamp at 260 while storage remains 280, then observes 280 again after
+re-expansion. Navigator proves the same contract across the mobile transition:
+340px at 1920, an effective 0px track at 900 with 340 still stored, and 340px
+again at 1920. Storing either effective value would have destroyed the trader's
+preference.
+
+| Constant | Value |
+|---|---:|
+| Navigator | 244 default, 220–360 preferred |
+| Execution | 248 global baseline, 224–300 preferred; 236 / 248 / 260 viewport defaults |
+| Activity dock | 220 populated default, 112 min, 560 hard ceiling |
+| `MIN_FULL_DESKTOP_CHART_WIDTH` | 520 |
+| `MIN_CENTER_WORKSPACE_HEIGHT` | 420 |
+
+Both chart minima are read off rendered evidence rather than chosen for
+roundness: at 1024 with both panes open the plot measured ~404px and the
+indicator legend wrapped three lines across the candles, which is where the
+composition stops being chart-dominant.
+
+**Chart protection is dynamic, not a pair of independent maxima.** The side-pane
+budget is `viewportWidth − 56 − 36 − 520`, and each resizer's ceiling is that
+budget minus whatever the *other* pane currently takes. When preferences exceed
+the budget the Navigator gives way first and the Execution Center second —
+because chart authority is non-negotiable, Execution is the more operationally
+critical pane, and the Navigator already has a collapse and a contextual
+presentation to fall back on.
+
+**Dragging renders nothing.** A pointer move writes one CSS custom property
+(`--warix-navigator-width`, `--warix-execution-width`, `--warix-dock-height`) on
+the workspace root inside a `requestAnimationFrame`; the grid relayouts, the
+chart's `ResizeObserver` sees a size change, and React is not involved. Only the
+release commits — one state update and one storage write per resize rather than
+per pixel. The shell supplies the effective dimensions as the properties'
+fallbacks, so a viewport clamp and a stored preference arrive through one
+channel.
+
+**Geometry never looks like navigation.** Widening the chart shows more bars,
+which moves the visible logical range leftward and can cross the backfill
+threshold — so dragging a pane narrower would have issued a history request the
+trader never asked for. `TradeChart` now suppresses `maybeRequestOlder` for the
+two frames after a resize-induced `applyOptions`, and deliberately not on the
+first measurement, which is the chart being sized at mount rather than resized.
+Measured across a full resize sweep: `sourceEpoch` stable, drawings stable,
+execution draft stable, **0 history requests, 0 chart remounts**.
+
+Resizing is keyboard-operable throughout — arrows ±8px, Shift+arrow ±24px, Home
+to the minimum, End to the *dynamic* maximum, double-click to the canonical
+default — on a `role="separator"` carrying its own min/now/max. The seam is a
+1px hairline inside a 9px hit zone; there are no chunky permanent handles.
+
+Mobile is isolated: the engine returns zero pane widths below 1024 and no resize
+control is rendered, while the stored desktop preferences stay untouched.
+
+### 10.10 Right execution dock compaction
+
+The focused compaction pass keeps the same shell, command surface, risk values,
+history lifecycle and resize mechanism. It changes only the presentation policy
+and the density of the existing controls.
+
+| Viewport | Default | Soft range | Hard max | Chart plot recovered |
+|---:|---:|---:|---:|---:|
+| 1920 | 260 px | 248–280 px | 300 px | +60 px |
+| 1440 | 248 px | 236–264 px | 280 px | +72 px |
+| 1366 | 236 px | 224–248 px | 260 px | +84 px |
+| 1280 | 236 px | 224–248 px | 260 px | +84 px |
+
+At rest, the dock now uses one instrument/status row, 15 px Bid/Ask figures, a
+60 px quote deck, shorter desktop type/quantity/protection controls, compact
+risk instrumentation and 48 px decision keys. Margin, DLL and MLL remain pinned
+beside the actions. The lower-priority concentration/stale-price breakdown is
+still present behind the explicit `Détail impact` disclosure.
+
+The before/after harness uses a real authenticated sandbox account, a live mock
+feed and a real persisted drawing. Across all ten requested states it measured
+zero document overflow, zero resize-induced history requests, zero chart
+remounts and preservation of the execution draft and drawing. Manual resize
+restored 224 px after reload. Evidence and the exact machine-readable geometry
+are stored under:
+
+```text
+docs/04-ux/evidence/warix-wx1-right-dock-compaction/
+```
+
+### 10.11 Resize/layout closure gate
+
+The approved compact direction was not redesigned. Closure corrected two
+layout-engine defects exposed by rendered evidence:
+
+- the right-hand separator now maps arrows to the seam's physical direction
+  (`ArrowRight` narrows Execution by 8px, `Shift+ArrowLeft` widens it by 24px);
+- opening the first-run 1024 Navigator no longer promotes the global 248px
+  Execution baseline over the rendered 236px viewport default, and the restore
+  row remains geometrically reserved while the overlay is open.
+
+Measured final results:
+
+| Gate | Result |
+|---|---|
+| Vertical dock chart protection | PASS — tallest dock 436px; chart module 420px, plot 326px |
+| 1024 hybrid width stability | PASS — module 732→732px; plot 696→696px |
+| 1024 hybrid height stability | PASS — module 504→504px; plot 370→370px |
+| Visible logical range | PASS — `{from: 459.4435261707989, to: 802}` → `{from: 479.3278236914601, to: 802}`; live right edge anchored |
+| Resize transport/ownership | PASS — same source epoch, 0 history requests, 0 chart remounts |
+| Keyboard / Shift+Arrow | PASS — 8px / 24px physical seam movement |
+| Double-click canonical reset | PASS — Execution 260px at 1920, Navigator 244px, dock 220px |
+| Preference restore | PASS — Execution 280→260→280; Navigator 340→0→340 |
+
+At the 224px legal minimum, Market, Limit, populated SL, populated SL+TP,
+estimate and real server rejection were captured. Quotes, monetary values,
+order types and protection prices remain complete; Buy/Sell remain at least
+48px high; track, panel and document horizontal overflow are all 0px. The two
+protection inputs stack only below 220px of panel content, because the initial
+side-by-side render could not display both five-decimal prices in full.
+
+## 11. Review status
+
+```text
+WX1_HUMAN_VISUAL_REVIEW = pending
+WX1_RIGHT_DOCK_DIRECTION = approved
+WX1_RESIZE_LAYOUT_GATE = passed
+WX1_ACCEPTED = false
+```
+
+Do not merge automatically. Do not start WX2 or PX0 from this milestone.
+
+Visual closure evidence, including the immutable pre-closure baseline:
+
+```text
+docs/04-ux/evidence/warix-wx1-visual-closure/
+```

@@ -50,6 +50,11 @@ async function openExecutionCenter(page: Page): Promise<void> {
     });
     await page.getByRole('button', { name: /^Trader EURUSD$/ }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
+  } else {
+    const tradeDestination = page.getByTestId('utility-trade');
+    await expect(tradeDestination).toBeVisible({ timeout: 30_000 });
+    await tradeDestination.click();
+    await expect(page.getByTestId('utility-drawer-trade')).toBeVisible();
   }
 
   await expect(page.getByTestId('execution-center')).toBeVisible({ timeout: 30_000 });
@@ -88,16 +93,29 @@ test.describe('WariX Execution Center', { tag: ['@trade', '@warix-w4'] }, () => 
     await signIn(page, tradeAccount.email, tradeAccount.password);
     await openExecutionCenter(page);
 
-    const bid = await page.getByTestId('execution-bid').textContent();
-    const ask = await page.getByTestId('execution-ask').textContent();
-    expect(bid).toBeTruthy();
-    expect(ask).toBeTruthy();
     // A sell opens at the bid and a buy at the ask — `quotedPrice`, the
     // server's own rule. The button repeats the number so the verb and the
-    // price are read together (W4 §20).
-    await expect(page.getByTestId('execution-submit-sell')).toContainText(bid as string);
-    await expect(page.getByTestId('execution-submit-buy')).toContainText(ask as string);
-    expect(Number(ask)).toBeGreaterThan(Number(bid));
+    // price are read together (W4 §20). Read all four nodes in one browser
+    // task: capturing one quote and then waiting for that stale number while
+    // the mock market keeps ticking tests timing, not quote-side authority.
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          const text = (testId: string) =>
+            document.querySelector<HTMLElement>(`[data-testid="${testId}"]`)?.textContent?.trim() ??
+            '';
+          const bid = text('execution-bid');
+          const ask = text('execution-ask');
+          return (
+            bid.length > 0 &&
+            ask.length > 0 &&
+            text('execution-submit-sell').includes(bid) &&
+            text('execution-submit-buy').includes(ask) &&
+            Number(ask) > Number(bid)
+          );
+        }),
+      )
+      .toBe(true);
   });
 
   test('a stepped quantity is one the server accepts', async ({ page, tradeAccount }) => {

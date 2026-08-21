@@ -56,8 +56,11 @@ export function Dialog({ open, onClose, title, size = 'md', children, footer }: 
         if (event.target === ref.current) ref.current?.close();
       }}
       className={cx(
-        'rounded-[var(--wariba-component-dialog-radius)] p-0 backdrop:bg-[color:var(--wariba-background-inverse)]',
-        'backdrop:opacity-[var(--wariba-opacity-overlay)] shadow-[var(--wariba-component-dialog-shadow)]',
+        // See BottomSheet: a scrim must be darker than the page under it, and
+        // `--wariba-background-inverse` is bone under the dark trade theme.
+        'rounded-[var(--wariba-component-dialog-radius)] p-0',
+        'backdrop:bg-[color:var(--wariba-component-workstation-surface-overlay-backdrop)]',
+        'shadow-[var(--wariba-component-dialog-shadow)]',
         'border-none w-full',
         MAX_WIDTH[size],
       )}

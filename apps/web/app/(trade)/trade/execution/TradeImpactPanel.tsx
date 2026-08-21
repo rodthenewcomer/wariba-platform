@@ -31,7 +31,7 @@ export function TradeImpactPanel({ impact }: TradeImpactPanelProps) {
     return (
       <p
         data-testid="trade-impact-unavailable"
-        className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-tertiary)]"
+        className="text-[length:var(--wariba-component-workstation-type-label)] leading-snug text-[color:var(--wariba-component-workstation-text-tertiary)]"
       >
         L’impact sera calculé dès que le compte, le symbole et une cotation sont disponibles.
       </p>
@@ -56,11 +56,15 @@ export function TradeImpactPanel({ impact }: TradeImpactPanelProps) {
         <div className="flex flex-col gap-1.5">
           {impact.concentration.map((entry) => (
             <div key={entry.bucket} className="flex flex-col gap-0.5">
+              {/* Visual closure §12F — the bucket label is metadata and the
+                  ratio is the figure, so the label truncates rather than
+                  wrapping a three-instrument bucket name onto a second line the
+                  way WX1's 14px body copy did at 320px. */}
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
+                <span className="min-w-0 truncate text-[length:var(--wariba-component-workstation-type-label)] text-[color:var(--wariba-component-workstation-text-tertiary)]">
                   {entry.label}
                 </span>
-                <span className="wariba-data text-[length:var(--wariba-font-size-data-xs)] text-[color:var(--wariba-text-primary)]">
+                <span className="wariba-data shrink-0 text-[length:var(--wariba-component-workstation-type-data)] font-semibold tabular-nums text-[color:var(--wariba-component-workstation-text-primary)]">
                   {entry.usedFormatted} / {entry.limitFormatted}
                 </span>
               </div>
@@ -70,13 +74,13 @@ export function TradeImpactPanel({ impact }: TradeImpactPanelProps) {
                 aria-valuenow={Math.round(entry.usedRatioPercent)}
                 aria-valuemin={0}
                 aria-valuemax={100}
-                className="h-1 w-full overflow-hidden rounded-full bg-[color:var(--wariba-theme-border)]"
+                className="h-1 w-full overflow-hidden rounded-full bg-[color:var(--wariba-component-workstation-surface-canvas)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)]"
               >
                 <div
                   className={`h-full rounded-full ${
                     entry.usedRatioPercent >= 100
-                      ? 'bg-[color:var(--wariba-status-danger-strong)]'
-                      : 'bg-[color:var(--wariba-status-information-strong)]'
+                      ? 'bg-[color:var(--wariba-component-workstation-trading-rejection)]'
+                      : 'bg-[color:var(--wariba-component-workstation-interaction-selected)]'
                   }`}
                   style={{ width: `${Math.min(100, Math.max(0, entry.usedRatioPercent))}%` }}
                 />
@@ -87,7 +91,7 @@ export function TradeImpactPanel({ impact }: TradeImpactPanelProps) {
       ) : null}
 
       {impact.isPriceStale ? (
-        <p className="text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-status-warning-text)]">
+        <p className="text-[length:var(--wariba-component-workstation-type-label)] font-semibold text-[color:var(--wariba-component-workstation-trading-warning)]">
           Prix périmé — l’impact affiché n’est plus à jour.
         </p>
       ) : null}

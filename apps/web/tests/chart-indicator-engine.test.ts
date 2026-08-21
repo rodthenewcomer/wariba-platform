@@ -229,7 +229,15 @@ describe('legend — W5 §39', () => {
 });
 
 describe('the indicator registry — W5 §25/§27/§28/§103', () => {
-  it('ships the four default WariX moving averages, all enabled', () => {
+  /**
+   * Final closure §10 — the registry is the approved scope.
+   *
+   * WX1 shipped six further periods switched off. They computed correctly and
+   * no product decision had ever approved them, so they came out; the engine
+   * below still calculates any valid period, which is what makes restoring one
+   * a line in the registry rather than a feature.
+   */
+  it('ships exactly the four approved moving-average presets, all active', () => {
     expect(DEFAULT_CHART_INDICATORS.map((indicator) => indicator.id)).toEqual([
       'ema-20',
       'sma-20',

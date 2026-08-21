@@ -127,6 +127,19 @@ describeIfDb('pending order lifecycle — attached SL/TP (real end-to-end)', () 
     accountId = await createActiveAccount(userId);
     token = await signIn(email, password);
 
+    // The database smoke group runs immediately before this suite in `pnpm
+    // run ci`. Its market-trigger fixture deliberately acquires the real
+    // fencing lease, but the fixture process has no long-lived node that can
+    // release it on shutdown. Expire only that known test holder so this E2E
+    // starts from an isolated election; never steal a lease from a real
+    // realtime instance.
+    await db
+      .updateTable('app.realtime_leadership')
+      .set({ lease_expires_at: new Date(0) })
+      .where('service_name', '=', 'market-trigger-writer')
+      .where('leader_instance_id', '=', 'integration-test-market-trigger')
+      .execute();
+
     realtime = await spawnRealtimeTestProcess({
       cwd: process.cwd(),
       healthUrl: `${BASE_URL}/health`,

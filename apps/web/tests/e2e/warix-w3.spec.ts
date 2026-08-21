@@ -21,6 +21,16 @@ import { expect, test } from './fixtures';
  */
 
 const HISTORY_STATUS = '[data-testid="chart-history-status"]';
+const DESKTOP_WORKSTATION_BREAKPOINT = 1024;
+
+/** The live quote surface is the desk-grade Execution Center on desktop and
+ * the compact market trigger in the mobile composition. */
+function liveQuote(page: Page) {
+  const width = page.viewportSize()?.width ?? DESKTOP_WORKSTATION_BREAKPOINT;
+  return width < DESKTOP_WORKSTATION_BREAKPOINT
+    ? page.getByTestId('mobile-market-trigger')
+    : page.getByTestId('execution-bid');
+}
 
 async function signIn(page: Page, email: string, password: string): Promise<void> {
   await page.goto('/login');
@@ -43,9 +53,7 @@ async function openWorkstation(page: Page): Promise<void> {
     'open',
     { timeout: 30_000 },
   );
-  await expect(page.getByTestId('mobile-market-trigger')).not.toContainText('— / —', {
-    timeout: 30_000,
-  });
+  await expect(liveQuote(page)).not.toContainText('—', { timeout: 30_000 });
   await expect(page.locator(HISTORY_STATUS)).not.toHaveAttribute('data-history-status', 'idle', {
     timeout: 30_000,
   });
@@ -147,6 +155,15 @@ test.describe('WariX W3 market history', { tag: ['@trade'] }, () => {
     const status = page.locator(HISTORY_STATUS);
 
     for (const symbol of ['XAUUSD', 'NAS100', 'EURUSD'] as const) {
+      if (symbol === 'EURUSD') {
+        // The canonical transport permits six history requests per 10s. Each
+        // symbol currently performs its initial hydration plus one bounded
+        // prepend, so page load + XAUUSD + NAS100 deliberately consumes that
+        // budget. Pace the return switch past the fixed window: a seventh
+        // immediate request correctly returns `rate_limited` and says nothing
+        // about cross-symbol isolation.
+        await page.waitForTimeout(10_100);
+      }
       await page
         .getByTestId('market-navigator')
         .first()
@@ -256,8 +273,8 @@ test.describe('WariX W3 market history', { tag: ['@trade'] }, () => {
     await expect(status).toContainText('Historique indisponible. Le flux temps réel continue.');
 
     // The live feed is unaffected: real quotes still arrive and keep moving.
-    const trigger = page.getByTestId('mobile-market-trigger');
-    await expect(trigger).not.toContainText('— / —', { timeout: 30_000 });
+    const trigger = liveQuote(page);
+    await expect(trigger).not.toContainText('—', { timeout: 30_000 });
     const firstQuote = await trigger.textContent();
     await expect.poll(async () => trigger.textContent(), { timeout: 30_000 }).not.toBe(firstQuote);
 

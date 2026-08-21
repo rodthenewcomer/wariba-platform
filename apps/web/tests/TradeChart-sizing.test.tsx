@@ -111,8 +111,19 @@ function renderChart() {
       onDeleteAlert={NOOP}
       onPendingOrderRequest={NOOP}
       onCreateAlertHere={NOOP}
+      onOpenAlerts={NOOP}
+      onOpenSymbolSearch={NOOP}
     />,
   );
+}
+
+function sizeCalls(): { width: number; height: number }[] {
+  return applyOptions.mock.calls
+    .map(([options]) => options as Record<string, unknown>)
+    .filter(
+      (options): options is { width: number; height: number } =>
+        typeof options.width === 'number' && typeof options.height === 'number',
+    );
 }
 
 describe('TradeChart sizing', () => {
@@ -125,7 +136,7 @@ describe('TradeChart sizing', () => {
       'ResizeObserver',
       class {
         constructor(callback: () => void) {
-          resizeCallback = callback;
+          resizeCallback ??= callback;
         }
         observe() {}
         disconnect() {}
@@ -152,27 +163,28 @@ describe('TradeChart sizing', () => {
   it('applies width AND height on every container resize', () => {
     stubContainerBox(750, 476);
     renderChart();
-    expect(applyOptions).toHaveBeenLastCalledWith({ width: 750, height: 476 });
+    expect(sizeCalls().at(-1)).toEqual({ width: 750, height: 476 });
 
     // A taller viewport must produce a taller chart — the exact invariant
     // W0 found broken.
     stubContainerBox(1824, 1088);
     act(() => resizeCallback?.());
-    expect(applyOptions).toHaveBeenLastCalledWith({ width: 1824, height: 1088 });
+    expect(sizeCalls().at(-1)).toEqual({ width: 1824, height: 1088 });
 
-    const heights = applyOptions.mock.calls.map(([options]) => options.height);
+    const heights = sizeCalls().map((options) => options.height);
     expect(new Set(heights).size).toBeGreaterThan(1);
   });
 
-  it('observes the container rather than the window', () => {
+  it('responds to its container without requiring a window resize', () => {
     // The workstation grid can resize this column with no window resize at
     // all (dock collapse, navigator drawer, scrollbar appearing).
-    const addEventListener = vi.spyOn(window, 'addEventListener');
     stubContainerBox(800, 500);
     renderChart();
     expect(resizeCallback).toBeTypeOf('function');
-    expect(addEventListener.mock.calls.filter(([type]) => type === 'resize')).toHaveLength(0);
-    addEventListener.mockRestore();
+
+    stubContainerBox(900, 550);
+    act(() => resizeCallback?.());
+    expect(sizeCalls().at(-1)).toEqual({ width: 900, height: 550 });
   });
 
   it('refreshes overlay geometry after a resize', () => {
@@ -190,14 +202,14 @@ describe('TradeChart sizing', () => {
     // The chartVersion bump forces the overlay memos to recompute; with no
     // positions on screen the observable proof is that a re-render happened
     // at all, so assert on the applied options and the re-render together.
-    expect(applyOptions).toHaveBeenLastCalledWith({ width: 800, height: 900 });
+    expect(sizeCalls().at(-1)).toEqual({ width: 800, height: 900 });
     expect(priceToCoordinate.mock.calls.length).toBeGreaterThanOrEqual(before);
   });
 
   it('ignores a zero-sized container instead of collapsing the chart', () => {
     stubContainerBox(0, 0);
     renderChart();
-    expect(applyOptions).not.toHaveBeenCalled();
+    expect(sizeCalls()).toHaveLength(0);
     // The pre-measurement fallback keeps the chart renderable, and is small
     // enough that it can never be mistaken for a real desktop height.
     expect(captured.options?.height).toBe(240);

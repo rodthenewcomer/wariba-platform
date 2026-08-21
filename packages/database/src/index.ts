@@ -31,6 +31,13 @@ export {
   type ControlPermission,
 } from './staff';
 export {
+  bootstrapPlatformOwner,
+  CANONICAL_OWNER_ROLE,
+  type BootstrapPlatformOwnerParams,
+  type BootstrapPlatformOwnerResult,
+  type OwnerAuthAdmin,
+} from './owner-bootstrap';
+export {
   consumeStaffActionRateLimit,
   StaffActionRateLimitExceededError,
   type ConsumeStaffActionRateLimitParams,

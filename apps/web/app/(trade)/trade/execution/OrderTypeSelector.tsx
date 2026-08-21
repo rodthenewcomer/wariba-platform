@@ -1,5 +1,6 @@
 'use client';
 
+import { SegmentedControl } from '@wariba/ui';
 import type { TicketOrderKind } from './execution-contract';
 
 export const ORDER_KIND_LABEL: Record<TicketOrderKind, string> = {
@@ -9,6 +10,10 @@ export const ORDER_KIND_LABEL: Record<TicketOrderKind, string> = {
 };
 
 const ORDER_KINDS: readonly TicketOrderKind[] = ['market', 'limit', 'stop'];
+const ORDER_KIND_OPTIONS = ORDER_KINDS.map((kind) => ({
+  value: kind,
+  label: ORDER_KIND_LABEL[kind],
+}));
 
 export interface OrderTypeSelectorProps {
   value: TicketOrderKind;
@@ -26,52 +31,14 @@ export interface OrderTypeSelectorProps {
  * was a separate tab stop).
  */
 export function OrderTypeSelector({ value, onChange }: OrderTypeSelectorProps) {
-  const move = (delta: number) => {
-    const index = ORDER_KINDS.indexOf(value);
-    const next = ORDER_KINDS[(index + delta + ORDER_KINDS.length) % ORDER_KINDS.length];
-    if (next) onChange(next);
-  };
-
   return (
-    <div
-      role="radiogroup"
-      aria-label="Type d’ordre"
-      data-testid="order-type-selector"
-      className="flex gap-0.5 rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-component-workstation-surface-sunken)] p-0.5"
-      onKeyDown={(event) => {
-        if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-          event.preventDefault();
-          move(1);
-        } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-          event.preventDefault();
-          move(-1);
-        }
-      }}
-    >
-      {ORDER_KINDS.map((kind) => {
-        const selected = value === kind;
-        return (
-          <button
-            key={kind}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            // Roving tabindex: the group is one tab stop, arrows move within it.
-            tabIndex={selected ? 0 : -1}
-            onClick={() => onChange(kind)}
-            className={[
-              'flex-1 rounded-[var(--wariba-radius-xs)] px-2 py-1.5',
-              'text-[length:var(--wariba-font-size-body-sm)] transition-colors',
-              'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-border-focus)]',
-              selected
-                ? 'bg-[color:var(--wariba-surface-selected)] font-semibold text-[color:var(--wariba-theme-text)]'
-                : 'text-[color:var(--wariba-text-secondary)] hover:text-[color:var(--wariba-theme-text)]',
-            ].join(' ')}
-          >
-            {ORDER_KIND_LABEL[kind]}
-          </button>
-        );
-      })}
-    </div>
+    <SegmentedControl
+      label="Type d’ordre"
+      value={value}
+      options={ORDER_KIND_OPTIONS}
+      onValueChange={onChange}
+      compact
+      testId="order-type-selector"
+    />
   );
 }

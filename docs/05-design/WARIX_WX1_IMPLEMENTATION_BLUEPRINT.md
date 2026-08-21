@@ -14,12 +14,12 @@ Transform accepted W5 presentation into the Kinetic Professional Workstation whi
 - owned workbench/module primitives;
 - coherent icon wrappers and selective Base UI/Motion pilots if gates pass;
 - global instrumentation bar;
-- desktop frame tracks: `56 / 244 / 36 / fluid / 320`;
+- desktop frame tracks: `56 / 244 / 36 / fluid / 236–260`;
 - chart module header/toolbar/footer recomposition;
 - six-tool desktop drawing rail and context toolbar presentation;
 - compact indicator experience;
 - Navigator density;
-- Execution Center presentation at 320 px;
+- Execution Center presentation at 236–260 px by viewport;
 - intelligent dock geometry and mobile structured activity rows;
 - mobile ≤116 px pre-chart chrome and richer Tools sheet;
 - keyboard/focus/reduced-motion/contrast/render closure;
@@ -40,7 +40,8 @@ Transform accepted W5 presentation into the Kinetic Professional Workstation whi
 
 ```text
 Navigator default                 244px (220–320 resizable)
-Execution default                 320px (304–360 resizable)
+Execution default                 260px @1920 / 248px @1440 / 236px @1280–1366
+Execution preferred range         224–300px, viewport hard max 260 / 280 / 300px
 Empty dock                        48px
 Populated dock                    existing preference/default; stable
 Desktop top instrumentation       44px
@@ -203,7 +204,7 @@ No migrations. No adapter/provider/domain/policy/risk/payout modification.
 
 1. W1–W5 functional suites remain green.
 2. `chartViewportAreaShare` is ≥39% at 1366 empty and ≥78% at 390 chart-first; `chartShareOfCenterWorkspace` is reported for the same baseline/candidate states with target `TO_BE_PROVEN_BY_WX1_EVIDENCE`.
-3. Navigator 244 px and execution 320 px pass content/precision checks.
+3. Navigator 244 px and compact execution 236–260 px pass content/precision checks.
 4. Empty dock 48 px; populated dock stable and preference-owned.
 5. Mobile pre-chart chrome ≤116 px.
 6. Toolbar contains no dead or WX2-only control.

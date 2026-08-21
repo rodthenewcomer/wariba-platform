@@ -1,8 +1,8 @@
 'use client';
 
-import { useId } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { ORDER_KIND_LABEL } from './OrderTypeSelector';
-import type { ExecutionSide, TicketOrderKind } from './execution-contract';
+import type { ExecutionSide, OrderRejectionDetail, TicketOrderKind } from './execution-contract';
 
 export interface ExecutionActionsProps {
   orderKind: TicketOrderKind;
@@ -16,24 +16,57 @@ export interface ExecutionActionsProps {
   creatableSides: Record<ExecutionSide, boolean> | null;
   disabled: boolean;
   pending: boolean;
+  /**
+   * The panel's current rejection, used for one thing only: to nudge the key
+   * that was pressed (VX1-D §28). The authoritative reason is stated by
+   * `ExecutionStatus`, never here.
+   */
+  rejection?: OrderRejectionDetail | null;
   onSubmit: (side: ExecutionSide) => void;
 }
 
-const SIDE_COPY: Record<ExecutionSide, { verb: string; accessible: string; quoteLabel: string }> = {
-  sell: { verb: 'Sell', accessible: 'Vendre', quoteLabel: 'au Bid' },
-  buy: { verb: 'Buy', accessible: 'Acheter', quoteLabel: 'à l’Ask' },
+const SIDE_COPY: Record<
+  ExecutionSide,
+  { verb: string; accessible: string; quoteLabel: string; glyph: string }
+> = {
+  sell: { verb: 'Sell', accessible: 'Vendre', quoteLabel: 'au Bid', glyph: '▼' },
+  buy: { verb: 'Buy', accessible: 'Acheter', quoteLabel: 'à l’Ask', glyph: '▲' },
 };
 
 /** The only saturated colours in the panel — see the note on the component below. */
 const SIDE_TONE: Record<ExecutionSide, string> = {
-  sell: 'bg-[color:var(--wariba-status-danger-strong)] hover:enabled:bg-[color:var(--wariba-status-danger-text)]',
-  buy: 'bg-[color:var(--wariba-status-success-strong)] hover:enabled:bg-[color:var(--wariba-status-success-text)]',
+  sell: 'bg-[color:var(--wariba-component-workstation-trading-sell)] hover:enabled:brightness-110',
+  buy: 'bg-[color:var(--wariba-component-workstation-trading-buy)] hover:enabled:brightness-110',
 };
+
+/**
+ * The physical treatment shared by both sides.
+ *
+ * Visual closure §13 — a key, not a coloured rectangle. A hairline of rim light
+ * along the top edge and a hard 2px shadow along the bottom give the control a
+ * body; pressing removes the shadow and drops the key by the same 2px, so the
+ * button travels rather than merely tinting. That is the whole difference
+ * between "two colored rectangles" and a control that communicates consequence,
+ * and it costs one box-shadow and one transform — no animation runs on a tick,
+ * and `prefers-reduced-motion` collapses the transition globally.
+ */
+const SIDE_PHYSICAL = [
+  'shadow-[inset_0_1px_0_0_rgba(255,255,255,0.28),0_2px_0_0_rgba(5,7,12,0.55)]',
+  'hover:enabled:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.34),0_3px_0_0_rgba(5,7,12,0.6)]',
+  'hover:enabled:-translate-y-px',
+  // Refinement pass — the press *bottoms out*. The key travels the full 2px of
+  // its own shadow, loses the shadow entirely and darkens: three coincident
+  // changes, which is what makes a press feel like it landed on something
+  // rather than like a colour changed. An e-commerce CTA brightens on press;
+  // an instrument key sinks.
+  'active:enabled:translate-y-0.5 active:enabled:brightness-90',
+  'active:enabled:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]',
+].join(' ');
 
 /** The de-emphasised form: side identity kept in the border, fill dropped. */
 const SIDE_OUTLINE: Record<ExecutionSide, string> = {
-  sell: 'bg-transparent ring-1 ring-inset ring-[color:var(--wariba-status-danger-border)]',
-  buy: 'bg-transparent ring-1 ring-inset ring-[color:var(--wariba-status-success-border)]',
+  sell: 'bg-[color:var(--wariba-component-workstation-wash-sell)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-trading-sell)]',
+  buy: 'bg-[color:var(--wariba-component-workstation-wash-buy)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-trading-buy)]',
 };
 
 const DASH = '—';
@@ -72,13 +105,40 @@ export function ExecutionActions({
   creatableSides,
   disabled,
   pending,
+  rejection = null,
   onSubmit,
 }: ExecutionActionsProps) {
   const descriptionIdPrefix = useId();
 
+  /*
+   * VX1-D §26/§28 — the key's own answer, before the server has one.
+   *
+   * Two states live here and nowhere else, because they are about *this
+   * control* rather than about the order: which side was last pressed, and
+   * whether the answer that came back was a refusal.
+   *
+   * The nudge is deliberately tiny and singular — two pixels, one cycle,
+   * 100ms, on the pressed key only. Its job is not to express displeasure; it
+   * is to put the eye on the right control at the moment the canonical reason
+   * appears beside it, so a trader who was watching the chart knows which of
+   * two keys did not go through. Nothing about the refusal is *stated* here.
+   */
+  const lastPressed = useRef<ExecutionSide | null>(null);
+  const [nudged, setNudged] = useState<ExecutionSide | null>(null);
+
+  useEffect(() => {
+    // Keyed on the rejection's identity: the panel hands over a fresh object
+    // per refusal, so the same code twice is still two events and each one
+    // deserves its own nudge.
+    if (rejection === null || lastPressed.current === null) return;
+    setNudged(lastPressed.current);
+    const timer = setTimeout(() => setNudged(null), 260);
+    return () => clearTimeout(timer);
+  }, [rejection]);
+
   return (
-    <div className="flex flex-col gap-1.5 px-3 pb-3 pt-1" data-testid="execution-actions">
-      <div className="grid grid-cols-2 gap-2">
+    <div className="flex flex-col gap-1.5 px-2.5 pb-2 pt-2" data-testid="execution-actions">
+      <div className="grid grid-cols-2 gap-1.5">
         {SIDES.map((side) => {
           const copy = SIDE_COPY[side];
           // The E2E suite and every trader's muscle memory key on the bare
@@ -104,20 +164,41 @@ export function ExecutionActions({
                 // The description carries the same facts and is announced
                 // right after the name instead.
                 aria-describedby={`${descriptionIdPrefix}-${side}`}
-                onClick={() => onSubmit(side)}
+                onClick={() => {
+                  lastPressed.current = side;
+                  onSubmit(side);
+                }}
+                data-nudge={nudged === side ? 'true' : 'false'}
                 className={[
-                  'flex min-h-12 flex-col items-center justify-center gap-0.5',
-                  'rounded-[var(--wariba-radius-sm)] px-2 py-2 transition-colors',
-                  // `--wariba-action-destructive-text`, not `-primary-text`:
-                  // the primary one is #0B0D12 under a dark theme (correct on
-                  // the bright cobalt primary button, 3.1:1 and failing on
-                  // these saturated surfaces). The destructive token is the
-                  // one already paired with #A73C3C and is #FFFFFF in every
-                  // theme — 6.3:1 on the Sell red, 5.8:1 on the Buy green.
+                  'flex min-h-[var(--wariba-component-workstation-decision-button-height)] flex-col items-center justify-center gap-1',
+                  'rounded-[8px] px-1.5 py-1.5',
+                  // VX1-D §24/§26 — the key answers the finger before the
+                  // server answers the order. 80ms on release is deliberately
+                  // at the floor of the ladder: a decision key that takes a
+                  // beat to come back up reads as latency the trader will
+                  // attribute to the exchange.
+                  'transition-[background-color,filter,transform,box-shadow] duration-[var(--wariba-component-workstation-motion-instant)] ease-[var(--wariba-component-workstation-ease-interaction)]',
+                  // The key treatment is dropped on the de-emphasised and
+                  // disabled forms: an inert control must not look pressable.
+                  sideUnavailable || disabled || pending ? '' : SIDE_PHYSICAL,
+                  // §28 — the refused key, and only it.
+                  nudged === side
+                    ? 'motion-safe:animate-[wariba-reject-nudge_var(--wariba-component-workstation-motion-micro)_var(--wariba-component-workstation-ease-move)]'
+                    : '',
+                  // §26 — an order in flight is reported by the key that sent
+                  // it: a 2px indeterminate rule along its bottom edge, not a
+                  // spinner laid over the decision zone. The key never claims
+                  // the order succeeded — only that it is still out.
+                  pending
+                    ? 'relative overflow-hidden after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-[color:var(--wariba-component-workstation-surface-canvas)]/60 motion-safe:after:animate-[wariba-inflight_var(--wariba-component-workstation-motion-feedback)_linear_infinite]'
+                    : '',
+                  // Ink, not white: WX1's brighter Emerald/Coral fills carry
+                  // sufficient contrast with the workstation canvas tone,
+                  // while white falls below AA on both semantic actions.
                   sideUnavailable
                     ? 'text-[color:var(--wariba-text-secondary)]'
-                    : 'text-[color:var(--wariba-action-destructive-text)]',
-                  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]',
+                    : 'text-[color:var(--wariba-component-workstation-surface-canvas)]',
+                  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]',
                   // Visual closure §10 — a *strong* disabled state, which means
                   // legible as well as inert. The generic disabled pair
                   // (`--wariba-text-disabled` on `--wariba-border-disabled`) is
@@ -148,8 +229,31 @@ export function ExecutionActions({
               >
                 {/* The label stays put while a command is in flight — a
                     button whose text is replaced by a spinner changes width
-                    mid-press and loses the one word that says what it does. */}
-                <span className="text-[length:var(--wariba-font-size-body-md)] font-semibold leading-none">
+                    mid-press and loses the one word that says what it does.
+
+                    The direction glyph is the conventional terminal cue and is
+                    `aria-hidden`: the verb, the accessible name and the
+                    description already carry the side three times over, so the
+                    triangle adds instant recognition without adding a fourth
+                    thing to announce. */}
+                {/*
+                 * Refinement pass — verb, direction and price as three ranks.
+                 *
+                 * The glyph is a fixed-width slot so `Sell` and `Buy` occupy
+                 * optically identical keys despite one being a glyph wider; the
+                 * verb holds the top rank at 16px bold; the price sits under a
+                 * hairline rule in its own band, which is what stops the two
+                 * lines reading as one wrapped label. The rule also gives the
+                 * key an internal structure — the thing that separates a
+                 * trading key from a coloured rectangle with two lines of text.
+                 */}
+                <span className="flex items-center justify-center gap-1.5 text-[length:var(--wariba-component-workstation-type-decision)] font-bold leading-none tracking-[var(--wariba-component-workstation-tracking-decision)]">
+                  <span
+                    aria-hidden="true"
+                    className="w-3 shrink-0 text-center text-[9px] leading-none opacity-75"
+                  >
+                    {copy.glyph}
+                  </span>
                   {label}
                 </span>
                 {/* Hidden from the name computation so the button is named
@@ -159,7 +263,17 @@ export function ExecutionActions({
                     drop it under the 4.5:1 minimum. */}
                 <span
                   aria-hidden="true"
-                  className="wariba-data text-[length:var(--wariba-font-size-data-xs)] leading-none tabular-nums"
+                  className={[
+                    // Inset, not full-bleed: at phone scale a rule spanning the
+                    // whole key split it into two stacked cells. A short
+                    // centred mark separates the price from the verb without
+                    // making the key look like a table.
+                    'wariba-data w-14 border-t pt-1 text-center leading-none tabular-nums',
+                    'text-[length:var(--wariba-component-workstation-type-data)] font-semibold',
+                    sideUnavailable
+                      ? 'border-[color:var(--wariba-component-workstation-border-strong)]'
+                      : 'border-[color:var(--wariba-component-workstation-surface-canvas)]/25',
+                  ].join(' ')}
                 >
                   {sideUnavailable ? 'hors marché' : (price ?? DASH)}
                 </span>
@@ -179,7 +293,7 @@ export function ExecutionActions({
               {sideUnavailable ? (
                 <p
                   data-testid={`execution-side-unavailable-${side}`}
-                  className="text-[length:var(--wariba-font-size-data-xs)] leading-tight text-[color:var(--wariba-status-warning-text)]"
+                  className="text-[length:var(--wariba-component-workstation-type-meta)] font-semibold leading-tight text-[color:var(--wariba-component-workstation-trading-warning)]"
                 >
                   Non valide au cours actuel
                 </p>
@@ -198,7 +312,7 @@ export function ExecutionActions({
        */}
       <p
         title="Compte simulé. L’exécution est faite par le serveur uniquement — aucun prix affiché dans le navigateur n’est jamais autoritaire."
-        className="text-[length:var(--wariba-font-size-data-xs)] leading-snug text-[color:var(--wariba-text-tertiary)]"
+        className="text-[length:var(--wariba-component-workstation-type-meta)] leading-tight text-[color:var(--wariba-component-workstation-text-tertiary)]"
       >
         Compte simulé · exécution serveur — aucun prix client n&apos;est autoritaire.
         {orderKind !== 'market' ? ' Ordres en attente GTC.' : ''}

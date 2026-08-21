@@ -1,7 +1,15 @@
 'use client';
 
-import { memo, type ReactNode } from 'react';
-import { Tab, TabList, TabPanel, Tabs } from '@wariba/ui';
+import { memo, useState, type ReactNode } from 'react';
+import {
+  CompactEmptyState,
+  Tab,
+  TabList,
+  TabPanel,
+  Tabs,
+  WariXChevronDownIcon,
+  WariXChevronUpIcon,
+} from '@wariba/ui';
 import type { AccountSnapshot, SymbolSpec, TradableSymbol } from '@wariba/contracts';
 import { PositionsTabPanel } from '../PositionsTabPanel';
 import type { TickStore } from '../tick-store';
@@ -20,6 +28,13 @@ export interface WorkstationDockProps {
   tab: DockTab;
   onTabChange: (tab: DockTab) => void;
   collapsed: boolean;
+  /** True when the active panel has no row-level content. Desktop then occupies exactly 48px. */
+  empty?: boolean;
+  /**
+   * Phone presentation. Five destination names do not fit a 390px tab strip, so
+   * the fifth moves behind an overflow control rather than being clipped.
+   */
+  compact?: boolean;
   onToggleCollapsed: () => void;
   pending: boolean;
   onClosePosition: (positionId: string) => void;
@@ -54,6 +69,15 @@ export interface WorkstationDockProps {
  * is the visible tab, and an inactive Orders/Trades/Alerts/Account tree costs
  * nothing per tick.
  */
+/** What each surface says when it has nothing to report (VX1-C §7). */
+const DOCK_EMPTY_TITLE: Record<DockTab, string> = {
+  positions: 'Aucune position ouverte',
+  orders: 'Aucun ordre en attente',
+  trades: 'Aucune clôture exécutée',
+  alerts: 'Aucune alerte active',
+  account: 'Aucune activité',
+};
+
 export const WorkstationDock = memo(function WorkstationDock({
   store,
   snapshot,
@@ -61,6 +85,8 @@ export const WorkstationDock = memo(function WorkstationDock({
   tab,
   onTabChange,
   collapsed,
+  empty = false,
+  compact = false,
   onToggleCollapsed,
   pending,
   onClosePosition,
@@ -85,12 +111,21 @@ export const WorkstationDock = memo(function WorkstationDock({
   const openPositions = snapshot?.openPositions.length ?? 0;
   const pendingOrders = snapshot?.pendingOrders.length ?? 0;
   const activeAlerts = alerts.filter((alert) => alert.enabled).length;
+  const [overflowOpen, setOverflowOpen] = useState(false);
 
+  /**
+   * Visual closure §14 — the count is a chip, not a trailing digit.
+   *
+   * "Positions 2" read as two words; an enclosed tabular count reads as a
+   * quantity attached to a surface, which is what a trading dock's tab strip is
+   * actually reporting. The chip takes the cobalt wash on the active tab so the
+   * counter never competes with the tab it belongs to.
+   */
   const label = (text: string, count: number) => (
     <>
       {text}
       {count > 0 ? (
-        <span className="wariba-data ml-1.5 text-[length:var(--wariba-font-size-data-xs)] text-[color:var(--wariba-text-tertiary)]">
+        <span className="wariba-data min-w-[1.25rem] rounded-full bg-[color:var(--wariba-component-workstation-surface-control)] px-1.5 py-0.5 text-center text-[length:var(--wariba-component-workstation-type-meta)] font-semibold tabular-nums text-[color:var(--wariba-component-workstation-text-secondary)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-seam-hairline)]">
           {count}
         </span>
       ) : null}
@@ -104,7 +139,13 @@ export const WorkstationDock = memo(function WorkstationDock({
       // name names the whole surface, not its narrowest member.
       aria-label="Dock de trading"
       data-testid="workstation-dock"
-      className="flex min-h-0 min-w-0 flex-col border-t border-[color:var(--wariba-component-workstation-seam)] bg-[color:var(--wariba-component-workstation-surface-raised)] lg:flex-1"
+      data-empty={empty ? 'true' : 'false'}
+      /*
+       * VX1-B §15 — the dock is a module of the workstation, not a table bolted
+       * under the chart: raised graphite, a rim light along its own top edge and
+       * a strong seam against the plot, so the boundary reads as machined.
+       */
+      className="flex min-h-0 min-w-0 flex-col border-t border-[color:var(--wariba-component-workstation-seam-strong)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong)] lg:flex-1"
     >
       {resizeHandle}
 
@@ -113,48 +154,106 @@ export const WorkstationDock = memo(function WorkstationDock({
         onValueChange={(next) => onTabChange(next as DockTab)}
         className="flex min-h-0 min-w-0 flex-col"
       >
-        <div className="flex shrink-0 items-center gap-2 pr-1">
+        <div className="flex min-h-10 shrink-0 items-center gap-2 border-b border-[color:var(--wariba-component-workstation-seam-hairline)] bg-[color:var(--wariba-component-workstation-surface-shell)]/60 pr-1">
           {/* The tab strip is the one element allowed to be wider than the
               viewport, and only inside this box — never the document. */}
           <div
             data-testid="workstation-dock-tabs"
-            className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden whitespace-nowrap"
+            className="flex min-w-0 flex-1 items-center overflow-x-auto overflow-y-hidden whitespace-nowrap"
           >
-            <TabList aria-label="Dock de trading">
-              <Tab value="positions">{label('Positions', openPositions)}</Tab>
-              <Tab value="orders">{label('Orders', pendingOrders)}</Tab>
-              <Tab value="trades">Trades</Tab>
-              <Tab value="alerts">{label('Alerts', activeAlerts)}</Tab>
-              <Tab value="account">Account</Tab>
+            <TabList variant="workstation" aria-label="Dock de trading">
+              <Tab variant="workstation" value="positions">
+                {label('Positions', openPositions)}
+              </Tab>
+              <Tab variant="workstation" value="orders">
+                {label('Orders', pendingOrders)}
+              </Tab>
+              <Tab variant="workstation" value="trades">
+                Trades
+              </Tab>
+              <Tab variant="workstation" value="alerts">
+                {label('Alerts', activeAlerts)}
+              </Tab>
+              {/*
+               * Final closure §16 — the fifth destination overflows, it does not
+               * truncate.
+               *
+               * At 390px the strip clipped "Account" to "ACC", which names
+               * nothing. On a phone the four execution surfaces stay in the
+               * strip and Account moves behind a "Plus" disclosure; the tab
+               * itself is unchanged, still a real `role="tab"` in the same
+               * tablist, so arrow-key navigation and the panel wiring are
+               * untouched. It costs one extra tap to reach Account today, which
+               * is the right trade against a destination whose name a trader
+               * cannot read — and the pattern already holds whatever WX2 adds.
+               *
+               * Desktop keeps all five in the strip: it has the room.
+               */}
+              {!compact || overflowOpen || tab === 'account' ? (
+                <Tab variant="workstation" value="account">
+                  Account
+                </Tab>
+              ) : null}
             </TabList>
+            {compact && !overflowOpen && tab !== 'account' ? (
+              <button
+                type="button"
+                onClick={() => setOverflowOpen(true)}
+                aria-expanded={false}
+                aria-label="Plus de surfaces d’activité"
+                data-testid="workstation-dock-overflow"
+                className="flex min-h-11 shrink-0 items-center gap-1 rounded-t-[7px] px-2 text-[length:var(--wariba-component-workstation-type-label)] font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-text-tertiary)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]"
+              >
+                Plus
+              </button>
+            ) : null}
           </div>
 
-          <button
-            type="button"
-            onClick={onToggleCollapsed}
-            aria-expanded={!collapsed}
-            aria-label={collapsed ? 'Déplier le dock' : 'Replier le dock'}
-            data-testid="workstation-dock-collapse"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--wariba-radius-sm)] text-[color:var(--wariba-text-secondary)] hover:bg-[color:var(--wariba-surface-selected)] hover:text-[color:var(--wariba-theme-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]"
-          >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              className={`h-4 w-4 transition-transform ${collapsed ? '' : 'rotate-180'}`}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
+          {!collapsed && empty ? (
+            /*
+             * VX1-C §7 — the strip states *which* surface is empty.
+             *
+             * The dock keeps its accepted behaviour of returning its body to the
+             * chart when there is nothing to show, so the one line it can spare
+             * has to do the work: "Aucune activité" was true of the dock and
+             * silent about the tab the trader is actually looking at. The dock
+             * does not grow by a pixel for this.
+             */
+            <CompactEmptyState
+              title={DOCK_EMPTY_TITLE[tab]}
+              className="hidden max-w-64 shrink truncate lg:flex"
+            />
+          ) : null}
+
+          {/*
+           * Collapsing is a *desktop* affordance: it returns the dock's grid
+           * track to the chart. Inside the mobile sheet there is no track to
+           * return — the sheet is the container and it has its own dismissal —
+           * so the control did nothing but consume 44px of a 390px tab strip,
+           * which is what pushed "Plus" to clip. Hiding it on phones is both
+           * the honest behaviour and exactly the width the strip needed.
+           */}
+          {compact ? null : (
+            <button
+              type="button"
+              onClick={onToggleCollapsed}
+              aria-expanded={!collapsed}
+              aria-label={collapsed ? 'Déplier le dock' : 'Replier le dock'}
+              data-testid="workstation-dock-collapse"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--wariba-component-workstation-radius-control)] text-[color:var(--wariba-component-workstation-text-tertiary)] transition-[background-color,color,box-shadow,transform] duration-[var(--wariba-component-workstation-motion-quick)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] hover:shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-px motion-reduce:transition-none lg:h-8 lg:w-8"
             >
-              <path d="m6 15 6-6 6 6" />
-            </svg>
-          </button>
+              {collapsed ? <WariXChevronUpIcon /> : <WariXChevronDownIcon />}
+            </button>
+          )}
         </div>
 
         {/* Collapsed keeps the tab strip and its counts — the trader still sees
             which surface is active and how many positions are open — while the
             body's vertical space returns to the chart. */}
         {collapsed ? null : (
-          <div className="min-h-0 min-w-0 flex-1 overflow-auto p-[var(--wariba-component-workstation-panel-padding)]">
+          <div
+            className={`min-h-0 min-w-0 flex-1 overflow-auto p-[var(--wariba-component-workstation-panel-padding)] ${empty ? 'lg:hidden' : ''}`}
+          >
             <TabPanel value="positions">
               <PositionsTabPanel
                 store={store}
