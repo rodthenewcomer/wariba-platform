@@ -50,6 +50,11 @@ async function openExecutionCenter(page: Page): Promise<void> {
     });
     await page.getByRole('button', { name: /^Trader EURUSD$/ }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
+  } else {
+    const tradeDestination = page.getByTestId('utility-trade');
+    await expect(tradeDestination).toBeVisible({ timeout: 30_000 });
+    await tradeDestination.click();
+    await expect(page.getByTestId('utility-drawer-trade')).toBeVisible();
   }
 
   await expect(page.getByTestId('execution-center')).toBeVisible({ timeout: 30_000 });

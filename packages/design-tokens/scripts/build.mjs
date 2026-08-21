@@ -253,7 +253,6 @@ for (const k of Object.keys(shadow)) {
   lines.push(`  --shadow-${kebab(k)}: var(--wariba-shadow-${kebab(k)});`);
 }
 lines.push('}');
-lines.push('');
 
 writeFileSync(path.join(here, '../src/tokens.css'), lines.join('\n') + '\n');
 

@@ -133,7 +133,7 @@ export function OverlayAnchor({
   children,
   className = '',
   align = 'axis',
-  edge = null,
+  edge: _edge = null,
 }: {
   y: number;
   children: ReactNode;

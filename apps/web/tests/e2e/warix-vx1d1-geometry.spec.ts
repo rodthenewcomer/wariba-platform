@@ -98,7 +98,7 @@ async function openPositionWithProtection(
  * dock lives inside a sheet.
  */
 async function flatten(page: Page, options: { mobile?: boolean } = {}): Promise<void> {
-  if (await page.getByTestId('chart-position-chip').count() === 0) return;
+  if ((await page.getByTestId('chart-position-chip').count()) === 0) return;
 
   if (options.mobile) {
     await page.getByTestId('mobile-dock-trigger').click();
@@ -279,9 +279,7 @@ test.describe('VX1-D.1 trade geometry', { tag: ['@warix-vx1d1'] }, () => {
      * and a stop 40 pips away often is not. The dock always states the
      * authoritative value, which is the number this assertion is about.
      */
-    await expect(page.getByRole('row', { name: /EURUSD/ }).first()).toContainText(
-      levels.stopLoss,
-    );
+    await expect(page.getByRole('row', { name: /EURUSD/ }).first()).toContainText(levels.stopLoss);
     await assertGeometry(page, 'buy');
     await page.screenshot({ path: resolve(OUT_DIR, 'vx1d1-1440-08-sl-drag-restored.png') });
     await flatten(page);

@@ -96,8 +96,7 @@ export function resolveDragCardTop(input: DragCardLayoutInput): number {
     // Scanned from the preferred end, so an exact tie resolves toward §1's
     // first rule rather than toward whichever end the loop happens to start at.
     const ratio = step / steps;
-    const candidate =
-      dragDirection === 'up' ? maxTop - span * ratio : minTop + span * ratio;
+    const candidate = dragDirection === 'up' ? maxTop - span * ratio : minTop + span * ratio;
     const covered = totalOverlap({ top: candidate, bottom: candidate + cardHeight }, occupied);
     if (covered < bestOverlap) {
       bestOverlap = covered;

@@ -183,7 +183,6 @@ const TimeframeSelector = memo(function TimeframeSelector({
       if (current && current.left === next.left && current.width === next.width) return current;
       return next;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on contents, see above
   }, [timeframe, visibleKey]);
 
   return (

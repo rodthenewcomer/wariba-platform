@@ -150,6 +150,8 @@ function Workstation({ store, transport }: { store: TickStore; transport: unknow
         onDeleteAlert={NOOP}
         onPendingOrderRequest={NOOP}
         onCreateAlertHere={NOOP}
+        onOpenAlerts={NOOP}
+        onOpenSymbolSearch={NOOP}
       />
     </div>
   );
@@ -191,6 +193,8 @@ function ReactiveTickWorkstation({ store, transport }: { store: TickStore; trans
         onDeleteAlert={NOOP}
         onPendingOrderRequest={NOOP}
         onCreateAlertHere={NOOP}
+        onOpenAlerts={NOOP}
+        onOpenSymbolSearch={NOOP}
       />
     </div>
   );
@@ -198,6 +202,7 @@ function ReactiveTickWorkstation({ store, transport }: { store: TickStore; trans
 
 function renderWorkstation(reactiveTick = false): Harness {
   const store = createTickStore();
+  if (reactiveTick) store.update(tickAt(-1));
   const requests: MarketHistoryRequest[] = [];
   const resultListeners = new Set<(r: MarketHistoryResult) => void>();
   const errorListeners = new Set<(e: MarketHistoryErrorMessage) => void>();

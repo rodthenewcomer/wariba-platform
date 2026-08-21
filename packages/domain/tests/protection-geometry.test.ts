@@ -36,7 +36,9 @@ describe('protective level geometry', () => {
 
     // SELL at 1.08500 — SL 1.08700, TP 1.08350.
     const sell = { side: 'sell' as const, entryPrice: '1.08500' };
-    expect(isProtectionLevelValid({ ...sell, kind: 'stop_loss', levelPrice: '1.08700' })).toBe(true);
+    expect(isProtectionLevelValid({ ...sell, kind: 'stop_loss', levelPrice: '1.08700' })).toBe(
+      true,
+    );
     expect(isProtectionLevelValid({ ...sell, kind: 'take_profit', levelPrice: '1.08350' })).toBe(
       true,
     );
@@ -47,7 +49,9 @@ describe('protective level geometry', () => {
     expect(isProtectionLevelValid({ ...buy, kind: 'take_profit', levelPrice: '1.08350' })).toBe(
       false,
     );
-    expect(isProtectionLevelValid({ ...buy, kind: 'stop_loss', levelPrice: '1.08700' })).toBe(false);
+    expect(isProtectionLevelValid({ ...buy, kind: 'stop_loss', levelPrice: '1.08700' })).toBe(
+      false,
+    );
 
     const sell = { side: 'sell' as const, entryPrice: '1.08500' };
     expect(isProtectionLevelValid({ ...sell, kind: 'stop_loss', levelPrice: '1.08350' })).toBe(
@@ -63,8 +67,9 @@ describe('protective level geometry', () => {
     // opened at is a round trip, not a risk limit.
     for (const side of ['buy', 'sell'] as const) {
       for (const kind of ['stop_loss', 'take_profit'] as const) {
-        expect(isProtectionLevelValid({ side, kind, entryPrice: '1.08500', levelPrice: '1.08500' }))
-          .toBe(false);
+        expect(
+          isProtectionLevelValid({ side, kind, entryPrice: '1.08500', levelPrice: '1.08500' }),
+        ).toBe(false);
       }
     }
   });

@@ -124,7 +124,6 @@ export const WorkstationFeedback = memo(function WorkstationFeedback({
     return () => clearTimeout(timer);
     // Keyed on the sequence: the same sentence twice is two events, and both
     // deserve their own confirmation.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sequence]);
 
   if (!shown) return null;

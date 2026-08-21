@@ -147,6 +147,8 @@ function renderChart(): Harness {
       onDeleteAlert={NOOP}
       onPendingOrderRequest={NOOP}
       onCreateAlertHere={NOOP}
+      onOpenAlerts={NOOP}
+      onOpenSymbolSearch={NOOP}
     />,
   );
 
@@ -213,7 +215,7 @@ describe('mobile chart tools — W5 §66/§67/§70/§116', () => {
     expect(screen.getAllByRole('radio')).toHaveLength(5);
     // §66 — nothing permanently stacked: the tools live behind one trigger.
     expect(screen.queryByTestId('chart-tools-trigger')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('chart-indicators-trigger')).not.toBeInTheDocument();
+    expect(screen.getByTestId('chart-indicators-trigger')).toBeInTheDocument();
     expect(screen.getByTestId('chart-tools-sheet-trigger')).toBeInTheDocument();
     expect(screen.queryByTestId('chart-tools-sheet')).not.toBeInTheDocument();
   });
@@ -259,7 +261,7 @@ describe('mobile chart tools — W5 §66/§67/§70/§116', () => {
     h.deliver(history(h.requests[0]?.requestId ?? '', '5s'));
 
     await user.click(screen.getByTestId('chart-tools-sheet-trigger'));
-    await user.click(screen.getByTestId('chart-tool-family-lines'));
+    await user.click(screen.getByTestId('chart-tool-family-levels'));
     await user.click(screen.getByTestId('chart-tool-horizontal_line'));
 
     // Sheet gone, chart in drawing mode, and the mode is visible.
@@ -281,7 +283,7 @@ describe('mobile chart tools — W5 §66/§67/§70/§116', () => {
     h.deliver(history(h.requests[0]?.requestId ?? '', '5s'));
 
     await user.click(screen.getByTestId('chart-tools-sheet-trigger'));
-    await user.click(screen.getByTestId('chart-tool-family-lines'));
+    await user.click(screen.getByTestId('chart-tool-family-levels'));
     await user.click(screen.getByTestId('chart-tool-horizontal_line'));
     chartDouble.spies.priceAtCoordinate = 1.086;
     fireEvent(h.container(), pointer('pointerdown', { clientX: 200, clientY: 250, pointerId: 4 }));
@@ -328,7 +330,7 @@ describe('one configuration across breakpoints — W5 §71', () => {
     await user.click(screen.getByRole('checkbox', { name: 'SMA 50' }));
     fireEvent(screen.getByRole('dialog', { name: 'Indicateurs' }), new Event('close'));
     await user.click(screen.getByTestId('chart-tools-sheet-trigger'));
-    await user.click(screen.getByTestId('chart-tool-family-lines'));
+    await user.click(screen.getByTestId('chart-tool-family-levels'));
     await user.click(screen.getByTestId('chart-tool-horizontal_line'));
     chartDouble.spies.priceAtCoordinate = 1.086;
     fireEvent(

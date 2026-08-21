@@ -111,6 +111,8 @@ function renderChart() {
       onDeleteAlert={NOOP}
       onPendingOrderRequest={NOOP}
       onCreateAlertHere={NOOP}
+      onOpenAlerts={NOOP}
+      onOpenSymbolSearch={NOOP}
     />,
   );
 }
@@ -134,7 +136,7 @@ describe('TradeChart sizing', () => {
       'ResizeObserver',
       class {
         constructor(callback: () => void) {
-          resizeCallback = callback;
+          resizeCallback ??= callback;
         }
         observe() {}
         disconnect() {}
@@ -173,15 +175,16 @@ describe('TradeChart sizing', () => {
     expect(new Set(heights).size).toBeGreaterThan(1);
   });
 
-  it('observes the container rather than the window', () => {
+  it('responds to its container without requiring a window resize', () => {
     // The workstation grid can resize this column with no window resize at
     // all (dock collapse, navigator drawer, scrollbar appearing).
-    const addEventListener = vi.spyOn(window, 'addEventListener');
     stubContainerBox(800, 500);
     renderChart();
     expect(resizeCallback).toBeTypeOf('function');
-    expect(addEventListener.mock.calls.filter(([type]) => type === 'resize')).toHaveLength(0);
-    addEventListener.mockRestore();
+
+    stubContainerBox(900, 550);
+    act(() => resizeCallback?.());
+    expect(sizeCalls().at(-1)).toEqual({ width: 900, height: 550 });
   });
 
   it('refreshes overlay geometry after a resize', () => {

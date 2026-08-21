@@ -121,6 +121,8 @@ function renderChart(): Harness {
     onDeleteAlert: vi.fn(),
     onPendingOrderRequest: vi.fn(),
     onCreateAlertHere: vi.fn(),
+    onOpenAlerts: vi.fn(),
+    onOpenSymbolSearch: vi.fn(),
   };
 
   render(

@@ -81,7 +81,7 @@ export function useValueFlash(formatted: string, durationMs = 160): ValueDirecti
  * placeholder dash never registers as a change of value.
  */
 function parseSignedNumber(formatted: string): number | null {
-  const normalized = formatted.replace(/−/g, '-').replace(/[\s  ]/g, '');
+  const normalized = formatted.replace(/−/g, '-').replace(/[\s\u202f\u00a0]/g, '');
   const match = normalized.match(/-?\d+(?:[.,]\d+)?/);
   if (!match) return null;
   const parsed = Number(match[0].replace(',', '.'));

@@ -391,10 +391,7 @@ test.describe('VX1-D motion evidence', { tag: ['@warix-vx1d'] }, () => {
  * properties — truth and boundedness — are asserted rather than eyeballed.
  */
 test.describe('VX1-D motion safety', { tag: ['@warix-vx1d'] }, () => {
-  test('the display layer never changes an authoritative price', async ({
-    page,
-    tradeAccount,
-  }) => {
+  test('the display layer never changes an authoritative price', async ({ page, tradeAccount }) => {
     test.setTimeout(180_000);
     await signIn(page, tradeAccount.email, tradeAccount.password);
     await page.setViewportSize({ width: 1440, height: 900 });

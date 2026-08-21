@@ -68,6 +68,11 @@ function renderRail(overrides: Partial<React.ComponentProps<typeof DrawingToolRa
     keepDrawingMode: false,
     onToggleKeepDrawingMode: vi.fn(),
     drawingsHidden: false,
+    drawingsLocked: false,
+    onToggleDrawingsLocked: vi.fn(),
+    onZoomIn: vi.fn(),
+    chartLinkCopied: false,
+    onCopyChartLink: vi.fn(),
     indicatorsHidden: false,
     onSetDrawingsHidden: vi.fn(),
     onSetIndicatorsHidden: vi.fn(),
@@ -305,12 +310,12 @@ describe('indicator library — §13', () => {
 });
 
 describe('drawing tool rail — §9/§10', () => {
-  it('keeps a 44 px rail with light 26 px tool targets', () => {
+  it('keeps a 44 px rail with accepted 32 px tool targets', () => {
     renderRail();
     expect(screen.getByTestId('chart-tools-trigger').className).toContain(
       'w-[var(--wariba-component-workstation-drawing-rail-width)]',
     );
-    expect(screen.getByTestId('chart-tool-select')).toHaveStyle({ width: '26px', height: '26px' });
+    expect(screen.getByTestId('chart-tool-select')).toHaveStyle({ width: '32px', height: '32px' });
   });
 
   it('groups the taxonomy into families rather than listing every tool flat', () => {
@@ -324,8 +329,8 @@ describe('drawing tool rail — §9/§10', () => {
   it('opens a family flyout and selects a tool from it', async () => {
     const user = userEvent.setup();
     const props = renderRail();
-    await user.click(screen.getByTestId('chart-tool-family-lines'));
-    expect(screen.getByTestId('chart-tool-flyout-lines')).toBeInTheDocument();
+    await user.click(screen.getByTestId('chart-tool-family-levels'));
+    expect(screen.getByTestId('chart-tool-flyout-levels')).toBeInTheDocument();
     await user.click(screen.getByTestId('chart-tool-horizontal_ray'));
     expect(props.onSelect).toHaveBeenCalledWith('horizontal_ray');
   });
@@ -450,7 +455,7 @@ describe('toolbar density — W5 §61/§62/§63 + reopen §20', () => {
   it('drops the desktop cluster on a compact viewport, keeping timeframes reachable (§67)', () => {
     renderToolbar({ compact: true });
     expect(screen.getAllByRole('radio')).toHaveLength(5);
-    expect(screen.queryByTestId('chart-indicators-trigger')).not.toBeInTheDocument();
+    expect(screen.getByTestId('chart-indicators-trigger')).toBeInTheDocument();
     expect(screen.queryByTestId('chart-settings-trigger')).not.toBeInTheDocument();
   });
 
@@ -486,7 +491,7 @@ describe('bottom chart band — Round 2', () => {
     for (const label of ['1 an', '3 m', '1 m', '5 j', '3 j', '1 j']) {
       expect(screen.getByRole('button', { name: label })).toBeDisabled();
     }
-    expect(screen.getByText('ETH')).toBeInTheDocument();
+    expect(screen.getByTestId('chart-clock')).toHaveTextContent(/UTC$/);
     expect(screen.getByRole('button', { name: 'Échelle en pourcentage' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Échelle logarithmique' })).toBeInTheDocument();
     expect(

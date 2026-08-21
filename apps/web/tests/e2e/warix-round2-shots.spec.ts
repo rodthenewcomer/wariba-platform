@@ -19,7 +19,12 @@ async function settle(page: Page): Promise<void> {
     'open',
     { timeout: 30_000 },
   );
-  await expect(page.getByRole('group', { name: /^Graphique / }).locator('canvas').first()).toBeVisible();
+  await expect(
+    page
+      .getByRole('group', { name: /^Graphique / })
+      .locator('canvas')
+      .first(),
+  ).toBeVisible();
   await expect(page.getByTestId('chart-bottom-bar')).toBeVisible();
   await page.addStyleTag({ content: 'nextjs-portal { display: none !important; }' });
   await page.waitForTimeout(1500);

@@ -1,6 +1,6 @@
 import { mkdirSync, readdirSync, renameSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { Browser, Locator, Page } from '@playwright/test';
+import type { Browser, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 
 /**
@@ -44,17 +44,6 @@ async function settle(page: Page): Promise<void> {
     { timeout: 60_000 },
   );
   await page.waitForTimeout(2_000);
-}
-
-async function boxOf(locator: Locator): Promise<{
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}> {
-  const box = await locator.boundingBox();
-  if (!box) throw new Error('expected a rendered box');
-  return box;
 }
 
 /**

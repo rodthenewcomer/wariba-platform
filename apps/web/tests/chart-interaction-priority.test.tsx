@@ -150,6 +150,8 @@ function renderChart(): Harness {
     onDeleteAlert: vi.fn(),
     onPendingOrderRequest: vi.fn(),
     onCreateAlertHere: vi.fn(),
+    onOpenAlerts: vi.fn(),
+    onOpenSymbolSearch: vi.fn(),
   };
 
   render(
@@ -382,7 +384,7 @@ describe('an active drawing tool owns the gesture — §58/§111', () => {
       const h = renderChart();
       h.deliver(history(h.requests[0]?.requestId ?? ''));
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-      await user.click(screen.getByTestId('chart-tool-family-lines'));
+      await user.click(screen.getByTestId('chart-tool-family-levels'));
       await user.click(screen.getByTestId('chart-tool-horizontal_line'));
 
       fireEvent(
@@ -412,7 +414,7 @@ describe('an active drawing tool owns the gesture — §58/§111', () => {
     const h = renderChart();
     h.deliver(history(h.requests[0]?.requestId ?? ''));
     const user = userEvent.setup();
-    await user.click(screen.getByTestId('chart-tool-family-lines'));
+    await user.click(screen.getByTestId('chart-tool-family-levels'));
     await user.click(screen.getByTestId('chart-tool-horizontal_line'));
     expect(h.container()).toHaveAttribute('data-chart-tool', 'horizontal_line');
 

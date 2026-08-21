@@ -142,7 +142,11 @@ test.describe('VX1-C.1 status and icons', { tag: ['@warix-vx1c1'] }, () => {
     // §5 — a working instrument row spends no ink. Asserted inside the open
     // drawer, where five of them are on screen at once.
     await expect(
-      page.getByTestId('market-navigator').locator('span.rounded-full.bg-\\[color\\:var\\(--wariba-component-workstation-text-financial-positive\\)\\]'),
+      page
+        .getByTestId('market-navigator')
+        .locator(
+          'span.rounded-full.bg-\\[color\\:var\\(--wariba-component-workstation-text-financial-positive\\)\\]',
+        ),
     ).toHaveCount(0);
     await page.getByTestId('utility-drawer-markets-close').click();
 

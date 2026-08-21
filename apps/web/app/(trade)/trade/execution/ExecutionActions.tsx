@@ -2,11 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { ORDER_KIND_LABEL } from './OrderTypeSelector';
-import type {
-  ExecutionSide,
-  OrderRejectionDetail,
-  TicketOrderKind,
-} from './execution-contract';
+import type { ExecutionSide, OrderRejectionDetail, TicketOrderKind } from './execution-contract';
 
 export interface ExecutionActionsProps {
   orderKind: TicketOrderKind;

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { AccountRisk, AccountSnapshot } from '@wariba/contracts';
@@ -53,6 +53,15 @@ const RISK: AccountRisk = {
   concentration: [],
   shortDurationMonitoring: { status: 'normal', count24h: 0 },
 } as AccountRisk;
+
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
+    this.setAttribute('open', '');
+  };
+  HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
+    this.removeAttribute('open');
+  };
+});
 
 function statusBar(props: Partial<React.ComponentProps<typeof WorkstationStatusBar>> = {}) {
   return render(
@@ -197,10 +206,14 @@ describe('WorkstationAccountSwitcher', () => {
     expect(screen.queryByText(/acc-eval/i)).not.toBeInTheDocument();
   });
 
-  it('renders identity without a disclosure when there is nothing to switch to', () => {
+  it('keeps the canonical account navigation available with one account', async () => {
     render(<WorkstationAccountSwitcher accounts={[EVALUATION]} activeAccountId={EVALUATION.id} />);
-    expect(screen.queryByRole('navigation', { name: 'Changer de compte' })).not.toBeInTheDocument();
-    expect(screen.getByTestId('workstation-account-identity')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('group').querySelector('summary') as HTMLElement);
+    const menu = screen.getByRole('navigation', { name: 'Changer de compte' });
+    const links = within(menu).getAllByRole('link');
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAttribute('href', '/trade?account=acc-eval');
+    expect(links[0]).toHaveAttribute('aria-current', 'page');
   });
 });
 
@@ -214,20 +227,15 @@ describe('WorkstationStatusBar', () => {
     // (W2 §25). All three are in the DOM, so assert presence, not uniqueness.
     const metrics = within(screen.getByTestId('workstation-metrics'));
     expect(metrics.getAllByText('Equity').length).toBeGreaterThan(0);
-    expect(metrics.getAllByText('DLL restant').length).toBeGreaterThan(0);
-    expect(metrics.getAllByText('Perte max restante').length).toBeGreaterThan(0);
+    expect(metrics.getByTestId('metric-pmj')).toHaveTextContent('PMJ');
+    expect(metrics.getByTestId('metric-pm')).toHaveTextContent('PM');
     // Visual closure §6 — the currency is drawn a step below its figure, so the
     // amount and its unit are separate elements inside one `<dd>`. The announced
     // and displayed value is still "10 050.00 USD"; only the type size differs
     // between the two halves.
     expect(metrics.getAllByText('10 050.00').length).toBeGreaterThan(0);
     expect(metrics.getAllByText('400.00').length).toBeGreaterThan(0);
-    expect(metrics.getAllByText('USD').length).toBeGreaterThan(0);
-    const equity = metrics.getAllByRole('definition')[0] as HTMLElement;
-    expect(equity.textContent).toContain('10 050.00 USD');
-    // The phone-width labels stay short; no figure is dropped with them.
-    expect(metrics.getAllByText('Eq').length).toBeGreaterThan(0);
-    expect(metrics.getAllByText('DLL').length).toBeGreaterThan(0);
+    expect(metrics.getByTestId('metric-equity')).toHaveTextContent('Equity10 050.00');
   });
 
   it('reports transport state exactly once, and never as account status', () => {
@@ -290,11 +298,13 @@ describe('WorkstationStatusBar', () => {
     expect(screen.queryByText(/Périmé/)).not.toBeInTheDocument();
   });
 
-  it('surfaces short-duration monitoring rather than hiding it', () => {
+  it('keeps short-duration monitoring available in the canonical risk detail', async () => {
     statusBar({
       risk: { ...RISK, shortDurationMonitoring: { status: 'entry_locked', count24h: 6 } },
     });
-    expect(screen.getByText('Ouvertures suspendues')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Détail des règles de risque' }));
+    expect(screen.getByText('Clôtures profitables < 60 s (24 h)')).toBeInTheDocument();
+    expect(screen.getByText('6')).toBeInTheDocument();
   });
 
   it('shows an unread notification count', () => {

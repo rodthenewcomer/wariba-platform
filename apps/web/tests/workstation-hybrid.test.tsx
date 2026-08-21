@@ -18,55 +18,51 @@ function slots(
   overrides: Partial<Parameters<typeof WorkstationShell>[0]> = {},
 ): Parameters<typeof WorkstationShell>[0] {
   return {
-    navigatorWidth: 244,
-    navigatorCollapsed: false,
     dockHeight: 220,
     dockCollapsed: false,
-    navigatorResizeHandle: null,
-    executionResizeHandle: null,
-    executionWidth: 320,
-    navigatorRestore: <button type="button">Marchés</button>,
+    utilityDrawerWidth: 244,
+    utilityDrawerOpen: true,
+    utilityDrawerOverlay: false,
+    onUtilityDrawerDismiss: vi.fn(),
+    utilityDrawerResizeHandle: null,
     rail: <nav aria-label="rail" />,
+    utilityRail: <aside aria-label="utilities" />,
     statusBar: <header>status</header>,
     mobileMarketTrigger: null,
-    navigator: (
+    utilityDrawer: (
       <div data-testid="navigator-content">
         <input aria-label="Rechercher un instrument" />
       </div>
     ),
     chart: <div data-testid="chart">chart</div>,
     mobileExecutionAction: null,
-    execution: <div>execution</div>,
     dock: <div>dock</div>,
     ...overrides,
   };
 }
 
-describe('hybrid Navigator placement (§24)', () => {
+describe('hybrid utility drawer placement (§24)', () => {
   it('never contributes a grid track while overlaid, so the chart column cannot change', () => {
     const { rerender, container } = render(
-      <WorkstationShell
-        {...slots({ navigatorOverlay: true, onNavigatorOverlayDismiss: vi.fn() })}
-      />,
+      <WorkstationShell {...slots({ utilityDrawerOverlay: true })} />,
     );
 
     const shell = container.querySelector('[data-testid="workstation-shell"]') as HTMLElement;
     const columnsWhileOpen = shell.style.gridTemplateColumns;
-    expect(screen.getByTestId('market-navigator-overlay')).toBeInTheDocument();
+    expect(screen.getByTestId('utility-drawer-overlay')).toBeInTheDocument();
     // The overlay is *not* the track — the track must be absent entirely.
-    expect(screen.queryByTestId('market-navigator-track')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('utility-drawer-track')).not.toBeInTheDocument();
 
     rerender(
       <WorkstationShell
         {...slots({
-          navigatorOverlay: true,
-          navigatorCollapsed: true,
-          onNavigatorOverlayDismiss: vi.fn(),
+          utilityDrawerOverlay: true,
+          utilityDrawerOpen: false,
         })}
       />,
     );
 
-    expect(screen.queryByTestId('market-navigator-overlay')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('utility-drawer-overlay')).not.toBeInTheDocument();
     // Identical column template open and closed: the chart cell is handed the
     // same space either way, which is the whole point of the overlay.
     expect(
@@ -77,18 +73,14 @@ describe('hybrid Navigator placement (§24)', () => {
   });
 
   it('keeps exactly one Navigator tree in the document', () => {
-    render(
-      <WorkstationShell
-        {...slots({ navigatorOverlay: true, onNavigatorOverlayDismiss: vi.fn() })}
-      />,
-    );
+    render(<WorkstationShell {...slots({ utilityDrawerOverlay: true })} />);
     expect(screen.getAllByTestId('navigator-content')).toHaveLength(1);
   });
 
   it('renders the track, not an overlay, outside the hybrid band', () => {
     render(<WorkstationShell {...slots()} />);
-    expect(screen.getByTestId('market-navigator-track')).toBeInTheDocument();
-    expect(screen.queryByTestId('market-navigator-overlay')).not.toBeInTheDocument();
+    expect(screen.getByTestId('utility-drawer-track')).toBeInTheDocument();
+    expect(screen.queryByTestId('utility-drawer-overlay')).not.toBeInTheDocument();
   });
 });
 

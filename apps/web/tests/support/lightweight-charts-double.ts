@@ -95,13 +95,27 @@ export function createLightweightChartsDouble(): {
     coordinateToPrice: vi.fn(() => spies.priceAtCoordinate),
   };
 
+  const createBaseSeries = () => ({
+    update: vi.fn(),
+    setData: vi.fn(),
+    applyOptions: vi.fn(),
+    priceToCoordinate: spies.seriesPriceToCoordinate,
+    coordinateToPrice: vi.fn(() => spies.priceAtCoordinate),
+  });
+  const barSeries = createBaseSeries();
+  const lineChartSeries = createBaseSeries();
+  const areaSeries = createBaseSeries();
+
   const module = {
     CrosshairMode: { Normal: 0 },
     PriceScaleMode: { Normal: 0, Logarithmic: 1, Percentage: 2, IndexedTo100: 3 },
     createChart: vi.fn(() => ({
       applyOptions: vi.fn(),
       addCandlestickSeries: () => candlestickSeries,
+      addBarSeries: () => barSeries,
+      addAreaSeries: () => areaSeries,
       addLineSeries: (options: Record<string, unknown>) => {
+        if (options.visible === false) return lineChartSeries;
         const index = spies.lineSeriesCreated.length;
         spies.lineSeriesCreated.push({ options });
         return {
@@ -136,7 +150,7 @@ export function createLightweightChartsDouble(): {
         setVisibleRange: spies.setVisibleRange,
         fitContent: spies.fitContent,
       }),
-      priceScale: () => ({ applyOptions: spies.priceScaleApplyOptions }),
+      priceScale: () => ({ applyOptions: spies.priceScaleApplyOptions, width: () => 64 }),
       remove: vi.fn(),
     })),
   };

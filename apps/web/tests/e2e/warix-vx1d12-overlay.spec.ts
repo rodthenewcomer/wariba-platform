@@ -135,24 +135,6 @@ async function assertGeometry(page: Page, side: 'buy' | 'sell'): Promise<void> {
   }
 }
 
-/** Every chip fully inside the plot, and clear of the reserved lanes. */
-async function assertSafeZones(page: Page): Promise<void> {
-  const plot = await page.getByTestId('chart-track').boundingBox();
-  if (!plot) throw new Error('expected a plot');
-  for (const id of [
-    'chart-position-chip',
-    'chart-level-chip-stop_loss',
-    'chart-level-chip-take_profit',
-  ]) {
-    const box = await page.getByTestId(id).boundingBox();
-    if (!box) continue;
-    expect(box.y, `${id} clipped at the top`).toBeGreaterThanOrEqual(plot.y - 1);
-    expect(box.y + box.height, `${id} clipped at the bottom`).toBeLessThanOrEqual(
-      plot.y + plot.height + 1,
-    );
-  }
-}
-
 /** Rectangles, in viewport coordinates, of everything the card must not cover. */
 async function tradeObjectBoxes(page: Page) {
   const boxes: { id: string; box: { x: number; y: number; width: number; height: number } }[] = [];
@@ -163,7 +145,10 @@ async function tradeObjectBoxes(page: Page) {
     'chart-price-plate-current',
     'chart-price-plate-entry',
   ]) {
-    const box = await page.getByTestId(id).boundingBox().catch(() => null);
+    const box = await page
+      .getByTestId(id)
+      .boundingBox()
+      .catch(() => null);
     if (box) boxes.push({ id, box });
   }
   return boxes;
@@ -230,7 +215,6 @@ test.describe('VX1-D.1.2 overlay cleanup', { tag: ['@warix-vx1d12'] }, () => {
     await page.waitForTimeout(1_200);
     await assertGeometry(page, 'buy');
     await flatten(page, { mobile: true });
-
   });
 
   /*

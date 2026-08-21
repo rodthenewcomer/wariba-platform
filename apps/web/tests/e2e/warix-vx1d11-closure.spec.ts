@@ -237,7 +237,6 @@ test.describe('VX1-D.1.1 closure', { tag: ['@warix-vx1d11'] }, () => {
       await assertGeometry(page, 'sell');
     }
     await flatten(page, { mobile: true });
-
   });
 
   test('desktop — long and short, still correct after the revert', async ({

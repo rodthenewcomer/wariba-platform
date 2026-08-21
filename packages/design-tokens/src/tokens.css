@@ -287,6 +287,7 @@
   --wariba-status-neutral-border: #9AA3B1;
   --wariba-status-neutral-text: #272D3A;
 }
+
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --wariba-background-canvas: #0B0D12;
