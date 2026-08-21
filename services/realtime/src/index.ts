@@ -1,6 +1,10 @@
 import Fastify from 'fastify';
 import websocketPlugin from '@fastify/websocket';
-import { createDbClient, type TradableSymbol } from '@wariba/database';
+import {
+  createDbClient,
+  loadMarketSourceSequenceWatermarks,
+  type TradableSymbol,
+} from '@wariba/database';
 import { createLogger, createCorrelationId } from '@wariba/observability';
 import { loadRealtimeConfig } from './config';
 import { checkHealth } from './health';
@@ -10,7 +14,8 @@ import { registerWebSocketRoute } from './websocket';
 import { RealtimeLeadershipCoordinator } from './leadership';
 import { RealtimeOperationalMetrics } from './metrics';
 import { OperationalAlertMonitor } from './alert-monitor';
-import { MemoryMarketHistoryStore } from './market-history-store';
+import { DurableMarketHistoryStore } from './durable-market-history-store';
+import { MarketSequenceContinuityProvider } from './market-sequence-continuity';
 
 const config = loadRealtimeConfig();
 const logger = createLogger({ service: 'realtime', minLevel: config.LOG_LEVEL });
@@ -32,7 +37,22 @@ async function start(): Promise<void> {
   await leadership.start();
   const metrics = new RealtimeOperationalMetrics();
   const symbolSpecs = await loadSymbolSpecs(db);
-  const market = createMarketDataProvider(config, symbolSpecs);
+  const provider = createMarketDataProvider(config, symbolSpecs);
+  const sequenceWatermarks = await loadMarketSourceSequenceWatermarks(db, provider.source.id);
+  const market = new MarketSequenceContinuityProvider(provider, sequenceWatermarks);
+  const history = new DurableMarketHistoryStore({
+    db,
+    source: market.source,
+    pricePrecision: Object.fromEntries(
+      (Object.keys(symbolSpecs) as TradableSymbol[]).map((symbol) => [
+        symbol,
+        symbolSpecs[symbol].pricePrecision,
+      ]),
+    ) as Record<TradableSymbol, number>,
+    logger,
+    onFlush: (result) => metrics.historyFlush(result),
+  });
+  await history.initialize();
   if (config.MARKET_DATA_ENABLED) {
     market.start();
   } else {
@@ -61,21 +81,6 @@ async function start(): Promise<void> {
     metrics: metrics.snapshot(),
   }));
 
-  /**
-   * W3 §6/§11 — exactly one history store for this process, created here at
-   * startup so its `sourceEpoch` is this process's lifetime. Not per
-   * connection, not per account. It is handed to the WebSocket route as both
-   * the single accepted-tick observer and the read port.
-   */
-  const history = new MemoryMarketHistoryStore({
-    pricePrecision: Object.fromEntries(
-      (Object.keys(symbolSpecs) as TradableSymbol[]).map((symbol) => [
-        symbol,
-        symbolSpecs[symbol].pricePrecision,
-      ]),
-    ) as Record<TradableSymbol, number>,
-  });
-
   await app.register(websocketPlugin);
   registerWebSocketRoute(app, {
     db,
@@ -92,6 +97,7 @@ async function start(): Promise<void> {
   app.addHook('onClose', async () => {
     alertMonitor.stop();
     market.stop();
+    await history.close();
     await leadership.stop();
     await db.destroy();
   });
@@ -103,6 +109,10 @@ async function start(): Promise<void> {
       port: config.REALTIME_PORT,
       seed: config.SANDBOX_MARKET_SEED,
       marketDataProvider: market.providerName,
+      marketDataSourceId: market.source.id,
+      marketDataMode: market.source.mode,
+      marketDataCapabilities: market.source.capabilities,
+      restoredSequenceWatermarks: Object.keys(sequenceWatermarks).length,
       instanceId: config.INSTANCE_ID,
       leadership: leadership.readiness().role,
     });

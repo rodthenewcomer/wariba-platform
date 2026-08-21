@@ -21,9 +21,8 @@ import { expect, test } from './fixtures';
  *
  * Wall-clock note: a bucket finalizes only when an accepted tick lands in a later
  * one, and the feed's timestamps are wall clock (§81 forbids making the simulator
- * time-reconstructable). A 1m bar therefore needs ~2 minutes of realtime-process
- * uptime, which is why this spec raises its own timeout and captures the short
- * intervals first.
+ * time-reconstructable). WX2 persists observed bars across restarts, so this
+ * evidence waits for minimum durable depth instead of assuming a fresh process.
  */
 const OUT_DIR = 'test-results/warix-w3-review';
 const HISTORY_STATUS = '[data-testid="chart-history-status"]';
@@ -39,10 +38,9 @@ const HISTORY_STATUS = '[data-testid="chart-history-status"]';
  * §86 exists to prevent. So each shot names the depth it needs and waits for it;
  * on a young process this spec is slow rather than wrong.
  *
- * The counts differ because depth is wall-clock bound: 20 bars is 100 s of
- * uptime at 5s, but 20 minutes at 1m.
+ * The counts differ because longer professional intervals finalize less often.
  */
-const REQUIRED_CANDLES = { '5s': 20, '30s': 8, '1m': 8 } as const;
+const REQUIRED_CANDLES = { '1m': 8, '5m': 2, '15m': 1 } as const;
 
 async function signIn(page: Page, email: string, password: string): Promise<void> {
   await page.goto('/login');
@@ -116,7 +114,7 @@ test.describe('WariX W3 review evidence', { tag: ['@warix-w3-evidence'] }, () =>
 
     // See the note on `selectTimeframe` in warix-w3.spec.ts: W5 §86 made this a
     // real radiogroup, so the selector follows the semantics.
-    const selectTimeframe = async (timeframe: '5s' | '30s' | '1m') => {
+    const selectTimeframe = async (timeframe: '1m' | '5m' | '15m') => {
       await page.getByRole('radio', { name: timeframe, exact: true }).click();
       await expect(page.getByRole('radio', { name: timeframe, exact: true })).toHaveAttribute(
         'aria-checked',
@@ -140,32 +138,33 @@ test.describe('WariX W3 review evidence', { tag: ['@warix-w3-evidence'] }, () =>
       await page.screenshot({ path: `${OUT_DIR}/${name}.png`, fullPage: false });
     };
 
-    // ---- 1920×1080, default 5s: the fastest interval, captured first so the
-    //      process accumulates uptime for the 30s and 1m shots below. ---------
+    // ---- 1920×1080, default 5m with durable observed history ---------------
     await page.setViewportSize({ width: 1920, height: 1080 });
     await openWorkstation();
-    const desktopDepth = await waitForHydrated(REQUIRED_CANDLES['5s'], 180_000);
+    await selectTimeframe('1m');
+    const desktopDepth = await waitForHydrated(REQUIRED_CANDLES['1m'], 180_000);
     await shot('1920x1080-full-workstation-hydrated');
 
     // ---- 390×844 hydrated chart-first ------------------------------------
     await page.setViewportSize({ width: 390, height: 844 });
     await openWorkstation();
-    const mobileDepth = await waitForHydrated(REQUIRED_CANDLES['5s'], 180_000);
+    await selectTimeframe('1m');
+    const mobileDepth = await waitForHydrated(REQUIRED_CANDLES['1m'], 180_000);
     await shot('390x844-chart-first-hydrated');
 
-    // ---- 1440×900, XAUUSD 30s -------------------------------------------
+    // ---- 1440×900, XAUUSD 5m --------------------------------------------
     await page.setViewportSize({ width: 1440, height: 900 });
     await openWorkstation();
     await selectSymbol('XAUUSD');
-    await selectTimeframe('30s');
-    const xauusdDepth = await waitForHydrated(REQUIRED_CANDLES['30s'], 300_000);
-    await shot('1440x900-xauusd-30s-hydrated');
+    await selectTimeframe('5m');
+    const xauusdDepth = await waitForHydrated(REQUIRED_CANDLES['5m'], 300_000);
+    await shot('1440x900-xauusd-5m-hydrated');
 
-    // ---- 1440×900, EURUSD 1m --------------------------------------------
+    // ---- 1440×900, EURUSD 15m -------------------------------------------
     await selectSymbol('EURUSD');
-    await selectTimeframe('1m');
-    const eurusdDepth = await waitForHydrated(REQUIRED_CANDLES['1m'], 900_000);
-    await shot('1440x900-eurusd-1m-hydrated');
+    await selectTimeframe('15m');
+    const eurusdDepth = await waitForHydrated(REQUIRED_CANDLES['15m'], 900_000);
+    await shot('1440x900-eurusd-15m-hydrated');
 
     // ---- 390×844, history deliberately held ------------------------------
     // W3 §86 — the loading state is produced, not caught. The history frame is
@@ -257,8 +256,8 @@ test.describe('WariX W3 review evidence', { tag: ['@warix-w3-evidence'] }, () =>
           finalizedCandles: {
             '1920x1080-full-workstation-hydrated': desktopDepth,
             '390x844-chart-first-hydrated': mobileDepth,
-            '1440x900-xauusd-30s-hydrated': xauusdDepth,
-            '1440x900-eurusd-1m-hydrated': eurusdDepth,
+            '1440x900-xauusd-5m-hydrated': xauusdDepth,
+            '1440x900-eurusd-15m-hydrated': eurusdDepth,
           },
           forcedStates: {
             '390x844-history-loading-live-feed-healthy':

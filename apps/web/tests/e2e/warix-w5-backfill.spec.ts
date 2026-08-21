@@ -14,7 +14,7 @@ import { expect, test } from './fixtures';
  * The correct condition, and what this spec sets up:
  *
  *   1. one stable realtime process, same `sourceEpoch` throughout
- *   2. it genuinely observes more than `INITIAL_HISTORY_CANDLE_LIMIT` 5s bars
+ *   2. the durable cache genuinely holds more than one initial page of 1m bars
  *      — real wall-clock observation, no fabricated candles, no accelerated
  *      market clock (candles are UTC-bucketed, so tick rate cannot move it)
  *   3. **only then** a fresh client opens
@@ -92,7 +92,7 @@ test.describe('WariX W5 pan-left backfill', { tag: ['@warix-w5-evidence'] }, () 
      * How many *older-page* responses have arrived.
      *
      * The signal has to come from the wire, not from `data-history-candles`. On
-     * a 5s chart a live candle finalizes every five seconds and increments that
+     * a 1m chart a live candle finalizes every minute and increments that
      * counter, so "the count went up" is satisfied by the market ticking over —
      * which is how an earlier version of this spec recorded a `prependedCount`
      * of 1 and called it a backfill.
@@ -170,10 +170,10 @@ test.describe('WariX W5 pan-left backfill', { tag: ['@warix-w5-evidence'] }, () 
     };
 
     await openFreshClient();
-    // 5s is the only interval that reaches the initial limit inside a session's
-    // worth of observation.
-    await page.getByRole('radio', { name: '5s', exact: true }).click();
-    await expect(page.getByRole('radio', { name: '5s', exact: true })).toHaveAttribute(
+    // 1m is the shortest supported professional interval. Its depth comes from
+    // the durable cache, not accelerated or fabricated time.
+    await page.getByRole('radio', { name: '1m', exact: true }).click();
+    await expect(page.getByRole('radio', { name: '1m', exact: true })).toHaveAttribute(
       'aria-checked',
       'true',
     );
@@ -195,7 +195,7 @@ test.describe('WariX W5 pan-left backfill', { tag: ['@warix-w5-evidence'] }, () 
         timeout: 600_000,
         intervals: [10_000],
         message:
-          'the realtime process must retain more than one initial page of 5s bars before a pan can fetch anything — genuine observation, never fabricated',
+          'the durable cache must retain more than one initial page of 1m bars before a pan can fetch anything — genuine observation, never fabricated',
       })
       .toBe('true');
 
@@ -209,11 +209,11 @@ test.describe('WariX W5 pan-left backfill', { tag: ['@warix-w5-evidence'] }, () 
      * the process retains far more, and it must say there is more.
      */
     const liveEdgeIndex = requests.findIndex(
-      (request) => request.timeframe === '5s' && request.before === null,
+      (request) => request.timeframe === '1m' && request.before === null,
     );
     expect(
       liveEdgeIndex,
-      'a live-edge 5s history request was observed on the wire',
+      'a live-edge 1m history request was observed on the wire',
     ).toBeGreaterThanOrEqual(0);
     const liveEdgeRequestId = requests[liveEdgeIndex]?.requestId ?? '';
     const initialResult = results.find((result) => result.requestId === liveEdgeRequestId);
@@ -364,7 +364,7 @@ test.describe('WariX W5 pan-left backfill', { tag: ['@warix-w5-evidence'] }, () 
       `${JSON.stringify(
         {
           capturedAt: new Date().toISOString(),
-          timeframe: '5s',
+          timeframe: '1m',
           serverRetainedMoreThanOnePage: initialResult?.hasMore === true,
           initialClientCandles,
           initialPageIsBounded: initialClientCandles <= INITIAL_LIMIT,

@@ -33,9 +33,9 @@ describe('parseChartPreferences — W5 §16/§40', () => {
     ).toEqual(DEFAULT_CHART_PREFERENCES);
   });
 
-  it('defaults to 5s rather than whichever interval happens to sort first (§15)', () => {
+  it('defaults to the explicit professional 5m interval (§15)', () => {
     expect(DEFAULT_CHART_PREFERENCES.timeframe).toBe(DEFAULT_CANDLE_TIMEFRAME);
-    expect(DEFAULT_CHART_PREFERENCES.timeframe).toBe('5s');
+    expect(DEFAULT_CHART_PREFERENCES.timeframe).toBe('5m');
   });
 
   it('restores every supported timeframe', () => {
@@ -46,7 +46,7 @@ describe('parseChartPreferences — W5 §16/§40', () => {
   });
 
   it('falls back to the default for a timeframe this build no longer supports (§16)', () => {
-    for (const unsupported of ['4h', '1D', '1000T', '', null, 60]) {
+    for (const unsupported of ['5s', '15s', '30s', '1000T', '', null, 60]) {
       const stored = payload({ 'acc-1': { timeframe: unsupported, indicators: [] } });
       expect(parseChartPreferences(stored, 'acc-1').timeframe).toBe(DEFAULT_CANDLE_TIMEFRAME);
     }
@@ -55,10 +55,10 @@ describe('parseChartPreferences — W5 §16/§40', () => {
   it('scopes preferences to the account (§79)', () => {
     const stored = payload({
       'acc-1': { timeframe: '3m', indicators: [] },
-      'acc-2': { timeframe: '15s', indicators: [] },
+      'acc-2': { timeframe: '3m', indicators: [] },
     });
     expect(parseChartPreferences(stored, 'acc-1').timeframe).toBe('3m');
-    expect(parseChartPreferences(stored, 'acc-2').timeframe).toBe('15s');
+    expect(parseChartPreferences(stored, 'acc-2').timeframe).toBe('3m');
     expect(parseChartPreferences(stored, 'acc-unknown').timeframe).toBe(DEFAULT_CANDLE_TIMEFRAME);
   });
 

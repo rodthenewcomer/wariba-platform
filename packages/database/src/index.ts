@@ -9,6 +9,16 @@
 export const PACKAGE_NAME = '@wariba/database';
 
 export { createDbClient, type Db, type DbExecutor } from './client';
+export {
+  registerMarketDataSource,
+  upsertMarketBars,
+  loadMarketBarPage,
+  loadCurrentMarketBars,
+  loadMarketSourceSequenceWatermarks,
+  type MarketDataSourceRecord,
+  type PersistedMarketBar,
+  type MarketBarPage,
+} from './market-bars';
 export type {
   Database,
   TradableSymbol,

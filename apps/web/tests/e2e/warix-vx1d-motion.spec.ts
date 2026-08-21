@@ -257,7 +257,7 @@ test.describe('VX1-D motion evidence', { tag: ['@warix-vx1d'] }, () => {
      * uppercase, because the chip is styled `uppercase`. An accessible name is
      * computed from the text, not from the paint, so `15S` matches nothing.
      */
-    for (const timeframe of ['15s', '30s', '5s']) {
+    for (const timeframe of ['3m', '5m', '15m']) {
       await page.getByRole('radio', { name: timeframe, exact: true }).click();
       await page.waitForTimeout(1_400);
     }

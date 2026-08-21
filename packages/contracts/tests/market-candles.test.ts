@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CANDLE_TIMEFRAMES,
   DEFAULT_CANDLE_TIMEFRAME,
+  bucketEndSeconds,
   bucketStartSeconds,
   createCandleAggregator,
   isCandleTimeframe,
@@ -17,14 +18,13 @@ function utc(h: number, m: number, s: number, ms = 0): number {
 
 describe('bucketStartSeconds — W3 §9', () => {
   const cases: { tf: CandleTimeframe; boundary: number }[] = [
-    { tf: '5s', boundary: utc(10, 0, 30) },
-    // W5 §91 — the two intervals this milestone adds get the same boundary
-    // proof as the three W3 shipped, rather than being assumed correct because
-    // they reuse the same function.
-    { tf: '15s', boundary: utc(10, 0, 30) },
-    { tf: '30s', boundary: utc(10, 0, 30) },
     { tf: '1m', boundary: utc(10, 1, 0) },
     { tf: '3m', boundary: utc(10, 3, 0) },
+    { tf: '5m', boundary: utc(10, 5, 0) },
+    { tf: '15m', boundary: utc(10, 15, 0) },
+    { tf: '30m', boundary: utc(10, 30, 0) },
+    { tf: '1h', boundary: utc(11, 0, 0) },
+    { tf: '4h', boundary: utc(12, 0, 0) },
   ];
 
   for (const { tf, boundary } of cases) {
@@ -44,19 +44,15 @@ describe('bucketStartSeconds — W3 §9', () => {
   it('is UTC-aligned and independent of local time', () => {
     // Epoch 0 is 1970-01-01T00:00:00Z; every timeframe buckets it to itself
     // regardless of the runner's timezone offset.
-    for (const tf of CANDLE_TIMEFRAMES) {
+    for (const tf of CANDLE_TIMEFRAMES.filter((value) => value !== '1W')) {
       expect(bucketStartSeconds(0, tf)).toBe(0);
     }
+    expect(bucketStartSeconds(0, '1W')).toBe(Date.UTC(1969, 11, 29) / 1000);
     expect(bucketStartSeconds(utc(23, 59, 59, 999), '1m')).toBe(utc(23, 59, 0) / 1000);
     expect(bucketStartSeconds(utc(23, 59, 59, 999), '3m')).toBe(utc(23, 57, 0) / 1000);
   });
 
-  it('places the mid-interval instants of the W5 additions in the right bucket', () => {
-    // 15s: the three interior boundaries of a minute.
-    expect(bucketStartSeconds(utc(10, 0, 14, 999), '15s')).toBe(utc(10, 0, 0) / 1000);
-    expect(bucketStartSeconds(utc(10, 0, 15), '15s')).toBe(utc(10, 0, 15) / 1000);
-    expect(bucketStartSeconds(utc(10, 0, 44), '15s')).toBe(utc(10, 0, 30) / 1000);
-    expect(bucketStartSeconds(utc(10, 0, 45), '15s')).toBe(utc(10, 0, 45) / 1000);
+  it('places fixed professional intervals in the right bucket', () => {
     // 3m: epoch-aligned, so the buckets of an hour start at :00, :03, :06 …
     expect(bucketStartSeconds(utc(10, 2, 59, 999), '3m')).toBe(utc(10, 0, 0) / 1000);
     expect(bucketStartSeconds(utc(10, 3, 0), '3m')).toBe(utc(10, 3, 0) / 1000);
@@ -65,8 +61,20 @@ describe('bucketStartSeconds — W3 §9', () => {
   });
 
   it('floors sub-second input rather than implying precision the feed lacks', () => {
-    expect(bucketStartSeconds(utc(10, 0, 4, 999), '5s')).toBe(utc(10, 0, 0) / 1000);
-    expect(bucketStartSeconds(utc(10, 0, 5, 1), '5s')).toBe(utc(10, 0, 5) / 1000);
+    expect(bucketStartSeconds(utc(10, 0, 59, 999), '1m')).toBe(utc(10, 0, 0) / 1000);
+    expect(bucketStartSeconds(utc(10, 1, 0, 1), '1m')).toBe(utc(10, 1, 0) / 1000);
+  });
+
+  it('uses UTC day, ISO Monday week, and calendar month boundaries', () => {
+    const sunday = Date.UTC(2026, 0, 4, 23, 59, 59, 999);
+    const monday = Date.UTC(2026, 0, 5, 0, 0, 0, 0);
+    expect(bucketStartSeconds(sunday, '1D')).toBe(Date.UTC(2026, 0, 4) / 1000);
+    expect(bucketStartSeconds(sunday, '1W')).toBe(Date.UTC(2025, 11, 29) / 1000);
+    expect(bucketStartSeconds(monday, '1W')).toBe(monday / 1000);
+    expect(bucketStartSeconds(Date.UTC(2026, 1, 28, 23, 59), '1M')).toBe(
+      Date.UTC(2026, 1, 1) / 1000,
+    );
+    expect(bucketEndSeconds(Date.UTC(2026, 1, 1) / 1000, '1M')).toBe(Date.UTC(2026, 2, 1) / 1000);
   });
 });
 
@@ -85,7 +93,7 @@ describe('midPrice — W3 §8', () => {
 });
 
 describe('createCandleAggregator — W3 §7/§10', () => {
-  const tf: CandleTimeframe = '30s';
+  const tf: CandleTimeframe = '1m';
   const base = utc(10, 0, 0);
 
   it('preserves the high from an intermediate observation (W3 §52)', () => {
@@ -137,7 +145,7 @@ describe('createCandleAggregator — W3 §7/§10', () => {
     aggregator.observe({ timestampMs: base, price: '1.10000' });
     aggregator.observe({ timestampMs: base + 5000, price: '1.10400' });
 
-    const crossing = aggregator.observe({ timestampMs: base + 30_000, price: '1.10050' });
+    const crossing = aggregator.observe({ timestampMs: base + 60_000, price: '1.10050' });
     expect(crossing.finalized).toEqual({
       startTime: base / 1000,
       open: '1.10000',
@@ -146,10 +154,10 @@ describe('createCandleAggregator — W3 §7/§10', () => {
       close: '1.10400',
     });
     expect(crossing.openedNewBucket).toBe(true);
-    expect(crossing.current.startTime).toBe(base / 1000 + 30);
+    expect(crossing.current.startTime).toBe(base / 1000 + 60);
 
     // A second observation inside the new bucket must not re-finalize.
-    const following = aggregator.observe({ timestampMs: base + 31_000, price: '1.10060' });
+    const following = aggregator.observe({ timestampMs: base + 61_000, price: '1.10060' });
     expect(following.finalized).toBeNull();
     expect(following.openedNewBucket).toBe(false);
   });
@@ -162,47 +170,59 @@ describe('createCandleAggregator — W3 §7/§10', () => {
     const jump = aggregator.observe({ timestampMs: base + 90_000, price: '1.20000' });
 
     expect(jump.finalized?.startTime).toBe(base / 1000);
-    expect(jump.current.startTime).toBe(base / 1000 + 90);
+    expect(jump.current.startTime).toBe(base / 1000 + 60);
     expect(jump.current.open).toBe('1.20000');
   });
 
   it('ignores an observation older than the open bucket', () => {
     const aggregator = createCandleAggregator(tf);
-    aggregator.observe({ timestampMs: base + 30_000, price: '1.10000' });
+    aggregator.observe({ timestampMs: base + 60_000, price: '1.10000' });
     const stale = aggregator.observe({ timestampMs: base, price: '9.99999' });
 
     expect(stale.finalized).toBeNull();
-    expect(stale.current.startTime).toBe(base / 1000 + 30);
+    expect(stale.current.startTime).toBe(base / 1000 + 60);
     expect(stale.current.high).toBe('1.10000');
   });
 });
 
-describe('the W5 timeframe contract — §9/§15', () => {
-  it('offers exactly the five required intervals, shortest first', () => {
-    expect([...CANDLE_TIMEFRAMES]).toEqual(['5s', '15s', '30s', '1m', '3m']);
+describe('the WX2 professional timeframe contract', () => {
+  it('offers exactly the ten required intervals, shortest first', () => {
+    expect([...CANDLE_TIMEFRAMES]).toEqual([
+      '1m',
+      '3m',
+      '5m',
+      '15m',
+      '30m',
+      '1h',
+      '4h',
+      '1D',
+      '1W',
+      '1M',
+    ]);
   });
 
   it('maps every interval to one canonical duration', () => {
-    expect(CANDLE_TIMEFRAMES.map(timeframeSeconds)).toEqual([5, 15, 30, 60, 180]);
+    expect(CANDLE_TIMEFRAMES.map(timeframeSeconds)).toEqual([
+      60, 180, 300, 900, 1800, 3600, 14400, 86400, 604800, 2592000,
+    ]);
   });
 
   it('keeps the shipped default rather than whichever interval sorts first', () => {
     // §15 — inserting an interval at the head of the list must not silently
     // change what every trader sees on open.
-    expect(DEFAULT_CANDLE_TIMEFRAME).toBe('5s');
+    expect(DEFAULT_CANDLE_TIMEFRAME).toBe('5m');
     expect(CANDLE_TIMEFRAMES).toContain(DEFAULT_CANDLE_TIMEFRAME);
   });
 
   it('narrows unvalidated input, and rejects intervals W5 deliberately does not ship', () => {
     for (const tf of CANDLE_TIMEFRAMES) expect(isCandleTimeframe(tf)).toBe(true);
-    // §7/§8 — no longer intervals, and no tick charts.
-    for (const rejected of ['5m', '1h', '1D', '1000T', '5000T', '', '15S', null, 15]) {
+    for (const rejected of ['5s', '15s', '30s', '1d', '1w', '1000T', '5000T', '', null, 15]) {
       expect(isCandleTimeframe(rejected)).toBe(false);
     }
   });
 
-  it('buckets each new interval through the same aggregator the others use', () => {
-    for (const tf of ['15s', '3m'] as const) {
+  it('buckets each fixed interval through the same aggregator', () => {
+    for (const tf of ['3m', '5m', '15m', '30m', '1h', '4h'] as const) {
       const aggregator = createCandleAggregator(tf);
       const duration = timeframeSeconds(tf);
       const start = utc(12, 0, 0);

@@ -235,17 +235,17 @@ function renderWorkstation(reactiveTick = false): Harness {
   };
 }
 
-/** 120 finalized 5s candles — enough for a 100 SMA to warm up. */
+/** 120 finalized 5m candles — enough for a 100 SMA to warm up. */
 function history(requestId: string): MarketHistoryResult {
   return {
     requestId,
     symbol: 'EURUSD' as TradableSymbol,
-    timeframe: '5s',
+    timeframe: '5m',
     source: 'observed_memory_cache',
     sourceEpoch: 'epoch-a',
     priceBasis: 'mid',
     candles: Array.from({ length: 120 }, (_, index) => ({
-      startTime: index * 5,
+      startTime: index * 300,
       open: '1.08450',
       high: '1.08600',
       low: '1.08400',
@@ -254,7 +254,7 @@ function history(requestId: string): MarketHistoryResult {
     currentCandle: null,
     finalizedObservedThroughSequence: 500,
     currentCandleObservedThroughSequence: null,
-    historyThrough: 600,
+    historyThrough: 36000,
     hasMore: false,
     nextCursor: 0,
   };
@@ -268,7 +268,7 @@ function tickAt(index: number): MarketTick {
     ask: (mid + 0.00001).toFixed(5),
     // Every tick lands in the bucket after the newest finalized candle, so the
     // current bar genuinely moves 25 times.
-    timestamp: new Date((600 + index) * 1000).toISOString(),
+    timestamp: new Date((36000 + index) * 1000).toISOString(),
     sequence: 501 + index,
     marketStatus: 'open',
   };

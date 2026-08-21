@@ -215,7 +215,7 @@ test.describe('VX1-B propagation', { tag: ['@warix-vx1b'] }, () => {
     const browser = page.context().browser();
     if (browser) {
       await record(browser, storageState, 'vx1b-motion-a-toolbar-timeframe', async (scene) => {
-        for (const interval of ['15s', '30s', '1m', '5s']) {
+        for (const interval of ['3m', '5m', '15m', '1m']) {
           await scene.getByRole('radio', { name: interval, exact: true }).click();
           await scene.waitForTimeout(1_100);
         }

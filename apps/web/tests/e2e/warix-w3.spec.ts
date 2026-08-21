@@ -16,8 +16,9 @@ import { expect, test } from './fixtures';
  * realtime process's **wall-clock uptime**, because a bucket only finalizes when
  * an accepted tick lands in a later one and the mock feed's timestamps are wall
  * clock (W3 §81 forbids making the simulator time-reconstructable). So the waits
- * below are waits for a deterministic server condition, not sleeps, and the 5s
- * timeframe is used wherever depth is asserted.
+ * below are waits for a deterministic server condition, not sleeps. WX2's
+ * durable cache makes the professional 1m interval the shortest supported
+ * source of history across process restarts.
  */
 
 const HISTORY_STATUS = '[data-testid="chart-history-status"]';
@@ -80,7 +81,7 @@ async function waitForCandles(page: Page, minimum: number, timeout = 90_000): Pr
  * unchanged, which is why this is a harness correction and not a weakened
  * assertion.
  */
-async function selectTimeframe(page: Page, timeframe: '5s' | '30s' | '1m'): Promise<void> {
+async function selectTimeframe(page: Page, timeframe: '1m' | '5m' | '1h'): Promise<void> {
   await page.getByRole('radio', { name: timeframe, exact: true }).click();
   await expect(page.getByRole('radio', { name: timeframe, exact: true })).toHaveAttribute(
     'aria-checked',
@@ -95,6 +96,7 @@ test.describe('WariX W3 market history', { tag: ['@trade'] }, () => {
   }) => {
     await signIn(page, tradeAccount.email, tradeAccount.password);
     await openWorkstation(page);
+    await selectTimeframe(page, '1m');
 
     const status = page.locator(HISTORY_STATUS);
 
@@ -110,13 +112,13 @@ test.describe('WariX W3 market history', { tag: ['@trade'] }, () => {
 
     const observed = await waitForCandles(page, 2);
     await expect(status).toHaveAttribute('data-history-status', 'ready');
-    // The newest finalized bucket is a real 5s-aligned epoch second.
+    // The newest finalized bucket is a real 1m-aligned epoch second.
     const newest = Number((await status.getAttribute('data-history-newest')) ?? '-1');
-    expect(newest % 5).toBe(0);
+    expect(newest % 60).toBe(0);
 
     // Live continuation: more bars appear without a new hydration, and the
     // epoch never changes because the process never restarted.
-    await waitForCandles(page, observed + 1, 30_000);
+    await waitForCandles(page, observed + 1, 75_000);
     await expect(status).toHaveAttribute('data-history-epoch', epoch ?? '');
   });
 
@@ -126,6 +128,7 @@ test.describe('WariX W3 market history', { tag: ['@trade'] }, () => {
   }) => {
     await signIn(page, tradeAccount.email, tradeAccount.password);
     await openWorkstation(page);
+    await selectTimeframe(page, '1m');
 
     const status = page.locator(HISTORY_STATUS);
     const before = await waitForCandles(page, 3);
@@ -190,12 +193,12 @@ test.describe('WariX W3 market history', { tag: ['@trade'] }, () => {
 
     const status = page.locator(HISTORY_STATUS);
 
-    // 5s first: the only interval guaranteed to have finalized bars early.
-    await selectTimeframe(page, '5s');
+    // 1m first: the shortest supported professional interval.
+    await selectTimeframe(page, '1m');
     await waitForCandles(page, 2);
-    expect(Number(await status.getAttribute('data-history-newest')) % 5).toBe(0);
+    expect(Number(await status.getAttribute('data-history-newest')) % 60).toBe(0);
 
-    for (const timeframe of ['30s', '1m'] as const) {
+    for (const timeframe of ['5m', '1h'] as const) {
       await selectTimeframe(page, timeframe);
       // A longer interval may legitimately have nothing finalized yet on a
       // young process — `empty` is the honest answer, `error` is not.
@@ -206,16 +209,27 @@ test.describe('WariX W3 market history', { tag: ['@trade'] }, () => {
 
       const newest = await status.getAttribute('data-history-newest');
       if (newest) {
-        expect(Number(newest) % (timeframe === '30s' ? 30 : 60)).toBe(0);
+        expect(Number(newest) % (timeframe === '5m' ? 300 : 3_600)).toBe(0);
       }
     }
 
     // The offered set, read off the control itself rather than probed one
-    // absent label at a time. W5 added 15s and 3m (UX-WARIX-006); nothing
-    // longer exists, because history depth is bounded by process uptime.
+    // absent label at a time. WX2 exposes the complete professional interval
+    // contract while legacy subminute intervals remain internal-only fixtures.
     const intervals = page.getByRole('radiogroup', { name: 'Intervalle du graphique' });
-    await expect(intervals.getByRole('radio')).toHaveText(['5s', '15s', '30s', '1m', '3m']);
-    for (const unsupported of ['5m', '15m', '1h', '4h', '1D', '1000T']) {
+    await expect(intervals.getByRole('radio')).toHaveText([
+      '1m',
+      '3m',
+      '5m',
+      '15m',
+      '30m',
+      '1h',
+      '4h',
+      '1D',
+      '1W',
+      '1M',
+    ]);
+    for (const unsupported of ['5s', '15s', '30s', '1000T']) {
       await expect(page.getByRole('radio', { name: unsupported, exact: true })).toHaveCount(0);
     }
   });

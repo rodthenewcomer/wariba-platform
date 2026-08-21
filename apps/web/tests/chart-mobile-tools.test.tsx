@@ -208,11 +208,12 @@ afterEach(() => {
 describe('mobile chart tools — W5 §66/§67/§70/§116', () => {
   beforeEach(() => stubViewport(false));
 
-  it('keeps all five timeframes directly reachable, with no inline popovers', () => {
+  it('keeps every professional timeframe reachable without widening the phone shell', () => {
     const h = renderChart();
-    h.deliver(history(h.requests[0]?.requestId ?? '', '5s'));
+    h.deliver(history(h.requests[0]?.requestId ?? '', '5m'));
 
-    expect(screen.getAllByRole('radio')).toHaveLength(5);
+    expect(screen.getAllByRole('radio')).toHaveLength(4);
+    expect(screen.getByTestId('chart-timeframe-overflow')).toBeInTheDocument();
     // §66 — nothing permanently stacked: the tools live behind one trigger.
     expect(screen.queryByTestId('chart-tools-trigger')).not.toBeInTheDocument();
     expect(screen.getByTestId('chart-indicators-trigger')).toBeInTheDocument();
@@ -220,14 +221,14 @@ describe('mobile chart tools — W5 §66/§67/§70/§116', () => {
     expect(screen.queryByTestId('chart-tools-sheet')).not.toBeInTheDocument();
   });
 
-  it('switches to 15s and 3m in one tap each', async () => {
+  it('switches to 1m and 3m in one tap each', async () => {
     const user = userEvent.setup();
     const h = renderChart();
-    h.deliver(history(h.requests[0]?.requestId ?? '', '5s'));
+    h.deliver(history(h.requests[0]?.requestId ?? '', '5m'));
 
-    await user.click(screen.getByRole('radio', { name: '15s' }));
-    expect(h.requests.at(-1)?.timeframe).toBe('15s');
-    h.deliver(history(h.requests.at(-1)?.requestId ?? '', '15s'));
+    await user.click(screen.getByRole('radio', { name: '1m' }));
+    expect(h.requests.at(-1)?.timeframe).toBe('1m');
+    h.deliver(history(h.requests.at(-1)?.requestId ?? '', '1m'));
 
     await user.click(screen.getByRole('radio', { name: '3m' }));
     expect(h.requests.at(-1)?.timeframe).toBe('3m');
@@ -236,7 +237,7 @@ describe('mobile chart tools — W5 §66/§67/§70/§116', () => {
   it('toggles an indicator from the sheet and keeps the sheet open (§70)', async () => {
     const user = userEvent.setup();
     const h = renderChart();
-    h.deliver(history(h.requests[0]?.requestId ?? '', '5s'));
+    h.deliver(history(h.requests[0]?.requestId ?? '', '5m'));
 
     await user.click(screen.getByTestId('chart-tools-sheet-trigger'));
     const sheet = screen.getByTestId('chart-tools-sheet');
@@ -258,7 +259,7 @@ describe('mobile chart tools — W5 §66/§67/§70/§116', () => {
   it('closes the sheet when a drawing tool is chosen, then places the drawing (§68/§116)', async () => {
     const user = userEvent.setup();
     const h = renderChart();
-    h.deliver(history(h.requests[0]?.requestId ?? '', '5s'));
+    h.deliver(history(h.requests[0]?.requestId ?? '', '5m'));
 
     await user.click(screen.getByTestId('chart-tools-sheet-trigger'));
     await user.click(screen.getByTestId('chart-tool-family-levels'));
@@ -280,7 +281,7 @@ describe('mobile chart tools — W5 §66/§67/§70/§116', () => {
   it('offers Edit/Delete/Done on a selected drawing, and never a Buy or Sell (§69)', async () => {
     const user = userEvent.setup();
     const h = renderChart();
-    h.deliver(history(h.requests[0]?.requestId ?? '', '5s'));
+    h.deliver(history(h.requests[0]?.requestId ?? '', '5m'));
 
     await user.click(screen.getByTestId('chart-tools-sheet-trigger'));
     await user.click(screen.getByTestId('chart-tool-family-levels'));
@@ -302,7 +303,7 @@ describe('mobile chart tools — W5 §66/§67/§70/§116', () => {
   it('cancels an active tool from the chart, without a keyboard (§68)', async () => {
     const user = userEvent.setup();
     const h = renderChart();
-    h.deliver(history(h.requests[0]?.requestId ?? '', '5s'));
+    h.deliver(history(h.requests[0]?.requestId ?? '', '5m'));
 
     await user.click(screen.getByTestId('chart-tools-sheet-trigger'));
     await user.click(screen.getByTestId('chart-tool-family-lines'));
@@ -319,7 +320,7 @@ describe('one configuration across breakpoints — W5 §71', () => {
 
     stubViewport(false);
     const mobile = renderChart();
-    mobile.deliver(history(mobile.requests[0]?.requestId ?? '', '5s'));
+    mobile.deliver(history(mobile.requests[0]?.requestId ?? '', '5m'));
     await user.click(screen.getByRole('radio', { name: '3m' }));
     // A timeframe switch clears the series and rehydrates (W3 §45), and a
     // drawing anchors to a *loaded* candle (§47) — so the new interval's
@@ -358,7 +359,7 @@ describe('one configuration across breakpoints — W5 §71', () => {
   it('keys both preference stores by account, not by viewport', () => {
     stubViewport(false);
     const h = renderChart();
-    h.deliver(history(h.requests[0]?.requestId ?? '', '5s'));
+    h.deliver(history(h.requests[0]?.requestId ?? '', '5m'));
     // Nothing viewport-shaped ends up in either key.
     const analysis = window.localStorage.getItem(CHART_PREFERENCES_STORAGE_KEY) ?? '';
     const drawings = window.localStorage.getItem(CHART_DRAWINGS_STORAGE_KEY) ?? '';

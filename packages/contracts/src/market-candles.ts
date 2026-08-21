@@ -20,24 +20,39 @@ import { z } from 'zod';
  */
 
 /**
- * The timeframes the UI actually offers. W3 shipped 5s/30s/1m; W5 §7 adds 15s
- * and 3m, and nothing else.
+ * WX2 professional timeframe family. Sub-minute quote buckets from W3/W5 are
+ * intentionally not UI intervals anymore; WX2 starts at one minute and gains
+ * the durable depth required for day/week/month charts.
  *
  * Ordered shortest-first because that is the order the toolbar reads in, and
  * every consumer — the server's aggregator loop, the toolbar, the preference
  * parser, the tests — iterates *this* array rather than repeating the list.
- * Adding a sixth interval is therefore a one-line change here plus the duration
- * below, which is the whole point of the canonical type (W5 §9).
- *
- * Not extended past 3m on purpose: history depth is bounded by the realtime
- * process's uptime (W3 DATA-003), so a 1h chart would spend most of its width
- * showing an honest absence of data. Tick charts (1000T/5000T) are excluded for
- * a different reason — the feed publishes quote updates, not exchange trade
- * events, and equating the two would be a fabricated market semantic
- * (W5 §8, `TICK_CHARTS_READY = false`).
+ * Adding an interval is therefore a one-line change here plus its canonical
+ * boundary rule below, which is the whole point of the shared type (W5 §9).
+ * Tick charts (1000T/5000T) remain excluded: the feed publishes quote updates,
+ * not exchange trade events, and equating the two would fabricate a market
+ * semantic (W5 §8, `TICK_CHARTS_READY = false`).
  */
-export const CANDLE_TIMEFRAMES = ['5s', '15s', '30s', '1m', '3m'] as const;
+export const CANDLE_TIMEFRAMES = [
+  '1m',
+  '3m',
+  '5m',
+  '15m',
+  '30m',
+  '1h',
+  '4h',
+  '1D',
+  '1W',
+  '1M',
+] as const;
 export type CandleTimeframe = (typeof CANDLE_TIMEFRAMES)[number];
+export const INTERNAL_CANDLE_TIMEFRAMES = ['5s', '15s', '30s'] as const;
+export type InternalCandleTimeframe = (typeof INTERNAL_CANDLE_TIMEFRAMES)[number];
+export const SUPPORTED_CANDLE_TIMEFRAMES = [
+  ...INTERNAL_CANDLE_TIMEFRAMES,
+  ...CANDLE_TIMEFRAMES,
+] as const;
+export type SupportedCandleTimeframe = (typeof SUPPORTED_CANDLE_TIMEFRAMES)[number];
 export const candleTimeframeSchema = z.enum(CANDLE_TIMEFRAMES);
 
 /**
@@ -47,17 +62,27 @@ export const candleTimeframeSchema = z.enum(CANDLE_TIMEFRAMES);
  * means inserting an interval at the front of the list can no longer silently
  * change what every trader sees on open.
  */
-export const DEFAULT_CANDLE_TIMEFRAME: CandleTimeframe = '5s';
+export const DEFAULT_CANDLE_TIMEFRAME: CandleTimeframe = '5m';
 
-const TIMEFRAME_SECONDS: Record<CandleTimeframe, number> = {
+const TIMEFRAME_SECONDS: Record<SupportedCandleTimeframe, number> = {
   '5s': 5,
   '15s': 15,
   '30s': 30,
   '1m': 60,
   '3m': 180,
+  '5m': 300,
+  '15m': 900,
+  '30m': 1800,
+  '1h': 3600,
+  '4h': 14400,
+  '1D': 86400,
+  '1W': 604800,
+  // Nominal duration for UI coverage/indicator gap heuristics only. Calendar
+  // bucketing and historyThrough use bucketEndSeconds(), never this value.
+  '1M': 30 * 86400,
 };
 
-export function timeframeSeconds(timeframe: CandleTimeframe): number {
+export function timeframeSeconds(timeframe: SupportedCandleTimeframe): number {
   return TIMEFRAME_SECONDS[timeframe];
 }
 
@@ -80,14 +105,50 @@ export function isCandleTimeframe(value: unknown): value is CandleTimeframe {
  * to bucket at millisecond precision would imply a precision the source does
  * not have.
  */
-export function bucketStartSeconds(unixMilliseconds: number, timeframe: CandleTimeframe): number {
+export function bucketStartSeconds(
+  unixMilliseconds: number,
+  timeframe: SupportedCandleTimeframe,
+): number {
   const seconds = Math.floor(unixMilliseconds / 1000);
+  if (timeframe === '1D') {
+    const date = new Date(seconds * 1000);
+    return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) / 1000;
+  }
+  if (timeframe === '1W') {
+    const date = new Date(seconds * 1000);
+    const dayStart = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) / 1000;
+    const isoDay = date.getUTCDay() === 0 ? 7 : date.getUTCDay();
+    return dayStart - (isoDay - 1) * 86400;
+  }
+  if (timeframe === '1M') {
+    const date = new Date(seconds * 1000);
+    return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1) / 1000;
+  }
   const duration = timeframeSeconds(timeframe);
   return Math.floor(seconds / duration) * duration;
 }
 
+/** Exclusive end of one canonical bucket, including calendar-aware intervals. */
+export function bucketEndSeconds(startTime: number, timeframe: SupportedCandleTimeframe): number {
+  if (timeframe === '1M') {
+    const date = new Date(startTime * 1000);
+    return Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1) / 1000;
+  }
+  return startTime + timeframeSeconds(timeframe);
+}
+
+export function isCandleStartAligned(
+  startTime: number,
+  timeframe: SupportedCandleTimeframe,
+): boolean {
+  return bucketStartSeconds(startTime * 1000, timeframe) === startTime;
+}
+
 /** Convenience for an ISO timestamp, which is what `MarketTick` carries. */
-export function bucketStartForTimestamp(timestamp: string, timeframe: CandleTimeframe): number {
+export function bucketStartForTimestamp(
+  timestamp: string,
+  timeframe: SupportedCandleTimeframe,
+): number {
   return bucketStartSeconds(new Date(timestamp).getTime(), timeframe);
 }
 
@@ -151,7 +212,7 @@ export interface CandleUpdate {
  * as they close, and whoever owns retention decides what to keep.
  */
 export interface CandleAggregator {
-  readonly timeframe: CandleTimeframe;
+  readonly timeframe: SupportedCandleTimeframe;
   /** Undefined until the first observation. */
   current(): MarketCandle | null;
   observe(observation: CandleObservation): CandleUpdate;
@@ -172,7 +233,7 @@ export interface CandleAggregator {
   seed(candle: MarketCandle): void;
 }
 
-export function createCandleAggregator(timeframe: CandleTimeframe): CandleAggregator {
+export function createCandleAggregator(timeframe: SupportedCandleTimeframe): CandleAggregator {
   let current: MarketCandle | null = null;
 
   return {

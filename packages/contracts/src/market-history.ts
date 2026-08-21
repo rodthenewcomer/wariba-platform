@@ -3,8 +3,9 @@ import type { TradableSymbol } from './channels';
 import { symbolSchema } from './market';
 import {
   candleTimeframeSchema,
+  bucketEndSeconds,
+  isCandleStartAligned,
   marketCandleSchema,
-  timeframeSeconds,
   type CandleTimeframe,
   type MarketCandle,
 } from './market-candles';
@@ -35,7 +36,7 @@ import {
  * a bounded cache of candles the realtime process aggregated from accepted
  * ticks it observed itself, so that is what the wire says.
  */
-export const historySourceSchema = z.literal('observed_memory_cache');
+export const historySourceSchema = z.enum(['observed_memory_cache', 'observed_postgres_cache']);
 export type HistorySource = z.infer<typeof historySourceSchema>;
 
 /**
@@ -45,6 +46,32 @@ export type HistorySource = z.infer<typeof historySourceSchema>;
  */
 export const historyPriceBasisSchema = z.literal('mid');
 export type HistoryPriceBasis = z.infer<typeof historyPriceBasisSchema>;
+
+export const marketHistorySourceIdentitySchema = z.object({
+  id: z.string().min(1).max(200),
+  provider: z.string().min(1).max(80),
+  environment: z.string().min(1).max(80),
+  mode: z.enum(['sandbox', 'replay', 'live']),
+  version: z.string().min(1).max(160),
+});
+export type MarketHistorySourceIdentity = z.infer<typeof marketHistorySourceIdentitySchema>;
+
+export const marketHistoryCapabilitiesSchema = z.object({
+  realtimeQuotes: z.boolean(),
+  bidAsk: z.boolean(),
+  historicalBars: z.boolean(),
+  nativeIntervals: z.array(z.string().min(1)).max(64),
+  pagination: z.enum(['none', 'cursor', 'time_range']),
+  volume: z.boolean(),
+  depth: z.boolean(),
+});
+export type MarketHistoryCapabilities = z.infer<typeof marketHistoryCapabilitiesSchema>;
+
+export const marketHistoryQualitySchema = z.object({
+  gapsDetected: z.number().int().nonnegative(),
+  continuity: z.enum(['observed', 'gapped']),
+});
+export type MarketHistoryQuality = z.infer<typeof marketHistoryQualitySchema>;
 
 /**
  * W3 §16 — what a chart asks for on first hydration.
@@ -121,6 +148,10 @@ export const marketHistoryResultSchema = z.object({
    * unrelated process memories into one series (§12/§35).
    */
   sourceEpoch: z.string().min(1),
+  /** WX2 stable non-secret source identity. Optional only for W3 wire compatibility. */
+  sourceIdentity: marketHistorySourceIdentitySchema.optional(),
+  capabilities: marketHistoryCapabilitiesSchema.optional(),
+  quality: marketHistoryQualitySchema.optional(),
   priceBasis: historyPriceBasisSchema,
   /** Finalized candles only, ascending by `startTime` (W3 §14/§22). */
   candles: z.array(marketCandleSchema).max(MAX_HISTORY_CANDLE_LIMIT),
@@ -226,6 +257,9 @@ export interface MarketHistoryWindow {
   historyThrough: number | null;
   hasMore: boolean;
   nextCursor: number | null;
+  sourceIdentity?: MarketHistorySourceIdentity;
+  capabilities?: MarketHistoryCapabilities;
+  quality?: MarketHistoryQuality;
 }
 
 /**
@@ -263,8 +297,7 @@ function validateCandleShape(
   timeframe: CandleTimeframe,
   label: string,
 ): HistoryValidation {
-  const duration = timeframeSeconds(timeframe);
-  if (candle.startTime % duration !== 0) {
+  if (!isCandleStartAligned(candle.startTime, timeframe)) {
     return invalid(`${label} startTime ${candle.startTime} is not aligned to ${timeframe}`);
   }
   for (const [field, value] of [
@@ -357,7 +390,7 @@ export function validateHistoryWindow(
   }
 
   if (newestFinalized !== null) {
-    const expectedThrough = newestFinalized + timeframeSeconds(timeframe);
+    const expectedThrough = bucketEndSeconds(newestFinalized, timeframe);
     if (result.historyThrough !== expectedThrough) {
       return invalid(
         `historyThrough ${String(result.historyThrough)} does not match the newest finalized bucket's end ${expectedThrough}`,

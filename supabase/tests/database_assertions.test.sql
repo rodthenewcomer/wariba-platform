@@ -1,6 +1,6 @@
 begin;
 
-select plan(13);
+select plan(18);
 
 select has_schema('app', 'app schema exists');
 select has_table('app', 'trading_accounts', 'trading accounts table exists');
@@ -11,6 +11,19 @@ select has_table(
   'editable actuarial assumptions table exists'
 );
 select has_table('app', 'realtime_leadership', 'durable realtime leadership table exists');
+select has_table('app', 'market_data_sources', 'WX2 market data source registry exists');
+select has_table('app', 'market_bars', 'WX2 durable market bar cache exists');
+select has_pk('app', 'market_bars', 'market bar identity is uniquely constrained');
+select is(
+  (select relrowsecurity from pg_class where oid = 'app.market_data_sources'::regclass),
+  true,
+  'market data source registry has RLS enabled'
+);
+select is(
+  (select relrowsecurity from pg_class where oid = 'app.market_bars'::regclass),
+  true,
+  'market bar cache has RLS enabled'
+);
 select has_table(
   'app',
   'account_reconciliation_runs',

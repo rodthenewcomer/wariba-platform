@@ -201,12 +201,12 @@ function history(requestId: string): MarketHistoryResult {
   return {
     requestId,
     symbol: 'EURUSD' as TradableSymbol,
-    timeframe: '5s',
+    timeframe: '5m',
     source: 'observed_memory_cache',
     sourceEpoch: 'epoch-a',
     priceBasis: 'mid',
     candles: Array.from({ length: 20 }, (_, index) => ({
-      startTime: index * 5,
+      startTime: index * 300,
       open: '1.08450',
       high: '1.08600',
       low: '1.08400',
@@ -215,7 +215,7 @@ function history(requestId: string): MarketHistoryResult {
     currentCandle: null,
     finalizedObservedThroughSequence: 20,
     currentCandleObservedThroughSequence: null,
-    historyThrough: 100,
+    historyThrough: 6000,
     hasMore: true,
     nextCursor: 0,
   };
@@ -561,7 +561,7 @@ describe('pan-left backfill in the real component — §18/§21', () => {
     h.deliver({
       ...history(older.requestId),
       candles: Array.from({ length: 4 }, (_, index) => ({
-        startTime: -20 + index * 5,
+        startTime: -1200 + index * 300,
         open: '1.08450',
         high: '1.08600',
         low: '1.08400',
@@ -570,7 +570,7 @@ describe('pan-left backfill in the real component — §18/§21', () => {
       currentCandle: null,
       historyThrough: 0,
       hasMore: false,
-      nextCursor: -20,
+      nextCursor: -1200,
     });
 
     // §21 — the viewport was shifted by exactly the four prepended bars, and

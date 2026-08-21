@@ -1,12 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import {
-  CANDLE_TIMEFRAMES,
+  SUPPORTED_CANDLE_TIMEFRAMES,
+  bucketEndSeconds,
   bucketStartSeconds,
   createCandleAggregator,
   midPrice,
-  timeframeSeconds,
   type CandleAggregator,
   type CandleTimeframe,
+  type InternalCandleTimeframe,
+  type SupportedCandleTimeframe,
   type MarketCandle,
   type MarketHistoryPort,
   type MarketHistoryQuery,
@@ -42,18 +44,12 @@ import {
  * indicators have warm-up headroom, while a single request's ceiling
  * (`MAX_HISTORY_CANDLE_LIMIT` = 1000) can never drain a whole window.
  *
- * **W5 recalculation.** Adding 15s and 3m takes the key count from 15 to 25, so
- * the number is re-derived rather than inherited: 5 symbols × 5 timeframes = 25
- * keys × 2000 = **50,000 stored candles**. Each entry is one wrapper object, one
- * candle object, four short decimal strings and three numbers ≈ 250-300 B in
- * V8, so **≈ 15 MB** worst case (was ≈ 9 MB at three timeframes), reached only
- * after hours of uptime on a process that already holds the whole tick fan-out.
- * That is still clearly safe on a small realtime box, so retention is kept at
- * 2000 rather than reduced — the alternative (cutting to 1200 to hold the old
- * 9 MB) would cost the pan-left depth W5 §17 exists to deliver, for ~6 MB.
- *
- * What that retention actually spans at the mock provider's 1 tick/s:
- * 5s ≈ 2.8 h, 15s ≈ 8.3 h, 30s ≈ 16.7 h, 1m ≈ 33 h, 3m ≈ 100 h of observation.
+ * **WX2 recalculation.** Production observes the ten professional intervals:
+ * 5 symbols × 10 timeframes = 50 keys × 2000 = **100,000 stored candles**.
+ * Each entry is one wrapper object, one candle object, four short decimal
+ * strings and three numbers ≈ 250-300 B in V8, so the hot in-process bound is
+ * roughly **25-30 MB**. Durable PostgreSQL history can extend further; this cap
+ * protects only the realtime process's working set.
  */
 export const SERVER_HISTORY_RETENTION_PER_SYMBOL_TIMEFRAME = 2000;
 
@@ -106,9 +102,21 @@ export interface MemoryMarketHistoryStoreOptions {
   retentionPerKey?: number;
   /** Test seam only (W3 §59): production always gets a fresh random epoch. */
   sourceEpoch?: string;
+  onBarUpdate?: (bar: ObservedMarketBarUpdate) => void;
+  timeframes?: readonly SupportedCandleTimeframe[];
 }
 
-function key(symbol: TradableSymbol, timeframe: CandleTimeframe): string {
+export interface ObservedMarketBarUpdate {
+  symbol: TradableSymbol;
+  timeframe: SupportedCandleTimeframe;
+  candle: MarketCandle;
+  isFinal: boolean;
+  firstObservedSequence: number | null;
+  observedThroughSequence: number | null;
+  observedAt: string;
+}
+
+function key(symbol: TradableSymbol, timeframe: SupportedCandleTimeframe): string {
   return `${symbol}:${timeframe}`;
 }
 
@@ -127,6 +135,8 @@ export class MemoryMarketHistoryStore implements MarketHistoryPort, MarketHistor
   private readonly states = new Map<string, TimeframeState>();
   private readonly pricePrecision: Record<TradableSymbol, number>;
   private readonly retentionPerKey: number;
+  private readonly onBarUpdate: ((bar: ObservedMarketBarUpdate) => void) | undefined;
+  private readonly timeframes: readonly SupportedCandleTimeframe[];
   /** Observations skipped because they predate the open bucket — see `observeAcceptedTick`. */
   private staleObservations = 0;
 
@@ -134,14 +144,16 @@ export class MemoryMarketHistoryStore implements MarketHistoryPort, MarketHistor
     this.pricePrecision = options.pricePrecision;
     this.retentionPerKey = options.retentionPerKey ?? SERVER_HISTORY_RETENTION_PER_SYMBOL_TIMEFRAME;
     this.sourceEpoch = options.sourceEpoch ?? randomUUID();
+    this.onBarUpdate = options.onBarUpdate;
+    this.timeframes = options.timeframes ?? SUPPORTED_CANDLE_TIMEFRAMES;
   }
 
   /**
    * W3 §8 / W5 §10 — one accepted tick, one mid, one aggregator per interval.
    *
-   * The loop iterates `CANDLE_TIMEFRAMES`, so W5's two new intervals are
-   * observed by construction rather than by a second code path: still exactly
-   * **one** observation per accepted tick (W3-D2), now fanned into five
+   * The production loop iterates `CANDLE_TIMEFRAMES`, so all ten professional
+   * intervals are observed by construction rather than by a second code path:
+   * still exactly **one** observation per accepted tick (W3-D2), fanned into ten
    * aggregators instead of three. There is no per-client aggregation and no
    * reconstruction of the new intervals from past data the process never
    * observed (W5 §12).
@@ -159,14 +171,14 @@ export class MemoryMarketHistoryStore implements MarketHistoryPort, MarketHistor
     const timestampMs = new Date(tick.timestamp).getTime();
     if (!Number.isFinite(timestampMs)) return;
 
-    for (const timeframe of CANDLE_TIMEFRAMES) {
+    for (const timeframe of this.timeframes) {
       this.applyToTimeframe(tick, timeframe, timestampMs, price);
     }
   }
 
   private applyToTimeframe(
     tick: MarketTick,
-    timeframe: CandleTimeframe,
+    timeframe: SupportedCandleTimeframe,
     timestampMs: number,
     price: string,
   ): void {
@@ -195,24 +207,67 @@ export class MemoryMarketHistoryStore implements MarketHistoryPort, MarketHistor
         firstSequence: state.currentFirstSequence ?? tick.sequence,
         lastSequence: state.currentLastSequence ?? tick.sequence,
       });
+      this.onBarUpdate?.({
+        symbol: tick.symbol,
+        timeframe,
+        candle: update.finalized,
+        isFinal: true,
+        firstObservedSequence: state.currentFirstSequence ?? tick.sequence,
+        observedThroughSequence: state.currentLastSequence ?? tick.sequence,
+        observedAt: tick.timestamp,
+      });
       if (state.finalized.length > this.retentionPerKey) {
         state.finalized.splice(0, state.finalized.length - this.retentionPerKey);
       }
       state.currentFirstSequence = tick.sequence;
       state.currentLastSequence = tick.sequence;
+      this.onBarUpdate?.({
+        symbol: tick.symbol,
+        timeframe,
+        candle: update.current,
+        isFinal: false,
+        firstObservedSequence: tick.sequence,
+        observedThroughSequence: tick.sequence,
+        observedAt: tick.timestamp,
+      });
       return;
     }
 
     if (update.openedNewBucket) {
       state.currentFirstSequence = tick.sequence;
       state.currentLastSequence = tick.sequence;
+      this.onBarUpdate?.({
+        symbol: tick.symbol,
+        timeframe,
+        candle: update.current,
+        isFinal: false,
+        firstObservedSequence: tick.sequence,
+        observedThroughSequence: tick.sequence,
+        observedAt: tick.timestamp,
+      });
       return;
     }
 
     state.currentLastSequence = tick.sequence;
+    this.onBarUpdate?.({
+      symbol: tick.symbol,
+      timeframe,
+      candle: update.current,
+      isFinal: false,
+      firstObservedSequence: state.currentFirstSequence,
+      observedThroughSequence: tick.sequence,
+      observedAt: tick.timestamp,
+    });
   }
 
-  private stateFor(symbol: TradableSymbol, timeframe: CandleTimeframe): TimeframeState {
+  seedCurrentBar(bar: ObservedMarketBarUpdate): void {
+    const state = this.stateFor(bar.symbol, bar.timeframe);
+    state.aggregator.seed(bar.candle);
+    state.currentFirstSequence = bar.firstObservedSequence;
+    state.currentLastSequence = bar.observedThroughSequence;
+  }
+
+  private stateFor(symbol: TradableSymbol, timeframe: SupportedCandleTimeframe): TimeframeState {
     const id = key(symbol, timeframe);
     const existing = this.states.get(id);
     if (existing) return existing;
@@ -238,11 +293,19 @@ export class MemoryMarketHistoryStore implements MarketHistoryPort, MarketHistor
    * oldest retained candle is returned, `hasMore` is false even though the
    * market existed before the process did. That is the honest answer.
    */
-  getCandles(query: MarketHistoryQuery): Promise<MarketHistoryWindow> {
+  getCandles(
+    query: Omit<MarketHistoryQuery, 'timeframe'> & {
+      timeframe: CandleTimeframe | InternalCandleTimeframe;
+    },
+  ): Promise<MarketHistoryWindow> {
     return Promise.resolve(this.readWindow(query));
   }
 
-  private readWindow(query: MarketHistoryQuery): MarketHistoryWindow {
+  private readWindow(
+    query: Omit<MarketHistoryQuery, 'timeframe'> & {
+      timeframe: CandleTimeframe | InternalCandleTimeframe;
+    },
+  ): MarketHistoryWindow {
     const state = this.states.get(key(query.symbol, query.timeframe));
     const isLiveEdge = query.before === undefined;
 
@@ -286,7 +349,7 @@ export class MemoryMarketHistoryStore implements MarketHistoryPort, MarketHistor
       currentCandleObservedThroughSequence:
         currentCandle === null ? null : state.currentLastSequence,
       historyThrough:
-        newest === null ? null : newest.candle.startTime + timeframeSeconds(query.timeframe),
+        newest === null ? null : bucketEndSeconds(newest.candle.startTime, query.timeframe),
       hasMore: pool.length > page.length,
       nextCursor: oldest?.candle.startTime ?? null,
     };

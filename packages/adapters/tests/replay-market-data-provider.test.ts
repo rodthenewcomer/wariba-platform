@@ -8,6 +8,27 @@ const RECORDING: RecordedTick[] = [
 ];
 
 describe('ReplayMarketDataProvider', () => {
+  it('derives stable source identity from the recording and exposes no invented capabilities', () => {
+    const first = new ReplayMarketDataProvider(RECORDING, ['EURUSD'], 1000, false);
+    const same = new ReplayMarketDataProvider(RECORDING, ['EURUSD'], 1000, false);
+    const changed = new ReplayMarketDataProvider(
+      [...RECORDING, { symbol: 'EURUSD', bid: '1.08100', ask: '1.08110', offsetMs: 3000 }],
+      ['EURUSD'],
+      1000,
+      false,
+    );
+
+    expect(first.source).toEqual(same.source);
+    expect(first.source.id).not.toBe(changed.source.id);
+    const looping = new ReplayMarketDataProvider(RECORDING, ['EURUSD'], 1000, true);
+    expect(first.source.id).not.toBe(looping.source.id);
+    expect(first.source.capabilities).toMatchObject({
+      historicalBars: false,
+      volume: false,
+      depth: false,
+    });
+  });
+
   it('replays recorded ticks in order as time advances', () => {
     const provider = new ReplayMarketDataProvider(RECORDING, ['EURUSD'], 1000, false);
     expect(provider.getSnapshot('EURUSD').bid).toBe('1.08000');

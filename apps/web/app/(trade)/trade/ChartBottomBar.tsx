@@ -22,6 +22,7 @@ const HORIZONS: readonly Horizon[] = [
 export interface ChartBottomBarProps {
   timezone: 'utc' | 'local';
   historyCoverageSeconds: number;
+  canLoadOlder?: boolean;
   onSelectHorizon(seconds: number): void;
   scaleMode: ChartScaleMode;
   onScaleModeChange(mode: ChartScaleMode): void;
@@ -63,6 +64,7 @@ const UTILITY_BUTTON =
 export const ChartBottomBar = memo(function ChartBottomBar({
   timezone,
   historyCoverageSeconds,
+  canLoadOlder = false,
   onSelectHorizon,
   scaleMode,
   onScaleModeChange,
@@ -89,7 +91,8 @@ export const ChartBottomBar = memo(function ChartBottomBar({
     >
       <div className="flex items-center gap-0.5" aria-label="Horizons du graphique">
         {HORIZONS.map((horizon) => {
-          const available = historyCoverageSeconds >= horizon.seconds;
+          const loaded = historyCoverageSeconds >= horizon.seconds;
+          const available = loaded || canLoadOlder;
           return (
             <button
               key={horizon.id}
@@ -97,7 +100,9 @@ export const ChartBottomBar = memo(function ChartBottomBar({
               disabled={!available}
               title={
                 available
-                  ? `Afficher ${horizon.label} d’historique chargé`
+                  ? loaded
+                    ? `Afficher ${horizon.label} d’historique chargé`
+                    : `Charger puis afficher ${horizon.label} d’historique`
                   : `${horizon.label} indisponible avec l’historique chargé`
               }
               onClick={() => onSelectHorizon(horizon.seconds)}

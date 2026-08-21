@@ -173,7 +173,7 @@ function sweepingHistory(requestId: string): MarketHistoryResult {
   return {
     requestId,
     symbol: 'EURUSD' as TradableSymbol,
-    timeframe: '5s',
+    timeframe: '5m',
     source: 'observed_memory_cache',
     sourceEpoch: 'epoch-a',
     priceBasis: 'mid',
@@ -181,12 +181,12 @@ function sweepingHistory(requestId: string): MarketHistoryResult {
       // Low 1.08100 is through the 1.08200 stop loss and the 1.08300 trigger.
       { startTime: 0, open: '1.08500', high: '1.08600', low: '1.08100', close: '1.08200' },
       // High 1.09200 is through the 1.09000 take profit and the 1.08900 alert.
-      { startTime: 5, open: '1.08200', high: '1.09200', low: '1.08200', close: '1.09100' },
+      { startTime: 300, open: '1.08200', high: '1.09200', low: '1.08200', close: '1.09100' },
     ],
     currentCandle: null,
     finalizedObservedThroughSequence: 20,
     currentCandleObservedThroughSequence: null,
-    historyThrough: 10,
+    historyThrough: 600,
     hasMore: false,
     nextCursor: 0,
   };
@@ -228,7 +228,7 @@ describe('history cannot execute (W3 §57/§73)', () => {
         symbol: 'EURUSD' as TradableSymbol,
         bid: '1.08145',
         ask: '1.08155',
-        timestamp: new Date(10_000).toISOString(),
+        timestamp: new Date(600_000).toISOString(),
         sequence: 21,
         marketStatus: 'open',
       });
@@ -277,7 +277,7 @@ describe('history failure isolation (W3 §55/§56/§72)', () => {
         symbol: 'EURUSD' as TradableSymbol,
         bid: '1.08445',
         ask: '1.08455',
-        timestamp: new Date(20_000).toISOString(),
+        timestamp: new Date(600_000).toISOString(),
         sequence: 30,
         marketStatus: 'open',
       });
@@ -342,6 +342,35 @@ describe('history UX states (W3 §52-§54)', () => {
     expect(status?.textContent).toBe('');
   });
 
+  it('states an observed history gap through the existing chart-local status grammar', () => {
+    const h = renderChart();
+    h.deliver({
+      ...sweepingHistory(h.requests[0]?.requestId ?? ''),
+      candles: [
+        {
+          startTime: 0,
+          open: '1.08450',
+          high: '1.08600',
+          low: '1.08400',
+          close: '1.08500',
+        },
+        {
+          startTime: 600,
+          open: '1.08450',
+          high: '1.08600',
+          low: '1.08400',
+          close: '1.08500',
+        },
+      ],
+      historyThrough: 900,
+    });
+
+    const status = document.querySelector('[data-testid="chart-history-status"]');
+    expect(status?.getAttribute('data-history-status')).toBe('ready');
+    expect(status?.getAttribute('data-history-gaps')).toBe('1');
+    expect(status?.textContent).toBe('Historique incomplet · 1 lacune détectée.');
+  });
+
   it('fits the viewport once on hydration, not per tick', () => {
     const h = renderChart();
     h.deliver(sweepingHistory(h.requests[0]?.requestId ?? ''));
@@ -353,7 +382,7 @@ describe('history UX states (W3 §52-§54)', () => {
           symbol: 'EURUSD' as TradableSymbol,
           bid: '1.08445',
           ask: '1.08455',
-          timestamp: new Date(10_000 + i * 1000).toISOString(),
+          timestamp: new Date(600_000 + i * 1000).toISOString(),
           sequence: 30 + i,
           marketStatus: 'open',
         });
@@ -386,7 +415,7 @@ describe('renderer write model (W3 §42/§43)', () => {
         symbol: 'EURUSD' as TradableSymbol,
         bid: '1.08445',
         ask: '1.08455',
-        timestamp: new Date(10_000).toISOString(),
+        timestamp: new Date(600_000).toISOString(),
         sequence: 31,
         marketStatus: 'open',
       });

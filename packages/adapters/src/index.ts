@@ -36,6 +36,9 @@ export {
   type MarketStatus,
   type TradableSymbol,
   type SymbolSimConfig,
+  type MarketDataMode,
+  type MarketDataCapabilities,
+  type MarketDataSourceIdentity,
 } from './market-data-provider';
 export {
   ReplayMarketDataProvider,
