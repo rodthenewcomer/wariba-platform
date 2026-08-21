@@ -96,3 +96,14 @@ courant ; la soumission provider ne signifie pas payé. Seule une confirmation
 réconciliée ou manuelle autorisée produit le débit payout. Après le payout #5
 payé, WARIBA Review s'ouvre et aucun cycle #6 n'est créé. Les providers réels
 restent hors V1.
+
+## 10. WariX WX2 — graphique professionnel et continuité des données
+
+WX2 conserve sans modification la workstation visuelle WX1 acceptée. Le
+graphique propose `1m`, `3m`, `5m`, `15m`, `30m`, `1h`, `4h`, `1D`, `1W` et
+`1M`, avec `5m` par défaut, pagination vers la gauche et restauration du
+contexte d'analyse. Les bougies observées survivent au redémarrage grâce à un
+cache PostgreSQL identifié par source. La transition vers le temps réel ne doit
+produire ni doublon, ni trou silencieux, ni conflit d'horodatage, ni bougie
+fantôme. Une capacité absente du provider — historique natif, volume ou depth —
+reste explicitement indisponible et n'est jamais simulée comme réelle.

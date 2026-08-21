@@ -1166,6 +1166,20 @@ Le marché peut passer :
 - paused ;
 - maintenance.
 
+## 25.6 Contrat WX2
+
+Le contrat canonique de barres couvre `1m`, `3m`, `5m`, `15m`, `30m`, `1h`,
+`4h`, `1D`, `1W`, `1M`. L'identité de source et ses capacités sont explicites.
+Les bougies observées sont upsertées de façon idempotente dans PostgreSQL ; les
+ticks UI ne sont pas conservés indéfiniment. Les frontières des bougies
+dérivées `1D`/`1W`/`1M` sont UTC et déterministes.
+
+Le client fusionne historique et temps réel par clé canonique et watermark de
+séquence. Un changement de source, une régression de watermark, un gap ou une
+réponse périmée échoue fermé vers un resync. Une capability absente ne peut pas
+être émulée par le client. Les tables de cache restent privées au serveur, RLS
+activée, sans droit direct `anon` ou `authenticated`.
+
 ---
 
 # 26. Trading Engine

@@ -35,6 +35,14 @@ depends_on:
 > 90/10 et caps nets sans limite universelle de distribution à 50 %. Prompt 12
 > audite EOD trailing, buffer, non-réutilisation, débit brut, exposition et réserve.
 
+> **Addendum WX2 — 2026-08-21**
+> Le prompt WX2 normalisé est
+> `docs/09-prompts/WARIX_WX2_IMPLEMENTATION_PROMPT.md`. Toute ancienne liste de
+> timeframes de ce pack est superseded pour le graphique professionnel par
+> `1m / 3m / 5m / 15m / 30m / 1h / 4h / 1D / 1W / 1M`. Les intervalles
+> sous-minute peuvent rester internes au sandbox ; ils ne sont pas des options
+> professionnelles WX2.
+
 ## Contrôle du document
 
 | Champ | Valeur |

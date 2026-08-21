@@ -13,11 +13,14 @@ programme d'évaluation simulé (WARIBA ONE) puis, en cas de réussite, un compt
 WARIBA Performance avec partage de profit — sans jamais engager de fonds réels
 des traders sur un marché live.
 
-> **Statut** — Prompts 01 à 07 implémentés et audités, y compris les Appendices
-> 07-A à 07-D (règles d'éligibilité, gestion visuelle de position, ordres en
-> attente et alertes de prix). Prompt 08 (Performance & Payout — buffer 10 %,
-> Performance Days, review) reste à construire. Aucune vente publique n'est
-> autorisée avant les gates actuariels, juridiques et de réserve — voir
+> **Statut** — WX1 est la baseline visuelle WariX acceptée et gelée. WX2 construit
+> séparément le socle graphique et market data sans rouvrir ce design : famille
+> professionnelle `1m / 3m / 5m / 15m / 30m / 1h / 4h / 1D / 1W / 1M`, cache
+> historique PostgreSQL, identité/capacités de source, pagination et continuité
+> après redémarrage. Les lacunes observées sont signalées et ne sont réparées
+> que par une capacité d'historique vérifiée. Aucun historique, volume ou carnet d'ordres indisponible
+> chez le provider n'est fabriqué. Aucune vente publique n'est autorisée avant
+> les gates actuariels, juridiques, de réserve et de providers réels — voir
 > `docs/00-decisions/DECISION_LOG.md`.
 
 ## Ce qui est construit
@@ -29,8 +32,8 @@ des traders sur un marché live.
 | **WariX — exécution**         | Market orders, Stop Loss / Take Profit, clôture partielle (25/50/75/personnalisée), Close All atomique, réduction en file pendant une donnée obsolète |
 | **WariX — ordres en attente** | Achat/Vente Limit/Stop server-authoritative (GTC), déclenchement sur tick réel, lignes glissables sur le graphique                                    |
 | **WariX — alertes de prix**   | Franchissement de seuil (pas d'égalité), évaluation serveur, centre de notifications                                                                  |
-| **WariX — graphique**         | Chandeliers `lightweight-charts`, lignes de position/SL/TP interactives, menu contextuel clic droit / appui long                                      |
-| **WariX — poste de travail**  | Grille plein écran (rail 56 px, barre d'état 48 px, dock), graphique dimensionné par son conteneur, sélection de compte résolue côté serveur          |
+| **WariX — graphique**         | Chandeliers `lightweight-charts`, intervalles professionnels `1m` à `1M`, historique durable paginé, raccord historique/temps réel sans doublon       |
+| **WariX — poste de travail**  | Baseline WX1 acceptée et gelée, rail utilitaire droit 48 px, graphique dimensionné par son conteneur, adaptation mobile et reduced motion             |
 | **Trader Hub**                | État de compte, mission, historique de journées, fil d'activité, multi-comptes                                                                        |
 | **Control**                   | Panneau staff RBAC (support/finance/admin) — intégrité, utilisateurs, payouts                                                                         |
 | **Fiabilité**                 | RLS Postgres sur chaque table sensible, idempotence sur chaque commande financière, resync WebSocket sur reconnexion                                  |
@@ -101,4 +104,6 @@ docs/                Documents de référence WARIBA (source de vérité)
 ## Architecture
 
 Voir `docs/06-engineering/WARIBA_System_Architecture_v1.0.md` et les ADR dans
-`docs/00-decisions/architecture/`.
+`docs/00-decisions/architecture/`. Le contrat WX2 détaillé est dans
+`docs/06-engineering/WARIX_WX2_CHART_MARKET_DATA_FOUNDATION.md` et le prompt
+normalisé dans `docs/09-prompts/WARIX_WX2_IMPLEMENTATION_PROMPT.md`.
