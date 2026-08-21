@@ -16,6 +16,9 @@ import { RealtimeOperationalMetrics } from './metrics';
 import { OperationalAlertMonitor } from './alert-monitor';
 import { DurableMarketHistoryStore } from './durable-market-history-store';
 import { MarketSequenceContinuityProvider } from './market-sequence-continuity';
+import { MarketHistoryBackfillEngine } from './market-history-backfill';
+import { createHistoricalMarketDataProvider } from './market-history-provider-factory';
+import { ProviderMarketHistoryStore } from './provider-market-history-store';
 
 const config = loadRealtimeConfig();
 const logger = createLogger({ service: 'realtime', minLevel: config.LOG_LEVEL });
@@ -40,19 +43,58 @@ async function start(): Promise<void> {
   const provider = createMarketDataProvider(config, symbolSpecs);
   const sequenceWatermarks = await loadMarketSourceSequenceWatermarks(db, provider.source.id);
   const market = new MarketSequenceContinuityProvider(provider, sequenceWatermarks);
-  const history = new DurableMarketHistoryStore({
+  const pricePrecision = Object.fromEntries(
+    (Object.keys(symbolSpecs) as TradableSymbol[]).map((symbol) => [
+      symbol,
+      symbolSpecs[symbol].pricePrecision,
+    ]),
+  ) as Record<TradableSymbol, number>;
+  const observedHistory = new DurableMarketHistoryStore({
     db,
     source: market.source,
-    pricePrecision: Object.fromEntries(
-      (Object.keys(symbolSpecs) as TradableSymbol[]).map((symbol) => [
-        symbol,
-        symbolSpecs[symbol].pricePrecision,
-      ]),
-    ) as Record<TradableSymbol, number>,
+    pricePrecision,
     logger,
     onFlush: (result) => metrics.historyFlush(result),
   });
+  // WX3 — when a historical archive is configured, the chart reads genuine
+  // provider bars and the observed cache keeps doing exactly what WX2 built it
+  // for. When none is configured this is the WX2 path, byte for byte.
+  const historyProvider = createHistoricalMarketDataProvider(config);
+  const history =
+    historyProvider === null
+      ? observedHistory
+      : new ProviderMarketHistoryStore({
+          db,
+          observed: observedHistory,
+          backfill: new MarketHistoryBackfillEngine({
+            db,
+            provider: historyProvider,
+            pricePrecision,
+            logger,
+            rateLimit: {
+              capacity: config.MARKET_HISTORY_RATE_LIMIT,
+              windowMs: config.MARKET_HISTORY_RATE_WINDOW_MS,
+            },
+          }),
+          providerSource: historyProvider.source,
+          realtimeSource: market.source,
+          pricePrecision,
+          logger,
+          cutover: {
+            mode: config.MARKET_HISTORY_CUTOVER,
+            toleranceBps: config.MARKET_HISTORY_CUTOVER_TOLERANCE_BPS,
+          },
+        });
   await history.initialize();
+  if (historyProvider !== null) {
+    logger.info('realtime.market_history_provider_selected', {
+      provider: historyProvider.providerName,
+      sourceId: historyProvider.source.id,
+      environment: historyProvider.source.environment,
+      nativeIntervals: historyProvider.nativeTimeframes,
+      realtimeSourceId: market.source.id,
+    });
+  }
   if (config.MARKET_DATA_ENABLED) {
     market.start();
   } else {

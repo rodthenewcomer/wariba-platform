@@ -36,6 +36,32 @@ const realtimeEnvSchema = baseEnvironmentSchema.extend({
   FCS_REST_BASE_URL: z.string().default(''),
   // JSON map of internal WARIBA symbol -> provider ticker, e.g. {"EURUSD":"EUR/USD"}.
   FCS_SYMBOL_MAP: z.string().default(''),
+  // WX3 — the historical bar archive. Independent of MARKET_DATA_PROVIDER on
+  // purpose: WX3 changes where candles come from, not where ticks come from,
+  // and moving both at once would make the historical/realtime seam
+  // unmeasurable. 'none' keeps the WX2 behaviour exactly.
+  MARKET_HISTORY_PROVIDER: z.enum(['none', 'twelve-data', 'oanda']).default('none'),
+  TWELVE_DATA_API_KEY: z.string().default(''),
+  TWELVE_DATA_BASE_URL: z.string().default('https://api.twelvedata.com'),
+  // `EURUSD=EUR/USD,GBPUSD=GBP/USD`. Only symbols the active plan genuinely
+  // covers; an unmapped symbol is reported unsupported, never substituted.
+  TWELVE_DATA_SYMBOL_MAP: z.string().default(''),
+  OANDA_API_TOKEN: z.string().default(''),
+  OANDA_BASE_URL: z.string().default('https://api-fxpractice.oanda.com'),
+  OANDA_ENVIRONMENT: z.enum(['practice', 'live']).default('practice'),
+  // `EURUSD=EUR_USD,XAUUSD=XAU_USD,NAS100=NAS100_USD`.
+  OANDA_SYMBOL_MAP: z.string().default(''),
+  // Provider requests permitted per window. The default is sized for a Twelve
+  // Data Basic key (8 credits/minute) with headroom for the realtime process's
+  // other traffic.
+  MARKET_HISTORY_RATE_LIMIT: z.coerce.number().int().positive().default(6),
+  MARKET_HISTORY_RATE_WINDOW_MS: z.coerce.number().int().positive().default(60000),
+  // WX3 §12 — whether live ticks may be appended to provider history.
+  // 'verified' compares the live mid against the newest provider close and
+  // refuses when they describe different markets, which is what stops a
+  // sandbox walk being drawn onto a genuine series.
+  MARKET_HISTORY_CUTOVER: z.enum(['never', 'verified', 'always']).default('verified'),
+  MARKET_HISTORY_CUTOVER_TOLERANCE_BPS: z.coerce.number().int().positive().default(50),
   // DATA-001/002: fixed default so a fresh checkout reproduces the same
   // sandbox price sequence — override per-environment if ever needed.
   SANDBOX_MARKET_SEED: z.coerce.number().int().default(20260804),

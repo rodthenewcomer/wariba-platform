@@ -69,6 +69,8 @@ export {
   marketHistorySourceIdentitySchema,
   marketHistoryCapabilitiesSchema,
   marketHistoryQualitySchema,
+  realtimeContinuationSchema,
+  type RealtimeContinuation,
   marketHistoryRequestSchema,
   marketHistoryRequestFrameSchema,
   marketHistoryResultSchema,

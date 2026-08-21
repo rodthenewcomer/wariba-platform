@@ -55,3 +55,41 @@ export {
   type WebSocketLike,
   type WebSocketFactory,
 } from './fcs-market-data-provider';
+export {
+  HISTORICAL_BAR_ORIGINS,
+  HISTORICAL_PROVIDER_ERROR_KINDS,
+  HISTORICAL_VOLUME_SEMANTICS,
+  HistoricalProviderError,
+  derivedTimeframes,
+  isRetryableProviderErrorKind,
+  normalizeProviderBars,
+  pageCoverageEnd,
+  type HistoricalBar,
+  type HistoricalBarOrigin,
+  type HistoricalBarVolume,
+  type HistoricalBarsPage,
+  type HistoricalBarsRequest,
+  type HistoricalMarketDataProvider,
+  type HistoricalProviderErrorKind,
+  type HistoricalVolumeSemantics,
+  type RejectedHistoricalBar,
+} from './historical-market-data-provider';
+export {
+  TWELVE_DATA_MAX_BARS_PER_REQUEST,
+  TWELVE_DATA_NATIVE_TIMEFRAMES,
+  TwelveDataHistoricalProvider,
+  parseTwelveDataDatetime,
+  parseTwelveDataSymbolMap,
+  type TwelveDataProviderConfig,
+  type TwelveDataSymbolConfig,
+} from './twelve-data-historical-provider';
+export {
+  OANDA_MAX_BARS_PER_REQUEST,
+  OANDA_NATIVE_TIMEFRAMES,
+  OandaHistoricalProvider,
+  assertOandaEnvironmentAllowed,
+  parseOandaSymbolMap,
+  type OandaEnvironment,
+  type OandaProviderConfig,
+  type OandaSymbolConfig,
+} from './oanda-historical-provider';

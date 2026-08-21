@@ -15,6 +15,7 @@ import {
   type MarketHistoryRequest,
   type MarketHistoryResult,
   type MarketTick,
+  type RealtimeContinuation,
   type TradableSymbol,
 } from '@wariba/contracts';
 
@@ -108,6 +109,17 @@ export interface ChartHistorySeriesSink {
 
 export interface ChartHistorySnapshot {
   status: ChartHistoryStatus;
+  /**
+   * WX3 §12 — whether live ticks are being drawn onto this series.
+   *
+   * Anything other than `attached` means the server decided the realtime feed
+   * and the historical archive are not describing the same market, so the
+   * chart shows genuine history and stops there. That is a truthful state, not
+   * an error: execution, the price plate and every risk control keep using the
+   * live feed exactly as before. The chart simply refuses to draw a synthetic
+   * price onto a real series.
+   */
+  realtimeContinuation: RealtimeContinuation;
   /** Non-null once a response has been accepted — the memory generation on show. */
   sourceEpoch: string | null;
   /** Only set when `status === 'error'`; for logs and tests, not for the trader. */
@@ -201,6 +213,7 @@ interface Backfill {
 
 const IDLE: ChartHistorySnapshot = {
   status: 'idle',
+  realtimeContinuation: 'attached',
   sourceEpoch: null,
   errorReason: null,
   hasMoreOlder: false,
@@ -246,6 +259,7 @@ export function createChartHistoryController(
   let rangeTarget: { from: number; to: number } | null = null;
   let rangeTimer: ReturnType<typeof setTimeout> | null = null;
   let gapsDetected = 0;
+  let liveContinuation: RealtimeContinuation = 'attached';
 
   function emit(next: ChartHistorySnapshot): void {
     if (
@@ -254,7 +268,8 @@ export function createChartHistoryController(
       next.errorReason === snapshot.errorReason &&
       next.hasMoreOlder === snapshot.hasMoreOlder &&
       next.backfilling === snapshot.backfilling &&
-      next.gapsDetected === snapshot.gapsDetected
+      next.gapsDetected === snapshot.gapsDetected &&
+      next.realtimeContinuation === snapshot.realtimeContinuation
     ) {
       // Identity-stable when nothing changed: this snapshot is read through
       // useSyncExternalStore, so a new object every tick would re-render the
@@ -274,6 +289,7 @@ export function createChartHistoryController(
       hasMoreOlder,
       backfilling: backfill !== null,
       gapsDetected,
+      realtimeContinuation: liveContinuation,
     });
   }
 
@@ -291,6 +307,7 @@ export function createChartHistoryController(
     hasMoreOlder = false;
     oldestCursor = null;
     gapsDetected = 0;
+    liveContinuation = 'attached';
     rangeTarget = null;
     if (rangeTimer !== null) clearTimeout(rangeTimer);
     rangeTimer = null;
@@ -378,6 +395,10 @@ export function createChartHistoryController(
 
   /** The one live path: canonical aggregation, then one incremental renderer write. */
   function applyTick(tick: MarketTick, pricePrecision: number): void {
+    // WX3 §12/§29 — the server refused the cutover, so this tick is not part of
+    // the series on screen. It is still an accepted tick and still drives every
+    // other consumer; it just does not get drawn onto somebody else's candles.
+    if (liveContinuation !== 'attached') return;
     const price = midPrice(tick.bid, tick.ask, pricePrecision);
     const timestampMs = new Date(tick.timestamp).getTime();
     if (!Number.isFinite(timestampMs)) return;
@@ -580,6 +601,9 @@ export function createChartHistoryController(
     finalized = merge.candles;
     gapsDetected = countLoadedGaps();
     hydratedEpoch = result.sourceEpoch;
+    // Absent means a WX2-era server that only ever served its own observations,
+    // where history and ticks are the same source by construction.
+    liveContinuation = result.realtimeContinuation ?? 'attached';
     // W5 §17 — the pagination contract W3 defined, now actually consumed. The
     // cursor is the oldest candle *the series holds*, not the oldest this
     // response carried, so a reconnect that merged older local candles back in
