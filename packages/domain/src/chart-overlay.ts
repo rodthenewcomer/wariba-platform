@@ -168,3 +168,60 @@ export function roundCustomPartialCloseQuantity(params: {
 export function computeNetPnlAfterFees(params: { grossPnl: string; fees: string }): string {
   return new Decimal(params.grossPnl).minus(params.fees).toFixed(2);
 }
+
+/** Which side of the entry a protective level must sit on, given the position. */
+export type ProtectionLevelKind = 'stop_loss' | 'take_profit';
+
+export type ProtectionPlacement = 'above_entry' | 'below_entry';
+
+/**
+ * Where a protective level legally sits relative to entry — VX1-D.1 §3.
+ *
+ * This is the whole rule, stated once, in the one place both the chart and the
+ * ticket can read it:
+ *
+ *     LONG   →   TP above entry,  SL below entry
+ *     SHORT  →   SL above entry,  TP below entry
+ *
+ * The side decides the *price direction*; it never changes what the two levels
+ * economically mean. A take profit is the expected gain on both sides, and a
+ * stop loss is the expected loss on both sides — which is why this returns a
+ * placement and not a swap. Nothing in WariX may "fix" an inverted input by
+ * exchanging the two values: that would turn a trader's mistake into a
+ * different order than the one they typed.
+ */
+export function protectionPlacementFor(
+  side: OrderSide,
+  kind: ProtectionLevelKind,
+): ProtectionPlacement {
+  const isLong = side === 'buy';
+  if (kind === 'take_profit') return isLong ? 'above_entry' : 'below_entry';
+  return isLong ? 'below_entry' : 'above_entry';
+}
+
+/**
+ * Is this price a legal place for this level on this position?
+ *
+ * Advisory, and deliberately so: the server re-runs its own validation and
+ * remains the only authority on whether an order is accepted. This exists so
+ * the interface can mark an invalid drag *before* the trader releases it,
+ * rather than letting them commit a level the exchange will refuse — and so it
+ * can say which way is valid instead of only that something is wrong.
+ *
+ * A level exactly at the entry is not legal on either side: a stop or target
+ * that triggers at the price you opened at is not a protection, it is a
+ * round trip.
+ */
+export function isProtectionLevelValid(params: {
+  side: OrderSide;
+  kind: ProtectionLevelKind;
+  entryPrice: string;
+  levelPrice: string;
+}): boolean {
+  const entry = new Decimal(params.entryPrice);
+  const level = new Decimal(params.levelPrice);
+  if (level.equals(entry)) return false;
+  return protectionPlacementFor(params.side, params.kind) === 'above_entry'
+    ? level.greaterThan(entry)
+    : level.lessThan(entry);
+}

@@ -77,9 +77,12 @@ function RowAction({
       disabled={disabled}
       {...(ariaLabel ? { 'aria-label': ariaLabel } : {})}
       className={cx(
-        'rounded-[6px] px-2 py-1 text-[length:var(--wariba-component-workstation-type-label)] font-semibold uppercase',
-        'tracking-[var(--wariba-component-workstation-tracking-label)] transition-colors',
-        'duration-[var(--wariba-component-workstation-motion-interaction)]',
+        'rounded-[var(--wariba-component-workstation-radius-micro)] px-2 py-1',
+        'text-[length:var(--wariba-component-workstation-type-label)] font-semibold uppercase',
+        'tracking-[var(--wariba-component-workstation-tracking-label)]',
+        'transition-[background-color,color,box-shadow] duration-[var(--wariba-component-workstation-motion-quick)]',
+        'hover:enabled:shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light)]',
+        'active:enabled:translate-y-px motion-reduce:transition-none',
         'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]',
         'disabled:cursor-not-allowed disabled:text-[color:var(--wariba-component-workstation-border-strong)]',
         destructive
@@ -103,9 +106,11 @@ function RowAction({
 function EmptyState({ title, hint }: { title: string; hint?: string | undefined }) {
   return (
     <div className="flex min-h-16 flex-col items-center justify-center gap-1.5 px-4 py-5 text-center">
+      {/* §33 — a small ruled mark, not an illustration and not a stray dot: the
+          row area is empty and says so in one line and a hint. */}
       <span
         aria-hidden="true"
-        className="h-1.5 w-1.5 rounded-full bg-[color:var(--wariba-component-workstation-border-strong)]"
+        className="h-px w-8 rounded-full bg-[color:var(--wariba-component-workstation-seam-strong)]"
       />
       <p className="text-[length:var(--wariba-component-workstation-type-data)] font-semibold text-[color:var(--wariba-component-workstation-text-secondary)]">
         {title}
@@ -119,10 +124,18 @@ function EmptyState({ title, hint }: { title: string; hint?: string | undefined 
   );
 }
 
+/*
+ * VX1-B §17 — professional density, premium material.
+ *
+ * The header is a recessed rail in micro-caps: it labels the columns and then
+ * gets out of the way, which is what lets the figures below it carry the eye.
+ * Data cells stay 12px tabular on a 30px row — a trading blotter, not a card
+ * list — and only the money is allowed to be louder than its neighbours.
+ */
 const HEADER_CELL =
-  'px-2 py-1.5 text-[length:var(--wariba-component-workstation-type-section-label)] font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]';
+  'px-2.5 py-1.5 text-[length:var(--wariba-component-workstation-type-section-label)] font-bold uppercase tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]';
 const DATA_CELL =
-  'wariba-data px-2 py-1.5 text-[length:var(--wariba-component-workstation-type-data)] tabular-nums text-[color:var(--wariba-component-workstation-text-secondary)]';
+  'wariba-data px-2.5 py-1.5 text-[length:var(--wariba-component-workstation-type-data)] tabular-nums text-[color:var(--wariba-component-workstation-text-secondary)]';
 
 /**
  * WariX's own open-positions table — distinct from the Hub's (ENG-028: no
@@ -197,8 +210,8 @@ export function WariXPositionsTable({
       </div>
       <div className="hidden w-full overflow-x-auto lg:block">
         <table className="w-full border-collapse text-left">
-          <thead className="sticky top-0 z-10 bg-[color:var(--wariba-component-workstation-surface-canvas)]">
-            <tr className="border-b border-[color:var(--wariba-component-workstation-border-hairline)]">
+          <thead className="sticky top-0 z-10 bg-[color:var(--wariba-component-workstation-surface-canvas)] shadow-[inset_0_-1px_0_0_var(--wariba-component-workstation-seam-hairline)]">
+            <tr>
               <th scope="col" className={cx(HEADER_CELL, 'text-left')}>
                 Symbole
               </th>
@@ -236,14 +249,14 @@ export function WariXPositionsTable({
               positions.map((position) => (
                 <tr
                   key={position.id}
-                  className="group border-b border-[color:var(--wariba-component-workstation-border-hairline)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] last:border-0 hover:bg-[color:var(--wariba-component-workstation-wash-neutral)]"
+                  className="group border-b border-[color:var(--wariba-component-workstation-seam-hairline)] transition-colors duration-[var(--wariba-component-workstation-motion-quick)] last:border-0 hover:bg-[color:var(--wariba-component-workstation-surface-control)]/60 motion-reduce:transition-none"
                 >
                   <td className="relative py-1.5 pl-3 pr-2 text-[length:var(--wariba-component-workstation-type-data-strong)]">
                     {position.sideTone ? (
                       <span
                         aria-hidden="true"
                         className={cx(
-                          'absolute bottom-1 left-0 top-1 w-0.5 rounded-r-full',
+                          'absolute bottom-0.5 left-0 top-0.5 w-[3px] rounded-r-full',
                           SIDE_ACCENT_CLASS[position.sideTone],
                         )}
                       />
@@ -291,8 +304,8 @@ export function WariXPositionsTable({
                   </td>
                   <td
                     className={cx(
-                      'wariba-data px-2 py-1.5 text-right tabular-nums',
-                      'text-[length:var(--wariba-component-workstation-type-metric)] font-bold',
+                      'wariba-data px-2.5 py-1.5 text-right tabular-nums',
+                      'text-[length:var(--wariba-component-workstation-type-data-strong)] font-bold',
                       PNL_TONE_CLASS[position.livePnlTone],
                     )}
                   >

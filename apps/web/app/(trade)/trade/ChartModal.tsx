@@ -73,7 +73,15 @@ export function ChartModal({
         if (event.target === ref.current) ref.current?.close();
       }}
       style={{ width, maxHeight: height }}
-      className="m-auto w-full max-w-[calc(100vw-2rem)] overflow-hidden rounded-[12px] border border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-module)] p-0 text-[color:var(--wariba-component-workstation-text-primary)] shadow-[var(--wariba-component-workstation-elevation-overlay)] backdrop:bg-[color:var(--wariba-component-workstation-surface-overlay-backdrop)] motion-safe:animate-[wariba-fade-in_var(--wariba-component-workstation-motion-popover)_ease-out]"
+      /*
+       * VX1-B §21/§27 — one modal shell for the workstation.
+       *
+       * Raised module tone with a rim light along its top edge and the strong
+       * seam as its border, over a dark translucent backdrop with a very light
+       * blur — light enough that a 60fps chart keeps running behind it, which is
+       * the reason a heavier veil was never on the table.
+       */
+      className="m-auto w-full max-w-[calc(100vw-2rem)] overflow-hidden rounded-[var(--wariba-component-workstation-radius-modal)] border border-[color:var(--wariba-component-workstation-seam-strong)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] p-0 text-[color:var(--wariba-component-workstation-text-primary)] shadow-[var(--wariba-component-workstation-elevation-overlay),inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong)] backdrop:bg-[color:var(--wariba-component-workstation-surface-overlay-backdrop)] backdrop:backdrop-blur-[2px] motion-safe:animate-[wariba-modal-enter_var(--wariba-component-workstation-motion-standard)_var(--wariba-component-workstation-ease-enter)] backdrop:motion-safe:animate-[wariba-fade-in_var(--wariba-component-workstation-motion-standard)_var(--wariba-component-workstation-ease-enter)]"
     >
       <div className="flex max-h-[inherit] flex-col" style={{ maxHeight: height }}>
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[color:var(--wariba-component-workstation-border-hairline)] px-4 py-3 shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light)]">
@@ -95,7 +103,7 @@ export function ChartModal({
             aria-label="Fermer"
             data-testid="chart-modal-close"
             onClick={() => ref.current?.close()}
-            className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-[7px] text-[color:var(--wariba-component-workstation-text-tertiary)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]"
+            className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--wariba-component-workstation-radius-control)] text-[color:var(--wariba-component-workstation-text-secondary)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-seam-hairline)] transition-colors duration-[var(--wariba-component-workstation-motion-quick)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]"
           >
             <svg viewBox="0 0 24 24" width={16} height={16} aria-hidden="true" fill="none">
               <path
@@ -109,7 +117,7 @@ export function ChartModal({
         </header>
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
         {footer ? (
-          <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-4 py-2.5">
+          <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-[color:var(--wariba-component-workstation-seam-hairline)] bg-[color:var(--wariba-component-workstation-surface-shell)] px-4 py-2.5 shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light)]">
             {footer}
           </footer>
         ) : null}

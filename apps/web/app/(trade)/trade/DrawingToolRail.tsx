@@ -117,12 +117,22 @@ function RailButton({
       onPointerLeave={onHoverCancel}
       onFocus={(event) => onHoverOpen?.(event.currentTarget)}
       style={{ width: RAIL_BUTTON, height: RAIL_BUTTON }}
-      className={`group/rail relative flex shrink-0 items-center justify-center rounded-[5px] transition-[background-color,color] duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] disabled:cursor-not-allowed disabled:opacity-35 ${
+      /*
+       * VX1-B §5 — the rail's states, on frozen geometry.
+       *
+       * Idle is quiet neutral ink on the chart's own ground. Hover raises a
+       * graphite surface under the glyph and brightens it; selection takes the
+       * cobalt wash with a fine cobalt edge and a very local glow, so a held
+       * tool is unmistakable from across the screen without the key growing by a
+       * pixel. Disabled stays legible — an unavailable tool a trader cannot read
+       * is a tool they will keep clicking.
+       */
+      className={`group/rail relative flex shrink-0 items-center justify-center rounded-[var(--wariba-component-workstation-radius-micro)] transition-[background-color,color,box-shadow] duration-[var(--wariba-component-workstation-motion-quick)] ease-[var(--wariba-component-workstation-ease-move)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] disabled:cursor-not-allowed disabled:opacity-35 motion-reduce:transition-none ${
         active || expanded
           ? activeTone === 'identity'
-            ? 'bg-[color:var(--wariba-component-workstation-identity-mark)] text-[color:var(--wariba-chart-background)]'
-            : 'bg-[color:var(--wariba-component-workstation-wash-selected-strong)] text-[color:var(--wariba-component-workstation-interaction-selected-text)]'
-          : 'text-[color:var(--wariba-component-workstation-text-secondary)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)]'
+            ? 'bg-[color:var(--wariba-component-workstation-identity-mark)] text-[color:var(--wariba-chart-background)] shadow-[0_0_10px_-2px_var(--wariba-component-workstation-wash-identity)]'
+            : 'bg-[color:var(--wariba-component-workstation-wash-selected-strong)] text-[color:var(--wariba-component-workstation-interaction-selected-text)] shadow-[inset_0_0_0_1px_var(--wariba-component-workstation-seam-active),0_0_10px_-2px_var(--wariba-component-workstation-focus-glow)]'
+          : 'text-[color:var(--wariba-component-workstation-text-secondary)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] hover:shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light)]'
       }`}
     >
       {icon}
@@ -294,7 +304,9 @@ export const DrawingToolRail = memo(function DrawingToolRail({
       aria-orientation="vertical"
       aria-label="Outils du graphique"
       data-testid="chart-tools-trigger"
-      className="relative flex h-full w-[var(--wariba-component-workstation-drawing-rail-width)] shrink-0 flex-col items-center justify-between overflow-visible border-r border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-chart-background)] py-2"
+      /* §32 — the rail meets the plot on a hairline seam, and carries the shell's
+         own rim light on its inner edge so the boundary reads as machined. */
+      className="relative flex h-full w-[var(--wariba-component-workstation-drawing-rail-width)] shrink-0 flex-col items-center justify-between overflow-visible border-r border-[color:var(--wariba-component-workstation-seam-hairline)] bg-[color:var(--wariba-component-workstation-surface-shell)] py-2 shadow-[inset_-1px_0_0_0_var(--wariba-component-workstation-rim-light)]"
       onPointerLeave={cancelHover}
     >
       <RailButton

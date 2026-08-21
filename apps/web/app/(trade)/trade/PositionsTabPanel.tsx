@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useMemo } from 'react';
-import { Button, WariXPositionsTable, type WariXPosition } from '@wariba/ui';
+import { WariXPositionsTable, type WariXPosition } from '@wariba/ui';
 import { computeRealizedPnl, quotedPrice } from '@wariba/domain';
 import type { PositionDTO, SymbolSpec, TradableSymbol } from '@wariba/contracts';
 import { useAllTicks, type TickStore } from './tick-store';
@@ -102,15 +102,21 @@ export const PositionsTabPanel = memo(function PositionsTabPanel({
         emptyHint="Les positions ouvertes apparaîtront ici avec leur P&L en direct."
       />
       {openPositions.length > 0 && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mt-2"
+        /*
+         * VX1-B §15 — a bulk action reads as a control, not as a stray sentence
+         * under a table. Quiet graphite at rest, coral only under the pointer:
+         * closing every position is destructive, and destructive controls in
+         * WariX announce themselves when reached rather than sitting red.
+         */
+        <button
+          type="button"
           onClick={onOpenCloseAll}
           disabled={pending}
+          data-testid="dock-close-all"
+          className="mt-2 flex h-7 items-center rounded-[var(--wariba-component-workstation-radius-control)] bg-[color:var(--wariba-component-workstation-surface-control)] px-2.5 text-[length:var(--wariba-component-workstation-type-label)] font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-text-secondary)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-seam-hairline)] transition-[background-color,color,transform] duration-[var(--wariba-component-workstation-motion-quick)] hover:enabled:bg-[color:var(--wariba-component-workstation-wash-sell)] hover:enabled:text-[color:var(--wariba-component-workstation-trading-sell)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:enabled:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
         >
           Tout fermer
-        </Button>
+        </button>
       )}
     </>
   );

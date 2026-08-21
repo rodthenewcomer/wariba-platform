@@ -6,6 +6,7 @@ import { NavRail } from '../app/(trade)/trade/workstation/NavRail';
 import { WorkstationDock } from '../app/(trade)/trade/workstation/WorkstationDock';
 import { WorkstationStatusBar } from '../app/(trade)/trade/workstation/WorkstationStatusBar';
 import { WorkstationAccountSwitcher } from '../app/(trade)/trade/workstation/WorkstationAccountSwitcher';
+import { RightUtilityRail } from '../app/(trade)/trade/workstation/RightUtilityRail';
 import { createTickStore } from '../app/(trade)/trade/tick-store';
 
 const EVALUATION = {
@@ -15,6 +16,7 @@ const EVALUATION = {
   programShortLabel: 'ONE',
   phaseLabel: 'Évaluation',
   nominalFormatted: '10 000 USD',
+  sizeShortLabel: '10K',
   publicId: 'WRB-EVAL-01',
   statusLabel: 'Actif',
   statusVariant: 'success' as const,
@@ -27,6 +29,7 @@ const PERFORMANCE = {
   programShortLabel: 'PERF',
   phaseLabel: 'Performance',
   nominalFormatted: '50 000 USD',
+  sizeShortLabel: '50K',
   publicId: 'WRB-PERF-01',
   statusLabel: 'Actif',
   statusVariant: 'success' as const,
@@ -58,6 +61,7 @@ function statusBar(props: Partial<React.ComponentProps<typeof WorkstationStatusB
       activeAccountId={EVALUATION.id}
       balanceFormatted="10 000.00 USD"
       equityFormatted="10 050.00 USD"
+      openPnlFormatted="+$50.00"
       risk={RISK}
       connectionState="open"
       unreadCount={0}
@@ -89,6 +93,65 @@ describe('NavRail', () => {
     const hrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href'));
     expect(hrefs).toEqual(['/trade', '/hub', '/comptes', '/payouts', '/plus']);
     expect(hrefs.some((href) => href?.startsWith('/control'))).toBe(false);
+  });
+});
+
+describe('RightUtilityRail', () => {
+  it('exposes exactly the seven WariX destinations with unique symbols', () => {
+    render(
+      <RightUtilityRail
+        activeDrawer={null}
+        activityActive={false}
+        alertsActive={false}
+        journalActive={false}
+        openPositionCount={0}
+        activeAlertCount={0}
+        onToggleDrawer={vi.fn()}
+        onOpenActivity={vi.fn()}
+        onOpenAlerts={vi.fn()}
+        onOpenJournal={vi.fn()}
+      />,
+    );
+
+    const rail = screen.getByRole('complementary', { name: 'Destinations WariX' });
+    const buttons = within(rail).getAllByRole('button');
+    expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Marchés',
+      'Trade',
+      'Activité',
+      'Alertes',
+      'Calendrier',
+      'Journal',
+      'Aide',
+    ]);
+    expect(
+      new Set(
+        buttons.map((button) => button.querySelector('svg')?.getAttribute('data-warix-symbol')),
+      ),
+    ).toEqual(new Set(['markets', 'trade', 'activity', 'alerts', 'calendar', 'journal', 'help']));
+  });
+
+  it('routes Journal to the canonical trading record callback', async () => {
+    const onOpenJournal = vi.fn();
+    render(
+      <RightUtilityRail
+        activeDrawer={null}
+        activityActive={false}
+        alertsActive={false}
+        journalActive
+        openPositionCount={0}
+        activeAlertCount={0}
+        onToggleDrawer={vi.fn()}
+        onOpenActivity={vi.fn()}
+        onOpenAlerts={vi.fn()}
+        onOpenJournal={onOpenJournal}
+      />,
+    );
+
+    const journal = screen.getByRole('button', { name: 'Journal' });
+    expect(journal).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(journal);
+    expect(onOpenJournal).toHaveBeenCalledOnce();
   });
 });
 
@@ -179,33 +242,45 @@ describe('WorkstationStatusBar', () => {
     // exposes the state as data so tests never depend on French copy.
     const chip = screen.getByTestId('workstation-connection');
     expect(chip).toHaveAttribute('data-connection', 'open');
-    // Final closure §H — a healthy feed is the dot and the accessible name, and
-    // no permanent word in the header. The condition that needs stating is the
-    // abnormal one, asserted below.
+    // VX1-C.1 §3 — a healthy feed is the signal glyph and the accessible name,
+    // and no word at all in the header.
     expect(chip).toHaveTextContent('');
-    expect(chip).toHaveAccessibleName('Flux en temps réel opérationnel');
+    expect(chip).toHaveAccessibleName('Flux de marché opérationnel');
     // "Actif" appears only as the account's own status inside the switcher.
     const metrics = within(screen.getByTestId('workstation-metrics'));
     expect(metrics.queryByText('Actif')).not.toBeInTheDocument();
   });
 
-  it('distinguishes resynchronising from disconnected, and says so in words', () => {
+  /*
+   * VX1-C.1 §4 — the header distinguishes the states, and says none of them.
+   *
+   * A degraded feed used to be announced three times at once: "Hors ligne" in
+   * the header, "Reconnexion…" over the plot and "Connexion au flux…" in the
+   * chart's status chip. The header gives up its words — the sentence stays in
+   * the accessible name and the tooltip, where it is available on demand and
+   * costs no width — and the chart keeps the single local notice, because that
+   * is where the missing data is.
+   */
+  it('distinguishes resynchronising from disconnected without printing either', () => {
     const resyncing = statusBar({ connectionState: 'resyncing' });
     const resyncingChip = screen.getByTestId('workstation-connection');
     expect(resyncingChip).toHaveAttribute('data-connection', 'resyncing');
-    expect(resyncingChip).toHaveTextContent('Données retardées');
+    expect(resyncingChip).toHaveTextContent('');
+    expect(resyncingChip).toHaveAccessibleName('Données retardées');
     resyncing.unmount();
 
     const reconnecting = statusBar({ connectionState: 'connecting' });
     const reconnectingChip = screen.getByTestId('workstation-connection');
     expect(reconnectingChip).toHaveAttribute('data-connection', 'closed');
-    expect(reconnectingChip).toHaveTextContent('Reconnexion…');
+    expect(reconnectingChip).toHaveTextContent('');
+    expect(reconnectingChip).toHaveAccessibleName('Reconnexion au flux…');
     reconnecting.unmount();
 
     statusBar({ connectionState: 'closed' });
     const closedChip = screen.getByTestId('workstation-connection');
     expect(closedChip).toHaveAttribute('data-connection', 'closed');
-    expect(closedChip).toHaveTextContent('Hors ligne');
+    expect(closedChip).toHaveTextContent('');
+    expect(closedChip).toHaveAccessibleName('Flux hors ligne');
   });
 
   it('does not present the selected symbol’s market status as account state', () => {

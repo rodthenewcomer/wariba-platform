@@ -45,10 +45,17 @@ function StepButton({
           : 'border-l border-[color:var(--wariba-component-workstation-border-hairline)]',
         'text-[length:var(--wariba-component-workstation-type-decision)] font-semibold leading-none',
         'text-[color:var(--wariba-component-workstation-text-secondary)]',
-        'transition-[background-color,color] duration-[var(--wariba-component-workstation-motion-interaction)]',
+        // VX1-D §24 — a stepper is pressed dozens of times in a session, so its
+        // release is the fastest transition in the workstation. 80ms is at the
+        // edge of what reads as a response at all; anything slower turns a run
+        // of quick taps into a queue of animations the finger has outrun.
+        'transition-[background-color,color,transform] duration-[var(--wariba-component-workstation-motion-instant)] ease-[var(--wariba-component-workstation-ease-interaction)]',
         'hover:enabled:bg-[color:var(--wariba-component-workstation-surface-control-hover)]',
         'hover:enabled:text-[color:var(--wariba-component-workstation-text-primary)]',
+        // §12/§24 — a stepper key sinks *and* compresses under the press, like
+        // every other key in the workstation, rather than only changing colour.
         'active:enabled:bg-[color:var(--wariba-component-workstation-interaction-pressed)]',
+        'active:enabled:translate-y-px active:enabled:scale-[0.97] motion-reduce:transition-none',
         'disabled:cursor-not-allowed disabled:text-[color:var(--wariba-component-workstation-border-strong)]',
         'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]',
       ].join(' ')}
@@ -141,7 +148,7 @@ export function QuantityControl({ spec, value, onChange, error }: QuantityContro
         Quantité (lots)
       </label>
       <div
-        className={`flex h-12 items-stretch overflow-hidden rounded-[9px] bg-[color:var(--wariba-component-workstation-surface-canvas)] ring-1 ring-inset transition-[box-shadow] duration-[var(--wariba-component-workstation-motion-interaction)] focus-within:ring-2 lg:h-9 ${
+        className={`flex h-12 items-stretch overflow-hidden rounded-[var(--wariba-component-workstation-radius-control)] bg-[color:var(--wariba-component-workstation-surface-canvas)] shadow-[inset_0_1px_2px_0_rgba(5,7,12,0.55)] ring-1 ring-inset transition-[box-shadow] duration-[var(--wariba-component-workstation-motion-quick)] focus-within:shadow-[inset_0_1px_2px_0_rgba(5,7,12,0.55),0_0_6px_0_var(--wariba-component-workstation-focus-glow)] lg:h-9 ${
           error
             ? 'ring-[color:var(--wariba-component-workstation-trading-rejection)]'
             : 'ring-[color:var(--wariba-component-workstation-border-hairline)] focus-within:ring-[color:var(--wariba-component-workstation-border-focus)]'
@@ -204,15 +211,16 @@ export function QuantityControl({ spec, value, onChange, error }: QuantityContro
               aria-pressed={value.trim() === preset}
               onClick={() => onChange(preset)}
               className={[
-                'wariba-data min-h-11 flex-1 rounded-[7px] px-1 py-1 lg:min-h-7 lg:py-0.5',
+                'wariba-data min-h-11 flex-1 rounded-[var(--wariba-component-workstation-radius-control)] px-1 py-1 lg:min-h-7 lg:py-0.5',
                 'text-[length:var(--wariba-component-workstation-type-data)] font-semibold tabular-nums',
-                'transition-[background-color,color,box-shadow] duration-[var(--wariba-component-workstation-motion-interaction)]',
+                'transition-[background-color,color,box-shadow,transform] duration-[var(--wariba-component-workstation-motion-quick)]',
+                'active:translate-y-px motion-reduce:transition-none',
                 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]',
                 // WX1 pointed these at `--wariba-surface-selected`, which is not
                 // a token this design system defines — so the selected preset
                 // and the hover state both rendered as no background at all.
                 value.trim() === preset
-                  ? 'bg-[color:var(--wariba-component-workstation-wash-selected-strong)] text-[color:var(--wariba-component-workstation-interaction-selected-text)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-selected)]'
+                  ? 'bg-[color:var(--wariba-component-workstation-wash-selected-strong)] text-[color:var(--wariba-component-workstation-interaction-selected-text)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-seam-active)]'
                   : 'bg-[color:var(--wariba-component-workstation-surface-control)] text-[color:var(--wariba-component-workstation-text-secondary)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)]',
               ].join(' ')}
             >

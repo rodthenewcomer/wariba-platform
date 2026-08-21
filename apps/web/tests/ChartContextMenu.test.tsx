@@ -81,12 +81,7 @@ describe('buildContextMenuActions', () => {
   it('only suggests the pending-order types actually valid at the clicked price for the live tick', () => {
     const actions = buildContextMenuActions({ position: null, ...baseProps, tick: TICK });
     const keys = actions.map((a) => a.key);
-    expect(keys).toEqual([
-      'market_buy',
-      'market_sell',
-      'pending_sell_limit',
-      'pending_buy_stop',
-    ]);
+    expect(keys).toEqual(['market_buy', 'market_sell', 'pending_sell_limit', 'pending_buy_stop']);
     expect(keys).not.toContain('pending_buy_limit');
     expect(keys).not.toContain('pending_sell_stop');
   });

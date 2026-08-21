@@ -73,7 +73,16 @@ export function ToolFlyout({
       aria-label={label}
       data-testid={testId}
       style={{ top, width }}
-      className="absolute left-full z-[var(--wariba-z-popover)] ml-px max-h-[min(78vh,640px)] overflow-y-auto overscroll-contain rounded-r-[10px] rounded-bl-[10px] border border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-popover)] py-1.5 shadow-[var(--wariba-component-workstation-elevation-popover)] motion-safe:animate-[wariba-fade-in_var(--wariba-component-workstation-motion-popover)_ease-out]"
+      /*
+       * VX1-B §6 — the flyout is a raised graphite panel, not a floating list.
+       *
+       * Popover surface a step above the module it covers, a hairline rim light
+       * along its top edge so it reads as lifted rather than cut out, the strong
+       * seam as its border, and an entry that fades in over 2px of travel in
+       * ~150ms. No scale: a panel that grows out of a 32px key reads as a
+       * flourish, and this one has to be usable the instant it lands.
+       */
+      className="absolute left-full z-[var(--wariba-z-popover)] ml-px max-h-[min(78vh,640px)] overflow-y-auto overscroll-contain rounded-r-[var(--wariba-component-workstation-radius-panel)] rounded-bl-[var(--wariba-component-workstation-radius-panel)] border border-[color:var(--wariba-component-workstation-seam-strong)] bg-[color:var(--wariba-component-workstation-surface-popover)] py-1.5 shadow-[var(--wariba-component-workstation-elevation-popover),inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong)] motion-safe:animate-[wariba-flyout-enter_var(--wariba-component-workstation-motion-quick)_var(--wariba-component-workstation-ease-enter)]"
     >
       {children}
     </div>
@@ -141,7 +150,7 @@ export function FlyoutRow({
       {active && (
         <span
           aria-hidden="true"
-          className="absolute inset-y-0 left-0 w-0.5 bg-[color:var(--wariba-component-workstation-interaction-selected)]"
+          className="absolute inset-y-0 left-0 w-0.5 bg-[color:var(--wariba-component-workstation-seam-active)] shadow-[0_0_8px_0_var(--wariba-component-workstation-focus-glow)]"
         />
       )}
       <button
@@ -150,7 +159,7 @@ export function FlyoutRow({
         disabled={disabled}
         data-testid={testId}
         onClick={onSelect}
-        className={`flex h-10 min-w-0 flex-1 items-center gap-3 px-4 text-left text-[length:var(--wariba-component-workstation-type-data-strong)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] disabled:cursor-not-allowed disabled:opacity-40 ${
+        className={`flex h-10 min-w-0 flex-1 items-center gap-3 px-4 text-left text-[length:var(--wariba-component-workstation-type-data-strong)] transition-colors duration-[var(--wariba-component-workstation-motion-quick)] focus-visible:outline focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] disabled:cursor-not-allowed disabled:opacity-40 ${
           active
             ? 'text-[color:var(--wariba-component-workstation-interaction-selected-text)]'
             : 'text-[color:var(--wariba-component-workstation-text-secondary)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)]'

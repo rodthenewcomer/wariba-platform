@@ -86,6 +86,47 @@ export function formatOrderTimestamp(iso: string): string {
   }).format(new Date(iso))} UTC`;
 }
 
+/**
+ * VX1 §16 — money on a chart chip, at the width a chart chip has.
+ *
+ * `+95.70 USD` is what every panel in WariX writes, and it is right there: a
+ * panel has a column header to hoist the unit into. A chip standing on a price
+ * line has neither, and three characters of currency word crowd out the figure
+ * they qualify. `$` is the same unit in one glyph.
+ *
+ * **It is the account's unit, not an assumption about the trader.** Every WariX
+ * account is denominated in USD (the account read model formats its nominal in
+ * USD, the dock and the execution impact strip both label their figures USD), so
+ * this prints the same currency those surfaces do. The day an account can be
+ * denominated in something else, this takes the unit as an argument rather than
+ * guessing — which is why the symbol lives in one function instead of in every
+ * chip.
+ *
+ * The sign is always explicit: on a trading chart "70.20" and "-70.20" must
+ * never be told apart by a character a trader might miss, so a gain carries its
+ * `+`.
+ */
+export function formatMoney(amount: string): string {
+  const parsed = Number(amount);
+  if (!Number.isFinite(parsed)) return '—';
+  const sign = parsed > 0 ? '+' : parsed < 0 ? '−' : '';
+  return `${sign}$${Math.abs(parsed).toFixed(2)}`;
+}
+
+/**
+ * Lot size, as a trader writes it on a chart: `.10`, not `0.1000`.
+ *
+ * Two decimals is the step the ticket itself uses (0.01), so nothing is rounded
+ * away that a trader could have entered. The leading zero goes because the chip
+ * is three characters wide and the decimal point already says what this is.
+ */
+export function formatLotSize(quantity: string): string {
+  const parsed = Number(quantity);
+  if (!Number.isFinite(parsed)) return quantity;
+  const fixed = parsed.toFixed(2);
+  return fixed.startsWith('0.') ? fixed.slice(1) : fixed;
+}
+
 export function formatDuration(durationMs: string | null): string {
   if (durationMs === null) return '—';
   const totalSeconds = Math.max(0, Math.floor(Number(durationMs) / 1_000));

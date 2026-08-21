@@ -76,7 +76,7 @@ export function ExecutionField({
         {visibleLabel ? <span className="sr-only"> {label}</span> : null}
       </label>
       <div
-        className={`relative flex h-11 items-center overflow-hidden rounded-[8px] bg-[color:var(--wariba-component-workstation-surface-canvas)] ring-1 ring-inset transition-[box-shadow] duration-[var(--wariba-component-workstation-motion-interaction)] focus-within:ring-2 lg:h-9 ${
+        className={`relative flex h-11 items-center overflow-hidden rounded-[var(--wariba-component-workstation-radius-control)] bg-[color:var(--wariba-component-workstation-surface-canvas)] shadow-[inset_0_1px_2px_0_rgba(5,7,12,0.55)] ring-1 ring-inset transition-[box-shadow] duration-[var(--wariba-component-workstation-motion-quick)] focus-within:shadow-[inset_0_1px_2px_0_rgba(5,7,12,0.55),0_0_6px_0_var(--wariba-component-workstation-focus-glow)] lg:h-9 ${
           errorText
             ? 'ring-[color:var(--wariba-component-workstation-trading-rejection)]'
             : 'ring-[color:var(--wariba-component-workstation-border-hairline)] focus-within:ring-[color:var(--wariba-component-workstation-border-focus)]'
@@ -85,7 +85,7 @@ export function ExecutionField({
         {accentClassName ? (
           <span
             aria-hidden="true"
-            className={`absolute bottom-0 left-0 top-0 w-0.5 ${accentClassName}`}
+            className={`absolute bottom-0 left-0 top-0 w-[3px] ${accentClassName}`}
           />
         ) : null}
         {prefix ? (

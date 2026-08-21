@@ -126,11 +126,15 @@ export {
 export {
   roundPriceToTick,
   computeLevelPnlPreview,
+  isProtectionLevelValid,
+  protectionPlacementFor,
   computeRiskRewardRatio,
   computePartialClosePresetQuantity,
   roundCustomPartialCloseQuantity,
   computeNetPnlAfterFees,
   type LevelPnlPreview,
+  type ProtectionLevelKind,
+  type ProtectionPlacement,
 } from './chart-overlay';
 export {
   isDecimalQuantityInput,

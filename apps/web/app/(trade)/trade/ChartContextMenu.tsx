@@ -407,7 +407,9 @@ export function ChartContextMenuPopover({
     <div
       ref={ref}
       data-testid="chart-context-menu"
-      className="fixed z-[var(--wariba-z-popover)] max-h-[min(70vh,460px)] w-[268px] overflow-y-auto overscroll-contain rounded-[10px] border border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-popover)] shadow-[var(--wariba-component-workstation-elevation-popover)] motion-safe:animate-[wariba-fade-in_var(--wariba-component-workstation-motion-popover)_ease-out]"
+      /* VX1-B §23 — the chart's menus and the rail's flyouts are one grammar:
+         same popover tone, same seam, same rim light, same ~140ms entry. */
+      className="fixed z-[var(--wariba-z-popover)] max-h-[min(70vh,460px)] w-[268px] overflow-y-auto overscroll-contain rounded-[var(--wariba-component-workstation-radius-panel)] border border-[color:var(--wariba-component-workstation-seam-strong)] bg-[color:var(--wariba-component-workstation-surface-popover)] shadow-[var(--wariba-component-workstation-elevation-popover),inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong)] motion-safe:animate-[wariba-fade-in_var(--wariba-component-workstation-motion-quick)_var(--wariba-component-workstation-ease-enter)]"
       style={
         flipUp
           ? { left, bottom: Math.max(8, viewportHeight - y) }

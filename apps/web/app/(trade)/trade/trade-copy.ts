@@ -123,6 +123,17 @@ export {
  * every execution control are unaffected — so the copy says so rather than
  * letting the trader infer that trading is down.
  */
+/**
+ * VX1-C §5/§6 — what the chart says while the *link* is still coming up.
+ *
+ * Before the socket is open the history controller has not started yet, so its
+ * own status is `idle` and the plot said nothing at all: an empty chart with no
+ * explanation, which is the blank-screen state §5 rules out. This is the one
+ * honest sentence for that moment — the feed is being connected, and no data is
+ * being claimed.
+ */
+export const HISTORY_CONNECTING_MESSAGE = 'Connexion au flux…';
+
 export const HISTORY_STATUS_MESSAGE: Record<'loading' | 'empty' | 'error', string> = {
   loading: 'Historique…',
   empty: 'Historique en cours de constitution.',

@@ -35,7 +35,7 @@ export function UtilityDrawer({
       aria-label={title}
       data-testid={testId}
       style={{ width }}
-      className="flex h-full min-h-0 min-w-0 shrink-0 flex-col overflow-hidden border-l border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-module)] shadow-[var(--wariba-component-workstation-elevation-popover)] motion-safe:animate-[wariba-fade-in_var(--wariba-component-workstation-motion-popover)_ease-out]"
+      className="flex h-full min-h-0 min-w-0 shrink-0 flex-col overflow-hidden border-l border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-module)] shadow-[var(--wariba-component-workstation-elevation-popover)] motion-safe:animate-[wariba-drawer-enter_var(--wariba-component-workstation-motion-panel)_var(--wariba-component-workstation-ease-enter)]"
     >
       <header className="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-2.5 shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light)]">
         <div className="min-w-0">
@@ -74,7 +74,11 @@ export function UtilityDrawer({
           </button>
         </Tooltip>
       </header>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
+      {/* VX1 §34 — surface first, content a beat behind it: the drawer reads as
+          a panel arriving, not as a block of text appearing. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden motion-safe:animate-[wariba-fade-in_var(--wariba-component-workstation-motion-standard)_var(--wariba-component-workstation-ease-enter)_60ms_backwards]">
+        {children}
+      </div>
     </section>
   );
 }

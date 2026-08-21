@@ -1,31 +1,37 @@
 'use client';
 
-import { memo, type ReactNode } from 'react';
-import {
-  Tooltip,
-  WariXActivityIcon,
-  WariXAlertsIcon,
-  WariXCalendarIcon,
-  WariXHelpIcon,
-  WariXLogIcon,
-  WariXMarketsIcon,
-  WariXTradeIcon,
-} from '@wariba/ui';
+import { memo } from 'react';
+import { Tooltip, WariXDestinationIcon, type WarixDestinationId } from '@wariba/ui';
 
 export type UtilityDrawerId = 'markets' | 'trade' | 'calendar' | 'help';
 
 interface UtilityButtonProps {
   label: string;
-  icon: ReactNode;
+  destination: WarixDestinationId;
   active?: boolean;
   badge?: number;
   testId: string;
   onClick(): void;
 }
 
+/**
+ * One workstation destination.
+ *
+ * VX1-C.1 §16/§17 — the four states, and what each is allowed to spend:
+ *
+ * - **idle** — soft steel glyph on the rail's own surface, nothing else.
+ * - **hover** — the glyph brightens to ice, a graphite plate appears under it,
+ *   and the key lifts a single pixel. Never more: a rail that moves under the
+ *   cursor is a rail a trader mis-clicks.
+ * - **active** — a thin cobalt energy line on the rail's inner edge, a
+ *   translucent cobalt backplate, a fine top highlight and a very local glow.
+ *   Deliberately *not* a bright blue square: the destination should read as lit
+ *   from within, not painted over.
+ * - **disabled** — quiet neutral, no elevation, no glow.
+ */
 function UtilityButton({
   label,
-  icon,
+  destination,
   active = false,
   badge = 0,
   testId,
@@ -37,17 +43,15 @@ function UtilityButton({
         type="button"
         aria-label={label}
         aria-pressed={active}
+        className="warix-destination-key relative"
+        data-active={active ? 'true' : 'false'}
+        data-warix-destination={destination}
         data-testid={testId}
         onClick={onClick}
-        className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[7px] transition-[background-color,color,box-shadow,transform] duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-px ${
-          active
-            ? 'bg-[color:var(--wariba-component-workstation-wash-selected-strong)] text-[color:var(--wariba-component-workstation-interaction-selected-text)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-selected)] after:absolute after:bottom-1.5 after:left-[-6px] after:top-1.5 after:w-[2px] after:rounded-r-full after:bg-[color:var(--wariba-component-workstation-interaction-selected)]'
-            : 'text-[color:var(--wariba-component-workstation-text-tertiary)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)]'
-        }`}
       >
-        {icon}
+        <WariXDestinationIcon destination={destination} />
         {badge > 0 ? (
-          <span className="wariba-data absolute -right-1 -top-1 min-w-4 rounded-full bg-[color:var(--wariba-component-workstation-trading-danger)] px-1 text-center text-[9px] font-bold leading-4 tabular-nums text-white ring-2 ring-[color:var(--wariba-component-workstation-surface-raised-module)]">
+          <span className="wariba-data absolute -right-1 -top-1 min-w-4 rounded-full bg-[color:var(--wariba-component-workstation-trading-danger)] px-1 text-center text-[9px] font-bold leading-4 tabular-nums text-white ring-2 ring-[color:var(--wariba-component-workstation-surface-raised-module)] motion-safe:animate-[wariba-badge-pop_var(--wariba-component-workstation-motion-standard)_var(--wariba-component-workstation-ease-settle)]">
             {badge > 99 ? '99+' : badge}
           </span>
         ) : null}
@@ -56,69 +60,73 @@ function UtilityButton({
   );
 }
 
-function GroupSeam() {
-  return (
-    <span
-      aria-hidden="true"
-      className="my-2 h-px w-6 shrink-0 bg-[color:var(--wariba-component-workstation-border-hairline)]"
-    />
-  );
-}
-
 export interface RightUtilityRailProps {
   activeDrawer: UtilityDrawerId | null;
   activityActive: boolean;
   alertsActive: boolean;
+  journalActive: boolean;
   openPositionCount: number;
   activeAlertCount: number;
-  unreadCount: number;
   onToggleDrawer(drawer: UtilityDrawerId): void;
   onOpenActivity(): void;
   onOpenAlerts(): void;
-  onOpenNotifications(): void;
+  onOpenJournal(): void;
 }
 
 /**
- * Persistent workspace utilities. Heavy content never lives in this rail: it
+ * Persistent workspace destinations. Heavy content never lives in this rail: it
  * either opens the single inward drawer or routes to an already canonical
  * activity surface.
+ *
+ * **VX1-C.1 §14/§18 — what the rail is, and what it is not.**
+ *
+ * It is a list of *places*, grouped by what a trader is doing when they reach
+ * for one: the four execution surfaces, then the two intelligence surfaces,
+ * then help. The groups are separated by real negative space rather than by
+ * being packed against one another, because a rail that reads as one long strip
+ * of glyphs is a rail nobody scans.
+ *
+ * It carries no connectivity: the feed's health lives in the header, once, and
+ * putting a second network state here would be the fourth green dot the product
+ * just got rid of.
  */
 export const RightUtilityRail = memo(function RightUtilityRail({
   activeDrawer,
   activityActive,
   alertsActive,
+  journalActive,
   openPositionCount,
   activeAlertCount,
-  unreadCount,
   onToggleDrawer,
   onOpenActivity,
   onOpenAlerts,
-  onOpenNotifications,
+  onOpenJournal,
 }: RightUtilityRailProps) {
   return (
     <aside
-      aria-label="Utilitaires WariX"
+      aria-label="Destinations WariX"
       data-testid="right-utility-rail"
-      className="flex h-full w-[var(--wariba-component-workstation-utility-rail-width)] shrink-0 flex-col items-center border-l border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-1.5 py-2 shadow-[inset_1px_0_0_0_var(--wariba-component-workstation-rim-light)]"
+      className="flex h-full w-[var(--wariba-component-workstation-utility-rail-width)] shrink-0 flex-col items-center border-l border-[color:var(--wariba-component-workstation-seam-strong)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-1.5 py-3 shadow-[inset_1px_0_0_0_var(--wariba-component-workstation-rim-light)]"
     >
-      <div className="flex flex-col items-center gap-1">
+      {/* Execution — the four surfaces a trader works from. */}
+      <div className="flex flex-col items-center gap-1.5">
         <UtilityButton
           label="Marchés"
-          icon={<WariXMarketsIcon size="nav" />}
+          destination="markets"
           active={activeDrawer === 'markets'}
           testId="utility-markets"
           onClick={() => onToggleDrawer('markets')}
         />
         <UtilityButton
           label="Trade"
-          icon={<WariXTradeIcon size="nav" />}
+          destination="trade"
           active={activeDrawer === 'trade'}
           testId="utility-trade"
           onClick={() => onToggleDrawer('trade')}
         />
         <UtilityButton
           label="Activité"
-          icon={<WariXActivityIcon size="nav" />}
+          destination="activity"
           active={activityActive}
           badge={openPositionCount}
           testId="utility-activity"
@@ -126,7 +134,7 @@ export const RightUtilityRail = memo(function RightUtilityRail({
         />
         <UtilityButton
           label="Alertes"
-          icon={<WariXAlertsIcon size="nav" />}
+          destination="alerts"
           active={alertsActive}
           badge={activeAlertCount}
           testId="utility-alerts"
@@ -134,30 +142,34 @@ export const RightUtilityRail = memo(function RightUtilityRail({
         />
       </div>
 
-      <GroupSeam />
+      {/* §14 — negative space, not a divider: the gap is what tells a trader the
+          next two destinations are a different kind of thing. */}
+      <div className="h-9 shrink-0" aria-hidden="true" />
 
-      <div className="flex flex-col items-center gap-1">
+      {/* Intelligence — what is happening around the market. */}
+      <div className="flex flex-col items-center gap-1.5">
         <UtilityButton
-          label="Calendrier et actualités"
-          icon={<WariXCalendarIcon size="nav" />}
+          label="Calendrier"
+          destination="calendar"
           active={activeDrawer === 'calendar'}
           testId="utility-calendar"
           onClick={() => onToggleDrawer('calendar')}
         />
         <UtilityButton
-          label="Notifications et journal"
-          icon={<WariXLogIcon size="nav" />}
-          badge={unreadCount}
-          testId="utility-notifications"
-          onClick={onOpenNotifications}
+          label="Journal"
+          destination="journal"
+          active={journalActive}
+          testId="utility-journal"
+          onClick={onOpenJournal}
         />
       </div>
 
-      <div className="mt-auto flex flex-col items-center gap-1">
-        <GroupSeam />
+      {/* System — alone at the bottom, where a trader looks for it and nowhere
+          near the surfaces that place orders. */}
+      <div className="mt-auto flex flex-col items-center">
         <UtilityButton
-          label="Centre d’aide"
-          icon={<WariXHelpIcon size="nav" />}
+          label="Aide"
+          destination="help"
           active={activeDrawer === 'help'}
           testId="utility-help"
           onClick={() => onToggleDrawer('help')}

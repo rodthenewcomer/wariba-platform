@@ -27,6 +27,8 @@ import {
   quotedPrice,
   roundPriceToTick,
   computeLevelPnlPreview,
+  isProtectionLevelValid,
+  protectionPlacementFor,
   computeRiskRewardRatio,
   pendingOrderDistancePoints,
 } from '@wariba/domain';
@@ -41,13 +43,15 @@ import type { RealtimeConnectionState } from '../../../lib/realtime-client';
 import { resolveLabelCollisions } from './chart-overlay-geometry';
 import { chartPriceFormatFor } from './chart-price-format';
 import {
-  PositionBadge,
-  LevelChip,
-  LevelHandle,
+  PositionProtectionControls,
   DragPreviewPanel,
+  PositionChip,
+  TradeLevelChip,
   type LevelSyncState,
+  type TradeObjectEdge,
 } from './ChartPositionOverlay';
 import { PendingOrderLine, AlertLine } from './ChartPendingOverlay';
+import { ChartPriceScalePlates, type PriceScalePlate } from './ChartPriceScalePlates';
 import { ChartContextMenuPopover, ChartContextMenuContent } from './ChartContextMenu';
 import {
   createChartHistoryController,
@@ -55,7 +59,10 @@ import {
   type ChartHistoryTransport,
 } from './chart-history';
 import type { TickStore } from './tick-store';
-import { HISTORY_STATUS_MESSAGE } from './trade-copy';
+import { HISTORY_CONNECTING_MESSAGE, HISTORY_STATUS_MESSAGE } from './trade-copy';
+import { resolveExecutionMarkers } from './chart-execution-markers';
+import { resolveDragCardTop, type OccupiedBand } from './chart-drag-card-layout';
+import { formatLotSize, formatMoney } from './trade-labels';
 import { ChartToolbar, useFullscreen, type ChartStyle } from './ChartToolbar';
 import { ChartStatusLine, computeBarChange } from './ChartStatusLine';
 import { IndicatorLibrary } from './IndicatorLibrary';
@@ -203,9 +210,62 @@ interface DragSession {
   /** Screen Y where the drag started — a mouseup within DRAG_CLICK_THRESHOLD_PX of this is treated as a tap, not a drag. */
   startClientY: number;
   moved: boolean;
+  /** Pointer Y in *plot* coordinates, for the validation card's placement. */
+  pointerY?: number;
 }
 
 const DRAG_CLICK_THRESHOLD_PX = 4;
+
+/**
+ * How far from the plot's edge a pinned trade object comes to rest (VX1 §21).
+ *
+ * Half a chip: enough that the chip is fully drawn inside the plot rather than
+ * half-swallowed by the toolbar above it or the time scale below.
+ */
+const OVERLAY_EDGE_PADDING = 22;
+
+/**
+ * The band a trade chip is allowed to occupy — VX1-D.1.1 §2/§3.
+ *
+ * **The level line never moves.** Everything here is about the *chip*: the
+ * horizontal stroke and its axis plate stay at `priceToCoordinate(price)`
+ * whatever happens below, and a chip that has been pinned draws a caret so it
+ * can never be read as standing on the price it appears to touch.
+ *
+ * `TOP_CHIP_SAFE_BOUNDARY` is measured from the OHLC and indicator legends,
+ * which is why it is computed per render rather than fixed: the legend grows
+ * with the number of indicators, and a take profit pinned under a four-row
+ * legend on a phone was landing behind it.
+ *
+ * `BOTTOM_CHIP_SAFE_BOUNDARY` reserves the time axis on every viewport, plus —
+ * on a phone only — one lane for command feedback. That lane is the whole of
+ * §3: the confirmation toast is centred over the plot on a 390px screen, and
+ * the chips sit at 20% from the left, so the two *will* collide the moment a
+ * stop loss happens to be low on the chart. Excluding the lane from the chip
+ * band makes the collision impossible by construction rather than resolved
+ * after the fact.
+ */
+const MOBILE_FEEDBACK_LANE = 64;
+
+/**
+ * The validation card's height, for placement purposes.
+ *
+ * A measured height would need a layout pass per frame of a drag; the card has
+ * one shape — a heading row, a price and a two-line reason — so a constant is
+ * both accurate enough and free. Erring slightly large is the safe direction:
+ * it only makes the rule more cautious about what it sits near.
+ */
+const DRAG_CARD_HEIGHT = 104;
+
+/**
+ * The price as a plate prints it — the canonical string, at the instrument's own
+ * precision, never rounded to something prettier.
+ */
+function formatPlatePrice(price: string, precision: number | null): string {
+  if (precision === null) return price;
+  const parsed = Number(price);
+  return Number.isFinite(parsed) ? parsed.toFixed(precision) : price;
+}
 
 /** Drag/exact-price session for a pending order's trigger price or an alert's threshold price — see orderDrag's doc comment below. */
 interface OrderDragSession {
@@ -334,6 +394,26 @@ export function TradeChart({
    */
   const resizingRef = useRef(false);
 
+  /**
+   * VX1 §21 — the rendered height of the OHLC/indicator legend.
+   *
+   * A trade object pinned to the top edge has to come to rest *below* the
+   * legend, and the legend is one row when collapsed and six with four
+   * indicators expanded. Measured rather than assumed, because a hard-coded
+   * inset would put a pinned Take Profit through the OHLC row on exactly the
+   * charts that have the most to read.
+   */
+  const [legendHeight, setLegendHeight] = useState(0);
+
+  /**
+   * The price scale's own width, so WariX's plates sit exactly over it.
+   *
+   * Read from the chart rather than assumed: the scale sizes itself to the
+   * widest label it draws, which differs between a 5-decimal FX pair and a
+   * 2-decimal index.
+   */
+  const [priceScaleWidth, setPriceScaleWidth] = useState(0);
+
   /** W5 §65 — the candle under the crosshair, held imperatively (see the subscription below). */
   const [hoveredCandle, setHoveredCandle] = useState<MarketCandle | null>(null);
   const [drag, setDrag] = useState<DragSession | null>(null);
@@ -341,6 +421,17 @@ export function TradeChart({
   useEffect(() => {
     dragRef.current = drag;
   }, [drag]);
+  /*
+   * The positions the global pointer-up handler judges a release against.
+   *
+   * That handler is attached once and closes over its first render, so reading
+   * `positions` directly there would validate a drag against whatever the book
+   * looked like when the listener was installed. A ref is the same pattern
+   * `dragRef` already uses, for the same reason.
+   */
+  const positionsRef = useRef(positions);
+  positionsRef.current = positions;
+
   // Appendix 07-D — a second, parallel drag session for pending-order
   // trigger-price and alert threshold-price lines. Kept independent from
   // `drag` above (position SL/TP) rather than folded into one generalized
@@ -556,6 +647,21 @@ export function TradeChart({
         setHoveredCandle(null);
         return;
       }
+      /*
+       * The live bar is answered from the history controller's own store.
+       *
+       * Introduced in VX1-D.1 to keep interpolated geometry out of the legend,
+       * and kept after that layer was reverted, because it is the better read
+       * on its own terms: the legend, the price plates and the impact estimates
+       * now all quote the same object, so the OHLC row can never disagree with
+       * the plate beside it. Settled bars behind the live one are historical
+       * truth in the series and are read from there.
+       */
+      const live = historyRef.current.series().current;
+      if (live && live.startTime === time) {
+        setHoveredCandle(live);
+        return;
+      }
       const bar = param.seriesData.get(series) as
         { open: number; high: number; low: number; close: number } | undefined;
       setHoveredCandle(
@@ -726,6 +832,22 @@ export function TradeChart({
         analysisRef.current?.onSeriesReplaced();
       },
       update: (candle) => {
+        /*
+         * One accepted tick, drawn once, with the price the feed actually sent.
+         *
+         * VX1-D.1 routed this through an easing layer that re-issued
+         * `series.update()` with intermediate OHLC. It looked right, and the
+         * cost was not worth it: the chart's own `seriesData` then held numbers
+         * the market never printed, so every consumer that reads a bar back out
+         * of the renderer — the crosshair today, anything added tomorrow —
+         * became a place a fabricated price could surface. Guarding one caller
+         * is not a guarantee; not writing the value is.
+         *
+         * VX1-D.1.1 §5 reverts it. The series is authoritative again, and the
+         * terminal stays alive through the effects that never touch market
+         * truth: the travelling price plate, quote feedback, P&L and account
+         * motion, the feed glyph, execution physics and drag.
+         */
         const ohlc = toRendererCandle(candle);
         const close = { time: ohlc.time, value: ohlc.close };
         seriesRef.current?.update(ohlc);
@@ -966,14 +1088,21 @@ export function TradeChart({
       wickUpColor: s.wickUpColor,
       wickDownColor: s.wickDownColor,
       /*
-       * §7 — one clear current-price reference. Dashed and neutral: it is the
-       * chart's anchor, not a trading semantic, and it must read *before* any
-       * other horizontal rule now that the permanent Bid/Ask pair is gone.
+       * §7, and VX1 §11 — one clear current-price reference, and it is *market*
+       * context rather than a trading semantic.
+       *
+       * Finely dotted and ice: dotted so it never reads as one of the three
+       * trade rules (solid entry, dashed TP, dashed SL), and ice because a
+       * current price that turned emerald whenever the trader happened to be
+       * long would be claiming a meaning the market does not have.
        */
       priceLineVisible: scales.currentPriceLine,
       priceLineColor: currentPriceColor,
       priceLineWidth: 1,
-      priceLineStyle: 2,
+      priceLineStyle: 1,
+      // Same reason as the trade levels above: WariX draws this plate itself so
+      // it can step aside for an entry a few ticks away instead of covering it.
+      lastValueVisible: false,
     });
     barSeriesRef.current?.applyOptions({
       visible: chartStyle === 'bars',
@@ -1068,6 +1197,29 @@ export function TradeChart({
     for (const line of positionLinesRef.current) series.removePriceLine(line);
     positionLinesRef.current = [];
 
+    /*
+     * VX1 §13/§14/§15 — one line grammar, three identities.
+     *
+     * Entry is a solid cobalt rule: it is a fact, and the only one of the three
+     * that cannot be moved. The two protective levels are dashed because they
+     * are intentions — emerald for the one that pays, coral for the one that
+     * costs — and dashes are what separates "where I said to get out" from
+     * "where I got in" at a glance, before colour is even read.
+     *
+     * The `title` is gone from all three. lightweight-charts prints it *on* the
+     * line, which is a second label saying what the chip attached to the same
+     * line already says in a typeface WariX controls; the coloured axis plate
+     * keeps carrying the price.
+     */
+    /*
+     * VX1-A.1 §1 — the stroke is the library's, the plate is ours.
+     *
+     * `axisLabelVisible` is off on all three: lightweight-charts draws its
+     * labels into the canvas with no collision handling, so an entry a few ticks
+     * from the market printed two plates on top of each other. The plates are
+     * drawn as HTML by `ChartPriceScalePlates`, which lays them out by priority
+     * and connects any it had to displace back to its own line.
+     */
     for (const position of positions) {
       positionLinesRef.current.push(
         series.createPriceLine({
@@ -1075,8 +1227,8 @@ export function TradeChart({
           color: colorsRef.current.position,
           lineWidth: 2,
           lineStyle: 0,
-          axisLabelVisible: true,
-          title: position.side === 'buy' ? 'Achat' : 'Vente',
+          axisLabelVisible: false,
+          title: '',
         }),
       );
       if (position.stopLoss) {
@@ -1086,8 +1238,8 @@ export function TradeChart({
             color: colorsRef.current.stopLoss,
             lineWidth: 1,
             lineStyle: 2,
-            axisLabelVisible: true,
-            title: 'SL',
+            axisLabelVisible: false,
+            title: '',
           }),
         );
       }
@@ -1098,8 +1250,8 @@ export function TradeChart({
             color: colorsRef.current.takeProfit,
             lineWidth: 1,
             lineStyle: 2,
-            axisLabelVisible: true,
-            title: 'TP',
+            axisLabelVisible: false,
+            title: '',
           }),
         );
       }
@@ -1159,11 +1311,21 @@ export function TradeChart({
       previewLineRef.current = null;
     }
     if (drag) {
+      /*
+       * VX1-A.1 §5 — the line brightens with the grab.
+       *
+       * The preview used to be neutral grey, which read as a third kind of line
+       * rather than as *this* level being moved. It now takes the level's own
+       * colour at solid weight against its dashed resting form: same identity,
+       * unmistakably the one in hand. It remains a separate line from the
+       * confirmed one, which never advances until the server says so.
+       */
       previewLineRef.current = series.createPriceLine({
         price: Number(drag.previewPrice),
-        color: colorsRef.current.preview,
+        color:
+          drag.field === 'stop_loss' ? colorsRef.current.stopLoss : colorsRef.current.takeProfit,
         lineWidth: 2,
-        lineStyle: 1,
+        lineStyle: 0,
         axisLabelVisible: true,
         title: drag.field === 'stop_loss' ? 'SL (aperçu)' : 'TP (aperçu)',
       });
@@ -1191,21 +1353,41 @@ export function TradeChart({
     }
   }, [orderDrag]);
 
-  // Fill markers (§22.6 "historique d'exécution") — session-only, see the
-  // component doc comment above for why nothing retroactive is possible.
+  /*
+   * Execution history (§22.6) — VX1-D.1.1 §4.
+   *
+   * **Why the labels are gone.** Every fill used to print `Entrée 1.09330` or
+   * `Clôture 1.09338` beside its bar. One trade looked fine. A session of
+   * scalping does not: the sandbox feed keeps the price in a narrow band, so a
+   * handful of open/close cycles stacks four, six, eight full-strength labels
+   * on top of each other around the live edge — directly over the entry line,
+   * the current-price plate and whichever protective level happens to be
+   * nearby. The clutter grows without bound and it grows *exactly* where the
+   * trader is reading.
+   *
+   * The arrows stay: they are the execution-history layer, and they mark where
+   * and which way each fill happened without competing for the same pixels as
+   * the live trade objects. Nothing is lost, because the *active* entry is
+   * already stated three times over — by its own line, its chip and its axis
+   * plate — and every historical fill keeps its exact price, with a timestamp,
+   * in the dock's Trades panel, which is where a fill is looked up.
+   */
   useEffect(() => {
     if (!seriesRef.current) return;
-    const markers: SeriesMarker<Time>[] = fills
-      .map((fill) => ({
-        time: fill.time as UTCTimestamp,
-        position: (fill.side === 'buy' ? 'belowBar' : 'aboveBar') as 'belowBar' | 'aboveBar',
-        color: fill.effect === 'open' ? colorsRef.current.position : colorsRef.current.axis,
-        shape: (fill.side === 'buy' ? 'arrowUp' : 'arrowDown') as 'arrowUp' | 'arrowDown',
-        text: `${fill.effect === 'open' ? 'Ouverture' : 'Clôture'} ${fill.price}`,
-      }))
-      .sort((a, b) => (a.time as number) - (b.time as number));
+    const markers: SeriesMarker<Time>[] = resolveExecutionMarkers(fills, {
+      compact: !isDesktop,
+    }).map((cluster) => ({
+      time: cluster.time as UTCTimestamp,
+      position: (cluster.side === 'buy' ? 'belowBar' : 'aboveBar') as 'belowBar' | 'aboveBar',
+      color: cluster.effect === 'open' ? colorsRef.current.position : colorsRef.current.axis,
+      shape: (cluster.side === 'buy' ? 'arrowUp' : 'arrowDown') as 'arrowUp' | 'arrowDown',
+      // §2 — one marker plus a count, never a column of arrows. A single fill
+      // stays a bare arrow, so the count only ever appears when it is telling
+      // the trader something they could not otherwise see.
+      ...(cluster.count > 1 ? { text: `×${cluster.count}` } : {}),
+    }));
     seriesRef.current.setMarkers(markers);
-  }, [fills]);
+  }, [fills, isDesktop]);
 
   // Global pointermove/pointerup — attached once, gated on dragRef so this
   // works uniformly for mouse and touch without duplicating the handlers,
@@ -1227,7 +1409,14 @@ export function TradeChart({
         pricePrecision: spec.pricePrecision,
       });
       const moved = Math.abs(event.clientY - session.startClientY) > DRAG_CLICK_THRESHOLD_PX;
-      setDrag({ ...session, previewPrice: rounded, moved: moved || session.moved });
+      setDrag({
+        ...session,
+        previewPrice: rounded,
+        moved: moved || session.moved,
+        // VX1-D.1.2 §1 — which way the gesture is going, so the validation card
+        // can take the half of the plot the trader is *not* looking at.
+        pointerY: y,
+      });
     };
     const handleUp = (event: PointerEvent) => {
       const session = dragRef.current;
@@ -1237,7 +1426,32 @@ export function TradeChart({
       // entry instead of committing a drag — see LevelChip/LevelHandle's
       // onActivate, which already handles the "click" case directly; this
       // only fires the drag commit for an actual drag gesture.
-      if (session.moved) {
+      /*
+       * VX1-D.1 §8 — released in an illegal zone, nothing is sent.
+       *
+       * A "stop loss" above the entry of a long is not a stop loss placed
+       * badly; it is not a stop loss. Sending it would spend a round trip to be
+       * told so, and would leave the trader watching a line snap back with no
+       * explanation. So the level simply stays where the server last confirmed
+       * it — the authoritative price never moved, because a drag preview never
+       * writes one.
+       *
+       * This is not a second risk engine: nothing here evaluates margin, loss
+       * budgets or exposure. Those remain the server's, and a *legal* level is
+       * still sent for the server to accept or refuse on its own terms.
+       */
+      const position = positionsRef.current.find(
+        (candidate) => candidate.id === session.positionId,
+      );
+      const legal =
+        position === undefined ||
+        isProtectionLevelValid({
+          side: position.side,
+          kind: session.field,
+          entryPrice: position.averageOpenPrice,
+          levelPrice: session.previewPrice,
+        });
+      if (session.moved && legal) {
         onCommitLevel({
           positionId: session.positionId,
           field: session.field,
@@ -1434,6 +1648,27 @@ export function TradeChart({
     clearLongPressTimer();
   };
 
+  useEffect(() => {
+    const root = containerRef.current?.parentElement;
+    if (!root || typeof ResizeObserver === 'undefined') return;
+    const node = root.querySelector('[data-testid="chart-status-line"]');
+    if (!node) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      setLegendHeight(Math.round(entry.contentRect.height));
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const width = chart.priceScale('right').width();
+    setPriceScaleWidth((current) => (current === width ? current : width));
+  }, [chartVersion, plotSize.width, pricePrecision]);
+
   const referencePriceFor = (position: PositionDTO): string | null => {
     if (!tick) return null;
     return quotedPrice({
@@ -1457,27 +1692,92 @@ export function TradeChart({
     const levelInputs: { id: string; y: number; height: number }[] = [];
     const badgeY = new Map<string, number>();
     const levelY = new Map<string, number>();
+    const edge = new Map<string, TradeObjectEdge>();
+
+    /*
+     * VX1 §21 — a trade object never leaves the viewport.
+     *
+     * `priceToCoordinate` happily returns a coordinate above the plot's top or
+     * below its bottom: a Take Profit set outside the visible price band mapped
+     * to a negative y and the chip rendered *behind the toolbar*, which is how a
+     * trader ends up believing a level they set does not exist. The level is
+     * pinned to the edge it left through instead, and says which way it went —
+     * the price on it is unchanged, only where its chip is drawn.
+     */
+    const height = plotSize.height;
+    const place = (id: string, price: string, itemHeight: number, into: typeof badgeInputs) => {
+      const raw = series.priceToCoordinate(Number(price));
+      if (raw === null) return;
+      if (height <= 0) {
+        into.push({ id, y: raw, height: itemHeight });
+        return;
+      }
+      /*
+       * Two different facts, deliberately not conflated.
+       *
+       * **Where the chip may sit** is a layout question: the top band belongs to
+       * the OHLC and indicator legend, so a chip is placed below it even when
+       * its line is up there — the line is still drawn at the true price, and a
+       * chip through the legend would cost two readable things to save one.
+       *
+       * **Whether the level is off-screen** is a market question, and only that
+       * earns the caret. A Take Profit sitting under the legend is visible and
+       * says so; a Take Profit above the visible price band is not, and its chip
+       * says which way to look.
+       */
+      const top = Math.max(OVERLAY_EDGE_PADDING, legendHeight + OVERLAY_EDGE_PADDING);
+      const bottom = height - OVERLAY_EDGE_PADDING - (isDesktop ? 0 : MOBILE_FEEDBACK_LANE);
+      /*
+       * The caret marks *displacement*, not merely being off-plot.
+       *
+       * WX1 set it only when the price fell outside the canvas entirely, so a
+       * chip clamped into the safe band — pinned under the legend, or lifted
+       * out of the feedback lane — sat silently at a coordinate that was not
+       * its price. That is the one thing a trade object may never do. Any chip
+       * that had to move now says which way its level actually is.
+       */
+      const y = Math.min(Math.max(raw, top), bottom);
+      if (raw < top) edge.set(id, 'above');
+      else if (raw > bottom) edge.set(id, 'below');
+      into.push({ id, y, height: itemHeight });
+    };
 
     for (const position of positions) {
-      const y = series.priceToCoordinate(Number(position.averageOpenPrice));
-      if (y !== null) badgeInputs.push({ id: `badge:${position.id}`, y, height: 26 });
-      if (position.stopLoss) {
-        const slY = series.priceToCoordinate(Number(position.stopLoss));
-        if (slY !== null) levelInputs.push({ id: `sl:${position.id}`, y: slY, height: 22 });
-      }
-      if (position.takeProfit) {
-        const tpY = series.priceToCoordinate(Number(position.takeProfit));
-        if (tpY !== null) levelInputs.push({ id: `tp:${position.id}`, y: tpY, height: 22 });
-      }
+      place(`badge:${position.id}`, position.averageOpenPrice, 28, badgeInputs);
+      if (position.stopLoss) place(`sl:${position.id}`, position.stopLoss, 28, levelInputs);
+      if (position.takeProfit) place(`tp:${position.id}`, position.takeProfit, 28, levelInputs);
     }
-    for (const placement of resolveLabelCollisions(badgeInputs)) {
-      badgeY.set(placement.id, placement.y);
+    /*
+     * VX1-B — one batch, not two.
+     *
+     * WX1 resolved badges and levels separately because they lived in different
+     * columns: the position badge hugged the right edge, the SL/TP handles sat
+     * beside it, and neither could cover the other. VX1 moved every trade object
+     * into the same column on its own line, which made that separation a bug —
+     * an entry a few ticks under a take profit rendered one chip through the
+     * other. They now compete for the same vertical space, because they occupy
+     * it.
+     */
+    for (const placement of resolveLabelCollisions([...badgeInputs, ...levelInputs])) {
+      if (placement.id.startsWith('badge:')) badgeY.set(placement.id, placement.y);
+      else levelY.set(placement.id, placement.y);
     }
-    for (const placement of resolveLabelCollisions(levelInputs)) {
-      levelY.set(placement.id, placement.y);
-    }
-    return { badgeY, levelY };
-  }, [positions, spec, chartVersion]);
+    return { badgeY, levelY, edge };
+    /*
+     * `tick` is a dependency on purpose, and it is the only one that fires
+     * often.
+     *
+     * The price scale can move without any of the others changing: autoscale
+     * re-fits as new candles arrive, and dragging the price axis re-ranges it
+     * with no time-scale event at all — the one signal this component listens to
+     * for pan and zoom. Recomputing on the tick keeps every chip standing on its
+     * own line within a frame of the market moving, instead of drifting off it
+     * until something else happens to bump `chartVersion`.
+     *
+     * The cost is three `priceToCoordinate` calls and a sort per tick, against a
+     * renderer that has just redrawn the whole plot.
+     */
+  }, [positions, spec, chartVersion, plotSize.height, legendHeight, isDesktop, tick]);
 
   // Appendix 07-D — same collision-aware Y placement as `overlay` above, but
   // resolved as its own independent batch: pending-order and alert lines are
@@ -1506,12 +1806,124 @@ export function TradeChart({
     return placementY;
   }, [pendingOrders, alerts, spec, chartVersion]);
 
+  /*
+   * VX1-D.1 §8 / VX1-D.1.1 §1 — is this drag heading somewhere a level of this
+   * kind may live, and if not, what should be said about it?
+   *
+   * The rule is the domain's (`isProtectionLevelValid`), read against the
+   * position's own authoritative entry — this file re-derives nothing and owns
+   * no second risk engine. What it decides is presentation, and the preview
+   * below depends on the answer: an invalid level is not a level with bad
+   * numbers, it is not a level, so it is not given numbers at all.
+   */
+  const dragValidity = useMemo(() => {
+    if (!drag) return null;
+    const position = positions.find((candidate) => candidate.id === drag.positionId);
+    if (!position) return null;
+    const valid = isProtectionLevelValid({
+      side: position.side,
+      kind: drag.field,
+      entryPrice: position.averageOpenPrice,
+      levelPrice: drag.previewPrice,
+    });
+    if (valid) return { valid: true as const, reason: null };
+    const mustSit =
+      protectionPlacementFor(position.side, drag.field) === 'above_entry' ? 'au-dessus de' : 'sous';
+    const name = drag.field === 'stop_loss' ? 'Stop Loss' : 'Take Profit';
+    return {
+      valid: false as const,
+      reason: `Un ${name} doit être ${mustSit} l’entrée ${position.averageOpenPrice}.`,
+    };
+  }, [drag, positions]);
+
+  /*
+   * VX1-D.1.2 §1 — the validation card's own coordinate.
+   *
+   * Everything the card must not cover is already resolved by the time this
+   * runs: the chips have their final Y from the overlay batch (pinned ones
+   * included), while the current-price plate and the active preview label sit
+   * on the scale at their own authoritative coordinates. They are handed to
+   * the layout rule as occupied bands; it picks the half of the plot opposite
+   * the drag and, failing that, the least covered position between the
+   * boundaries.
+   *
+   * The card is the only thing that yields. No level, no chip and no plate is
+   * moved to make room for an explanation.
+   */
+  const dragCardTop = useMemo(() => {
+    if (!drag || plotSize.height <= 0) return legendHeight + 12;
+    const occupied: OccupiedBand[] = [];
+    const band = (y: number | undefined, height: number) => {
+      if (y === undefined) return;
+      occupied.push({ top: y - height / 2, bottom: y + height / 2 });
+    };
+    for (const position of positions) {
+      band(overlay?.badgeY.get(`badge:${position.id}`), 28);
+      band(overlay?.levelY.get(`sl:${position.id}`), 28);
+      band(overlay?.levelY.get(`tp:${position.id}`), 28);
+    }
+    // The market's own plate, read from the same series the scale is drawn from.
+    const series = seriesRef.current;
+    const live = history.series().current;
+    const last = live?.close ?? tick?.bid ?? null;
+    if (series && last !== null) {
+      const y = series.priceToCoordinate(Number(last));
+      if (y !== null) band(y, 20);
+    }
+    // The native preview line and its `SL/TP (aperçu)` axis label never yield.
+    // Reserve their real price coordinate and move only this explanatory card.
+    if (series) {
+      const y = series.priceToCoordinate(Number(drag.previewPrice));
+      if (y !== null) band(y, 28);
+    }
+    return resolveDragCardTop({
+      plotHeight: plotSize.height,
+      legendHeight,
+      // The same lane the chips are kept out of, so the card cannot drift into
+      // the feedback zone either.
+      bottomReserved: isDesktop
+        ? OVERLAY_EDGE_PADDING
+        : OVERLAY_EDGE_PADDING + MOBILE_FEEDBACK_LANE,
+      cardHeight: DRAG_CARD_HEIGHT,
+      dragDirection:
+        drag.pointerY !== undefined && drag.pointerY < drag.startClientY ? 'up' : 'down',
+      occupied,
+    });
+    // `tick` keeps the current-price band fresh while the market moves under a
+    // held pointer, which is precisely when a card can drift onto the plate.
+  }, [drag, positions, overlay, plotSize.height, legendHeight, isDesktop, history, tick]);
+
   const dragPreviewCard = useMemo(() => {
     if (!drag || !spec) return null;
     const position = positions.find((p) => p.id === drag.positionId);
     if (!position) return null;
     const reference = referencePriceFor(position);
     if (!reference) return null;
+
+    /*
+     * VX1-D.1.1 §1 — an invalid level gets no economics at all.
+     *
+     * The projected P&L, the share of equity, the risk/reward and the daily
+     * budget after execution are all answers to "what happens if this level
+     * fills". A stop above a long's entry cannot fill as a stop, so every one
+     * of those figures would be describing an order that does not exist — and
+     * the worst of them is the money, which for an invalid stop comes out
+     * *positive*: a Stop Loss showing a profit. The card therefore states the
+     * price, names the problem, and stops.
+     */
+    if (dragValidity && !dragValidity.valid) {
+      return {
+        kind: drag.field,
+        priceFormatted: drag.previewPrice,
+        distancePointsFormatted: null,
+        pnlFormatted: null,
+        percentOfAccountFormatted: null,
+        riskRewardFormatted: null,
+        dailyLossRemainingAfterFormatted: null,
+        invalidReason: dragValidity.reason,
+      };
+    }
+
     const preview = computeLevelPnlPreview({
       levelPrice: drag.previewPrice,
       referencePrice: reference,
@@ -1543,8 +1955,9 @@ export function TradeChart({
       riskRewardFormatted: riskReward,
       dailyLossRemainingAfterFormatted:
         drag.field === 'stop_loss' && dailyLossRemaining ? `${dailyLossRemaining} USD` : null,
+      invalidReason: null,
     };
-  }, [drag, positions, spec, accountEquity, dailyLossRemaining, tick]);
+  }, [drag, dragValidity, positions, spec, accountEquity, dailyLossRemaining, tick]);
 
   const overlayLabel = useMemo(() => {
     if (isDisconnected)
@@ -1554,7 +1967,9 @@ export function TradeChart({
   }, [isDisconnected, isStale, connectionState]);
 
   const syncStateFor = (positionId: string, field: RiskLevelField): LevelSyncState => {
-    if (drag && drag.positionId === positionId && drag.field === field) return 'dragging_preview';
+    if (drag && drag.positionId === positionId && drag.field === field) {
+      return dragValidity && !dragValidity.valid ? 'invalid_zone' : 'dragging_preview';
+    }
     if (
       pendingRiskAction &&
       pendingRiskAction.positionId === positionId &&
@@ -1611,10 +2026,38 @@ export function TradeChart({
     historyFirstBucket !== null && historyLastBucket !== null
       ? Math.max(0, historyLastBucket - historyFirstBucket)
       : 0;
+  /*
+   * VX1-C §5/§6 — the plot always says why it is empty.
+   *
+   * `idle` means the history controller has not started, which happens exactly
+   * while the transport is still coming up. WX1 rendered nothing there, so a
+   * trader on a slow link watched a blank chart with no explanation. The
+   * connection sentence covers that gap and disappears the moment history takes
+   * over — and neither claims data that has not arrived.
+   */
+  const connectingWithoutHistory =
+    connectionState !== 'open' && historyCandleCount === 0 && historyState.status !== 'error';
   const historyMessage =
     historyState.status === 'idle' || historyState.status === 'ready'
-      ? null
+      ? connectingWithoutHistory
+        ? HISTORY_CONNECTING_MESSAGE
+        : null
       : HISTORY_STATUS_MESSAGE[historyState.status];
+  /*
+   * VX1-C.1 §4 — the chart states its connection once.
+   *
+   * Both notices were correct and both fired together: the veil said
+   * "Reconnexion…" across the plot while the chip in the corner said "Connexion
+   * au flux…", for one interrupted socket. They answer different questions, so
+   * neither is deleted — each simply keeps the case it is the better answer to.
+   *
+   * The veil's job is to disown *candles that are already drawn*: it dims a plot
+   * a trader can see and tells them it is frozen. With an empty plot there is
+   * nothing to disown, and a full-bleed grey wash over blank canvas says less
+   * than the quiet chip does. So an empty chart speaks through the chip alone,
+   * and a populated one through the veil alone — one sentence either way.
+   */
+  const plotOverlayLabel = connectingWithoutHistory ? null : overlayLabel;
   /*
    * §14 — the bar's own change, from the two candles the chart is already
    * holding.
@@ -1625,6 +2068,50 @@ export function TradeChart({
    * so the number on screen is always derived from the bars on screen.
    */
   const statusCandle = legendCandle(history, hoveredCandle);
+  /**
+   * The plates WariX draws on the price scale (VX1-A.1 §1).
+   *
+   * Every entry here is a price that already exists on the chart as a line: the
+   * three trade levels, and the market's own last traded price. Nothing is
+   * computed — the strings are the canonical values, formatted at the
+   * instrument's precision — and the layout decision (who yields to whom) lives
+   * in `chart-price-plate-layout`, away from any of this.
+   */
+  const pricePlates = useMemo<PriceScalePlate[]>(() => {
+    const series = seriesRef.current;
+    if (!series || !spec) return [];
+    void chartVersion;
+    const plates: PriceScalePlate[] = [];
+    const push = (id: string, kind: PriceScalePlate['kind'], price: string) => {
+      const y = series.priceToCoordinate(Number(price));
+      if (y === null) return;
+      if (plotSize.height > 0 && (y < 0 || y > plotSize.height)) return;
+      plates.push({ id, kind, priceFormatted: formatPlatePrice(price, pricePrecision), y });
+    };
+    for (const position of positions) {
+      push(`plate:entry:${position.id}`, 'entry', position.averageOpenPrice);
+      if (position.stopLoss) push(`plate:sl:${position.id}`, 'stop_loss', position.stopLoss);
+      if (position.takeProfit) push(`plate:tp:${position.id}`, 'take_profit', position.takeProfit);
+    }
+    // The *live* close, never the hovered candle: this plate reports where the
+    // market is, and it must not follow a crosshair down the chart.
+    const live = history.series().current;
+    const last = live?.close ?? tick?.bid ?? null;
+    if (last !== null && chartSettings.scales.currentPriceLine) {
+      push('plate:current', 'current', last);
+    }
+    return plates;
+  }, [
+    positions,
+    spec,
+    chartVersion,
+    plotSize.height,
+    pricePrecision,
+    tick,
+    history,
+    chartSettings.scales.currentPriceLine,
+  ]);
+
   const barChange = useMemo(() => {
     if (statusCandle === null) return null;
     const { finalized, current } = history.series();
@@ -1831,7 +2318,10 @@ export function TradeChart({
           directly reachable; on a phone the indicator and drawing controls
           collapse into a single "Outils" sheet so the strip cannot push the
           document sideways at 320 px (§66/§67). */}
-      <div className="flex h-11 min-w-0 shrink-0 items-center border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-1 min-[360px]:px-2 lg:h-[var(--wariba-component-workstation-toolbar-height)] lg:px-2">
+      {/* VX1-B §3/§4 — the toolbar is a raised module with its own top rim light
+          and a hairline seam onto the plot, so the chart reads as sitting *in*
+          the workstation rather than beside a bar. */}
+      <div className="flex h-11 min-w-0 shrink-0 items-center border-b border-[color:var(--wariba-component-workstation-seam-hairline)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-1 shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light)] min-[360px]:px-2 lg:h-[var(--wariba-component-workstation-toolbar-height)] lg:px-2">
         <ChartToolbar
           symbol={symbol}
           marketStatus={tick?.marketStatus ?? null}
@@ -1963,6 +2453,15 @@ export function TradeChart({
             width={plotSize.width}
             height={plotSize.height}
           />
+          {/* VX1-A.1 §1 — WariX's own price plates, laid out by priority over
+              the library's scale. Above the drawing layer, below the trade
+              chips: a plate is read, never pressed. */}
+          <ChartPriceScalePlates
+            plates={pricePlates}
+            width={priceScaleWidth}
+            height={plotSize.height}
+            compact={!isDesktop}
+          />
           <ChartStatusLine
             symbol={symbol}
             timeframe={analysis.timeframe}
@@ -1999,11 +2498,31 @@ export function TradeChart({
             className="pointer-events-none absolute bottom-2 left-2 z-10"
           >
             {historyMessage && (
+              /*
+               * VX1-B §34 — a status chip, not a line of developer text.
+               *
+               * The same compact graphite surface the rest of the workstation
+               * uses, with a small pulsing mark while history is actually in
+               * flight. No spinner and no skeleton over the plot: the chart is
+               * already drawing live candles behind this, and the only missing
+               * thing is depth.
+               */
               <span
                 role="status"
                 aria-live="polite"
-                className="rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-component-workstation-surface-popover)]/90 px-2 py-1 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]"
+                data-history-message={historyState.status}
+                className="flex items-center gap-1.5 rounded-[var(--wariba-component-workstation-radius-control)] border border-[color:var(--wariba-component-workstation-seam-hairline)] bg-[color:var(--wariba-component-workstation-surface-popover)]/92 px-2 py-1 text-[length:var(--wariba-component-workstation-type-label)] font-semibold text-[color:var(--wariba-component-workstation-text-secondary)] shadow-[var(--wariba-component-workstation-elevation-key)]"
               >
+                <span
+                  aria-hidden="true"
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                    historyState.status === 'error'
+                      ? 'bg-[color:var(--wariba-component-workstation-trading-sell)]'
+                      : historyState.status === 'loading'
+                        ? 'bg-[color:var(--wariba-component-workstation-market-current)] motion-safe:animate-pulse'
+                        : 'bg-[color:var(--wariba-component-workstation-text-tertiary)]'
+                  }`}
+                />
                 {historyMessage}
               </span>
             )}
@@ -2022,14 +2541,16 @@ export function TradeChart({
                     positionSide: position.side,
                   })
                 : null;
-              const sign = pnl !== null && Number(pnl) >= 0 ? '+' : '';
               return (
-                <PositionBadge
+                <PositionChip
                   key={position.id}
                   y={y}
-                  label={`${position.side === 'buy' ? 'ACHAT' : 'VENTE'} ${position.openQuantity} ${position.symbol}`}
-                  priceFormatted={position.averageOpenPrice}
-                  pnlFormatted={pnl !== null ? `${sign}${pnl} USD` : '—'}
+                  side={position.side}
+                  quantityFormatted={formatLotSize(position.openQuantity)}
+                  // VX1 §12/§16 — the money, in the currency the account is
+                  // denominated in, computed exactly as it was before by
+                  // `computeRealizedPnl` against the canonical reference price.
+                  pnlFormatted={pnl !== null ? formatMoney(pnl) : '—'}
                   pnlTone={
                     pnl === null
                       ? 'neutral'
@@ -2041,10 +2562,14 @@ export function TradeChart({
                   }
                   syncState={draggingDisabled ? 'stale_disabled' : 'confirmed'}
                   syncLabel={overlayLabel}
+                  edge={overlay.edge.get(`badge:${position.id}`) ?? null}
+                  entryPriceFormatted={position.averageOpenPrice}
+                  symbol={position.symbol}
                   onManage={() => onOpenManage(position.id)}
                   onClose={() => onClosePosition(position.id)}
                   closeDisabled={commandPending}
                   showCloseButton
+                  compact={!isDesktop}
                 />
               );
             })}
@@ -2052,6 +2577,17 @@ export function TradeChart({
             positions.map((position) => {
               const reference = referencePriceFor(position);
               const chips: React.ReactNode[] = [];
+              /*
+               * VX1-D.1 §5 — a level, or an action, never a mixture.
+               *
+               * A field that *has* a price gets a real level chip whose Y comes
+               * from `priceToCoordinate`, so a long's take profit lands above
+               * its entry because its price is above it — never because of the
+               * order this loop happens to run in. A field with no price gets
+               * no chip at all: both missing fields are collected and offered
+               * once, as the action cluster below.
+               */
+              const missing: RiskLevelField[] = [];
               (['stop_loss', 'take_profit'] as const).forEach((field) => {
                 const value = field === 'stop_loss' ? position.stopLoss : position.takeProfit;
                 const levelKey = field === 'stop_loss' ? `sl:${position.id}` : `tp:${position.id}`;
@@ -2067,21 +2603,25 @@ export function TradeChart({
                     pricePrecision: spec.pricePrecision,
                     accountEquity,
                   });
-                  const sign = Number(preview.estimatedPnl) >= 0 ? '+' : '';
                   chips.push(
-                    <LevelHandle
+                    <TradeLevelChip
                       key={levelKey}
                       y={y}
                       kind={field}
                       priceFormatted={value}
-                      pnlFormatted={`${sign}${preview.estimatedPnl} USD`}
+                      // The same `computeLevelPnlPreview` estimate WX1 showed —
+                      // only its presentation moved to the front of the chip.
+                      pnlFormatted={formatMoney(preview.estimatedPnl)}
+                      quantityFormatted={formatLotSize(position.openQuantity)}
                       syncState={syncStateFor(position.id, field)}
+                      edge={overlay.edge.get(levelKey) ?? null}
                       disabled={draggingDisabled}
                       onPointerDown={startDrag(position.id, field, value)}
                       onActivate={() => onOpenManage(position.id)}
                       onRemove={() =>
                         onCommitLevel({ positionId: position.id, field, value: null })
                       }
+                      compact={!isDesktop}
                       onKeyboardAdjust={(direction) => {
                         if (!spec) return;
                         const point = Number(`1e-${spec.pricePrecision}`);
@@ -2093,30 +2633,32 @@ export function TradeChart({
                       }}
                     />,
                   );
-                } else if (reference) {
-                  const badgeY = overlay.badgeY.get(`badge:${position.id}`);
-                  const y =
-                    badgeY !== undefined
-                      ? badgeY + 24 * (field === 'stop_loss' ? 1 : 2)
-                      : undefined;
-                  if (y === undefined) return;
+                } else {
+                  missing.push(field);
+                }
+              });
+
+              if (missing.length > 0 && reference) {
+                const badgeY = overlay.badgeY.get(`badge:${position.id}`);
+                if (badgeY !== undefined) {
                   chips.push(
-                    <LevelChip
-                      key={`chip:${field}:${position.id}`}
-                      y={y}
-                      kind={field}
+                    <PositionProtectionControls
+                      key={`protect:${position.id}`}
+                      y={badgeY + (isDesktop ? 26 : 24)}
                       disabled={draggingDisabled}
                       disabledReason={
                         isStale
                           ? 'Prix obsolète — indisponible tant que le marché n’est pas à jour.'
                           : null
                       }
-                      onPointerDown={startDrag(position.id, field, reference)}
+                      onStopPointerDown={startDrag(position.id, 'stop_loss', reference)}
+                      onTargetPointerDown={startDrag(position.id, 'take_profit', reference)}
                       onActivate={() => onOpenManage(position.id)}
+                      compact={!isDesktop}
                     />,
                   );
                 }
-              });
+              }
               return chips;
             })}
           {pendingOverlay &&
@@ -2181,7 +2723,9 @@ export function TradeChart({
                 />
               );
             })}
-          {dragPreviewCard && <DragPreviewPanel {...dragPreviewCard} />}
+          {dragPreviewCard && (
+            <DragPreviewPanel {...dragPreviewCard} top={dragCardTop} compact={!isDesktop} />
+          )}
           {/* W5 §68 — while a tool is held, say so subtly and give the trader an
             explicit way out. Escape does the same thing from the keyboard
             (§89/§112); this is the touch equivalent, because a phone has none. */}
@@ -2310,10 +2854,10 @@ export function TradeChart({
               }}
             />
           )}
-          {overlayLabel && (
+          {plotOverlayLabel && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[color:var(--wariba-chart-background)]/60">
               <span className="rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-background-elevated)] px-3 py-1.5 text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-status-warning-text)]">
-                {overlayLabel}
+                {plotOverlayLabel}
               </span>
             </div>
           )}

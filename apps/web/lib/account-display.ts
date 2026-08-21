@@ -72,3 +72,20 @@ export function accountStatusVariant(status: string): AccountStatusVariant {
 export function formatNominal(nominalBalance: string, currency: string): string {
   return `${Math.round(Number.parseFloat(nominalBalance)).toLocaleString('fr-FR')} ${currency}`;
 }
+
+/**
+ * `10K`, `50K` — the account's size in the two characters a workstation pill
+ * has for it (VX1 §7).
+ *
+ * WariX sells five sizes and a trader thinks in them, so the selector says
+ * which one is loaded without spending the width of `50 000 USD` on it. It is a
+ * *rendering* of the authoritative nominal balance, not a tier concept of its
+ * own: an account whose nominal is not a round thousand falls back to the whole
+ * number rather than inventing a bucket for it.
+ */
+export function accountSizeShortLabel(nominalBalance: string): string {
+  const nominal = Math.round(Number.parseFloat(nominalBalance));
+  if (!Number.isFinite(nominal)) return '';
+  if (nominal >= 1_000 && nominal % 1_000 === 0) return `${nominal / 1_000}K`;
+  return String(nominal);
+}

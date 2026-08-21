@@ -81,6 +81,19 @@ function renderRail(overrides: Partial<React.ComponentProps<typeof DrawingToolRa
 }
 
 describe('timeframe selector — W5 §14/§86', () => {
+  it('uses the dedicated search action in both desktop and compact headers', () => {
+    renderToolbar();
+    let trigger = screen.getByTestId('chart-symbol-search-trigger');
+    expect(trigger.querySelector('[data-warix-action="search"]')).not.toBeNull();
+    expect(trigger.querySelector('[data-warix-symbol="markets"]')).toBeNull();
+
+    cleanup();
+    renderToolbar({ compact: true });
+    trigger = screen.getByTestId('chart-symbol-search-trigger');
+    expect(trigger.querySelector('[data-warix-action="search"]')).not.toBeNull();
+    expect(trigger.querySelector('[data-warix-symbol="markets"]')).toBeNull();
+  });
+
   it('offers all five W5 timeframes in one control', () => {
     renderToolbar();
     const group = screen.getByRole('radiogroup', { name: 'Intervalle du graphique' });
@@ -396,18 +409,27 @@ describe('toolbar density — W5 §61/§62/§63 + reopen §20', () => {
    * Both presentations carry it: a phone trader gets the same word a desktop
    * trader does, because "is this market open" is not a desktop-only question.
    */
-  it('states the market condition in words beside the instrument', () => {
+  /*
+   * VX1-C.1 §1 — the strip names the instrument and nothing about its status.
+   *
+   * `EURUSD ● OUVERT` was correct and it was also the third place on one screen
+   * claiming everything was fine, next to the account dot and the header's own
+   * healthy mark. The word is gone from the toolbar at every status — a closed
+   * market is stated by the ticket, where it stops the trader from acting — and
+   * the condition survives in full inside the search trigger's accessible name,
+   * so nothing that could be heard before is silent now.
+   */
+  it('names the instrument without printing its market condition', () => {
+    for (const props of [{}, { compact: true }, { marketStatus: 'closed' as const }]) {
+      renderToolbar(props);
+      expect(screen.queryByTestId('chart-market-status')).not.toBeInTheDocument();
+      expect(screen.getByTestId('chart-toolbar')).not.toHaveTextContent(/ouvert/i);
+      cleanup();
+    }
     renderToolbar();
-    expect(screen.getByTestId('chart-market-status')).toHaveTextContent('Ouvert');
-    cleanup();
-    renderToolbar({ compact: true });
-    expect(screen.getByTestId('chart-market-status')).toHaveTextContent('Ouvert');
-    cleanup();
-    renderToolbar({ marketStatus: 'closed' });
-    expect(screen.getByTestId('chart-market-status')).toHaveTextContent('Fermé');
-    cleanup();
-    renderToolbar({ marketStatus: null });
-    expect(screen.queryByTestId('chart-market-status')).not.toBeInTheDocument();
+    expect(screen.getByTestId('chart-symbol-search-trigger')).toHaveAccessibleName(
+      /Instrument actif : EURUSD\. Marché ouvert/,
+    );
   });
 
   /** §4 — one strip. A second row for identity or status is the failure. */

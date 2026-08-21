@@ -21,6 +21,7 @@ export * from './primitives/Divider';
 export * from './primitives/VisuallyHidden';
 export * from './icons/nav-icons';
 export * from './icons/workstation-icons';
+export * from './icons/warix';
 export * from './icons/charting';
 
 // Fundamental components — Design System §47.2 / Prompt 02 scope

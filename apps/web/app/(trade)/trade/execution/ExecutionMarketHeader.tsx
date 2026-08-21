@@ -61,29 +61,38 @@ export function ExecutionMarketHeader({ symbol, spec, tick }: ExecutionMarketHea
       <ModuleHeader
         title={symbol}
         accent="identity"
+        /*
+         * VX1-C.1 §1/§2 — the ticket speaks up only when the quote is not
+         * ordinary.
+         *
+         * "OUVERT" here was the fourth healthy indicator on one screen, and it
+         * repeated what the Buy/Sell keys already prove by being pressable. A
+         * closed or stale market still says so, loudly, because that is the
+         * state that changes what the trader can do.
+         */
         status={
-          <span
-            className={`flex items-center gap-1.5 rounded-[6px] px-1.5 py-0.5 font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] ring-1 ring-inset ${
-              status === 'open'
-                ? 'bg-[color:var(--wariba-component-workstation-wash-neutral)] text-[color:var(--wariba-component-workstation-text-secondary)] ring-[color:var(--wariba-component-workstation-border-hairline)]'
-                : 'bg-[color:var(--wariba-component-workstation-wash-warning)] text-[color:var(--wariba-component-workstation-trading-warning)] ring-[color:var(--wariba-component-workstation-trading-warning)]/35'
-            }`}
-            data-testid="execution-market-status"
-            data-market-status={status ?? 'unavailable'}
-          >
+          status === 'open' ? null : (
             <span
-              aria-hidden="true"
-              className={`h-1.5 w-1.5 rounded-full ${
-                status
-                  ? STATUS_DOT[status]
-                  : 'bg-[color:var(--wariba-component-workstation-text-tertiary)]'
-              }`}
-            />
-            {status ? MARKET_STATUS_SHORT_LABEL[status] : 'Indisponible'}
-            <span className="sr-only">
-              {status ? MARKET_STATUS_LABEL[status] : 'Cotation indisponible'}
+              // Only abnormal states reach this branch now, so the chip is
+              // always the warning one — no healthy variant to pick between.
+              className="flex items-center gap-1.5 rounded-[var(--wariba-component-workstation-radius-micro)] bg-[color:var(--wariba-component-workstation-wash-warning)] px-1.5 py-0.5 font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-trading-warning)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-trading-warning)]/35"
+              data-testid="execution-market-status"
+              data-market-status={status ?? 'unavailable'}
+            >
+              <span
+                aria-hidden="true"
+                className={`h-1.5 w-1.5 rounded-full ${
+                  status
+                    ? STATUS_DOT[status]
+                    : 'bg-[color:var(--wariba-component-workstation-text-tertiary)]'
+                }`}
+              />
+              {status ? MARKET_STATUS_SHORT_LABEL[status] : 'Indisponible'}
+              <span className="sr-only">
+                {status ? MARKET_STATUS_LABEL[status] : 'Cotation indisponible'}
+              </span>
             </span>
-          </span>
+          )
         }
         /*
          * The account identifier used to sit here and the 1440 checkpoint

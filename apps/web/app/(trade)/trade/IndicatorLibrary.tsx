@@ -61,7 +61,7 @@ function IndicatorRow({
   const label = indicatorLabel(indicator);
   return (
     <div
-      className={`group/row flex items-center gap-1 border-b border-[color:var(--wariba-component-workstation-border-hairline)] px-2 last:border-b-0 ${
+      className={`group/row flex items-center gap-1 border-b border-[color:var(--wariba-component-workstation-seam-hairline)] px-2 transition-colors duration-[var(--wariba-component-workstation-motion-quick)] last:border-b-0 hover:bg-[color:var(--wariba-component-workstation-surface-control)]/50 motion-reduce:transition-none ${
         indicator.enabled ? 'bg-[color:var(--wariba-component-workstation-wash-neutral)]' : ''
       }`}
     >
@@ -106,7 +106,11 @@ function IndicatorRow({
         <span
           aria-hidden="true"
           className="w-6 shrink-0 rounded-full"
-          style={{ backgroundColor: indicator.style.color, height: indicator.style.width + 1 }}
+          style={{
+            backgroundColor: indicator.style.color,
+            height: indicator.style.width + 1,
+            boxShadow: indicator.enabled ? `0 0 6px -1px ${indicator.style.color}` : 'none',
+          }}
         />
         <span
           className={`wariba-data min-w-0 flex-1 truncate text-[length:var(--wariba-component-workstation-type-data)] font-semibold tabular-nums ${
@@ -170,7 +174,7 @@ export const IndicatorLibrary = memo(function IndicatorLibrary({
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="indicator-library">
       <div className="shrink-0 border-b border-[color:var(--wariba-component-workstation-border-hairline)] p-2.5">
-        <div className="flex items-center gap-2 rounded-[8px] bg-[color:var(--wariba-component-workstation-surface-canvas)] px-2.5 ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] focus-within:ring-[color:var(--wariba-component-workstation-border-focus)]">
+        <div className="flex items-center gap-2 rounded-[var(--wariba-component-workstation-radius-control)] bg-[color:var(--wariba-component-workstation-surface-canvas)] px-2.5 shadow-[inset_0_1px_2px_0_rgba(5,7,12,0.55)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-seam-hairline)] transition-[box-shadow] duration-[var(--wariba-component-workstation-motion-quick)] focus-within:ring-[color:var(--wariba-component-workstation-border-focus)] focus-within:shadow-[inset_0_1px_2px_0_rgba(5,7,12,0.55),0_0_6px_0_var(--wariba-component-workstation-focus-glow)]">
           <span className="shrink-0 text-[color:var(--wariba-component-workstation-text-tertiary)]">
             <WariXSearchIcon />
           </span>

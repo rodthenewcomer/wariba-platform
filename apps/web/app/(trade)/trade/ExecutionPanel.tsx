@@ -248,6 +248,7 @@ export const ExecutionPanel = memo(function ExecutionPanel({
           creatableSides={creatableSides}
           disabled={gate.entryBlocked}
           pending={pending}
+          rejection={rejection}
           onSubmit={onSubmit}
         />
       </div>

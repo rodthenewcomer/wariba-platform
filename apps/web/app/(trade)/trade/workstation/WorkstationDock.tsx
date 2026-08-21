@@ -69,6 +69,15 @@ export interface WorkstationDockProps {
  * is the visible tab, and an inactive Orders/Trades/Alerts/Account tree costs
  * nothing per tick.
  */
+/** What each surface says when it has nothing to report (VX1-C §7). */
+const DOCK_EMPTY_TITLE: Record<DockTab, string> = {
+  positions: 'Aucune position ouverte',
+  orders: 'Aucun ordre en attente',
+  trades: 'Aucune clôture exécutée',
+  alerts: 'Aucune alerte active',
+  account: 'Aucune activité',
+};
+
 export const WorkstationDock = memo(function WorkstationDock({
   store,
   snapshot,
@@ -116,7 +125,7 @@ export const WorkstationDock = memo(function WorkstationDock({
     <>
       {text}
       {count > 0 ? (
-        <span className="wariba-data min-w-[1.25rem] rounded-full bg-[color:var(--wariba-component-workstation-surface-control)] px-1.5 py-0.5 text-center text-[length:var(--wariba-component-workstation-type-meta)] font-semibold tabular-nums text-[color:var(--wariba-component-workstation-text-secondary)]">
+        <span className="wariba-data min-w-[1.25rem] rounded-full bg-[color:var(--wariba-component-workstation-surface-control)] px-1.5 py-0.5 text-center text-[length:var(--wariba-component-workstation-type-meta)] font-semibold tabular-nums text-[color:var(--wariba-component-workstation-text-secondary)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-seam-hairline)]">
           {count}
         </span>
       ) : null}
@@ -131,7 +140,12 @@ export const WorkstationDock = memo(function WorkstationDock({
       aria-label="Dock de trading"
       data-testid="workstation-dock"
       data-empty={empty ? 'true' : 'false'}
-      className="flex min-h-0 min-w-0 flex-col border-t border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light)] lg:flex-1"
+      /*
+       * VX1-B §15 — the dock is a module of the workstation, not a table bolted
+       * under the chart: raised graphite, a rim light along its own top edge and
+       * a strong seam against the plot, so the boundary reads as machined.
+       */
+      className="flex min-h-0 min-w-0 flex-col border-t border-[color:var(--wariba-component-workstation-seam-strong)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong)] lg:flex-1"
     >
       {resizeHandle}
 
@@ -140,7 +154,7 @@ export const WorkstationDock = memo(function WorkstationDock({
         onValueChange={(next) => onTabChange(next as DockTab)}
         className="flex min-h-0 min-w-0 flex-col"
       >
-        <div className="flex min-h-10 shrink-0 items-center gap-2 border-b border-[color:var(--wariba-component-workstation-border-hairline)] pr-1">
+        <div className="flex min-h-10 shrink-0 items-center gap-2 border-b border-[color:var(--wariba-component-workstation-seam-hairline)] bg-[color:var(--wariba-component-workstation-surface-shell)]/60 pr-1">
           {/* The tab strip is the one element allowed to be wider than the
               viewport, and only inside this box — never the document. */}
           <div
@@ -196,9 +210,18 @@ export const WorkstationDock = memo(function WorkstationDock({
           </div>
 
           {!collapsed && empty ? (
+            /*
+             * VX1-C §7 — the strip states *which* surface is empty.
+             *
+             * The dock keeps its accepted behaviour of returning its body to the
+             * chart when there is nothing to show, so the one line it can spare
+             * has to do the work: "Aucune activité" was true of the dock and
+             * silent about the tab the trader is actually looking at. The dock
+             * does not grow by a pixel for this.
+             */
             <CompactEmptyState
-              title="Aucune activité"
-              className="hidden max-w-52 shrink truncate lg:flex"
+              title={DOCK_EMPTY_TITLE[tab]}
+              className="hidden max-w-64 shrink truncate lg:flex"
             />
           ) : null}
 
@@ -217,7 +240,7 @@ export const WorkstationDock = memo(function WorkstationDock({
               aria-expanded={!collapsed}
               aria-label={collapsed ? 'Déplier le dock' : 'Replier le dock'}
               data-testid="workstation-dock-collapse"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[7px] text-[color:var(--wariba-component-workstation-text-tertiary)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:h-8 lg:w-8"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--wariba-component-workstation-radius-control)] text-[color:var(--wariba-component-workstation-text-tertiary)] transition-[background-color,color,box-shadow,transform] duration-[var(--wariba-component-workstation-motion-quick)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] hover:shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-px motion-reduce:transition-none lg:h-8 lg:w-8"
             >
               {collapsed ? <WariXChevronUpIcon /> : <WariXChevronDownIcon />}
             </button>

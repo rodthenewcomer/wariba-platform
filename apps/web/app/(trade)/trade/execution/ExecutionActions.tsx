@@ -1,8 +1,12 @@
 'use client';
 
-import { useId } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { ORDER_KIND_LABEL } from './OrderTypeSelector';
-import type { ExecutionSide, TicketOrderKind } from './execution-contract';
+import type {
+  ExecutionSide,
+  OrderRejectionDetail,
+  TicketOrderKind,
+} from './execution-contract';
 
 export interface ExecutionActionsProps {
   orderKind: TicketOrderKind;
@@ -16,6 +20,12 @@ export interface ExecutionActionsProps {
   creatableSides: Record<ExecutionSide, boolean> | null;
   disabled: boolean;
   pending: boolean;
+  /**
+   * The panel's current rejection, used for one thing only: to nudge the key
+   * that was pressed (VX1-D §28). The authoritative reason is stated by
+   * `ExecutionStatus`, never here.
+   */
+  rejection?: OrderRejectionDetail | null;
   onSubmit: (side: ExecutionSide) => void;
 }
 
@@ -99,9 +109,36 @@ export function ExecutionActions({
   creatableSides,
   disabled,
   pending,
+  rejection = null,
   onSubmit,
 }: ExecutionActionsProps) {
   const descriptionIdPrefix = useId();
+
+  /*
+   * VX1-D §26/§28 — the key's own answer, before the server has one.
+   *
+   * Two states live here and nowhere else, because they are about *this
+   * control* rather than about the order: which side was last pressed, and
+   * whether the answer that came back was a refusal.
+   *
+   * The nudge is deliberately tiny and singular — two pixels, one cycle,
+   * 100ms, on the pressed key only. Its job is not to express displeasure; it
+   * is to put the eye on the right control at the moment the canonical reason
+   * appears beside it, so a trader who was watching the chart knows which of
+   * two keys did not go through. Nothing about the refusal is *stated* here.
+   */
+  const lastPressed = useRef<ExecutionSide | null>(null);
+  const [nudged, setNudged] = useState<ExecutionSide | null>(null);
+
+  useEffect(() => {
+    // Keyed on the rejection's identity: the panel hands over a fresh object
+    // per refusal, so the same code twice is still two events and each one
+    // deserves its own nudge.
+    if (rejection === null || lastPressed.current === null) return;
+    setNudged(lastPressed.current);
+    const timer = setTimeout(() => setNudged(null), 260);
+    return () => clearTimeout(timer);
+  }, [rejection]);
 
   return (
     <div className="flex flex-col gap-1.5 px-2.5 pb-2 pt-2" data-testid="execution-actions">
@@ -131,14 +168,34 @@ export function ExecutionActions({
                 // The description carries the same facts and is announced
                 // right after the name instead.
                 aria-describedby={`${descriptionIdPrefix}-${side}`}
-                onClick={() => onSubmit(side)}
+                onClick={() => {
+                  lastPressed.current = side;
+                  onSubmit(side);
+                }}
+                data-nudge={nudged === side ? 'true' : 'false'}
                 className={[
                   'flex min-h-[var(--wariba-component-workstation-decision-button-height)] flex-col items-center justify-center gap-1',
                   'rounded-[8px] px-1.5 py-1.5',
-                  'transition-[background-color,filter,transform,box-shadow] duration-[var(--wariba-component-workstation-motion-interaction)]',
+                  // VX1-D §24/§26 — the key answers the finger before the
+                  // server answers the order. 80ms on release is deliberately
+                  // at the floor of the ladder: a decision key that takes a
+                  // beat to come back up reads as latency the trader will
+                  // attribute to the exchange.
+                  'transition-[background-color,filter,transform,box-shadow] duration-[var(--wariba-component-workstation-motion-instant)] ease-[var(--wariba-component-workstation-ease-interaction)]',
                   // The key treatment is dropped on the de-emphasised and
                   // disabled forms: an inert control must not look pressable.
                   sideUnavailable || disabled || pending ? '' : SIDE_PHYSICAL,
+                  // §28 — the refused key, and only it.
+                  nudged === side
+                    ? 'motion-safe:animate-[wariba-reject-nudge_var(--wariba-component-workstation-motion-micro)_var(--wariba-component-workstation-ease-move)]'
+                    : '',
+                  // §26 — an order in flight is reported by the key that sent
+                  // it: a 2px indeterminate rule along its bottom edge, not a
+                  // spinner laid over the decision zone. The key never claims
+                  // the order succeeded — only that it is still out.
+                  pending
+                    ? 'relative overflow-hidden after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:bg-[color:var(--wariba-component-workstation-surface-canvas)]/60 motion-safe:after:animate-[wariba-inflight_var(--wariba-component-workstation-motion-feedback)_linear_infinite]'
+                    : '',
                   // Ink, not white: WX1's brighter Emerald/Coral fills carry
                   // sufficient contrast with the workstation canvas tone,
                   // while white falls below AA on both semantic actions.

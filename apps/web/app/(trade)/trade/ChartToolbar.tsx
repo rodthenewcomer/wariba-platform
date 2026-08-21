@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ToolbarButton,
   WariXAlertClockIcon,
@@ -151,16 +151,61 @@ const TimeframeSelector = memo(function TimeframeSelector({
     containerRef.current?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[bounded]?.focus();
   };
 
+  /*
+   * VX1 §31 — the selection *travels*.
+   *
+   * WX1 repainted two keys on every change: the old one went quiet, the new one
+   * lit up, and nothing connected the two. A trader's eye had to find the new
+   * state instead of following it. One absolutely-positioned pill now slides
+   * between the keys in 140ms — the same object moving, which is what the
+   * interaction actually is.
+   *
+   * It is measured, not computed from an assumed key width: the keys are
+   * `min-w` with text-dependent widths, and hard-coding a step would drift the
+   * moment an interval label got a character longer. `offsetLeft`/`offsetWidth`
+   * are read from the button that is actually selected, in a layout effect so
+   * the pill is in place on the first painted frame.
+   */
+  const [indicator, setIndicator] = useState<{ left: number; width: number } | null>(null);
+  // `visible` is rebuilt every render, so the effect keys off its *contents*
+  // rather than its identity — and the state write is guarded on the measured
+  // numbers, because setting an equal-but-new object would re-run this forever.
+  const visibleKey = visible.join(',');
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const index = visible.indexOf(timeframe);
+    const keys = container.querySelectorAll<HTMLButtonElement>('[role="radio"]');
+    const key = index >= 0 ? keys[index] : undefined;
+    setIndicator((current) => {
+      if (!key) return current === null ? current : null;
+      const next = { left: key.offsetLeft, width: key.offsetWidth };
+      if (current && current.left === next.left && current.width === next.width) return current;
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on contents, see above
+  }, [timeframe, visibleKey]);
+
   return (
-    <div className="flex h-8 min-w-0 shrink-0 items-center gap-0.5 rounded-[7px] bg-[color:var(--wariba-component-workstation-surface-canvas)] p-0.5 ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)]">
+    <div className="flex h-8 min-w-0 shrink-0 items-center gap-0.5 rounded-[var(--wariba-component-workstation-radius-control)] bg-[color:var(--wariba-component-workstation-surface-canvas)] p-0.5 shadow-[inset_0_1px_2px_0_rgba(5,7,12,0.6)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-seam-hairline)]">
       <div
         ref={containerRef}
         role="radiogroup"
         aria-label="Intervalle du graphique"
         data-testid="chart-timeframe-group"
         onKeyDown={onKeyDown}
-        className="flex min-w-0 shrink-0 items-center gap-0.5"
+        className="relative flex min-w-0 shrink-0 items-center gap-0.5"
       >
+        {indicator ? (
+          <span
+            aria-hidden="true"
+            data-testid="chart-timeframe-indicator"
+            className="pointer-events-none absolute inset-y-0 rounded-[5px] bg-[color:var(--wariba-component-workstation-surface-control)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong),var(--wariba-component-workstation-elevation-key)] transition-[left,width] duration-[var(--wariba-component-workstation-motion-quick)] ease-[var(--wariba-component-workstation-ease-move)] motion-reduce:transition-none"
+            style={{ left: indicator.left, width: indicator.width }}
+          >
+            <span className="absolute inset-x-2 top-0 h-0.5 rounded-b-full bg-[color:var(--wariba-component-workstation-interaction-selected)] shadow-[0_0_8px_0_rgba(102,132,255,0.55)]" />
+          </span>
+        ) : null}
         {visible.map((option) => {
           const selected = option === timeframe;
           return (
@@ -171,9 +216,9 @@ const TimeframeSelector = memo(function TimeframeSelector({
               aria-checked={selected}
               tabIndex={selected ? 0 : -1}
               onClick={() => onSelect(option)}
-              className={`wariba-data relative h-7 min-w-6 shrink-0 rounded-[5px] px-0.5 text-[10px] font-semibold uppercase tabular-nums transition-[background-color,color,box-shadow] duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:min-w-9 lg:px-1 lg:text-[length:var(--wariba-component-workstation-type-label)] ${
+              className={`wariba-data relative z-10 h-7 min-w-6 shrink-0 rounded-[5px] px-0.5 text-[10px] font-semibold uppercase tabular-nums transition-colors duration-[var(--wariba-component-workstation-motion-quick)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:min-w-9 lg:px-1 lg:text-[length:var(--wariba-component-workstation-type-label)] ${
                 selected
-                  ? 'bg-[color:var(--wariba-component-workstation-surface-control)] text-[color:var(--wariba-component-workstation-text-primary)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong),var(--wariba-component-workstation-elevation-key)] after:absolute after:inset-x-2 after:top-0 after:h-0.5 after:rounded-b-full after:bg-[color:var(--wariba-component-workstation-interaction-selected)]'
+                  ? 'text-[color:var(--wariba-component-workstation-text-primary)]'
                   : 'text-[color:var(--wariba-component-workstation-text-tertiary)] hover:text-[color:var(--wariba-component-workstation-text-primary)]'
               }`}
             >
@@ -208,7 +253,7 @@ const TimeframeSelector = memo(function TimeframeSelector({
               role="menu"
               aria-label="Autres intervalles"
               data-testid="chart-timeframe-overflow-menu"
-              className="absolute left-1/2 top-[calc(100%+6px)] z-[var(--wariba-z-dropdown)] w-24 -translate-x-1/2 overflow-hidden rounded-[8px] border border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-popover)] p-1 shadow-[var(--wariba-component-workstation-elevation-popover)]"
+              className="absolute left-1/2 top-[calc(100%+6px)] z-[var(--wariba-z-dropdown)] w-24 -translate-x-1/2 overflow-hidden rounded-[var(--wariba-component-workstation-radius-panel)] border border-[color:var(--wariba-component-workstation-seam-strong)] bg-[color:var(--wariba-component-workstation-surface-popover)] p-1 shadow-[var(--wariba-component-workstation-elevation-popover),inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong)] motion-safe:animate-[wariba-fade-in_var(--wariba-component-workstation-motion-quick)_var(--wariba-component-workstation-ease-enter)]"
             >
               {hidden.map((option) => (
                 <button
@@ -234,11 +279,12 @@ const TimeframeSelector = memo(function TimeframeSelector({
   );
 });
 
+/** §32 — a hairline seam between clusters, not a border on every control. */
 function Seam() {
   return (
     <span
       aria-hidden="true"
-      className="h-5 w-px shrink-0 bg-[color:var(--wariba-component-workstation-border-hairline)]"
+      className="h-5 w-px shrink-0 bg-[color:var(--wariba-component-workstation-seam-hairline)]"
     />
   );
 }
@@ -272,25 +318,31 @@ export interface ChartToolbarProps {
 
 export type ChartStyle = 'candles' | 'bars' | 'line' | 'area';
 
-/**
- * Final closure §4 — the market state is a *word*, not only a coloured dot.
+/*
+ * VX1-C.1 §1/§2 — the instrument row says the instrument, and stops.
  *
- * A green dot on its own asks the trader to remember a colour convention, and
- * says nothing at all to anyone who cannot separate the hues. The word is the
- * readout; the dot stays as its quiet reinforcement. Both are secondary type —
- * the instrument is what this cluster is about, and a status that shouted would
- * turn a chart toolbar into a status bar.
+ * WX1 closed with `EURUSD ● OUVERT` here, and it was right at the time: the
+ * market's state had no other home on the strip. It has three now — the chart's
+ * own identity line carries the instrument's dot, the header carries the feed's
+ * signal, and the Execution Center speaks up when a quote is not tradable. Four
+ * green marks for one healthy condition is not reassurance, it is noise, so this
+ * row gives its width back to the chart.
+ *
+ * `marketStatus` stays on the props: it is still in the accessible name, which
+ * is where a screen-reader user gets the state this row no longer draws.
  */
-const MARKET_STATUS_WORD: Record<'open' | 'closed' | 'stale', string> = {
-  open: 'Ouvert',
-  closed: 'Fermé',
-  stale: 'Retardé',
-};
 
-const MARKET_STATUS_DOT: Record<'open' | 'closed' | 'stale', string> = {
-  open: 'bg-[color:var(--wariba-component-workstation-trading-buy)]',
-  closed: 'bg-[color:var(--wariba-component-workstation-text-tertiary)]',
-  stale: 'bg-[color:var(--wariba-component-workstation-trading-warning)]',
+/**
+ * The state's name, for assistive technology only.
+ *
+ * Nothing draws these — the row is silent about a healthy market — but the
+ * accessible name still carries the condition, because a screen-reader user
+ * cannot see the chart legend's dot that replaced it.
+ */
+const MARKET_STATUS_NAME: Record<'open' | 'closed' | 'stale', string> = {
+  open: 'Marché ouvert',
+  closed: 'Marché fermé',
+  stale: 'Prix retardé',
 };
 
 interface ChartStyleEntry {
@@ -384,11 +436,11 @@ export const ChartToolbar = memo(function ChartToolbar({
         <button
           type="button"
           aria-label={`Rechercher un instrument. Instrument actif : ${symbol}${
-            marketStatus === null ? '' : `. ${MARKET_STATUS_WORD[marketStatus]}`
+            marketStatus === null ? '' : `. ${MARKET_STATUS_NAME[marketStatus]}`
           }`}
           data-testid="chart-symbol-search-trigger"
           onClick={onOpenMarkets}
-          className="flex h-8 shrink-0 items-center gap-0.5 rounded-[7px] px-0.5 text-[color:var(--wariba-component-workstation-text-primary)] transition-colors hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] min-[360px]:gap-1 min-[360px]:px-1 lg:gap-1.5 lg:px-2"
+          className="flex h-8 shrink-0 items-center gap-0.5 rounded-[var(--wariba-component-workstation-radius-control)] px-0.5 text-[color:var(--wariba-component-workstation-text-primary)] transition-[background-color,box-shadow] duration-[var(--wariba-component-workstation-motion-quick)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] min-[360px]:gap-1 min-[360px]:px-1 lg:gap-1.5 lg:px-2"
         >
           {/* One step down below 360 — still the row's largest word, and still
               read at a glance, which is the trade §5 asks for before anything
@@ -398,29 +450,8 @@ export const ChartToolbar = memo(function ChartToolbar({
           </span>
           <WariXSearchIcon
             size="toolbar"
-            className="h-3.5 w-3.5 text-[color:var(--wariba-component-workstation-text-tertiary)] lg:order-first lg:h-4 lg:w-4 lg:text-[color:inherit]"
+            className="h-4 w-4 text-[color:var(--wariba-component-workstation-text-tertiary)] lg:order-first lg:text-[color:inherit]"
           />
-          {marketStatus !== null ? (
-            <span
-              data-testid="chart-market-status"
-              data-market-status={marketStatus}
-              /* Half a step tighter than the chip's own rhythm: the dot and the
-                 word are one readout, and the room it saves is what keeps the
-                 longest state word ("Retardé") inside a 390px row. */
-              className="flex shrink-0 items-center gap-0.5 lg:gap-1"
-            >
-              <span
-                aria-hidden="true"
-                className={`h-1.5 w-1.5 shrink-0 rounded-full ${MARKET_STATUS_DOT[marketStatus]}`}
-              />
-              <span
-                aria-hidden="true"
-                className="text-[9px] font-semibold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-label)] text-[color:var(--wariba-component-workstation-text-tertiary)] lg:text-[10px]"
-              >
-                {MARKET_STATUS_WORD[marketStatus]}
-              </span>
-            </span>
-          ) : null}
         </button>
         {/* The seams separate three clusters on a desktop strip that has width
             to spend on rhythm. On a phone the interval track's own ring already
@@ -460,7 +491,7 @@ export const ChartToolbar = memo(function ChartToolbar({
               role="menu"
               aria-label="Type de graphique"
               data-testid="chart-type-menu"
-              className="absolute right-0 top-[calc(100%+5px)] z-[var(--wariba-z-dropdown)] w-48 overflow-hidden rounded-[8px] border border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-popover)] p-1 shadow-[var(--wariba-component-workstation-elevation-popover)] sm:left-0 sm:right-auto"
+              className="absolute right-0 top-[calc(100%+5px)] z-[var(--wariba-z-dropdown)] w-48 overflow-hidden rounded-[var(--wariba-component-workstation-radius-panel)] border border-[color:var(--wariba-component-workstation-seam-strong)] bg-[color:var(--wariba-component-workstation-surface-popover)] p-1 shadow-[var(--wariba-component-workstation-elevation-popover),inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong)] motion-safe:animate-[wariba-fade-in_var(--wariba-component-workstation-motion-quick)_var(--wariba-component-workstation-ease-enter)] sm:left-0 sm:right-auto"
             >
               {CHART_STYLES.map((style) => (
                 <button
@@ -473,7 +504,7 @@ export const ChartToolbar = memo(function ChartToolbar({
                     onSelectChartStyle(style.id);
                     setStyleMenuOpen(false);
                   }}
-                  className={`flex h-9 w-full items-center gap-3 rounded-[6px] px-2 text-left text-[length:var(--wariba-component-workstation-type-data)] transition-colors ${
+                  className={`flex h-9 w-full items-center gap-3 rounded-[var(--wariba-component-workstation-radius-micro)] px-2 text-left text-[length:var(--wariba-component-workstation-type-data)] transition-colors duration-[var(--wariba-component-workstation-motion-quick)] ${
                     style.id === chartStyle
                       ? 'bg-[color:var(--wariba-component-workstation-wash-selected)] text-[color:var(--wariba-component-workstation-interaction-selected-text)]'
                       : 'text-[color:var(--wariba-component-workstation-text-secondary)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)]'

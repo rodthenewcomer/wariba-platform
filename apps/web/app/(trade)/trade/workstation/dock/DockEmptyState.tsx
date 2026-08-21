@@ -20,9 +20,11 @@ export interface DockEmptyStateProps {
 export function DockEmptyState({ title, hint }: DockEmptyStateProps) {
   return (
     <div className="flex min-h-16 flex-col items-center justify-center gap-1.5 px-4 py-5 text-center">
+      {/* VX1-C §7 — a short ruled mark rather than a dot: the surface is empty
+          and says so, without a bullet that reads as a broken list item. */}
       <span
         aria-hidden="true"
-        className="h-1.5 w-1.5 rounded-full bg-[color:var(--wariba-component-workstation-border-strong)]"
+        className="h-px w-8 rounded-full bg-[color:var(--wariba-component-workstation-seam-strong)]"
       />
       <p className="text-[length:var(--wariba-component-workstation-type-data)] font-semibold text-[color:var(--wariba-component-workstation-text-secondary)]">
         {title}

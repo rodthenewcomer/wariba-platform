@@ -484,11 +484,23 @@ describe('ExecutionImpactSummary', () => {
     expect(IMPACT.maximumLossRemainingFormatted).toBe(`${IMPACT.compact.maximumLossRemaining} USD`);
   });
 
+  /**
+   * Final closure §3 — the strip speaks WariX's risk vocabulary.
+   *
+   * The keys and the values are the server's (`dll`/`mll`); only what a trader
+   * reads changed, to the two terms the account header and the programme
+   * rulebook already use. The expansion stays, because an abbreviation without
+   * one is a puzzle.
+   */
   it('expands its abbreviations for assistive tech and on hover', () => {
     render(<ExecutionImpactSummary impact={IMPACT} />);
-    const dll = screen.getByText('DLL', { exact: false });
-    expect(dll).toHaveAttribute('title', 'Perte journalière restante');
-    expect(dll.textContent).toContain('en dollars');
+    // The term appears twice on the strip — as the column's own label and inside
+    // its screen-reader expansion — so this asserts on the label element itself.
+    const daily = screen
+      .getAllByText('PMJ', { exact: false })
+      .find((node) => node.tagName === 'DT');
+    expect(daily).toHaveAttribute('title', 'PMJ — Perte maximale journalière');
+    expect(daily?.textContent).toContain('en dollars');
   });
 
   it('renders nothing rather than placeholders before the data exists', () => {

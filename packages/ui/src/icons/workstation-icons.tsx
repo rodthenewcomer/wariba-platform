@@ -32,7 +32,6 @@ import {
   RectangleHorizontal,
   RotateCcw,
   ScanLine,
-  Search,
   ShieldAlert,
   SlidersHorizontal,
   Star,
@@ -109,7 +108,36 @@ export const WariXCloseRightIcon = createWorkstationIcon(PanelRightClose);
  */
 export const WariXCloseIcon = createWorkstationIcon(X);
 export const WariXRiskIcon = createWorkstationIcon(ShieldAlert);
-export const WariXSearchIcon = createWorkstationIcon(Search);
+/**
+ * Search is an action, never a workspace destination.
+ *
+ * This optically tuned magnifier intentionally lives outside the seven-symbol
+ * destination family. The data attribute makes that semantic boundary easy to
+ * audit wherever the compact chart header is reused.
+ */
+export function WariXSearchIcon({ size = 'toolbar', label, className }: WorkstationIconProps) {
+  const pixels = PIXELS[size];
+  return (
+    <svg
+      aria-hidden={label ? undefined : true}
+      aria-label={label}
+      className={cx('shrink-0', className)}
+      data-warix-action="search"
+      fill="none"
+      height={pixels}
+      role={label ? 'img' : 'presentation'}
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.75"
+      viewBox="0 0 24 24"
+      width={pixels}
+    >
+      <circle cx="10.55" cy="10.55" r="6.05" />
+      <path d="m15.05 15.05 4.7 4.7" />
+    </svg>
+  );
+}
 export const WariXFavoriteIcon = createWorkstationIcon(Star);
 export const WariXIndicatorsIcon = createWorkstationIcon(SlidersHorizontal);
 export const WariXFitIcon = createWorkstationIcon(ScanLine);

@@ -37,6 +37,7 @@ import {
   Tabs,
   Text,
   Tooltip,
+  WarixSymbolSpecimen,
 } from '@wariba/ui';
 import { useState } from 'react';
 
@@ -72,6 +73,8 @@ export default function CatalogPage() {
           Internal reference — Design System v1.0. Not linked from any user-facing navigation.
         </Text>
       </div>
+
+      <WarixSymbolSpecimen />
 
       <Section title="Buttons">
         <Button>Primary</Button>

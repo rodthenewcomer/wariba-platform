@@ -3,7 +3,9 @@
 import {
   forwardRef,
   useId,
+  useLayoutEffect,
   useRef,
+  useState,
   type ButtonHTMLAttributes,
   type KeyboardEvent,
   type ReactNode,
@@ -443,6 +445,30 @@ export function SegmentedControl<T extends string>({
   testId,
 }: SegmentedControlProps<T>) {
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
+  const trackRef = useRef<HTMLDivElement | null>(null);
+
+  /*
+   * VX1-B §11 — Market/Limit/Stop share the interval track's grammar.
+   *
+   * One raised surface slides between the segments rather than two segments
+   * repainting: the same object moving, which is what the interaction is. The
+   * geometry is measured from the selected button because the control is a
+   * `auto-cols-fr` grid — a computed third would drift the moment an option's
+   * label changed length or an option was disabled.
+   */
+  const [indicator, setIndicator] = useState<{ left: number; width: number } | null>(null);
+  useLayoutEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    const index = options.findIndex((option) => option.value === value);
+    const selected = index >= 0 ? refs.current[index] : null;
+    setIndicator((current) => {
+      if (!selected) return current === null ? current : null;
+      const next = { left: selected.offsetLeft, width: selected.offsetWidth };
+      if (current && current.left === next.left && current.width === next.width) return current;
+      return next;
+    });
+  }, [value, options]);
   const move = (event: KeyboardEvent<HTMLDivElement>, direction: 1 | -1) => {
     const enabled = options
       .map((option, index) => ({ option, index }))
@@ -458,14 +484,16 @@ export function SegmentedControl<T extends string>({
 
   return (
     <div
+      ref={trackRef}
       data-testid={testId}
       role="radiogroup"
       aria-label={label}
       className={cx(
-        'grid h-11 grid-flow-col auto-cols-fr rounded-[9px] p-[3px]',
+        'relative grid h-11 grid-flow-col auto-cols-fr rounded-[var(--wariba-component-workstation-radius-control)] p-[3px]',
         compact ? 'lg:h-8 lg:p-0.5' : 'lg:h-9',
         'bg-[color:var(--wariba-component-workstation-surface-canvas)]',
-        'ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)]',
+        'shadow-[inset_0_1px_2px_0_rgba(5,7,12,0.55)]',
+        'ring-1 ring-inset ring-[color:var(--wariba-component-workstation-seam-hairline)]',
         className,
       )}
       onKeyDown={(event) => {
@@ -473,6 +501,23 @@ export function SegmentedControl<T extends string>({
         if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') move(event, -1);
       }}
     >
+      {indicator ? (
+        <span
+          aria-hidden="true"
+          data-testid={testId ? `${testId}-indicator` : undefined}
+          className={cx(
+            'pointer-events-none absolute inset-y-[3px] rounded-[var(--wariba-component-workstation-radius-micro)]',
+            'bg-[color:var(--wariba-component-workstation-surface-control)]',
+            'shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong),var(--wariba-component-workstation-elevation-key)]',
+            'transition-[left,width] duration-[var(--wariba-component-workstation-motion-quick)]',
+            'ease-[var(--wariba-component-workstation-ease-move)] motion-reduce:transition-none',
+            compact ? 'lg:inset-y-0.5' : '',
+          )}
+          style={{ left: indicator.left, width: indicator.width }}
+        >
+          <span className="absolute inset-x-2 top-0 h-0.5 rounded-b-full bg-[color:var(--wariba-component-workstation-interaction-selected)] shadow-[0_0_8px_0_var(--wariba-component-workstation-focus-glow)]" />
+        </span>
+      ) : null}
       {options.map((option, index) => {
         const selected = option.value === value;
         return (
@@ -488,18 +533,14 @@ export function SegmentedControl<T extends string>({
             tabIndex={selected ? 0 : -1}
             onClick={() => onValueChange(option.value)}
             className={cx(
-              'relative rounded-[6px] font-semibold uppercase',
+              'relative z-10 rounded-[var(--wariba-component-workstation-radius-micro)] font-semibold uppercase',
               compact
                 ? 'px-0.5 text-[length:var(--wariba-component-workstation-type-meta)] tracking-normal'
                 : 'px-2 text-[length:var(--wariba-component-workstation-type-label)] tracking-[var(--wariba-component-workstation-tracking-label)]',
               'transition-[background-color,color,box-shadow] duration-[var(--wariba-component-workstation-motion-interaction)]',
               'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]',
               selected
-                ? cx(
-                    'bg-[color:var(--wariba-component-workstation-surface-control)] text-[color:var(--wariba-component-workstation-text-primary)]',
-                    'shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong),var(--wariba-component-workstation-elevation-key)]',
-                    'after:absolute after:inset-x-2 after:top-0 after:h-0.5 after:rounded-b-full after:bg-[color:var(--wariba-component-workstation-interaction-selected)]',
-                  )
+                ? 'text-[color:var(--wariba-component-workstation-text-primary)]'
                 : 'text-[color:var(--wariba-component-workstation-text-tertiary)] hover:text-[color:var(--wariba-component-workstation-text-primary)]',
             )}
           >

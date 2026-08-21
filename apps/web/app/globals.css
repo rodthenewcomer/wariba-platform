@@ -54,6 +54,169 @@ body {
 }
 
 /*
+ * One focus treatment across the workstation — VX1-B §26, corrected in
+ * VX1-C.1 §19.
+ *
+ * The outline is the accessible part and is never removed. What changed is the
+ * halo: it was a hard `0 0 0 3px` spread, which is not a glow but a *second
+ * ring* — a 1px cobalt outline with a 3px cobalt band welded to it reads as one
+ * heavy 4px frame, and on a phone's full-width search well it looked like debug
+ * CSS rather than a focused field. Blurring it (6px, no spread) turns the same
+ * colour into light falling off the border, so the crisp 1px edge is the only
+ * hard line on screen and the glow just says "here".
+ *
+ * Scoped to the trade workspace so the Hub and Control keep the product-wide
+ * treatment above.
+ */
+[data-wariba-theme='trade'] :focus-visible {
+  outline: 1px solid var(--wariba-component-workstation-border-focus);
+  outline-offset: 1px;
+  box-shadow: 0 0 6px 0 var(--wariba-component-workstation-focus-glow);
+}
+
+/*
+ * VX1-C §4 — a focused *field* takes one border, not two.
+ *
+ * The search and price wells already carry a `focus-within` ring of their own;
+ * with the outline above they rendered a double cobalt frame — the one state in
+ * the product that looked like debug CSS. Inside a focused well the inner
+ * control drops its outline and lets the well's own border and glow speak.
+ */
+[data-wariba-theme='trade'] :is(input, select, textarea):focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+[data-wariba-theme='trade'] .wariba-field:focus-within {
+  border-color: var(--wariba-component-workstation-border-focus);
+  box-shadow:
+    inset 0 1px 2px 0 rgba(5, 7, 12, 0.55),
+    0 0 6px 0 var(--wariba-component-workstation-focus-glow);
+}
+
+/*
+ * VX1-B §25 — WariX's own scrollbars.
+ *
+ * Thin, dark-tracked, and brighter under the pointer. Firefox gets the
+ * standards property; WebKit gets the pseudo-elements. Both keep a real,
+ * grabbable thumb — a scrollbar that vanishes entirely is a scrollbar a trader
+ * cannot use with a mouse.
+ */
+[data-wariba-theme='trade'] * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--wariba-component-workstation-scrollbar-thumb)
+    var(--wariba-component-workstation-scrollbar-track);
+}
+
+[data-wariba-theme='trade'] ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+[data-wariba-theme='trade'] ::-webkit-scrollbar-track {
+  background: var(--wariba-component-workstation-scrollbar-track);
+}
+
+[data-wariba-theme='trade'] ::-webkit-scrollbar-thumb {
+  background: var(--wariba-component-workstation-scrollbar-thumb);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
+}
+
+[data-wariba-theme='trade'] ::-webkit-scrollbar-thumb:hover {
+  background: var(--wariba-component-workstation-scrollbar-thumb-hover);
+  background-clip: content-box;
+}
+
+[data-wariba-theme='trade'] ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/*
+ * VX1-B §17 — workstation density for the shared data tables.
+ *
+ * The dock's Orders, Trades and Alerts panels render through the product-wide
+ * `DataTable`, which is correct for the Hub's roomier surfaces and too airy for
+ * a trading blotter — beside WariX's own positions table they read as a
+ * different product. Rather than fork the primitive (and change the Hub with
+ * it), the trade workspace tightens it here: micro-caps headers, compact rows,
+ * hairline seams and a real hover surface. Element selectors, so any component
+ * that sets its own utility classes still wins.
+ */
+[data-wariba-theme='trade'] table th {
+  padding: 6px 10px;
+  font-size: var(--wariba-component-workstation-type-section-label);
+  font-weight: 700;
+  letter-spacing: var(--wariba-component-workstation-tracking-section);
+  color: var(--wariba-component-workstation-text-tertiary);
+}
+
+[data-wariba-theme='trade'] table td {
+  padding: 6px 10px;
+  font-size: var(--wariba-component-workstation-type-data);
+  color: var(--wariba-component-workstation-text-secondary);
+}
+
+[data-wariba-theme='trade'] table tbody tr {
+  border-color: var(--wariba-component-workstation-seam-hairline);
+  transition: background-color var(--wariba-component-workstation-motion-quick)
+    var(--wariba-component-workstation-ease-move);
+}
+
+[data-wariba-theme='trade'] table tbody tr:hover {
+  background-color: color-mix(
+    in srgb,
+    var(--wariba-component-workstation-surface-control) 60%,
+    transparent
+  );
+}
+
+[data-wariba-theme='trade'] table thead {
+  background-color: var(--wariba-component-workstation-surface-canvas);
+  box-shadow: inset 0 -1px 0 0 var(--wariba-component-workstation-seam-hairline);
+}
+
+/*
+ * VX1-B §30/§44 — no control in the workstation renders as browser default.
+ *
+ * Checkboxes and radios take the cobalt interaction colour rather than the
+ * platform's own blue, and native selects take the workstation's control
+ * material. These are the two elements that gave away "generic HTML inside a
+ * premium terminal" in the settings modal, and both are cheap to fix at the
+ * root rather than per call site. A component that sets its own `accentColor`
+ * inline — the indicator rows, which paint each series' colour — still wins.
+ */
+[data-wariba-theme='trade'] input[type='checkbox'],
+[data-wariba-theme='trade'] input[type='radio'] {
+  accent-color: var(--wariba-component-workstation-interaction-selected);
+}
+
+[data-wariba-theme='trade'] select {
+  appearance: none;
+  background-color: var(--wariba-component-workstation-surface-control);
+  color: var(--wariba-component-workstation-text-primary);
+  border: 1px solid var(--wariba-component-workstation-seam-hairline);
+  border-radius: var(--wariba-component-workstation-radius-control);
+  box-shadow: inset 0 1px 0 0 var(--wariba-component-workstation-rim-light);
+  padding: 0 26px 0 8px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--wariba-component-workstation-text-tertiary) 50%),
+    linear-gradient(135deg, var(--wariba-component-workstation-text-tertiary) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) center,
+    calc(100% - 9px) center;
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+}
+
+[data-wariba-theme='trade'] select:hover {
+  background-color: var(--wariba-component-workstation-surface-control-hover);
+}
+
+/*
  * Final closure §9 — directional quote feedback.
  *
  * A brief tint behind a price that has just moved, driven by a data attribute
@@ -81,12 +244,14 @@ body {
   }
 }
 
+/* VX1-C §19 — ~200ms: long enough to register at a glance, short enough that a
+   fast market never looks like it is flickering. */
 [data-quote-direction='up'] {
-  animation: wariba-quote-up 160ms ease-out;
+  animation: wariba-quote-up 200ms ease-out;
 }
 
 [data-quote-direction='down'] {
-  animation: wariba-quote-down 160ms ease-out;
+  animation: wariba-quote-down 200ms ease-out;
 }
 
 @keyframes wariba-fade-in {
@@ -97,6 +262,836 @@ body {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/*
+ * VX1 §23 — a server-confirmed trade arriving on the chart.
+ *
+ * The sequence is deliberately undramatic: the object fades up from just under
+ * its own level and settles at full size in under a fifth of a second. Trading
+ * is serious, and a fill is not a reward — this exists so a trader's eye is
+ * *taken to* the new object rather than made to hunt for what changed.
+ */
+@keyframes wariba-trade-object-enter {
+  from {
+    opacity: 0;
+    transform: translateY(3px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/*
+ * VX1-A.1 §6 — a live figure rolls to its new value.
+ *
+ * ~110ms of a very small vertical travel and an opacity ramp: enough that the
+ * eye registers "this number just changed" without reading a blur. The value
+ * itself is never interpolated — the element's text is the authoritative figure
+ * from the moment it arrives, and only its presentation moves.
+ */
+@keyframes wariba-value-roll {
+  from {
+    opacity: 0.55;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/*
+ * VX1-C §24 — a modal arrives from just below, barely scaled.
+ *
+ * Three pixels of travel and 1.5% of scale over ~180ms, with the backdrop
+ * fading on the same clock so the two never read as separate events. Exit is
+ * the browser's own close — faster than the entry, which is the asymmetry §24
+ * asks for.
+ */
+@keyframes wariba-modal-enter {
+  from {
+    opacity: 0;
+    transform: translateY(3px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/*
+ * VX1-C §8 — command feedback arrives and settles.
+ *
+ * Up from four pixels with an opacity ramp, and gone again after its dwell. No
+ * scale, no bounce, no colour wash across the screen: a fill is not a reward,
+ * and a refusal is not an alarm — both are facts that need to be seen once.
+ */
+@keyframes wariba-feedback-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/*
+ * VX1-C §13 — the reconnecting indicator breathes, very softly.
+ *
+ * Opacity only, over a second and a half: enough to say "still trying" to a
+ * trader glancing at the header, quiet enough that it never becomes the thing
+ * they are watching. Healthy and offline states do not animate at all.
+ */
+@keyframes wariba-status-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/*
+ * VX1-B §6/§23 — a menu or flyout arrives beside the control that opened it.
+ *
+ * A short fade over two pixels of travel, no scale. Shared by the tool flyouts
+ * and the chart's context menus so every transient surface in WariX enters the
+ * same way.
+ */
+@keyframes wariba-flyout-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/*
+ * VX1 §34 — a drawer arrives from the edge it belongs to.
+ *
+ * 12px of travel and an opacity ramp, no spring: the surface should read as
+ * having slid in from the rail the trader just pressed, and a workstation panel
+ * that bounces is a panel that will be waited on.
+ */
+@keyframes wariba-drawer-enter {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/*
+ * VX1 §33 — a notification badge announces itself exactly once.
+ *
+ * One overshoot and done. An infinitely pulsing badge is a demand for
+ * attention; a single pop is a statement that something arrived, which is all
+ * an ordinary notification has earned.
+ */
+@keyframes wariba-badge-pop {
+  0% {
+    transform: scale(0.8);
+  }
+  60% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/*
+ * VX1-D §7 — the market plate's tick.
+ *
+ * The whole animation is 80ms of opacity and a scale that never leaves the
+ * third decimal, because the plate is a *readout*: anything the eye can resolve
+ * as movement competes with the digits it is trying to make legible. What this
+ * buys is the difference between a number that was replaced and a number that
+ * arrived — and it fires only on a genuine authoritative change, never on a
+ * repeated tick at an unchanged price.
+ */
+@keyframes wariba-plate-tick {
+  0% {
+    opacity: 0.88;
+    transform: scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/*
+ * VX1-D §14 — the feed's ambient sweep.
+ *
+ * A healthy feed has nothing to say, and a permanently blinking indicator is
+ * how a trader learns to stop reading one. So this is not a beacon: each bar
+ * lifts its own luminance for a fraction of a second, in sequence, and the
+ * whole gesture is over in ~600ms and does not return for another two and a
+ * half seconds. The three bars carry staggered delays of one keyframe cycle,
+ * so the sweep runs bar1 → bar2 → bar3 without three separate animations to
+ * keep in step.
+ *
+ * It runs only while the transport is genuinely open and the market feed is
+ * live — an indicator that sweeps while disconnected would be the single most
+ * dishonest animation in the product — and `prefers-reduced-motion` removes it
+ * entirely, since it conveys nothing a static mint glyph does not.
+ */
+/*
+ * VX1-D.1 §14/§15 — the feed came back, said by the glyph alone.
+ *
+ * Two short pulses on the signal bars and then straight back to the ambient
+ * sweep. It replaces the last healthy-state *word* in the header: "Flux
+ * rétabli" occupied layout, pushed its neighbours and repeated in text what the
+ * glyph had already said by turning mint. A screen reader still hears the
+ * sentence, from a live region — which is where a transient announcement
+ * belongs.
+ */
+@keyframes wariba-feed-recovered {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  45% {
+    opacity: 0.55;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes wariba-feed-sweep {
+  0%,
+  14%,
+  100% {
+    opacity: 1;
+  }
+  6% {
+    opacity: 0.42;
+  }
+}
+
+/*
+ * VX1-D §28 — the failed control's own answer.
+ *
+ * Two pixels, one cycle, a tenth of a second, and only on the control that was
+ * pressed. A rejection is information, not a punishment: the canonical reason
+ * is what a trader acts on, and this exists so the eye is already on the right
+ * control when the reason arrives.
+ */
+/*
+ * VX1-D §26 — an order that is still out.
+ *
+ * A 2px rule travelling the width of the key that sent it, and nothing else:
+ * no spinner over the decision zone, no disabled overlay, no size change. It
+ * says "the server has not answered yet" and stops the moment it does. It
+ * cannot be mistaken for success, because success is a different surface
+ * entirely.
+ */
+@keyframes wariba-inflight {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes wariba-reject-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-2px);
+  }
+  75% {
+    transform: translateX(2px);
+  }
+}
+
+/*
+ * VX1 right utility rail — WariX destination symbols.
+ *
+ * The seven glyphs share one optical grid and one interaction grammar. Motion
+ * is semantic and event-bound: quote rows resolve, an execution mark settles,
+ * history traces reveal, and an alert trigger answers. Nothing moves at idle.
+ */
+.warix-symbol {
+  display: block;
+  flex: none;
+  overflow: visible;
+  shape-rendering: geometricPrecision;
+  transform: scale(1);
+  transition: transform var(--wariba-component-workstation-motion-micro)
+    var(--wariba-component-workstation-ease-move);
+}
+
+/*
+ * Per-silhouette optical compensation. The 24px canvas remains fixed; only the
+ * drawing within it is tuned, so the 48px rail never widens or crowds. Native
+ * size is authoritative — Markets and Activity need the most help, Alerts none.
+ */
+.warix-symbol--markets .warix-symbol__canvas {
+  transform: scale(1.1);
+}
+
+.warix-symbol--trade .warix-symbol__canvas {
+  transform: scale(1.04);
+}
+
+.warix-symbol--activity .warix-symbol__canvas {
+  transform: scale(1.1);
+}
+
+.warix-symbol--calendar .warix-symbol__canvas {
+  transform: scale(1.02);
+}
+
+.warix-symbol--journal .warix-symbol__canvas {
+  transform: scale(1.03);
+}
+
+.warix-symbol--help .warix-symbol__canvas {
+  transform: scale(1.06);
+}
+
+.warix-market-feed-icon__bar {
+  opacity: 0.24;
+  transition: opacity var(--wariba-component-workstation-motion-quick)
+    var(--wariba-component-workstation-ease-move);
+}
+
+.warix-market-feed-icon--healthy .warix-market-feed-icon__bar,
+.warix-market-feed-icon--degraded
+  :is(.warix-market-feed-icon__bar--one, .warix-market-feed-icon__bar--two),
+.warix-market-feed-icon--offline .warix-market-feed-icon__bar--one {
+  opacity: 1;
+}
+
+.warix-market-feed-icon--healthy .warix-market-feed-icon__bar {
+  animation: wariba-feed-sweep var(--wariba-component-workstation-motion-ambient)
+    var(--wariba-component-workstation-ease-move) infinite;
+}
+
+.warix-market-feed-icon--healthy .warix-market-feed-icon__bar--two {
+  animation-delay: 90ms;
+}
+
+.warix-market-feed-icon--healthy .warix-market-feed-icon__bar--three {
+  animation-delay: 180ms;
+}
+
+.warix-symbol :is(path, circle, g) {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.warix-destination-key {
+  --warix-symbol-idle: var(--wariba-component-workstation-symbol-idle);
+  --warix-symbol-hover: var(--wariba-component-workstation-symbol-hover);
+  --warix-symbol-active: var(--wariba-component-workstation-symbol-active);
+  --warix-symbol-accent: var(--wariba-component-workstation-symbol-active-accent);
+  position: relative;
+  display: inline-grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  flex: none;
+  border: 1px solid transparent;
+  border-radius: var(--wariba-component-workstation-radius-control, 8px);
+  background: transparent;
+  color: var(--warix-symbol-idle);
+  box-shadow: none;
+  transition:
+    color var(--wariba-component-workstation-motion-quick)
+      var(--wariba-component-workstation-ease-move),
+    background-color var(--wariba-component-workstation-motion-quick)
+      var(--wariba-component-workstation-ease-move),
+    border-color var(--wariba-component-workstation-motion-quick)
+      var(--wariba-component-workstation-ease-move),
+    box-shadow var(--wariba-component-workstation-motion-standard)
+      var(--wariba-component-workstation-ease-enter),
+    transform var(--wariba-component-workstation-motion-micro)
+      var(--wariba-component-workstation-ease-move);
+}
+
+.warix-destination-key::before {
+  position: absolute;
+  inset-block: 12px;
+  inset-inline-start: -1px;
+  width: 2px;
+  border-radius: 999px;
+  background: var(--warix-symbol-accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--warix-symbol-accent) 65%, transparent);
+  content: '';
+  opacity: 0;
+  transform: scaleY(0.45);
+  transition:
+    opacity var(--wariba-component-workstation-motion-quick)
+      var(--wariba-component-workstation-ease-move),
+    transform var(--wariba-component-workstation-motion-standard)
+      var(--wariba-component-workstation-ease-settle);
+}
+
+.warix-destination-key:is(:hover, [data-force-state='hover']):not(:disabled) {
+  border-color: color-mix(in srgb, var(--wariba-component-workstation-seam) 58%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--wariba-component-workstation-surface-control-hover) 58%,
+    transparent
+  );
+  color: var(--warix-symbol-hover);
+  box-shadow: inset 0 1px 0 var(--wariba-component-workstation-rim-light);
+  transform: translateY(-1px);
+}
+
+.warix-destination-key:is(:hover, [data-force-state='hover']):not(:disabled) .warix-symbol {
+  transform: scale(1.02);
+}
+
+.warix-destination-key:is(:active, [data-pressed='true']):not(:disabled) {
+  transform: translateY(1px) scale(0.975);
+}
+
+.warix-destination-key:is(
+    [aria-pressed='true'],
+    [data-active='true'],
+    [data-force-state='active']
+  ):not(:disabled) {
+  border-color: color-mix(in srgb, var(--warix-symbol-accent) 18%, transparent);
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--wariba-component-workstation-surface-control) 84%, transparent),
+    color-mix(in srgb, var(--wariba-component-workstation-surface-sunken) 72%, transparent)
+  );
+  color: var(--warix-symbol-active);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--wariba-component-workstation-rim-light) 82%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--warix-symbol-accent) 7%, transparent),
+    0 5px 12px -10px color-mix(in srgb, var(--warix-symbol-accent) 62%, transparent);
+}
+
+.warix-destination-key:is(
+    [aria-pressed='true'],
+    [data-active='true'],
+    [data-force-state='active']
+  ):not(:disabled)::before {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+.warix-destination-key:disabled {
+  color: color-mix(in srgb, var(--warix-symbol-idle) 42%, transparent);
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.warix-destination-key:is(
+    :hover,
+    [data-force-state='hover'],
+    [data-active='true'],
+    [data-force-state='active']
+  )
+  .warix-symbol__market-row--one {
+  transform: translateX(0.75px);
+}
+
+.warix-destination-key:is(
+    :hover,
+    [data-force-state='hover'],
+    [data-active='true'],
+    [data-force-state='active']
+  )
+  .warix-symbol__market-row--two {
+  transform: translateX(-0.75px);
+}
+
+.warix-destination-key:is(
+    :hover,
+    [data-force-state='hover'],
+    [data-active='true'],
+    [data-force-state='active']
+  )
+  .warix-symbol__market-row--three {
+  transform: translateX(0.5px);
+}
+
+.warix-symbol__market-row,
+.warix-symbol__trade-confirm,
+.warix-symbol__trade-action,
+.warix-symbol__activity-flow,
+.warix-symbol__calendar-event,
+.warix-symbol__journal-rows,
+.warix-symbol__journal-performance,
+.warix-symbol__help-orbit,
+.warix-symbol__help-mark {
+  transition:
+    transform var(--wariba-component-workstation-motion-standard)
+      var(--wariba-component-workstation-ease-settle),
+    opacity var(--wariba-component-workstation-motion-quick)
+      var(--wariba-component-workstation-ease-move),
+    fill var(--wariba-component-workstation-motion-quick)
+      var(--wariba-component-workstation-ease-move);
+}
+
+.warix-symbol__market-row--two {
+  transition-delay: 22ms;
+}
+
+.warix-symbol__market-row--three {
+  transition-delay: 44ms;
+}
+
+.warix-destination-key:is(
+    :hover,
+    [data-force-state='hover'],
+    [data-active='true'],
+    [data-force-state='active']
+  )
+  .warix-symbol__trade-confirm {
+  animation: warix-trade-confirm var(--wariba-component-workstation-motion-standard)
+    var(--wariba-component-workstation-ease-enter) both;
+  transform: translate(0.35px, -0.35px);
+}
+
+.warix-destination-key:is(
+    :hover,
+    [data-force-state='hover'],
+    [data-active='true'],
+    [data-force-state='active']
+  )
+  .warix-symbol__trade-action {
+  transform: translateX(1px);
+}
+
+.warix-destination-key:is(
+    :hover,
+    [data-force-state='hover'],
+    [data-active='true'],
+    [data-force-state='active']
+  )
+  .warix-symbol__activity-traces
+  path {
+  animation: warix-activity-resolve var(--wariba-component-workstation-motion-standard)
+    var(--wariba-component-workstation-ease-enter) both;
+}
+
+.warix-destination-key:is(
+    :hover,
+    [data-force-state='hover'],
+    [data-active='true'],
+    [data-force-state='active']
+  )
+  .warix-symbol__activity-flow {
+  transform: rotate(4deg);
+}
+
+.warix-symbol__activity-traces path:nth-child(2) {
+  animation-delay: 28ms;
+}
+
+.warix-symbol__activity-traces path:nth-child(3) {
+  animation-delay: 56ms;
+}
+
+.warix-destination-key:is(
+    :hover,
+    [data-force-state='hover'],
+    [data-active='true'],
+    [data-force-state='active']
+  )
+  .warix-symbol__alert-level {
+  animation: warix-alert-level var(--wariba-component-workstation-motion-standard)
+    var(--wariba-component-workstation-ease-move) both;
+}
+
+.warix-destination-key:is(
+    :hover,
+    [data-force-state='hover'],
+    [data-active='true'],
+    [data-force-state='active']
+  )
+  .warix-symbol__alert-node {
+  animation: warix-alert-node var(--wariba-component-workstation-motion-panel)
+    var(--wariba-component-workstation-ease-settle) both;
+  fill: currentColor;
+}
+
+.warix-destination-key:is(
+    :hover,
+    [data-force-state='hover'],
+    [data-active='true'],
+    [data-force-state='active']
+  )
+  .warix-symbol__calendar-event {
+  fill: color-mix(in srgb, currentColor 16%, transparent);
+  transform: translateY(-0.75px);
+}
+
+.warix-destination-key:is(
+    :hover,
+    [data-force-state='hover'],
+    [data-active='true'],
+    [data-force-state='active']
+  )
+  .warix-symbol__journal-rows {
+  transform: translateX(0.75px);
+}
+
+.warix-destination-key:is(
+    :hover,
+    [data-force-state='hover'],
+    [data-active='true'],
+    [data-force-state='active']
+  )
+  .warix-symbol__journal-performance {
+  transform: translateY(-0.5px);
+}
+
+.warix-destination-key:is(
+    :hover,
+    [data-force-state='hover'],
+    [data-active='true'],
+    [data-force-state='active']
+  )
+  .warix-symbol__help-orbit--one {
+  transform: translate(0.35px, -0.35px);
+}
+
+.warix-destination-key:is(
+    :hover,
+    [data-force-state='hover'],
+    [data-active='true'],
+    [data-force-state='active']
+  )
+  .warix-symbol__help-orbit--two {
+  transform: translate(-0.35px, 0.35px);
+}
+
+.warix-destination-key:is(
+    :hover,
+    [data-force-state='hover'],
+    [data-active='true'],
+    [data-force-state='active']
+  )
+  .warix-symbol__help-mark {
+  transform: translateY(-0.5px);
+}
+
+@keyframes warix-activity-resolve {
+  from {
+    opacity: 0.35;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0.62;
+  }
+  to {
+    opacity: 1;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes warix-trade-confirm {
+  from {
+    opacity: 0.45;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0.62;
+  }
+  to {
+    opacity: 1;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes warix-alert-level {
+  from {
+    opacity: 0.45;
+    stroke-dasharray: 0.36 0.12;
+    stroke-dashoffset: 0.4;
+  }
+  to {
+    opacity: 1;
+    stroke-dasharray: 1 0;
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes warix-alert-node {
+  0% {
+    opacity: 0.6;
+    transform: scale(0.72);
+  }
+  62% {
+    transform: scale(1.16);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Internal, unlinked catalogue specimen used for the native and 4× audit. */
+.warix-symbol-specimen {
+  display: grid;
+  gap: 18px;
+  overflow: hidden;
+  border: 1px solid var(--wariba-component-workstation-seam);
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.035), transparent 34%),
+    var(--wariba-component-workstation-surface-sunken);
+  color: var(--wariba-component-workstation-text-primary);
+  box-shadow: var(--wariba-component-workstation-elevation-popover);
+  padding: 22px;
+}
+
+.warix-symbol-specimen__header,
+.warix-symbol-specimen__section--split {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.warix-symbol-specimen__header p,
+.warix-symbol-specimen__eyebrow {
+  margin: 0 0 5px;
+  color: var(--wariba-component-workstation-symbol-active);
+  font-family: var(--wariba-font-family-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.warix-symbol-specimen__header h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 620;
+  letter-spacing: -0.025em;
+}
+
+.warix-symbol-specimen__header > span {
+  color: var(--wariba-component-workstation-text-tertiary);
+  font-family: var(--wariba-font-family-mono);
+  font-size: 10px;
+}
+
+.warix-symbol-specimen__section {
+  border-top: 1px solid
+    color-mix(in srgb, var(--wariba-component-workstation-seam) 72%, transparent);
+  padding-top: 16px;
+}
+
+.warix-symbol-specimen__family,
+.warix-symbol-specimen__states,
+.warix-symbol-specimen__sizes,
+.warix-symbol-specimen__four-x {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.warix-symbol-specimen__key-wrap {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  min-width: 58px;
+  color: var(--wariba-component-workstation-text-tertiary);
+  font-family: var(--wariba-font-family-mono);
+  font-size: 9px;
+}
+
+.warix-symbol-specimen__state {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 192px;
+  border: 1px solid color-mix(in srgb, var(--wariba-component-workstation-seam) 64%, transparent);
+  border-radius: 9px;
+  background: color-mix(
+    in srgb,
+    var(--wariba-component-workstation-surface-module) 78%,
+    transparent
+  );
+  padding: 8px;
+}
+
+.warix-symbol-specimen__state > span {
+  width: 44px;
+  color: var(--wariba-component-workstation-text-tertiary);
+  font-family: var(--wariba-font-family-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.warix-symbol-specimen__state .warix-symbol-specimen__key-wrap {
+  min-width: auto;
+}
+
+.warix-symbol-specimen__sizes > div {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  color: var(--wariba-component-workstation-text-tertiary);
+  font-family: var(--wariba-font-family-mono);
+  font-size: 9px;
+}
+
+.warix-symbol-specimen__rail {
+  display: flex;
+  width: var(--wariba-component-workstation-utility-rail-width);
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--wariba-component-workstation-seam);
+  background: var(--wariba-component-workstation-surface-module);
+  padding: 6px 5px;
+}
+
+.warix-symbol-specimen__rail .warix-symbol-specimen__key-wrap {
+  min-width: auto;
+}
+
+.warix-symbol-specimen__four-x {
+  gap: 7px;
+}
+
+.warix-symbol-specimen__four-x .warix-symbol-specimen__key-wrap {
+  min-width: 112px;
+}
+
+.warix-symbol-specimen__four-x .warix-destination-key {
+  width: 104px;
+  height: 104px;
+}
+
+.warix-symbol-specimen__four-x .warix-symbol {
+  width: 96px;
+  height: 96px;
+}
+
+@media (max-width: 767px) {
+  .warix-symbol-specimen {
+    padding: 16px;
+  }
+
+  .warix-symbol-specimen__header,
+  .warix-symbol-specimen__section--split {
+    flex-direction: column;
   }
 }
 

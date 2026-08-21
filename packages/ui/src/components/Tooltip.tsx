@@ -14,7 +14,7 @@ export interface TooltipProps {
   label: string;
   /** A single focusable element (button, link) — receives aria-describedby. */
   children: ReactElement<{ 'aria-describedby'?: string }>;
-  side?: 'top' | 'bottom' | 'right';
+  side?: 'top' | 'bottom' | 'right' | 'left';
 }
 
 /**
@@ -63,12 +63,25 @@ export function Tooltip({ label, children, side = 'top' }: TooltipProps) {
             'bg-[color:var(--wariba-component-tooltip-surface)] text-[color:var(--wariba-component-tooltip-text)]',
             'border border-[color:var(--wariba-component-tooltip-border)]',
             'text-[length:var(--wariba-component-tooltip-font-size)] font-semibold leading-tight',
-            'shadow-[var(--wariba-component-tooltip-shadow)]',
+            // VX1-B §24 — raised, not flat: the same rim light every lifted
+            // surface in the workstation carries, and a short entry so a tooltip
+            // arrives rather than blinks.
+            'shadow-[var(--wariba-component-tooltip-shadow),inset_0_1px_0_0_rgba(255,255,255,0.06)]',
+            'motion-safe:animate-[wariba-fade-in_120ms_ease-out]',
+            /*
+             * `left` exists because the right utility rail needs it: a tooltip
+             * that opened to the right of a control docked against the window's
+             * right edge opens into nothing. It was already being passed there;
+             * the primitive simply had no name for it, so the call site was a
+             * type error rendering by accident.
+             */
             side === 'top'
               ? 'bottom-full mb-2'
               : side === 'right'
                 ? 'left-full top-1/2 ml-2 -translate-x-0 -translate-y-1/2'
-                : 'top-full mt-2',
+                : side === 'left'
+                  ? 'right-full left-auto top-1/2 mr-2 -translate-x-0 -translate-y-1/2'
+                  : 'top-full mt-2',
           )}
         >
           {label}

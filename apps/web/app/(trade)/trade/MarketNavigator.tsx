@@ -8,6 +8,7 @@ import {
   matchesMarketQuery,
   type MarketCategoryGroup,
 } from './market-categories';
+import { useQuoteDirection } from './use-quote-direction';
 import { useTick, type TickStore } from './tick-store';
 
 const MARKET_STATUS_LABEL = {
@@ -80,6 +81,8 @@ const MarketRow = memo(function MarketRow({
   onToggleFavorite,
 }: MarketRowProps) {
   const tick = useTick(store, symbol);
+  const bidRef = useQuoteDirection<HTMLSpanElement>(tick?.bid);
+  const askRef = useQuoteDirection<HTMLSpanElement>(tick?.ask);
   const spread = tick
     ? (Number(tick.ask) - Number(tick.bid)).toFixed(spec?.pricePrecision ?? 5)
     : null;
@@ -93,10 +96,10 @@ const MarketRow = memo(function MarketRow({
          it. Without that the selected row's content shifted by 3px against its
          neighbours, which is the small misalignment that makes a list look
          styled rather than engineered. */
-      className={`relative flex min-h-12 items-stretch border-b border-[color:var(--wariba-component-workstation-border-hairline)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] before:absolute before:bottom-0 before:left-0 before:top-0 before:z-10 before:w-[3px] lg:min-h-[var(--wariba-component-workstation-navigator-row-height)] ${
+      className={`relative flex min-h-12 items-stretch border-b border-[color:var(--wariba-component-workstation-seam-hairline)] transition-[background-color,box-shadow] duration-[var(--wariba-component-workstation-motion-quick)] before:absolute before:bottom-0 before:left-0 before:top-0 before:z-10 before:w-[3px] motion-reduce:transition-none lg:min-h-[var(--wariba-component-workstation-navigator-row-height)] ${
         selected
-          ? 'bg-[color:var(--wariba-component-workstation-wash-selected)] before:bg-[color:var(--wariba-component-workstation-interaction-selected)]'
-          : 'before:bg-transparent hover:bg-[color:var(--wariba-component-workstation-wash-neutral)]'
+          ? 'bg-[color:var(--wariba-component-workstation-wash-selected)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light)] before:bg-[color:var(--wariba-component-workstation-seam-active)]'
+          : 'before:bg-transparent hover:bg-[color:var(--wariba-component-workstation-surface-control)]/60'
       }`}
     >
       <button
@@ -116,24 +119,24 @@ const MarketRow = memo(function MarketRow({
             {symbol}
           </span>
           {/*
-           * Refinement pass — market state by exception.
+           * Market state by exception — VX1-C.1 §5.
            *
-           * Every row previously carried the word "OUVERT" in the same tone, so
-           * five identical labels ran down the panel and an *abnormal* market
-           * had to be found by reading. A healthy market is now a single 4px
-           * dot, and only a stale, closed or unavailable one spends a word — so
-           * the exception is the thing that catches the eye, which is what a
-           * market watch is for. Nothing is hidden: the state stays in the row's
-           * accessible name at every status, exactly as before.
+           * Every row once carried the word "OUVERT" in the same tone, so five
+           * identical labels ran down the panel and an *abnormal* market had to
+           * be found by reading. The refinement pass cut the word to a 4px mint
+           * dot; this pass cuts the dot too, because five identical dots are
+           * five identical labels in a smaller font. Healthy availability is the
+           * default a watchlist already assumes, and the panel's green now
+           * belongs to the two marks that earn it — the feed signal in the
+           * header and the instrument mark in the chart legend.
+           *
+           * Only a stale, closed or unavailable market spends ink, which is what
+           * makes the exception the thing that catches the eye. Nothing is
+           * hidden: the state stays in the row's accessible name at every
+           * status, exactly as it always has.
            */}
           {status === 'open' ? (
-            <span className="flex items-center">
-              <span
-                aria-hidden="true"
-                className={`h-1 w-1 rounded-full ${MARKET_STATUS_DOT.open}`}
-              />
-              <span className="sr-only">{MARKET_STATUS_LABEL.open}</span>
-            </span>
+            <span className="sr-only">{MARKET_STATUS_LABEL.open}</span>
           ) : (
             <span
               className={`flex items-center gap-1 rounded-[4px] px-1 py-0.5 text-[length:var(--wariba-component-workstation-type-meta)] font-semibold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-label)] ${
@@ -159,8 +162,20 @@ const MarketRow = memo(function MarketRow({
             live label (W2 §30). The dash occupies the same column the figure
             would, so an unavailable instrument does not reflow the list. */}
         <span className="wariba-data flex items-center justify-end gap-2 leading-none">
+          {/*
+           * VX1-C §18/§19 — the two quote cells answer their own tick.
+           *
+           * The wash is on the cell, never the row: a whole row lighting up on
+           * every print turns a watchlist into a strobe. The base identities are
+           * untouched — Bid stays cyan, Ask stays copper — and the direction is
+           * a brief overlay on top of them, not a recolour.
+           *
+           * Attached where the tick is already consumed by this row, so it costs
+           * no new subscription and no extra render.
+           */}
           <span
-            className={`${BID_ASK_COLUMN} text-[length:var(--wariba-component-workstation-type-data)] font-medium ${
+            ref={bidRef}
+            className={`${BID_ASK_COLUMN} rounded-[3px] text-[length:var(--wariba-component-workstation-type-data)] font-medium ${
               tick
                 ? 'text-[color:var(--wariba-component-workstation-trading-live-bid)]'
                 : 'text-[color:var(--wariba-component-workstation-text-tertiary)]'
@@ -169,7 +184,8 @@ const MarketRow = memo(function MarketRow({
             {tick?.bid ?? '—'}
           </span>
           <span
-            className={`${BID_ASK_COLUMN} text-[length:var(--wariba-component-workstation-type-data)] font-medium ${
+            ref={askRef}
+            className={`${BID_ASK_COLUMN} rounded-[3px] text-[length:var(--wariba-component-workstation-type-data)] font-medium ${
               tick
                 ? 'text-[color:var(--wariba-component-workstation-trading-live-ask)]'
                 : 'text-[color:var(--wariba-component-workstation-text-tertiary)]'
@@ -321,7 +337,7 @@ export const MarketNavigator = memo(function MarketNavigator({
   const categoryHeading = (id: string, label: string) => (
     <h3
       id={`market-category-${id}`}
-      className="sticky top-0 z-10 flex items-center gap-2 border-b border-t border-b-[color:var(--wariba-component-workstation-border-hairline)] border-t-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-2.5 py-1 text-[length:var(--wariba-component-workstation-type-section-label)] font-bold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-secondary)]"
+      className="sticky top-0 z-10 flex items-center gap-2 border-b border-t border-b-[color:var(--wariba-component-workstation-seam-hairline)] border-t-[color:var(--wariba-component-workstation-seam-strong)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-2.5 py-1 shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light)] text-[length:var(--wariba-component-workstation-type-section-label)] font-bold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-secondary)]"
     >
       {label}
     </h3>
@@ -345,7 +361,7 @@ export const MarketNavigator = memo(function MarketNavigator({
           hairline ring, cobalt focus ring. Search is the navigator's primary
           control and it was previously the least visible thing in it. */}
       <div className="shrink-0 border-b border-[color:var(--wariba-component-workstation-border-hairline)] p-2">
-        <div className="relative flex h-9 items-center rounded-[8px] bg-[color:var(--wariba-component-workstation-surface-canvas)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] focus-within:ring-[color:var(--wariba-component-workstation-border-focus)]">
+        <div className="relative flex h-9 items-center rounded-[var(--wariba-component-workstation-radius-control)] bg-[color:var(--wariba-component-workstation-surface-canvas)] shadow-[inset_0_1px_2px_0_rgba(5,7,12,0.55)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-seam-hairline)] transition-[box-shadow] duration-[var(--wariba-component-workstation-motion-quick)] focus-within:ring-[color:var(--wariba-component-workstation-border-focus)] focus-within:shadow-[inset_0_1px_2px_0_rgba(5,7,12,0.55),0_0_6px_0_var(--wariba-component-workstation-focus-glow)]">
           <label htmlFor={searchId} className="sr-only">
             Rechercher un instrument
           </label>
@@ -357,7 +373,7 @@ export const MarketNavigator = memo(function MarketNavigator({
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Rechercher…"
             data-testid="market-search"
-            className="h-full w-full rounded-[8px] border-0 bg-transparent py-0 pl-8 pr-2 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-component-workstation-text-primary)] placeholder:text-[color:var(--wariba-component-workstation-text-tertiary)] focus:outline-none"
+            className="h-full w-full rounded-[var(--wariba-component-workstation-radius-control)] border-0 bg-transparent py-0 pl-8 pr-2 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-component-workstation-text-primary)] placeholder:text-[color:var(--wariba-component-workstation-text-tertiary)] focus:outline-none"
           />
         </div>
       </div>

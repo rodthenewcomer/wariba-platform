@@ -1,7 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BottomSheet, WariXCalendarIcon, WariXHelpIcon } from '@wariba/ui';
+import {
+  BottomSheet,
+  WariXActivityDestinationIcon,
+  WariXCalendarDestinationIcon,
+  WariXHelpDestinationIcon,
+  WariXTradeDestinationIcon,
+} from '@wariba/ui';
 import { TRADABLE_SYMBOLS, type PendingOrderType, type TradableSymbol } from '@wariba/contracts';
 import { useOneClickTrading } from '../../../lib/one-click-trading';
 import { ChartWorkspace, type ChartWorkspaceActions } from './ChartWorkspace';
@@ -11,6 +17,7 @@ import { ExecutionPanel } from './ExecutionPanel';
 import { pendingOrderTypeFor } from './execution/execution-contract';
 import { TradeDialogs, type TradeDialogActions, type TradeDialogState } from './TradeDialogs';
 import { createTicketDraftStore } from './ticket-draft';
+import { formatMoney } from './trade-labels';
 import { useTradeSession } from './trade-session';
 import { MobileMarketBar } from './workstation/MobileMarketBar';
 import { CalendarNewsPanel } from './workstation/CalendarNewsPanel';
@@ -20,6 +27,7 @@ import { ResizeSeparator } from './workstation/ResizeSeparator';
 import { RightUtilityRail, type UtilityDrawerId } from './workstation/RightUtilityRail';
 import { UtilityDrawer } from './workstation/UtilityDrawer';
 import { WorkstationDock, type DockTab } from './workstation/WorkstationDock';
+import { WorkstationFeedback } from './workstation/WorkstationFeedback';
 import { WorkstationShell } from './workstation/WorkstationShell';
 import { WorkstationStatusBar } from './workstation/WorkstationStatusBar';
 import type { WorkstationAccountOption } from './workstation/WorkstationAccountSwitcher';
@@ -364,6 +372,11 @@ export function TradeClient({
     setTab('alerts');
     setDockCollapsed(false);
   }, [closeUtilityDrawer, setDockCollapsed]);
+  const openJournalDock = useCallback(() => {
+    closeUtilityDrawer();
+    setTab('trades');
+    setDockCollapsed(false);
+  }, [closeUtilityDrawer, setDockCollapsed]);
   const openModifyPosition = useCallback(
     (positionId: string) => patchDialogs({ modifyPositionId: positionId }),
     [patchDialogs],
@@ -542,6 +555,21 @@ export function TradeClient({
         {session.statusAnnouncement}
       </div>
 
+      {/*
+       * VX1-C §8-§11 — the same settled-command channel, drawn.
+       *
+       * The live region above stays the accessible one; this is its visible
+       * counterpart, and it is `aria-hidden` so the sentence is announced once
+       * rather than once per presentation. It carries no state of its own: tone,
+       * dwell and motion are the only decisions it makes.
+       */}
+      <WorkstationFeedback
+        announcement={session.statusAnnouncement}
+        sequence={session.statusSequence}
+        rejection={session.rejection}
+        compact={!isDesktop}
+      />
+
       <WorkstationShell
         dockHeight={layout.dockHeight}
         dockCollapsed={preferences.dockCollapsed}
@@ -584,13 +612,13 @@ export function TradeClient({
             activeDrawer={activeUtilityDrawer}
             activityActive={!preferences.dockCollapsed && tab === 'positions'}
             alertsActive={!preferences.dockCollapsed && tab === 'alerts'}
+            journalActive={!preferences.dockCollapsed && tab === 'trades'}
             openPositionCount={openPositionCount}
             activeAlertCount={activeAlertCount}
-            unreadCount={session.unreadCount}
             onToggleDrawer={toggleUtilityDrawer}
             onOpenActivity={openActivityDock}
             onOpenAlerts={openAlertsDock}
-            onOpenNotifications={openNotifications}
+            onOpenJournal={openJournalDock}
           />
         }
         statusBar={
@@ -599,6 +627,20 @@ export function TradeClient({
             activeAccountId={accountId}
             balanceFormatted={snapshot ? `${snapshot.balance} USD` : '—'}
             equityFormatted={snapshot ? `${snapshot.equity} USD` : '—'}
+            /*
+             * VX1 §8 — open P&L, as the server itself defines it.
+             *
+             * `equity − balance` is not a client-side model of unrealised
+             * profit: it is the identity the snapshot builder uses to produce
+             * `currentUnrealizedPnl` at the DTO boundary, applied to the two
+             * authoritative figures already on screen beside it. Nothing new is
+             * computed and no position is re-priced here.
+             */
+            openPnlFormatted={
+              snapshot
+                ? formatMoney(String(Number(snapshot.equity) - Number(snapshot.balance)))
+                : null
+            }
             risk={session.risk}
             connectionState={session.connectionState}
             unreadCount={session.unreadCount}
@@ -652,7 +694,7 @@ export function TradeClient({
            */
           <div
             data-testid="mobile-action-rail"
-            className="flex items-stretch gap-2 border-t border-[color:var(--wariba-component-workstation-border-strong)] bg-[color:var(--wariba-component-workstation-surface-raised)] px-2.5 py-2 shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light)]"
+            className="flex items-stretch gap-2 border-t border-[color:var(--wariba-component-workstation-seam-strong)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-2.5 py-2 shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong)]"
           >
             {/*
              * Visual closure §16 / mobile gate §5 — an action rail of two keys.
@@ -682,11 +724,9 @@ export function TradeClient({
               type="button"
               onClick={() => setTicketOpen(true)}
               aria-label={`Trader ${selectedSymbol}`}
-              className="flex min-h-11 flex-[3] items-center justify-center gap-2 rounded-[10px] bg-[color:var(--wariba-color-cobalt-600)] px-3 text-[color:var(--wariba-color-white)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.22),0_2px_0_0_rgba(5,7,12,0.55)] transition-[transform,box-shadow,filter] duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-0.5 active:brightness-90 active:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]"
+              className="flex min-h-11 flex-[3] items-center justify-center gap-2 rounded-[var(--wariba-component-workstation-radius-control)] bg-[color:var(--wariba-color-cobalt-600)] px-3 text-[color:var(--wariba-color-white)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.22),0_2px_0_0_rgba(5,7,12,0.55)] transition-[transform,box-shadow,filter] duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-0.5 active:brightness-90 active:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]"
             >
-              <span aria-hidden="true" className="text-[9px] leading-none opacity-75">
-                ▲
-              </span>
+              <WariXTradeDestinationIcon size="nav" />
               <span
                 aria-hidden="true"
                 className="text-[length:var(--wariba-font-size-label-md)] font-bold tracking-[var(--wariba-component-workstation-tracking-decision)]"
@@ -698,15 +738,20 @@ export function TradeClient({
               type="button"
               onClick={() => setMobileDockOpen(true)}
               data-testid="mobile-dock-trigger"
-              className="flex min-h-11 flex-[2] items-center justify-center gap-1.5 rounded-[10px] bg-[color:var(--wariba-component-workstation-surface-control)] px-3 text-[color:var(--wariba-component-workstation-text-secondary)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong),0_2px_0_0_rgba(5,7,12,0.45)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] transition-[transform,box-shadow,color] duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-0.5 active:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]"
+              className="flex min-h-11 flex-[2] items-center justify-center gap-1.5 rounded-[var(--wariba-component-workstation-radius-control)] bg-[color:var(--wariba-component-workstation-surface-control)] px-3 text-[color:var(--wariba-component-workstation-text-secondary)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong),0_2px_0_0_rgba(5,7,12,0.45)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] transition-[transform,box-shadow,color] duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-0.5 active:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]"
             >
+              <WariXActivityDestinationIcon size="nav" />
               <span className="text-[length:var(--wariba-font-size-label-md)] font-semibold">
                 Activité
               </span>
               {openPositionCount > 0 ? (
                 <span
+                  key={openPositionCount}
                   aria-label={`${openPositionCount} position ouverte`}
-                  className="wariba-data min-w-5 rounded-full bg-[color:var(--wariba-component-workstation-wash-selected-strong)] px-1.5 text-center text-[length:var(--wariba-component-workstation-type-meta)] font-bold tabular-nums text-[color:var(--wariba-component-workstation-interaction-selected-text)]"
+                  /* §21 — one pop when the count changes, never a heartbeat. The
+                     key is the count itself, so the animation replays exactly
+                     when the number a trader is watching actually moves. */
+                  className="wariba-data min-w-5 rounded-full bg-[color:var(--wariba-component-workstation-wash-selected-strong)] px-1.5 text-center text-[length:var(--wariba-component-workstation-type-meta)] font-bold leading-5 tabular-nums text-[color:var(--wariba-component-workstation-interaction-selected-text)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-seam-active)] motion-safe:animate-[wariba-badge-pop_var(--wariba-component-workstation-motion-standard)_var(--wariba-component-workstation-ease-settle)]"
                 >
                   {openPositionCount}
                 </span>
@@ -718,9 +763,9 @@ export function TradeClient({
               title="Calendrier et actualités"
               data-testid="mobile-calendar-trigger"
               onClick={() => setMobileUtilityOpen('calendar')}
-              className="flex min-h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-[color:var(--wariba-component-workstation-surface-control)] text-[color:var(--wariba-component-workstation-text-secondary)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong),0_2px_0_0_rgba(5,7,12,0.45)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] transition-[transform,box-shadow,color] duration-[var(--wariba-component-workstation-motion-interaction)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-0.5 active:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]"
+              className="flex min-h-11 w-11 shrink-0 items-center justify-center rounded-[var(--wariba-component-workstation-radius-control)] bg-[color:var(--wariba-component-workstation-surface-control)] text-[color:var(--wariba-component-workstation-text-secondary)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong),0_2px_0_0_rgba(5,7,12,0.45)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] transition-[transform,box-shadow,color] duration-[var(--wariba-component-workstation-motion-interaction)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-0.5 active:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]"
             >
-              <WariXCalendarIcon size="nav" />
+              <WariXCalendarDestinationIcon size="nav" />
             </button>
             <button
               type="button"
@@ -728,9 +773,9 @@ export function TradeClient({
               title="Centre d’aide"
               data-testid="mobile-help-trigger"
               onClick={() => setMobileUtilityOpen('help')}
-              className="flex min-h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-[color:var(--wariba-component-workstation-surface-control)] text-[color:var(--wariba-component-workstation-text-secondary)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong),0_2px_0_0_rgba(5,7,12,0.45)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] transition-[transform,box-shadow,color] duration-[var(--wariba-component-workstation-motion-interaction)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-0.5 active:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]"
+              className="flex min-h-11 w-11 shrink-0 items-center justify-center rounded-[var(--wariba-component-workstation-radius-control)] bg-[color:var(--wariba-component-workstation-surface-control)] text-[color:var(--wariba-component-workstation-text-secondary)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong),0_2px_0_0_rgba(5,7,12,0.45)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] transition-[transform,box-shadow,color] duration-[var(--wariba-component-workstation-motion-interaction)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-0.5 active:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]"
             >
-              <WariXHelpIcon size="nav" />
+              <WariXHelpDestinationIcon size="nav" />
             </button>
           </div>
         }
@@ -765,12 +810,21 @@ export function TradeClient({
         // The panel's own ModuleHeader is the sheet's visible header — see
         // `hideTitle` on BottomSheet for why the instrument is not named twice.
         hideTitle
-        // Visual closure §3 — a working height, not a content hug: the market
-        // header, order type, quantity and the sticky Sell/Buy footer must all
-        // be reachable without the sheet swallowing the status context above
-        // it. `flush` hands the box to the panel so its own seams run edge to
-        // edge and its own sticky footer is the sheet's footer.
-        size="tall"
+        /*
+         * VX1-D.1 §16 — the ticket is as tall as the ticket.
+         *
+         * It opened at a fixed 90dvh, which was the right call while the panel
+         * carried more rows than the phone could show. It no longer does: the
+         * content ends after the impact row, and the remaining third of the
+         * sheet was empty graphite above the Sell/Buy footer — pixels reserved
+         * for nothing, which is what made the sheet read as unfinished.
+         *
+         * `fitted` hugs the content and keeps the same 90dvh ceiling, so the
+         * decision keys sit directly under the last field they depend on and
+         * the sheet still grows if the panel ever gains rows. No card was
+         * stretched and no figure was invented to fill the gap.
+         */
+        size="fitted"
         flush
       >
         {!isDesktop && ticketOpen ? executionPanel : null}

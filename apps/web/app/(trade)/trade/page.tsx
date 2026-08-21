@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from '../../../lib/supabase/server';
 import { getDb } from '../../../lib/db';
 import { loadWebConfig } from '../../../lib/config';
 import {
+  accountSizeShortLabel,
   accountStatusLabel,
   accountStatusVariant,
   formatNominal,
@@ -35,6 +36,9 @@ function toSwitcherOption(account: AccountSummaryDTO): WorkstationAccountOption 
     programShortLabel: programShortLabel(account.programType),
     phaseLabel: programPhaseLabel(account.programType),
     nominalFormatted: formatNominal(account.nominalBalance, account.nominalCurrency),
+    // VX1 §7 — the selector's own size chip, rendered from the same
+    // authoritative nominal the full figure above comes from.
+    sizeShortLabel: accountSizeShortLabel(account.nominalBalance),
     publicId: account.publicId,
     statusLabel: accountStatusLabel(account.status),
     statusVariant: accountStatusVariant(account.status),

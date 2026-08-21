@@ -241,6 +241,7 @@ const ACCOUNTS = [
     programShortLabel: 'ONE',
     phaseLabel: 'Évaluation',
     nominalFormatted: '10 000 USD',
+    sizeShortLabel: '10K',
     publicId: 'WRB-0001',
     statusLabel: 'Actif',
     statusVariant: 'success' as const,
