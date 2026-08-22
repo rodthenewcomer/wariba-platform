@@ -174,7 +174,7 @@ describe('ChartContextMenuContent', () => {
         onPendingOrderRequest={onPendingOrderRequest}
       />,
     );
-    await user.click(screen.getByRole('menuitem', { name: 'Vente Limite ici' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Sell Limit ici' }));
     expect(onPendingOrderRequest).toHaveBeenCalledWith('sell_limit');
   });
 

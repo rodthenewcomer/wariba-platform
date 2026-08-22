@@ -1,3 +1,4 @@
+import { PENDING_ORDER_TYPE_LABEL as ORDER_TYPE_LABEL } from './trade-labels';
 import type { PendingOrderType, AlertDirection } from '@wariba/contracts';
 import { OverlayAnchor, SYNC_DOT_CLASS, type LevelSyncState } from './ChartPositionOverlay';
 
@@ -9,13 +10,6 @@ import { OverlayAnchor, SYNC_DOT_CLASS, type LevelSyncState } from './ChartPosit
  * different domain object (a pending order's trigger price, or an alert's
  * threshold price) instead of a position's SL/TP.
  */
-
-const ORDER_TYPE_LABEL: Record<PendingOrderType, string> = {
-  buy_limit: 'Achat Limite',
-  sell_limit: 'Vente Limite',
-  buy_stop: 'Achat Stop',
-  sell_stop: 'Vente Stop',
-};
 
 const ORDER_TYPE_TONE_CLASS: Record<PendingOrderType, string> = {
   buy_limit:

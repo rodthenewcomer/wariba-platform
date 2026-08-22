@@ -74,7 +74,7 @@ describe('PendingOrderConfirm', () => {
 
   it('shows the order type, quantity, and trigger price', () => {
     render(<PendingOrderConfirm {...baseProps} />);
-    expect(screen.getByText('EURUSD · Achat Limite · 0.10 lot')).toBeInTheDocument();
+    expect(screen.getByText('EURUSD · Buy Limit · 0.10 lot')).toBeInTheDocument();
     expect(screen.getByText(/Déclenchement à 1\.08400/)).toBeInTheDocument();
   });
 

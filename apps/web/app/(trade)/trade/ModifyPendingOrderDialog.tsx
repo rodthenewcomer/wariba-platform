@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Button, Input, Text, WariXDialog, WariXInlineStatus } from '@wariba/ui';
+import { PENDING_ORDER_TYPE_LABEL as ORDER_TYPE_LABEL } from './trade-labels';
 import type { PendingOrderDTO } from '@wariba/contracts';
 import type { OrderRejectionDetail } from './execution/execution-contract';
 import { useTick, type TickStore } from './tick-store';
@@ -25,13 +26,6 @@ export interface ModifyPendingOrderDialogProps {
   onSubmit: (params: ModifyPendingOrderParams) => void;
   onCancelOrder: (pendingOrderId: string) => void;
 }
-
-const ORDER_TYPE_LABEL: Record<PendingOrderDTO['orderType'], string> = {
-  buy_limit: 'Achat Limite',
-  sell_limit: 'Vente Limite',
-  buy_stop: 'Achat Stop',
-  sell_stop: 'Vente Stop',
-};
 
 const DECIMAL_PATTERN = /^\d+(\.\d+)?$/;
 

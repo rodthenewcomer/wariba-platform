@@ -530,12 +530,7 @@ test.describe('WariX chart context menu', { tag: ['@trade'] }, () => {
     // way. Which ones depends on where this click landed at that instant,
     // so this only asserts the count is in range, not which labels.
     await expect(menu.getByRole('menuitem', { name: 'Créer une alerte ici' })).toBeVisible();
-    const pendingOrderLabels = [
-      'Achat Limite ici',
-      'Vente Limite ici',
-      'Achat Stop ici',
-      'Vente Stop ici',
-    ];
+    const pendingOrderLabels = ['Buy Limit ici', 'Sell Limit ici', 'Buy Stop ici', 'Sell Stop ici'];
     let visiblePendingSuggestions = 0;
     for (const label of pendingOrderLabels) {
       if (await menu.getByRole('menuitem', { name: label }).isVisible()) {
@@ -630,12 +625,7 @@ test.describe('WariX mobile chart context menu', { tag: ['@trade', '@mobile'] },
     await expect(sheet.getByRole('menuitem', { name: 'Vente au marché' })).toBeVisible();
     await expect(sheet.getByRole('menuitem', { name: 'Créer une alerte ici' })).toBeVisible();
 
-    const pendingOrderLabels = [
-      'Achat Limite ici',
-      'Vente Limite ici',
-      'Achat Stop ici',
-      'Vente Stop ici',
-    ];
+    const pendingOrderLabels = ['Buy Limit ici', 'Sell Limit ici', 'Buy Stop ici', 'Sell Stop ici'];
     let visiblePendingSuggestions = 0;
     for (const label of pendingOrderLabels) {
       if (await sheet.getByRole('menuitem', { name: label }).isVisible()) {
