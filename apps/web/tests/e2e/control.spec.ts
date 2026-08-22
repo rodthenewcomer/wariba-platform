@@ -49,8 +49,8 @@ async function captureSession(
   try {
     const page = await context.newPage();
     await page.goto('/login');
-    await page.getByLabel('Adresse email').fill(email);
-    await page.getByLabel('Mot de passe').fill(STAFF_E2E_TEST_PASSWORD);
+    await page.getByLabel('Adresse e-mail').fill(email);
+    await page.getByLabel('Mot de passe', { exact: true }).fill(STAFF_E2E_TEST_PASSWORD);
     await page.getByRole('button', { name: 'Se connecter' }).click();
     await page.waitForURL('**/hub', { timeout: 30_000 });
 

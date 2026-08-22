@@ -1,50 +1,32 @@
-'use client';
-
-import {
-  AccountsIcon,
-  HubIcon,
-  MobileBottomNav,
-  MoreIcon,
-  PayoutsIcon,
-  PlatformSidebar,
-  TradeIcon,
-} from '@wariba/ui';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { createSupabaseServerClient } from '../../lib/supabase/server';
+import { HubShell } from './HubShell';
 
-const ITEMS = [
-  { href: '/hub', label: 'Hub', icon: <HubIcon size="sm" /> },
-  { href: '/trade', label: 'Trade', icon: <TradeIcon size="sm" /> },
-  { href: '/comptes', label: 'Comptes', icon: <AccountsIcon size="sm" /> },
-  { href: '/payouts', label: 'Payouts', icon: <PayoutsIcon size="sm" /> },
-] as const;
+/**
+ * Server layout for the Trader Hub.
+ *
+ * It exists as a server component only to read the signed-in identity once,
+ * so the shell can show initials without shipping a profile fetch to the
+ * browser. Everything interactive — collapse state, the user menu, active
+ * navigation — belongs to `HubShell` on the client.
+ */
+function initialsFor(email: string | undefined, metadata: Record<string, unknown>): string {
+  const first = typeof metadata.first_name === 'string' ? metadata.first_name : '';
+  const last = typeof metadata.last_name === 'string' ? metadata.last_name : '';
+  const fromName = `${first.charAt(0)}${last.charAt(0)}`.trim().toUpperCase();
+  if (fromName.length > 0) return fromName;
+  // Falls back to the address's first letters rather than rendering an empty
+  // circle. Never the full address: the avatar is a marker, not a disclosure.
+  return (email ?? '?').slice(0, 2).toUpperCase();
+}
 
-const MOBILE_ITEMS = [
-  ...ITEMS,
-  { href: '/plus', label: 'Plus', icon: <MoreIcon size="sm" /> },
-] as const;
+export default async function PlatformLayout({ children }: { children: ReactNode }) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-export default function PlatformLayout({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
   return (
-    <div
-      data-wariba-section="platform"
-      className="flex min-h-dvh bg-[color:var(--wariba-background-canvas)]"
-    >
-      <PlatformSidebar LinkComponent={Link} currentPath={pathname} items={[...ITEMS]} />
-      {/*
-       * `min-w-0` is load-bearing, not cosmetic: a flex item defaults to
-       * `min-width: auto`, so <main> refuses to shrink below the intrinsic
-       * width of its widest descendant. At the 320px minimum supported
-       * width (UX Architecture §12.2) that pushed <main> to 324px and gave
-       * the whole document a horizontal scrollbar on first paint. With
-       * `min-w-0` the column tracks the viewport and any genuinely wide
-       * child (table, chart) scrolls inside its own container instead of
-       * dragging the page sideways.
-       */}
-      <main className="min-w-0 flex-1 px-4 pb-24 pt-6 sm:px-6 md:pb-6">{children}</main>
-      <MobileBottomNav LinkComponent={Link} currentPath={pathname} items={[...MOBILE_ITEMS]} />
-    </div>
+    <HubShell initials={initialsFor(user?.email, user?.user_metadata ?? {})}>{children}</HubShell>
   );
 }

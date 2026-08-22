@@ -22,8 +22,8 @@ function payoutEnvironment(): PayoutFixtureEnvironment {
 
 async function login(page: import('@playwright/test').Page, fixture: PayoutAccountFixture) {
   await page.goto('/login');
-  await page.getByLabel('Adresse email').fill(fixture.email);
-  await page.getByLabel('Mot de passe').fill(fixture.password);
+  await page.getByLabel('Adresse e-mail').fill(fixture.email);
+  await page.getByLabel('Mot de passe', { exact: true }).fill(fixture.password);
   await page.getByRole('button', { name: 'Se connecter' }).click();
   await page.waitForURL('**/hub', { timeout: 30_000 });
   await expect(page.getByRole('navigation', { name: 'Principal' })).toBeVisible({

@@ -25,8 +25,8 @@ export default async function globalSetup(): Promise<void> {
   try {
     const page = await browser.newPage({ baseURL });
     await page.goto('/login');
-    await page.getByLabel('Adresse email').fill(fixture.email);
-    await page.getByLabel('Mot de passe').fill(E2E_TEST_PASSWORD);
+    await page.getByLabel('Adresse e-mail').fill(fixture.email);
+    await page.getByLabel('Mot de passe', { exact: true }).fill(E2E_TEST_PASSWORD);
     await page.getByRole('button', { name: 'Se connecter' }).click();
     await page.waitForURL('**/hub');
     await page.getByRole('link', { name: 'Ouvrir WariX' }).waitFor({ state: 'visible' });
