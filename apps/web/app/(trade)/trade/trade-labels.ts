@@ -9,7 +9,7 @@ import type {
 
 export const MARKET_STATUS_LABEL: Record<MarketStatus, string> = {
   open: 'Ouvert',
-  stale: 'Périmé',
+  stale: 'Non actualisé',
   closed: 'Fermé',
 };
 

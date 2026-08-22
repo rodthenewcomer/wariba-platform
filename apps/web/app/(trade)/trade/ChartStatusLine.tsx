@@ -1,10 +1,14 @@
 'use client';
 
 import { memo, useState } from 'react';
-import { WariXChevronDownIcon, WariXChevronUpIcon } from '@wariba/ui';
+import { WariXChevronDownIcon, WariXChevronUpIcon, WariXInlineStatus } from '@wariba/ui';
 import type { CandleTimeframe, MarketCandle } from '@wariba/contracts';
 import type { IndicatorLegendEntry } from './chart-indicator-engine';
 import type { ChartStatusLineSettings } from './chart-settings-model';
+import type {
+  WariXMarketDisplayPresentation,
+  WariXMarketDisplayState,
+} from './market-display-state';
 
 /**
  * The chart status line — §14.
@@ -41,7 +45,7 @@ export interface BarChange {
 export interface ChartStatusLineProps {
   symbol: string;
   timeframe: CandleTimeframe;
-  marketStatus: 'open' | 'closed' | 'stale' | null;
+  marketPresentation: WariXMarketDisplayPresentation;
   /** The candle under the crosshair, or the live candle when the pointer is away. */
   candle: MarketCandle | null;
   pricePrecision: number | null;
@@ -102,16 +106,13 @@ const CHANGE_TONE: Record<BarChange['direction'], string> = {
   flat: 'text-[color:var(--wariba-component-workstation-text-secondary)]',
 };
 
-const STATUS_DOT: Record<'open' | 'closed' | 'stale', string> = {
-  open: 'bg-[color:var(--wariba-component-workstation-trading-buy)]',
-  closed: 'bg-[color:var(--wariba-component-workstation-text-tertiary)]',
-  stale: 'bg-[color:var(--wariba-component-workstation-trading-warning)]',
-};
-
-const STATUS_LABEL: Record<'open' | 'closed' | 'stale', string> = {
-  open: 'Marché ouvert',
-  closed: 'Marché fermé',
-  stale: 'Prix obsolète',
+const STATUS_DOT: Record<WariXMarketDisplayState, string> = {
+  LIVE: 'bg-[color:var(--wariba-component-workstation-trading-buy)]',
+  MARKET_CLOSED: 'bg-[color:var(--wariba-component-workstation-text-tertiary)]',
+  DELAYED: 'bg-[color:var(--wariba-component-workstation-market-current)]',
+  STALE: 'bg-[color:var(--wariba-component-workstation-trading-warning)]',
+  HISTORY_ONLY: 'bg-[color:var(--wariba-component-workstation-market-current)]',
+  UNAVAILABLE: 'bg-[color:var(--wariba-component-workstation-trading-sell)]',
 };
 
 /** A phone plot fits two series names beside the identity row; the rest are counted. */
@@ -120,7 +121,7 @@ const COMPACT_LEGEND_LIMIT = 2;
 export const ChartStatusLine = memo(function ChartStatusLine({
   symbol,
   timeframe,
-  marketStatus,
+  marketPresentation,
   candle,
   pricePrecision,
   change,
@@ -158,11 +159,11 @@ export const ChartStatusLine = memo(function ChartStatusLine({
             </span>
           </span>
         )}
-        {settings.marketStatus && marketStatus !== null && (
+        {settings.marketStatus && (
           <span
-            className={`h-1.5 w-1.5 shrink-0 self-center rounded-full ${STATUS_DOT[marketStatus]}`}
+            className={`h-1.5 w-1.5 shrink-0 self-center rounded-full ${STATUS_DOT[marketPresentation.state]}`}
             role="img"
-            aria-label={STATUS_LABEL[marketStatus]}
+            aria-label={marketPresentation.label}
           />
         )}
         {settings.ohlc && candle && (
@@ -195,6 +196,15 @@ export const ChartStatusLine = memo(function ChartStatusLine({
           </span>
         )}
       </div>
+
+      {settings.marketStatus && marketPresentation.state !== 'LIVE' ? (
+        <WariXInlineStatus
+          compact
+          title={marketPresentation.label}
+          tone={marketPresentation.tone}
+          className="pointer-events-none mt-1 w-fit max-w-[min(19rem,calc(100vw-2rem))]"
+        />
+      ) : null}
 
       {indicatorsHidden ? (
         <span className="text-[color:var(--wariba-component-workstation-text-tertiary)]">

@@ -6,6 +6,7 @@ import {
   WariXActivityDestinationIcon,
   WariXCalendarDestinationIcon,
   WariXHelpDestinationIcon,
+  WariXToast,
   WariXTradeDestinationIcon,
 } from '@wariba/ui';
 import { TRADABLE_SYMBOLS, type PendingOrderType, type TradableSymbol } from '@wariba/contracts';
@@ -136,6 +137,12 @@ export function TradeClient({
       return;
     selectSymbol(requested as TradableSymbol);
   }, [selectSymbol, symbolSpecs]);
+
+  const [visualFeedback, setVisualFeedback] = useState<string | null>(null);
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'development') return;
+    setVisualFeedback(new URLSearchParams(window.location.search).get('__warix_feedback'));
+  }, []);
 
   const [oneClickTrading] = useOneClickTrading();
   const oneClickTradingRef = useRef(oneClickTrading);
@@ -525,7 +532,7 @@ export function TradeClient({
           activeUtilityDrawer === 'markets'
             ? 'Marchés'
             : activeUtilityDrawer === 'trade'
-              ? 'Trade'
+              ? 'Trader'
               : activeUtilityDrawer === 'calendar'
                 ? 'Calendrier et actualités'
                 : 'Centre d’aide'
@@ -726,7 +733,7 @@ export function TradeClient({
               aria-label={`Trader ${selectedSymbol}`}
               className="flex min-h-11 flex-[3] items-center justify-center gap-2 rounded-[var(--wariba-component-workstation-radius-control)] bg-[color:var(--wariba-color-cobalt-600)] px-3 text-[color:var(--wariba-color-white)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.22),0_2px_0_0_rgba(5,7,12,0.55)] transition-[transform,box-shadow,filter] duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-0.5 active:brightness-90 active:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]"
             >
-              <WariXTradeDestinationIcon size="nav" />
+              <WariXTradeDestinationIcon size={30} />
               <span
                 aria-hidden="true"
                 className="text-[length:var(--wariba-font-size-label-md)] font-bold tracking-[var(--wariba-component-workstation-tracking-decision)]"
@@ -740,7 +747,7 @@ export function TradeClient({
               data-testid="mobile-dock-trigger"
               className="flex min-h-11 flex-[2] items-center justify-center gap-1.5 rounded-[var(--wariba-component-workstation-radius-control)] bg-[color:var(--wariba-component-workstation-surface-control)] px-3 text-[color:var(--wariba-component-workstation-text-secondary)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong),0_2px_0_0_rgba(5,7,12,0.45)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] transition-[transform,box-shadow,color] duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-0.5 active:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]"
             >
-              <WariXActivityDestinationIcon size="nav" />
+              <WariXActivityDestinationIcon size={30} />
               <span className="text-[length:var(--wariba-font-size-label-md)] font-semibold">
                 Activité
               </span>
@@ -763,9 +770,9 @@ export function TradeClient({
               title="Calendrier et actualités"
               data-testid="mobile-calendar-trigger"
               onClick={() => setMobileUtilityOpen('calendar')}
-              className="flex min-h-11 w-11 shrink-0 items-center justify-center rounded-[var(--wariba-component-workstation-radius-control)] bg-[color:var(--wariba-component-workstation-surface-control)] text-[color:var(--wariba-component-workstation-text-secondary)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong),0_2px_0_0_rgba(5,7,12,0.45)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] transition-[transform,box-shadow,color] duration-[var(--wariba-component-workstation-motion-interaction)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-0.5 active:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]"
+              className="flex min-h-12 w-12 shrink-0 items-center justify-center rounded-[var(--wariba-component-workstation-radius-control)] bg-[color:var(--wariba-component-workstation-surface-control)] text-[color:var(--wariba-component-workstation-text-secondary)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong),0_2px_0_0_rgba(5,7,12,0.45)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] transition-[transform,box-shadow,color] duration-[var(--wariba-component-workstation-motion-interaction)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-0.5 active:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]"
             >
-              <WariXCalendarDestinationIcon size="nav" />
+              <WariXCalendarDestinationIcon size={30} />
             </button>
             <button
               type="button"
@@ -773,9 +780,9 @@ export function TradeClient({
               title="Centre d’aide"
               data-testid="mobile-help-trigger"
               onClick={() => setMobileUtilityOpen('help')}
-              className="flex min-h-11 w-11 shrink-0 items-center justify-center rounded-[var(--wariba-component-workstation-radius-control)] bg-[color:var(--wariba-component-workstation-surface-control)] text-[color:var(--wariba-component-workstation-text-secondary)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong),0_2px_0_0_rgba(5,7,12,0.45)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] transition-[transform,box-shadow,color] duration-[var(--wariba-component-workstation-motion-interaction)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-0.5 active:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]"
+              className="flex min-h-12 w-12 shrink-0 items-center justify-center rounded-[var(--wariba-component-workstation-radius-control)] bg-[color:var(--wariba-component-workstation-surface-control)] text-[color:var(--wariba-component-workstation-text-secondary)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong),0_2px_0_0_rgba(5,7,12,0.45)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] transition-[transform,box-shadow,color] duration-[var(--wariba-component-workstation-motion-interaction)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-0.5 active:shadow-[inset_0_2px_3px_0_rgba(5,7,12,0.45)]"
             >
-              <WariXHelpDestinationIcon size="nav" />
+              <WariXHelpDestinationIcon size={30} />
             </button>
           </div>
         }
@@ -864,6 +871,30 @@ export function TradeClient({
         state={dialogs}
         actions={dialogActions}
       />
+
+      {visualFeedback === 'error' ||
+      visualFeedback === 'warning' ||
+      visualFeedback === 'success' ? (
+        <div className="pointer-events-none fixed bottom-24 left-28 z-[var(--wariba-z-toast)] w-[min(22rem,calc(100vw-2rem))]">
+          <WariXToast
+            tone={visualFeedback === 'error' ? 'danger' : visualFeedback}
+            title={
+              visualFeedback === 'error'
+                ? 'Ordre refusé'
+                : visualFeedback === 'warning'
+                  ? 'Cours non actualisé'
+                  : 'Alerte créée'
+            }
+            description={
+              visualFeedback === 'error'
+                ? 'Le niveau de protection n’est pas valide. Corrigez le stop loss avant de réessayer.'
+                : visualFeedback === 'warning'
+                  ? 'Le graphique conserve les dernières données disponibles.'
+                  : 'Vous serez prévenu lorsque le niveau choisi sera franchi.'
+            }
+          />
+        </div>
+      ) : null}
     </>
   );
 }

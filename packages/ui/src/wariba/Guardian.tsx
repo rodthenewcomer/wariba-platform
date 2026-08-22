@@ -117,7 +117,7 @@ export function Guardian({
 
       {isPriceStale && (
         <p className="text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-status-warning-text)]">
-          Prix périmé — l’impact affiché n’est plus à jour.
+          Cours non actualisé — l’impact affiché n’est plus à jour.
         </p>
       )}
 

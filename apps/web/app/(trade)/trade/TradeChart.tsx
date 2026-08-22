@@ -38,6 +38,7 @@ import {
   ToolbarButton,
   WariXDeleteIcon,
   WariXDoneIcon,
+  WariXEmptyState,
   WariXPaletteIcon,
 } from '@wariba/ui';
 import type { RealtimeConnectionState } from '../../../lib/realtime-client';
@@ -81,6 +82,7 @@ import { useIsDesktop } from './use-viewport';
 import { DrawingToolRail } from './DrawingToolRail';
 import { ChartBottomBar, type ChartScaleMode } from './ChartBottomBar';
 import { readChartViewport, writeChartViewport } from './chart-viewport-preferences';
+import { resolveWariXMarketDisplayState } from './market-display-state';
 
 export interface FillMarker {
   id: string;
@@ -2063,7 +2065,7 @@ export function TradeChart({
   const overlayLabel = useMemo(() => {
     if (isDisconnected)
       return connectionState === 'resyncing' ? 'Resynchronisation…' : 'Reconnexion…';
-    if (isStale) return 'Prix obsolète';
+    if (isStale) return 'Cours non actualisé';
     return null;
   }, [isDisconnected, isStale, connectionState]);
 
@@ -2127,6 +2129,38 @@ export function TradeChart({
     historyFirstBucket !== null && historyLastBucket !== null
       ? Math.max(0, historyLastBucket - historyFirstBucket)
       : 0;
+  const [visualMarketState, setVisualMarketState] = useState<string | null>(null);
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'development') return;
+    setVisualMarketState(new URLSearchParams(window.location.search).get('__warix_market'));
+  }, []);
+  const marketPresentation = useMemo(
+    () =>
+      resolveWariXMarketDisplayState({
+        marketStatus:
+          visualMarketState === 'stale'
+            ? 'stale'
+            : visualMarketState === 'history-only' || visualMarketState === 'unavailable'
+              ? null
+              : (tick?.marketStatus ?? null),
+        historyStatus: visualMarketState === 'unavailable' ? 'error' : historyState.status,
+        realtimeContinuation:
+          visualMarketState === 'history-only'
+            ? 'refused_by_config'
+            : historyState.realtimeContinuation,
+        hasUsableHistory: visualMarketState === 'unavailable' ? false : historyCandleCount > 0,
+        ...(visualMarketState === 'stale' || visualMarketState === 'history-only'
+          ? { nowMs: Date.UTC(2026, 7, 24, 12) }
+          : {}),
+      }),
+    [
+      historyCandleCount,
+      historyState.realtimeContinuation,
+      historyState.status,
+      tick?.marketStatus,
+      visualMarketState,
+    ],
+  );
   /*
    * VX1-C §5/§6 — the plot always says why it is empty.
    *
@@ -2160,7 +2194,7 @@ export function TradeChart({
    * than the quiet chip does. So an empty chart speaks through the chip alone,
    * and a populated one through the veil alone — one sentence either way.
    */
-  const plotOverlayLabel = connectingWithoutHistory ? null : overlayLabel;
+  const plotBlocked = marketPresentation.blocksPlot;
   /*
    * §14 — the bar's own change, from the two candles the chart is already
    * holding.
@@ -2418,6 +2452,7 @@ export function TradeChart({
         <ChartToolbar
           symbol={symbol}
           marketStatus={tick?.marketStatus ?? null}
+          marketStatusLabel={marketPresentation.label}
           onOpenMarkets={
             isDesktop ? onOpenSymbolSearch : (onOpenMobileMarkets ?? onOpenSymbolSearch)
           }
@@ -2558,7 +2593,7 @@ export function TradeChart({
           <ChartStatusLine
             symbol={symbol}
             timeframe={analysis.timeframe}
-            marketStatus={tick?.marketStatus ?? null}
+            marketPresentation={marketPresentation}
             candle={statusCandle}
             pricePrecision={pricePrecision}
             change={barChange}
@@ -2601,7 +2636,7 @@ export function TradeChart({
             // never stack into a block that hides the chart on a 390 px screen.
             className="pointer-events-none absolute bottom-2 left-2 z-10"
           >
-            {historyMessage && (
+            {historyMessage && !plotBlocked && (
               /*
                * VX1-B §34 — a status chip, not a line of developer text.
                *
@@ -2752,7 +2787,7 @@ export function TradeChart({
                       disabled={draggingDisabled}
                       disabledReason={
                         isStale
-                          ? 'Prix obsolète — indisponible tant que le marché n’est pas à jour.'
+                          ? 'Cours non actualisé — indisponible tant que le flux n’a pas repris.'
                           : null
                       }
                       onStopPointerDown={startDrag(position.id, 'stop_loss', reference)}
@@ -2919,7 +2954,7 @@ export function TradeChart({
               disabled={draggingDisabled}
               disabledReason={
                 isStale
-                  ? 'Prix obsolète — actions indisponibles tant que le marché n’est pas à jour.'
+                  ? 'Cours non actualisé — actions indisponibles tant que le flux n’a pas repris.'
                   : isDisconnected
                     ? 'Connexion au serveur en cours…'
                     : null
@@ -2958,11 +2993,14 @@ export function TradeChart({
               }}
             />
           )}
-          {plotOverlayLabel && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[color:var(--wariba-chart-background)]/60">
-              <span className="rounded-[var(--wariba-radius-sm)] bg-[color:var(--wariba-background-elevated)] px-3 py-1.5 text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-status-warning-text)]">
-                {plotOverlayLabel}
-              </span>
+          {plotBlocked && (
+            <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center p-4">
+              <WariXEmptyState
+                title={marketPresentation.label}
+                description={marketPresentation.description ?? 'Aucune donnée exploitable.'}
+                tone={marketPresentation.tone}
+                className="pointer-events-auto"
+              />
             </div>
           )}
         </div>
@@ -2991,7 +3029,7 @@ export function TradeChart({
             disabled={draggingDisabled}
             disabledReason={
               isStale
-                ? 'Prix obsolète — actions indisponibles tant que le marché n’est pas à jour.'
+                ? 'Cours non actualisé — actions indisponibles tant que le flux n’a pas repris.'
                 : isDisconnected
                   ? 'Connexion au serveur en cours…'
                   : null

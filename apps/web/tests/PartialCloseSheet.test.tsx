@@ -92,7 +92,9 @@ describe('PartialCloseSheet', () => {
     expect(
       screen.getByRole('button', { name: 'Confirmer la clôture partielle' }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Fermer' })).not.toBeInTheDocument();
+    expect(
+      screen.getAllByRole('button').filter((button) => button.textContent?.trim() === 'Fermer'),
+    ).toHaveLength(0);
   });
 
   it('switching to 50%/75% updates the previewed quantity', async () => {
@@ -134,7 +136,7 @@ describe('PartialCloseSheet', () => {
     );
     expect(screen.getByText('Portion profitable détenue moins de 60 secondes')).toBeInTheDocument();
     expect(
-      screen.getByText(/ne comptera pas pour votre évaluation, votre buffer/),
+      screen.getByText(/ne comptera pas pour votre évaluation, votre réserve/),
     ).toBeInTheDocument();
     // Never blocks closing despite the warning.
     expect(
@@ -181,7 +183,7 @@ describe('PartialCloseSheet', () => {
         onSubmitPartialClose={onSubmitPartialClose}
       />,
     );
-    expect(screen.getByText('Prix obsolète')).toBeInTheDocument();
+    expect(screen.getByText('Cours non actualisé')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Mettre en file la clôture partielle' }));
     expect(onQueueReduction).toHaveBeenCalledWith({
       positionId: 'pos-1',

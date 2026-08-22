@@ -4,8 +4,8 @@ import { SegmentedControl } from '@wariba/ui';
 import type { TicketOrderKind } from './execution-contract';
 
 export const ORDER_KIND_LABEL: Record<TicketOrderKind, string> = {
-  market: 'Market',
-  limit: 'Limit',
+  market: 'Au marché',
+  limit: 'Limite',
   stop: 'Stop',
 };
 

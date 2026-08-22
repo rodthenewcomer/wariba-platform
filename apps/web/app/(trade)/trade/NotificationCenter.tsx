@@ -1,7 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { Alert, Badge, Button, Dialog, Input, Select, Switch, Text } from '@wariba/ui';
+import {
+  Badge,
+  Button,
+  Input,
+  Select,
+  Switch,
+  Text,
+  WariXDialog,
+  WariXInlineStatus,
+} from '@wariba/ui';
 import type {
   AlertDirection,
   AlertNotificationDTO,
@@ -92,13 +101,14 @@ export function NotificationCenter({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title="Notifications" size="md">
+    <WariXDialog open={open} onClose={onClose} title="Notifications" size="md">
       <div className="flex flex-col gap-5">
         {rejection && (
-          <Alert level="danger" title="Commande refusée">
-            <p>{rejection.reason}</p>
-            <p className="wariba-data">Code : {rejection.code}</p>
-          </Alert>
+          <WariXInlineStatus
+            tone="danger"
+            title="Commande refusée"
+            description={rejection.reason}
+          />
         )}
 
         <div className="flex flex-col gap-2">
@@ -237,6 +247,6 @@ export function NotificationCenter({
           </Button>
         </div>
       </div>
-    </Dialog>
+    </WariXDialog>
   );
 }

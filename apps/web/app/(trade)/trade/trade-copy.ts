@@ -19,8 +19,8 @@ export const REJECTION_DETAIL: Record<string, { reason: string; action: string }
   },
   stale_market_data: {
     reason:
-      'Le prix pour ce symbole n’était plus à jour au moment où le serveur a traité votre ordre.',
-    action: 'Réessayez une fois le prix rafraîchi.',
+      'Le cours de ce symbole n’était plus à jour au moment où le serveur a traité votre ordre.',
+    action: 'Réessayez lorsque le flux aura repris.',
   },
   invalid_quantity: {
     reason: 'La taille demandée est en dehors des bornes autorisées pour ce symbole.',
@@ -50,7 +50,7 @@ export const REJECTION_DETAIL: Record<string, { reason: string; action: string }
   },
   market_not_stale: {
     reason:
-      'Le prix de ce symbole est à jour — la mise en file n’est utile que si le prix est obsolète.',
+      'Le cours de ce symbole est à jour — la mise en file n’est utile que si le flux est interrompu.',
     action: 'Utilisez la clôture partielle ou totale immédiate à la place.',
   },
   queue_entry_not_found: {

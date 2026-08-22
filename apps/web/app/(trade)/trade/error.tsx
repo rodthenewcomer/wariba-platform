@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
-import { Alert, Button, buttonClassNames } from '@wariba/ui';
+import { Button, WariXEmptyState, buttonClassNames } from '@wariba/ui';
 
 /**
  * Design System §35 / UX Architecture §42.1 — titre / résumé / action / référence.
@@ -24,25 +24,26 @@ export default function TradeError({
 
   return (
     <div className="mx-auto max-w-3xl p-[var(--wariba-component-trade-panel-padding)]">
-      <Alert level="danger" title="Le terminal de trading n’a pas pu s’afficher">
-        <p>
-          Une erreur est survenue pendant le chargement de WariX. Vos positions et votre solde sont
-          gérés côté serveur — cette erreur ne les affecte pas.
-        </p>
-        {error.digest ? (
-          <p className="wariba-data mt-2 text-[length:var(--wariba-font-size-label-sm)]">
-            Référence : {error.digest}
-          </p>
-        ) : null}
-        <div className="mt-4 flex gap-2">
-          <Button variant="secondary" size="sm" onClick={reset}>
-            Réessayer
-          </Button>
-          <Link href="/hub" className={buttonClassNames({ variant: 'secondary', size: 'sm' })}>
-            Voir mon compte sur le Hub
-          </Link>
-        </div>
-      </Alert>
+      <WariXEmptyState
+        tone="danger"
+        title="WariX ne peut pas s’afficher"
+        description="Une erreur est survenue pendant le chargement. Vos positions et votre solde restent gérés côté serveur et ne sont pas affectés."
+        action={
+          <div className="flex flex-col items-center gap-2 sm:flex-row">
+            <Button variant="secondary" size="sm" onClick={reset}>
+              Réessayer
+            </Button>
+            <Link href="/hub" className={buttonClassNames({ variant: 'secondary', size: 'sm' })}>
+              Voir mon compte sur le Hub
+            </Link>
+            {error.digest ? (
+              <span className="wariba-data text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-component-workstation-text-tertiary)]">
+                Référence : {error.digest}
+              </span>
+            ) : null}
+          </div>
+        }
+      />
     </div>
   );
 }

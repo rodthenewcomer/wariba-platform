@@ -11,6 +11,7 @@ import {
   WariXMagnetIcon,
   WariXObjectTreeIcon,
   WariXPreferencesIcon,
+  WariXPopover,
   WariXSellIcon,
   WariXStudiesIcon,
   WariXTrashIcon,
@@ -409,14 +410,16 @@ export function ChartContextMenuPopover({
       data-testid="chart-context-menu"
       /* VX1-B §23 — the chart's menus and the rail's flyouts are one grammar:
          same popover tone, same seam, same rim light, same ~140ms entry. */
-      className="fixed z-[var(--wariba-z-popover)] max-h-[min(70vh,460px)] w-[268px] overflow-y-auto overscroll-contain rounded-[var(--wariba-component-workstation-radius-panel)] border border-[color:var(--wariba-component-workstation-seam-strong)] bg-[color:var(--wariba-component-workstation-surface-popover)] shadow-[var(--wariba-component-workstation-elevation-popover),inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong)] motion-safe:animate-[wariba-fade-in_var(--wariba-component-workstation-motion-quick)_var(--wariba-component-workstation-ease-enter)]"
+      className="fixed z-[var(--wariba-z-popover)] w-[268px]"
       style={
         flipUp
           ? { left, bottom: Math.max(8, viewportHeight - y) }
           : { left, top: Math.min(y, viewportHeight - 24) }
       }
     >
-      <ChartContextMenuContent {...contentProps} />
+      <WariXPopover className="max-h-[min(70vh,460px)] overflow-y-auto overscroll-contain motion-safe:animate-[wariba-fade-in_var(--wariba-component-workstation-motion-quick)_var(--wariba-component-workstation-ease-enter)]">
+        <ChartContextMenuContent {...contentProps} />
+      </WariXPopover>
     </div>
   );
 }

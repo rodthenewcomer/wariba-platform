@@ -12,6 +12,66 @@
  * no hardcoded colors. See scripts/check-tokens.mjs (pnpm --filter @wariba/web check:tokens).
  */
 
+/*
+ * VX1-E — the WariX material hierarchy.
+ *
+ * The workstation was one large uninterrupted dark field with lines drawn on
+ * it. What made the reference terminal read as expensive was not its colours
+ * but its *layers*: an application ground, panels sitting on it, grouped
+ * controls inside those, wells inside those, and a selected state that is a
+ * genuine surface rather than a coloured outline.
+ *
+ * These are aliases, not new colours. Every level resolves to a workstation
+ * token that already existed, so the palette is unchanged and what is new is
+ * that the levels now have names a component can ask for by role. A component
+ * that wants "the surface a grouped control sits on" no longer has to know
+ * which of nine `surface-*` tokens that happens to be today.
+ *
+ * The chart is deliberately absent from this ladder. It stays the largest
+ * uninterrupted field in the product; carding it would turn the authority of
+ * the workstation into one panel among many.
+ */
+:root {
+  /* Deep canvas the chart paints on. */
+  --warix-canvas: var(--wariba-component-workstation-surface-canvas);
+  /* Application ground behind every panel. */
+  --warix-shell: var(--wariba-component-workstation-surface-shell);
+  /* Panels and drawers. */
+  --warix-panel: var(--wariba-component-workstation-surface-module);
+  /* Grouped control regions — mini-cards. */
+  --warix-surface: var(--wariba-component-workstation-surface-raised-module);
+  /* Interactive wells: inputs, rows, segmented controls. */
+  --warix-surface-raised: var(--wariba-component-workstation-surface-control);
+  /* Hovered interactive material. */
+  --warix-surface-hover: var(--wariba-component-workstation-surface-control-hover);
+  /* Selected material — a surface, never merely a border colour. */
+  --warix-surface-selected: color-mix(
+    in srgb,
+    var(--wariba-component-workstation-surface-control-active) 82%,
+    var(--wariba-color-cobalt-700, #1b3a6b) 18%
+  );
+
+  --warix-border-subtle: color-mix(
+    in srgb,
+    var(--wariba-component-workstation-seam) 62%,
+    transparent
+  );
+  --warix-border-strong: var(--wariba-component-workstation-border-strong);
+  --warix-highlight-inner: var(--wariba-component-workstation-rim-light);
+  --warix-highlight-inner-strong: var(--wariba-component-workstation-rim-light-strong);
+
+  /* Accents. Used to mean something, never to decorate. */
+  --warix-accent-cobalt: var(--wariba-component-workstation-symbol-active-accent);
+  --warix-accent-violet: var(--wariba-component-workstation-analytics-violet);
+  --warix-accent-copper: var(--wariba-component-workstation-identity-mark);
+
+  /* Compact radii. A trading terminal is not a consumer app; 6–10px reads as
+     engineered where 18–24px reads as a startup landing page. */
+  --warix-radius-well: 6px;
+  --warix-radius-card: 8px;
+  --warix-radius-panel: 10px;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -593,8 +653,7 @@ body {
   animation-delay: 180ms;
 }
 
-.warix-symbol :is(path, circle, g) {
-  transform-box: fill-box;
+.warix-symbol {
   transform-origin: center;
 }
 
@@ -605,8 +664,8 @@ body {
   --warix-symbol-accent: var(--wariba-component-workstation-symbol-active-accent);
   position: relative;
   display: inline-grid;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   place-items: center;
   flex: none;
   border: 1px solid transparent;
@@ -658,7 +717,7 @@ body {
 }
 
 .warix-destination-key:is(:hover, [data-force-state='hover']):not(:disabled) .warix-symbol {
-  transform: scale(1.02);
+  transform: scale(1.035);
 }
 
 .warix-destination-key:is(:active, [data-pressed='true']):not(:disabled) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Alert, Button, Dialog, Input, Text } from '@wariba/ui';
+import { Button, Input, Text, WariXDialog, WariXInlineStatus } from '@wariba/ui';
 import type { PositionDTO } from '@wariba/contracts';
 import type { OrderRejectionDetail } from './execution/execution-contract';
 import { useTick, type TickStore } from './tick-store';
@@ -83,11 +83,11 @@ export function ModifyPositionDialog({
 
   if (!position) {
     return (
-      <Dialog open={open} onClose={onClose} title="Modifier SL/TP" size="sm">
+      <WariXDialog open={open} onClose={onClose} title="Modifier SL/TP" size="sm">
         <Text variant="body-sm" color="secondary">
           Cette position n’est plus ouverte.
         </Text>
-      </Dialog>
+      </WariXDialog>
     );
   }
 
@@ -103,7 +103,12 @@ export function ModifyPositionDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title={`Modifier SL/TP — ${position.symbol}`} size="sm">
+    <WariXDialog
+      open={open}
+      onClose={onClose}
+      title={`Modifier SL/TP — ${position.symbol}`}
+      size="sm"
+    >
       <div className="flex flex-col gap-4">
         <Text variant="body-sm" color="secondary" className="wariba-data">
           {position.symbol} · {position.side === 'buy' ? 'Achat' : 'Vente'} · Entrée{' '}
@@ -111,18 +116,24 @@ export function ModifyPositionDialog({
         </Text>
 
         {isPriceStale && (
-          <Alert level="warning" title="Prix périmé">
-            Le prix pour {position.symbol} n’est plus à jour. Les modifications sont bloquées
-            jusqu’à son rafraîchissement.
-          </Alert>
+          <WariXInlineStatus
+            tone="warning"
+            title="Cours non actualisé"
+            description={`Les modifications sont bloquées jusqu’à la reprise du flux de ${position.symbol}.`}
+          />
         )}
 
         {rejection && (
-          <Alert level="danger" title="Modification refusée">
-            <p>{rejection.reason}</p>
-            <p>{rejection.action}</p>
-            <p className="wariba-data">Code : {rejection.code}</p>
-          </Alert>
+          <WariXInlineStatus
+            tone="danger"
+            title="Modification refusée"
+            description={
+              <>
+                <p>{rejection.reason}</p>
+                <p>{rejection.action}</p>
+              </>
+            }
+          />
         )}
 
         <div className="flex flex-col gap-2">
@@ -174,6 +185,6 @@ export function ModifyPositionDialog({
           niveau atteint n’est jamais garanti au prix exact.
         </Text>
       </div>
-    </Dialog>
+    </WariXDialog>
   );
 }

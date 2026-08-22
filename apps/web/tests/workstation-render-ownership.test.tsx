@@ -422,7 +422,7 @@ describe('workstation render ownership', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Trade' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Trader' }));
     });
 
     const before = {
@@ -503,7 +503,7 @@ describe('workstation render ownership', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Trade' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Trader' }));
     });
 
     const quantity = screen.getByLabelText('Quantité (lots)') as HTMLInputElement;
@@ -517,7 +517,7 @@ describe('workstation render ownership', () => {
     expect(stopLoss.value).toBe('1.08000');
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Trade' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Trader' }));
       fireEvent.click(screen.getByRole('button', { name: 'Marchés' }));
     });
     await act(async () => {
@@ -526,7 +526,7 @@ describe('workstation render ownership', () => {
       fireEvent.click(screen.getByRole('button', { name: /^NAS100/ }));
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Trade' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Trader' }));
     });
 
     expect((screen.getByTestId('stop-loss-input') as HTMLInputElement).value).toBe('');
@@ -556,7 +556,7 @@ describe('workstation render ownership', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Trade' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Trader' }));
     });
 
     expect(screen.getAllByTestId('execution-center')).toHaveLength(1);

@@ -224,7 +224,7 @@ test.describe('WariX program identity', { tag: ['@trade'] }, () => {
       // links to its canonical route for a Performance account.
       await page.getByRole('tab', { name: /^Account/ }).click();
       await expect(
-        page.getByTestId('workstation-dock').getByRole('link', { name: 'Payouts' }),
+        page.getByTestId('workstation-dock').getByRole('link', { name: 'Retraits' }),
       ).toBeVisible();
 
       await openWorkstation(page, `/trade?account=${performance.evaluationAccountId}`);
@@ -249,7 +249,7 @@ test.describe('WariX workstation shell', { tag: ['@trade'] }, () => {
 
     const rail = page.getByTestId('workstation-nav-rail');
     await expect(rail).toBeVisible();
-    for (const label of ['Trade', 'Hub', 'Comptes', 'Payouts', 'Plus']) {
+    for (const label of ['WariX', 'Hub', 'Comptes', 'Retraits', 'Plus']) {
       await expect(rail.getByRole('link', { name: label })).toBeVisible();
     }
     await expect(rail.getByRole('link', { name: 'Trade' })).toHaveAttribute('aria-current', 'page');

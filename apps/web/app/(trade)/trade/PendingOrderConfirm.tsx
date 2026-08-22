@@ -1,6 +1,6 @@
 'use client';
 
-import { Alert, Button, Dialog, Text } from '@wariba/ui';
+import { Button, Text, WariXDialog, WariXInlineStatus } from '@wariba/ui';
 import type { MarketTick, PendingOrderType, SymbolSpec, TradableSymbol } from '@wariba/contracts';
 import { isPendingOrderCreationPriceValid, pendingOrderDistancePoints } from '@wariba/domain';
 
@@ -77,7 +77,7 @@ export function PendingOrderConfirm({
       : null;
 
   return (
-    <Dialog
+    <WariXDialog
       open={open}
       onClose={onClose}
       title={`${ORDER_TYPE_LABEL[orderType]} — ${symbol}`}
@@ -103,16 +103,23 @@ export function PendingOrderConfirm({
           niveau de déclenchement, jamais garanti au prix exact affiché ici.
         </Text>
         {isStale && (
-          <Alert level="warning" title="Prix obsolète">
-            Le prix pour {symbol} n’est plus à jour — l’ordre sera refusé par le serveur s’il n’est
-            pas rafraîchi avant confirmation.
-          </Alert>
+          <WariXInlineStatus
+            tone="warning"
+            title="Cours non actualisé"
+            description={`Attendez la reprise du flux de ${symbol} avant de confirmer l’ordre.`}
+          />
         )}
         {!isStale && tick && !stillValid && (
-          <Alert level="warning" title="Prix de déclenchement invalide">
-            Le marché a bougé depuis le clic — ce niveau ne correspond plus à un{' '}
-            {ORDER_TYPE_LABEL[orderType].toLowerCase()} valide et sera refusé par le serveur.
-          </Alert>
+          <WariXInlineStatus
+            tone="warning"
+            title="Prix de déclenchement invalide"
+            description={
+              <>
+                Le marché a bougé depuis le clic. Choisissez un niveau valide pour un ordre{' '}
+                {ORDER_TYPE_LABEL[orderType].toLowerCase()}.
+              </>
+            }
+          />
         )}
         <div className="flex gap-2">
           <Button variant="secondary" onClick={onClose} className="flex-1" disabled={pending}>
@@ -129,6 +136,6 @@ export function PendingOrderConfirm({
           </Button>
         </div>
       </div>
-    </Dialog>
+    </WariXDialog>
   );
 }

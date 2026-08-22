@@ -288,7 +288,7 @@ export const WorkstationStatusBar = memo(function WorkstationStatusBar({
           className="hidden min-[1180px]:flex"
           testId="metric-balance"
         />
-        <Metric label="Equity" value={amount(equityFormatted)} live testId="metric-equity" />
+        <Metric label="Valeur" value={amount(equityFormatted)} live testId="metric-equity" />
         {/*
          * VX1-C.2 §1 — "latent", not "ouvert".
          *

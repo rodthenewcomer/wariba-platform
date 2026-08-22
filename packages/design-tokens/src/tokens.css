@@ -499,10 +499,10 @@
   --wariba-component-workstation-nav-width-wide: 244px;
   --wariba-component-workstation-nav-width-min: 220px;
   --wariba-component-workstation-nav-width-max: 320px;
-  --wariba-component-workstation-drawing-rail-width: 42px;
-  --wariba-component-workstation-utility-rail-width: 48px;
-  --wariba-component-workstation-symbol-size: 24px;
-  --wariba-component-workstation-symbol-stroke: 1.75px;
+  --wariba-component-workstation-drawing-rail-width: 56px;
+  --wariba-component-workstation-utility-rail-width: 56px;
+  --wariba-component-workstation-symbol-size: 28px;
+  --wariba-component-workstation-symbol-stroke: 2px;
   --wariba-component-workstation-symbol-idle: #9AA3B1;
   --wariba-component-workstation-symbol-hover: #F4F5F7;
   --wariba-component-workstation-symbol-active: #9CB0FF;
