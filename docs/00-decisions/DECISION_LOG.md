@@ -7,7 +7,7 @@ language: "fr-FR"
 brand: "WARIBA"
 domain: "wariba.app"
 owner: "WARIBA Leadership, Product, Risk, Engineering & Operations"
-last_updated: "2026-08-21"
+last_updated: "2026-08-22"
 ---
 
 # WARIBA Decision Log v1.0
@@ -719,6 +719,17 @@ trading manuel ni à la règle d'éligibilité de profit à 60 secondes (TRD-033
 
 # 26. Historique des versions
 
+## v1.26 — 2026-08-22
+
+Enregistrement de la **WARIBA Product OS Master Constitution 2026** comme
+document produit canonique, au statut `CANDIDATE` jusqu'à approbation humaine
+(§27). Elle gouverne la répartition Trader Hub / WariX, l'auth et le routage,
+le cycle de vie du trader, la chaîne évaluation → revue de passage →
+Performance, le cycle KYC / payout, la navigation, le comportement mobile, les
+règles UI/UX premium et les règles anti-duplication. La règle de conflit est
+explicite : toute contradiction avec un autre document produit ou UX se résout
+dans ce registre, pas dans le document divergent.
+
 ## v1.25 — 2026-08-21
 
 WX2 — Professional Chart + Market Data Foundation. La baseline visuelle WX1
@@ -1201,7 +1212,55 @@ Création initiale consolidée à partir de :
 
 ---
 
-# 27. Prochaine action opérationnelle
+# 27. WARIBA Product OS Master Constitution
+
+Statut : **CANDIDATE → LOCKED après approbation humaine**
+
+Document canonique :
+`docs/00-decisions/WARIBA_PRODUCT_OS_MASTER_CONSTITUTION_2026.md`
+
+Ce document gouverne :
+
+- la répartition Trader Hub vs WariX ;
+- les flux d'authentification et de routage ;
+- le cycle de vie du trader ;
+- évaluation → revue de passage → Performance ;
+- le cycle de vie KYC / payout ;
+- la navigation produit ;
+- le comportement produit sur mobile ;
+- les règles UI/UX premium ;
+- les règles anti-duplication.
+
+## 27.1 Règle de conflit
+
+Si un autre document produit ou UX contredit cette constitution, le conflit
+doit être résolu **explicitement dans ce Decision Log**.
+
+Il ne doit être résolu ni dans le document divergent, ni dans une PR, ni dans
+un commentaire de code, ni par un agent qui choisit la version la plus récente.
+Une contradiction traitée en silence redevient une hypothèse, et §29 rappelle
+ce qu'une hypothèse n'a pas le droit de devenir.
+
+La résolution s'écrit ici sous la forme : document en conflit, section, ce que
+dit la constitution, ce que dit l'autre document, ce qui est retenu, pourquoi.
+
+## 27.2 Ce que ce statut autorise et interdit
+
+`CANDIDATE` signifie que la constitution fait autorité pour **orienter** le
+travail produit, et qu'elle ne fait pas encore autorité pour **verrouiller**
+une règle financière, contractuelle ou légale.
+
+Tant que le statut n'est pas `LOCKED` :
+
+- aucune décision `LOCKED` existante n'est écrasée par ce document ;
+- aucune policy financière, actuarielle ou juridique n'en dérive ;
+- les chantiers produit peuvent s'y référer comme cadre de cohérence.
+
+Le passage à `LOCKED` est un acte humain explicite, daté ici.
+
+---
+
+# 28. Prochaine action opérationnelle
 
 Les Prompts 01 à 09 sont implémentés, audités et certifiés — y compris les
 Appendices 07-A à 07-D et 08-A, et les six jalons du Prompt 09 (v1.23
@@ -1218,7 +1277,7 @@ ci-dessus). La séquence suivante est :
 
 ---
 
-# 28. Principe final
+# 29. Principe final
 
 Une décision non écrite est une hypothèse.
 
