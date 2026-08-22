@@ -254,8 +254,11 @@ export {
   type BuildAccountPerformanceMissionViewParams,
 } from './performance-mission-view';
 
+export { ACCOUNT_STATUS_LABEL, accountStatusLabel } from './account-status-labels';
+
 export {
   buildAccountHubView,
+  isBalanceHistoryMeaningful,
   type AccountHubView,
   type AccountBadgeVariant,
   type BalancePoint,

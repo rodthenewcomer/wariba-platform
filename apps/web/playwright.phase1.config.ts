@@ -5,16 +5,15 @@ const realtimeWsUrl = process.env.NEXT_PUBLIC_REALTIME_WS_URL ?? 'ws://127.0.0.1
 const realtimeHealthUrl = `${realtimeWsUrl.replace(/^ws(s?):/, 'http$1:').replace(/\/ws$/, '')}/health`;
 
 /**
- * WX3 §50 — genuine provider history, proved in the mounted workstation.
+ * WARIBA Product OS Phase 1 and 1.1 — auth, Hub shell and system states.
  *
- * Separate config rather than a tag on the main suite because this one only
- * means anything when a real historical provider is configured: the whole
- * point is that the candles on screen came from a vendor's archive, not from
- * this process's own observation. Run it with MARKET_HISTORY_PROVIDER set.
+ * A separate config from the main suite because these tests exist to produce
+ * review evidence at real viewports as much as to assert behaviour, and they
+ * need the two viewport projects below rather than the shared device matrix.
  */
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: 'wariba-product-os-phase1.spec.ts',
+  testMatch: /wariba-product-os-phase1.*\.spec\.ts/,
   timeout: 420_000,
   expect: { timeout: 20_000 },
   fullyParallel: false,

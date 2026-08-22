@@ -1,32 +1,26 @@
 import type { ReactNode } from 'react';
 import { createSupabaseServerClient } from '../../lib/supabase/server';
+import { resolveHubIdentity } from '../../lib/hub-identity';
 import { HubShell } from './HubShell';
 
 /**
  * Server layout for the Trader Hub.
  *
- * It exists as a server component only to read the signed-in identity once,
- * so the shell can show initials without shipping a profile fetch to the
+ * It exists as a server component only to read the signed-in identity once, so
+ * the shell can show who is signed in without shipping a profile fetch to the
  * browser. Everything interactive — collapse state, the user menu, active
  * navigation — belongs to `HubShell` on the client.
+ *
+ * The e-mail address is deliberately not passed down. It used to be, so the
+ * avatar could slice two characters out of it; `resolveHubIdentity` refuses to
+ * do that, and not handing the address to a client component means it cannot
+ * be reintroduced by accident.
  */
-function initialsFor(email: string | undefined, metadata: Record<string, unknown>): string {
-  const first = typeof metadata.first_name === 'string' ? metadata.first_name : '';
-  const last = typeof metadata.last_name === 'string' ? metadata.last_name : '';
-  const fromName = `${first.charAt(0)}${last.charAt(0)}`.trim().toUpperCase();
-  if (fromName.length > 0) return fromName;
-  // Falls back to the address's first letters rather than rendering an empty
-  // circle. Never the full address: the avatar is a marker, not a disclosure.
-  return (email ?? '?').slice(0, 2).toUpperCase();
-}
-
 export default async function PlatformLayout({ children }: { children: ReactNode }) {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  return (
-    <HubShell initials={initialsFor(user?.email, user?.user_metadata ?? {})}>{children}</HubShell>
-  );
+  return <HubShell identity={resolveHubIdentity(user?.user_metadata ?? null)}>{children}</HubShell>;
 }

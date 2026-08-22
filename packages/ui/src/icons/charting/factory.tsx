@@ -44,6 +44,10 @@ const PIXELS: Record<WorkstationIconSize, number> = {
   toolbar: 18,
   rail: 28,
   nav: 28,
+  /* Present because the size union is shared. No charting glyph is placed in
+     a phone tab bar today; the entry exists so the record stays exhaustive
+     rather than drifting behind the union it implements. */
+  tab: 25,
   mobile: 30,
 };
 

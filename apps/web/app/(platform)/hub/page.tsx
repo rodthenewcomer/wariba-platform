@@ -1,19 +1,14 @@
 import Link from 'next/link';
-import { AccountSwitchLink } from './AccountSwitchLink';
 import { redirect } from 'next/navigation';
 import {
-  AccountContext,
   AccountSelector,
   ActivityTimeline,
   Alert,
   buttonClassNames,
-  Card,
   ConsistencyMeter,
   EmptyState,
   MissionProgress,
   OpenPositionsTable,
-  PolicyVersionChip,
-  RiskRibbon,
   Text,
   TradingDaysList,
 } from '@wariba/ui';
@@ -36,18 +31,56 @@ import {
   accountStatusVariant,
   formatNominal,
   programLabel,
+  programPhaseLabel,
 } from '../../../lib/account-display';
+import { productCopy } from '../../../lib/product-copy';
 import { trackEvent } from '../../../lib/analytics';
-import { TrackedClick } from './TrackedClick';
+import { AccountSwitchLink } from './AccountSwitchLink';
+import { AccountEvolution } from './AccountEvolution';
+import { AccountHero, type AccountHeroDetail } from './AccountHero';
+import { HubModule, HubModuleTitle } from './HubModule';
 import { HubRiskDetail } from './HubRiskDetail';
-import { HubBalanceChart } from './HubBalanceChart';
+import { RiskPanel } from './RiskPanel';
+import { TrackedClick } from './TrackedClick';
 
 export const dynamic = 'force-dynamic';
+
+const copy = productCopy.hub.dashboard;
+
+const POLICY_STATUS_LABEL = {
+  draft: 'Brouillon',
+  published: 'Publiée',
+  retired: 'Retirée',
+} as const;
 
 function accountSelectorHref(accountId: string): string {
   return `/hub?account=${accountId}`;
 }
 
+/**
+ * The Trader Hub dashboard.
+ *
+ * ## The hierarchy
+ *
+ * Account context, then state and the next safe action, then the mission, then
+ * risk, then the account's evolution if there is one worth drawing, then what
+ * happened recently, then help. That order is the whole redesign: the previous
+ * build opened on a public account id and an empty chart and put the mission
+ * — the only reason a trader is on this screen — below the fold.
+ *
+ * ## Composition
+ *
+ * Deliberately not an equal grid of cards. A dashboard of identical tiles
+ * makes every fact look equally important, which is the same as making none of
+ * them important. A full-width hero carries the account and the decision; a
+ * 2/1 split gives the mission the room its four conditions need while risk
+ * stays permanently in view beside it; everything after that is a full-width
+ * band because it is reference material, not a decision.
+ *
+ * Every figure on this page is formatted by a read model. Nothing here
+ * computes a balance, a remaining loss or a percentage — a risk number a
+ * browser derived is a risk number the platform cannot stand behind.
+ */
 export default async function HubPage({
   searchParams,
 }: {
@@ -64,7 +97,7 @@ export default async function HubPage({
 
   if (accounts.length === 0) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <div className="max-w-3xl">
         <EmptyState
           title="Aucun compte WARIBA ONE"
           description="Choisissez une évaluation pour activer votre premier compte simulé."
@@ -104,16 +137,6 @@ export default async function HubPage({
     />
   );
 
-  const policyChip = (
-    <TrackedClick event="policy_opened" context={{ accountId: activeAccount.id }}>
-      <PolicyVersionChip
-        version={activeAccount.policyVersion}
-        status={activeAccount.policyStatus}
-        href="/programme#regles"
-      />
-    </TrackedClick>
-  );
-
   const supportLink = (
     <TrackedClick event="support_opened" context={{ accountId: activeAccount.id }}>
       <Link href="/support" className={buttonClassNames({ variant: 'secondary' })}>
@@ -122,24 +145,52 @@ export default async function HubPage({
     </TrackedClick>
   );
 
+  const isPerformanceAccount = activeAccount.programType === 'WARIBA_PERFORMANCE';
+
+  /**
+   * The account's references, at footnote weight.
+   *
+   * `publicId` is a database key. It belongs on the screen because support
+   * asks for it, and it belongs *here* rather than in the largest type on the
+   * page, which is where it used to be.
+   */
+  const baseDetails: AccountHeroDetail[] = [
+    { label: copy.reference, value: activeAccount.publicId },
+    {
+      label: copy.rules,
+      value: `${activeAccount.policyVersion} · ${
+        POLICY_STATUS_LABEL[activeAccount.policyStatus as keyof typeof POLICY_STATUS_LABEL] ??
+        activeAccount.policyStatus
+      }`,
+    },
+  ];
+
   if (activeAccount.status === 'pending_activation') {
     return (
-      <div className="mx-auto flex max-w-3xl flex-col gap-6">
+      <div className="flex flex-col gap-5">
         {selector}
-        <AccountContext
+        <AccountHero
           program={programLabel(activeAccount.programType)}
+          phase={programPhaseLabel(activeAccount.programType)}
           nominalFormatted={formatNominal(
             activeAccount.nominalBalance,
             activeAccount.nominalCurrency,
           )}
-          publicId={activeAccount.publicId}
+          balanceFormatted={formatNominal(
+            activeAccount.nominalBalance,
+            activeAccount.nominalCurrency,
+          )}
+          pnlTodayFormatted="—"
           statusLabel="Activation en attente"
           statusVariant="neutral"
+          details={baseDetails}
         />
-        <Alert level="information" title="Activation en cours">
-          Votre compte est en cours d’activation. Cette étape est automatique et se termine en
-          quelques instants après confirmation du paiement.
-        </Alert>
+        <div className="max-w-3xl">
+          <Alert level="information" title="Activation en cours">
+            Votre compte est en cours d’activation. Cette étape est automatique et se termine en
+            quelques instants après confirmation du paiement.
+          </Alert>
+        </div>
         <div className="flex flex-wrap gap-3">{supportLink}</div>
       </div>
     );
@@ -148,36 +199,40 @@ export default async function HubPage({
   if (activeAccount.status === 'inactive' || activeAccount.status === 'closed') {
     const dormant = activeAccount.status === 'inactive';
     return (
-      <div className="mx-auto flex max-w-3xl flex-col gap-6">
+      <div className="flex flex-col gap-5">
         {selector}
-        <AccountContext
+        <AccountHero
           program={programLabel(activeAccount.programType)}
+          phase={programPhaseLabel(activeAccount.programType)}
           nominalFormatted={formatNominal(
             activeAccount.nominalBalance,
             activeAccount.nominalCurrency,
           )}
-          publicId={activeAccount.publicId}
+          balanceFormatted={formatNominal(
+            activeAccount.nominalBalance,
+            activeAccount.nominalCurrency,
+          )}
+          pnlTodayFormatted="—"
           statusLabel={dormant ? 'Inactif' : 'Compte terminé'}
           statusVariant="neutral"
+          details={baseDetails}
         />
-        <Alert
-          level={dormant ? 'warning' : 'information'}
-          title={dormant ? 'Compte inactif' : 'Compte terminé'}
-        >
-          {dormant
-            ? 'Aucune activité n’a été enregistrée depuis 30 jours. Contactez le support pour comprendre vos options.'
-            : 'Ce compte est fermé. Il reste consultable en lecture seule.'}
-        </Alert>
-        <div className="flex flex-wrap gap-3">
-          {policyChip}
-          {supportLink}
+        <div className="max-w-3xl">
+          <Alert
+            level={dormant ? 'warning' : 'information'}
+            title={dormant ? 'Compte inactif' : 'Compte terminé'}
+          >
+            {dormant
+              ? 'Aucune activité n’a été enregistrée depuis 30 jours. Contactez le support pour comprendre vos options.'
+              : 'Ce compte est fermé. Il reste consultable en lecture seule.'}
+          </Alert>
         </div>
+        <div className="flex flex-wrap gap-3">{supportLink}</div>
       </div>
     );
   }
 
   const now = new Date();
-  const isPerformanceAccount = activeAccount.programType === 'WARIBA_PERFORMANCE';
   const [hubView, missionView, riskView, activity, openPositions] = await Promise.all([
     buildAccountHubView(db, { accountId: activeAccount.id, now }),
     isPerformanceAccount
@@ -195,98 +250,181 @@ export default async function HubPage({
 
   const primaryViolation = riskView.violations[0];
 
+  /*
+   * The hero's objective is the mission's own first condition, not a second
+   * calculation of it. One number, one origin — the alternative is two places
+   * on the same screen that can disagree about how far along a trader is.
+   */
+  const objectiveCondition = missionView.available ? missionView.conditions[0] : undefined;
+
+  /*
+   * The next safe action, decided server-side from the account's state. For an
+   * active account that is "Ouvrir WariX" — which is exactly why WariX left
+   * the sidebar: opening the terminal belongs to an account that can be
+   * traded, not to a navigation list that is always there.
+   */
+  const nextAction = missionView.available ? missionView.nextAction : null;
+
+  /*
+   * What the mission says under its conditions when it is not repeating the
+   * hero's button. Empty while there is an action to take — the conditions
+   * above have already said what is outstanding.
+   */
+  const missionSummary =
+    missionView.available && missionView.variant === 'performance' && missionView.blockingSummary
+      ? missionView.blockingSummary
+      : nextAction
+        ? null
+        : 'Rien de plus à faire pour l’instant.';
+
+  const details: AccountHeroDetail[] = [
+    ...(hubView.activatedAtLabel
+      ? [{ label: copy.activatedOn, value: hubView.activatedAtLabel }]
+      : []),
+    ...baseDetails,
+    ...(isPerformanceAccount ? [] : [{ label: 'Répartition après passage', value: '85 % → 90 %' }]),
+  ];
+
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
+    <div className="flex flex-col gap-5">
       {selector}
 
-      <AccountContext
+      <AccountHero
         program={programLabel(activeAccount.programType)}
+        phase={programPhaseLabel(activeAccount.programType)}
         nominalFormatted={formatNominal(
           activeAccount.nominalBalance,
           activeAccount.nominalCurrency,
         )}
-        publicId={activeAccount.publicId}
+        balanceFormatted={hubView.balanceFormatted}
+        pnlTodayFormatted={hubView.pnlTodayFormatted}
         statusLabel={hubView.statusLabel}
         statusVariant={hubView.statusVariant}
+        objective={
+          objectiveCondition && missionView.available
+            ? {
+                label: objectiveCondition.label,
+                detail: objectiveCondition.detail,
+                percent: missionView.progressPercent,
+              }
+            : null
+        }
+        action={
+          nextAction ? (
+            <TrackedClick event="next_action_clicked" context={{ accountId: activeAccount.id }}>
+              <Link
+                href={nextAction.href}
+                data-testid="hub-next-action"
+                className={buttonClassNames({ size: 'lg', className: 'w-full' })}
+              >
+                {nextAction.label}
+              </Link>
+            </TrackedClick>
+          ) : null
+        }
+        details={details}
       />
 
-      {hubView.activatedAtLabel ? (
-        <Text variant="body-sm" color="secondary">
-          Activé le {hubView.activatedAtLabel}
-          {isPerformanceAccount ? '' : ' · Répartition après passage : 85 % → 90 %'}
-        </Text>
-      ) : null}
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <Text as="h1" variant="heading-lg">
-            {hubView.balanceFormatted}
-          </Text>
-          <Text variant="body-sm" color="secondary">
-            PnL du jour : {hubView.pnlTodayFormatted}
-          </Text>
-        </div>
-        {policyChip}
-      </div>
-
-      <Card padding="comfortable">
-        <HubBalanceChart points={hubView.balanceHistory} />
-      </Card>
-
       {hubView.readOnly ? (
-        <Alert level="warning" title="Lecture seule">
-          Ce compte reste consultable mais aucune nouvelle action n’est possible.
-        </Alert>
+        <div className="max-w-3xl">
+          <Alert level="warning" title="Lecture seule">
+            Ce compte reste consultable mais aucune nouvelle action n’est possible.
+          </Alert>
+        </div>
       ) : null}
 
-      {missionView.available ? (
-        <MissionProgress
-          variant={missionView.variant}
-          state={missionView.state}
-          title={missionView.title}
-          progressPercent={missionView.progressPercent}
-          conditions={missionView.conditions}
-          nextAction={
-            missionView.nextAction ? (
-              <TrackedClick event="next_action_clicked" context={{ accountId: activeAccount.id }}>
-                <Link href={missionView.nextAction.href} className={buttonClassNames()}>
-                  {missionView.nextAction.label}
-                </Link>
-              </TrackedClick>
-            ) : (
+      {/* The mission gets two thirds because its four conditions each need a
+          label and a figure on one line; risk gets one third and stays in
+          view, which is the point of a permanent risk read. */}
+      <div className="grid gap-5 lg:grid-cols-3">
+        <div className="flex flex-col gap-5 lg:col-span-2">
+          {missionView.available ? (
+            <MissionProgress
+              variant={missionView.variant}
+              state={missionView.state}
+              title={missionView.title}
+              progressPercent={missionView.progressPercent}
+              conditions={missionView.conditions}
+              /*
+               * Not a second "Ouvrir WariX".
+               *
+               * The hero already carries the next action at full width, and
+               * two identical primary buttons on one screen is a hierarchy
+               * that has stopped choosing. What belongs under a list of
+               * conditions is the text those conditions come from — which is
+               * also where the rule version went when it stopped being a
+               * standalone control on the dashboard.
+               */
+              nextAction={
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  {missionSummary ? (
+                    <Text variant="body-sm" color="secondary">
+                      {missionSummary}
+                    </Text>
+                  ) : (
+                    <span />
+                  )}
+                  <TrackedClick event="policy_opened" context={{ accountId: activeAccount.id }}>
+                    <Link
+                      href="/programme#regles"
+                      className={buttonClassNames({ variant: 'secondary', size: 'sm' })}
+                    >
+                      Voir les règles du programme
+                    </Link>
+                  </TrackedClick>
+                </div>
+              }
+            />
+          ) : (
+            <HubModule className="p-5 sm:p-6">
               <Text variant="body-sm" color="secondary">
-                {missionView.variant === 'performance' && missionView.blockingSummary
-                  ? missionView.blockingSummary
-                  : 'Rien de plus à faire pour l’instant.'}
+                {missionView.reason}
               </Text>
-            )
-          }
-        />
-      ) : (
-        <Card padding="comfortable">
-          <Text variant="body-sm" color="secondary">
-            {missionView.reason}
-          </Text>
-        </Card>
-      )}
+            </HubModule>
+          )}
 
-      {missionView.available && missionView.consistency ? (
-        <ConsistencyMeter
-          ratioPercent={missionView.consistency.ratioPercent}
-          limitPercent={missionView.consistency.limitPercent}
-          bestDayFormatted={missionView.consistency.bestDayFormatted}
-          totalProfitFormatted={missionView.consistency.totalProfitFormatted}
-          {...(missionView.consistency.requiredProfitFormatted
-            ? { requiredProfitFormatted: missionView.consistency.requiredProfitFormatted }
+          {missionView.available && missionView.consistency ? (
+            <ConsistencyMeter
+              ratioPercent={missionView.consistency.ratioPercent}
+              limitPercent={missionView.consistency.limitPercent}
+              bestDayFormatted={missionView.consistency.bestDayFormatted}
+              totalProfitFormatted={missionView.consistency.totalProfitFormatted}
+              {...(missionView.consistency.requiredProfitFormatted
+                ? { requiredProfitFormatted: missionView.consistency.requiredProfitFormatted }
+                : {})}
+            />
+          ) : null}
+        </div>
+
+        <RiskPanel
+          status={riskView.status}
+          dailyLossRemaining={riskView.dailyLossRemainingFormatted}
+          maximumLossRemaining={riskView.maximumLossRemainingFormatted}
+          nextResetLabel={riskView.nextResetLabel}
+          pnlTodayFormatted={hubView.pnlTodayFormatted}
+          {...(primaryViolation
+            ? {
+                detail: (
+                  <HubRiskDetail
+                    triggerLabel="Voir le détail du risque"
+                    violation={primaryViolation}
+                    timestampLabel={activity[0]?.timestampLabel ?? riskView.nextResetLabel}
+                  />
+                ),
+              }
             : {})}
         />
-      ) : null}
+      </div>
+
+      <AccountEvolution
+        points={hubView.balanceHistory}
+        finalizedSessionCount={hubView.finalizedSessionCount}
+        meaningful={hubView.balanceHistoryMeaningful}
+      />
 
       {missionView.available && missionView.variant === 'performance' ? (
-        <Card padding="comfortable" className="flex flex-col gap-4">
-          <Text as="h2" variant="heading-sm">
-            Historique des payouts
-          </Text>
+        <HubModule className="flex flex-col gap-4 p-5 sm:p-6">
+          <HubModuleTitle>Historique des payouts</HubModuleTitle>
           {missionView.recentPayouts.length === 0 ? (
             <Text variant="body-sm" color="secondary">
               Aucune demande de payout pour l’instant.
@@ -308,46 +446,25 @@ export default async function HubPage({
               ))}
             </ul>
           )}
-        </Card>
+        </HubModule>
       ) : null}
 
-      <div className="flex flex-col gap-3">
-        <RiskRibbon
-          status={riskView.status}
-          dailyLossRemaining={riskView.dailyLossRemainingFormatted}
-          maximumLossRemaining={riskView.maximumLossRemainingFormatted}
-          nextResetLabel={riskView.nextResetLabel}
-          connectionOk
-        />
-        {primaryViolation ? (
-          <HubRiskDetail
-            triggerLabel="Voir le détail du risque"
-            violation={primaryViolation}
-            timestampLabel={activity[0]?.timestampLabel ?? riskView.nextResetLabel}
-          />
-        ) : null}
+      <div className="grid gap-5 xl:grid-cols-2">
+        <HubModule className="flex flex-col gap-4 p-5 sm:p-6">
+          <HubModuleTitle>Positions ouvertes</HubModuleTitle>
+          <OpenPositionsTable positions={openPositions} />
+        </HubModule>
+
+        <HubModule className="flex flex-col gap-4 p-5 sm:p-6">
+          <HubModuleTitle>Journées récentes</HubModuleTitle>
+          <TradingDaysList days={hubView.tradingDays} />
+        </HubModule>
       </div>
 
-      <Card padding="comfortable" className="flex flex-col gap-4">
-        <Text as="h2" variant="heading-sm">
-          Positions ouvertes
-        </Text>
-        <OpenPositionsTable positions={openPositions} />
-      </Card>
-
-      <Card padding="comfortable" className="flex flex-col gap-4">
-        <Text as="h2" variant="heading-sm">
-          Journées récentes
-        </Text>
-        <TradingDaysList days={hubView.tradingDays} />
-      </Card>
-
-      <Card id="activity" padding="comfortable" className="flex flex-col gap-4 scroll-mt-20">
-        <Text as="h2" variant="heading-sm">
-          Activité récente
-        </Text>
+      <HubModule id="activity" className="flex scroll-mt-20 flex-col gap-4 p-5 sm:p-6">
+        <HubModuleTitle>Activité récente</HubModuleTitle>
         <ActivityTimeline items={activity} />
-      </Card>
+      </HubModule>
 
       <div className="flex flex-wrap gap-3">{supportLink}</div>
     </div>

@@ -36,12 +36,31 @@ test.describe('Trader Hub', { tag: ['@auth'] }, () => {
       await expect(page.getByText('Positions ouvertes')).toBeVisible();
       await expect(page.getByText('Aucune position ouverte.')).toBeVisible();
 
-      // The balance chart is a canvas rendered by lightweight-charts inside the
-      // container div — assert it actually painted, not just that a wrapper exists.
-      const chartCanvas = page.locator('canvas').first();
-      await expect(chartCanvas).toBeVisible();
-      const canvasBox = await chartCanvas.boundingBox();
-      expect(canvasBox?.width).toBeGreaterThan(0);
+      /*
+       * The account evolution is a chart only when the read model says the
+       * series is worth drawing (Product OS 1.1 §4). This used to assert a
+       * canvas unconditionally, which is what kept a 220px auto-scaled flat
+       * line — axis reading 9 999,95 / 10 000,00 / 10 000,05 — on the
+       * dashboard of an account that had never traded.
+       *
+       * What is asserted now is the rule rather than one of its outcomes:
+       * exactly one of chart / stated-absence renders, never both, never
+       * neither, and a chart that does render has genuinely painted.
+       */
+      const drawn = await page.getByTestId('account-evolution').count();
+      const stated = await page.getByTestId('account-evolution-empty').count();
+      expect(drawn + stated).toBe(1);
+
+      if (drawn === 1) {
+        const chartCanvas = page.locator('canvas').first();
+        await expect(chartCanvas).toBeVisible();
+        const canvasBox = await chartCanvas.boundingBox();
+        expect(canvasBox?.width).toBeGreaterThan(0);
+      } else {
+        await expect(page.getByTestId('account-evolution-empty')).toContainText(
+          /Aucune session terminée pour le moment\.|Pas encore assez d’historique/,
+        );
+      }
 
       await page.screenshot({ path: 'test-results/visual/hub-active-1440.png', fullPage: true });
 
@@ -176,7 +195,10 @@ test.describe('Trader Hub', { tag: ['@auth'] }, () => {
         // Soft-locked account: its own status, its own risk, its own -160 PnL
         // — and none of the primary's.
         await expect(page.getByText('Blocage temporaire').first()).toBeVisible();
-        await expect(page.getByText('PnL du jour : -160 USD')).toBeVisible();
+        // The figure moved from an inline "PnL du jour : X" sentence into the
+        // risk panel's own row when the dashboard was recomposed; the fact
+        // asserted is unchanged — this account's PnL, not the primary's.
+        await expect(page.getByTestId('risk-panel')).toContainText('-160 USD');
         await expect(page.getByRole('link', { name: 'Ouvrir WariX' })).toHaveCount(0);
         await page.screenshot({
           path: 'test-results/visual/hub-soft-locked-1440.png',
@@ -191,7 +213,7 @@ test.describe('Trader Hub', { tag: ['@auth'] }, () => {
 
         await expect(page).toHaveURL(new RegExp(`account=${primary.accountId}`));
         await expect(page.getByRole('link', { name: 'Ouvrir WariX' })).toHaveCount(1);
-        await expect(page.getByText('PnL du jour : -160 USD')).toHaveCount(0);
+        await expect(page.getByTestId('risk-panel')).not.toContainText('-160 USD');
       },
     );
   });

@@ -2,8 +2,20 @@
 
 import { useEffect } from 'react';
 import { Alert, Button } from '@wariba/ui';
+import { productCopy } from '../../../lib/product-copy';
+import { safeSupportReference } from '../../../lib/support-reference';
 
-/** Design System §35 / UX Architecture §42.1 — titre / résumé / action / référence. */
+/**
+ * A failure inside the Hub, rendered inside the Hub.
+ *
+ * Deliberately not the full-page system state: the shell, the navigation and
+ * the account context still work, and replacing all of them because one panel
+ * failed would take away the trader's way out along with the thing that broke.
+ *
+ * The digest is passed through the same guard the standalone 500 uses, so
+ * whatever the runtime hands us reaches the screen only if it is an opaque
+ * correlation id — never a message, never a path.
+ */
 export default function HubError({
   error,
   reset,
@@ -15,6 +27,8 @@ export default function HubError({
     console.error('hub.render_failed', error);
   }, [error]);
 
+  const reference = safeSupportReference(error.digest);
+
   return (
     <div className="mx-auto max-w-3xl">
       <Alert level="danger" title="Le Hub n’a pas pu s’afficher">
@@ -22,9 +36,9 @@ export default function HubError({
           Une erreur est survenue pendant le chargement de votre compte. Aucune donnée n’a été
           modifiée.
         </p>
-        {error.digest ? (
+        {reference ? (
           <p className="wariba-data mt-2 text-[length:var(--wariba-font-size-label-sm)]">
-            Référence : {error.digest}
+            {productCopy.system.serverError.reference(reference)}
           </p>
         ) : null}
         <div className="mt-4">

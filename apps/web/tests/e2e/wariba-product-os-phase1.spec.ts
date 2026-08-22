@@ -149,10 +149,15 @@ test.describe('@phase1 trader hub shell', () => {
     // Performance, Facturation and Support have no routes yet, so they must not
     // appear — a navigation item that leads nowhere is a promise on the one
     // surface a trader reads every session.
-    for (const absent of ['Performance', 'Facturation', 'Support']) {
+    //
+    // WariX joined that list in Phase 1.1 for a different reason: it is a
+    // separate product shell, opened contextually from the account that can be
+    // traded, not a page of this one. It stays in the phone tab bar, which is
+    // asserted in the 1.1 suite.
+    for (const absent of ['Performance', 'Facturation', 'Support', 'WariX']) {
       await expect(sidebar.getByText(absent, { exact: true })).toHaveCount(0);
     }
-    for (const present of ['Tableau de bord', 'Comptes', 'WariX', 'Payouts']) {
+    for (const present of ['Tableau de bord', 'Comptes', 'Payouts']) {
       await expect(sidebar.getByText(present, { exact: true })).toHaveCount(1);
     }
   });

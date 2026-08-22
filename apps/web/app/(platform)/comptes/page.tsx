@@ -45,7 +45,7 @@ export default async function AccountsPage() {
   const accounts = await listAccountsForUser(getDb(), { userId: user.id });
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <Text as="h1" variant="heading-lg">
         Comptes
       </Text>

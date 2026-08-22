@@ -27,7 +27,42 @@ export interface AccountHubView {
   pnlTodayFormatted: string;
   tradingDays: TradingDayItem[];
   balanceHistory: BalancePoint[];
+  /** Closed sessions inside the window the evolution chart would draw. */
+  finalizedSessionCount: number;
+  /**
+   * Whether drawing `balanceHistory` would tell the trader anything.
+   *
+   * Server-side because it is a statement about the data, not about the
+   * viewport: the page should not be re-deriving "is this worth a chart" from
+   * a shape it received, and two surfaces asking the question independently is
+   * how they end up disagreeing.
+   */
+  balanceHistoryMeaningful: boolean;
   activatedAtLabel: string | null;
+}
+
+/**
+ * A chart is worth drawing when there is a line to draw.
+ *
+ * An account activated an hour ago has exactly one snapshot, still open, at
+ * its opening balance. Plotting it produces a chart whose vertical axis reads
+ * 9 999,95 / 10 000,00 / 10 000,05 — an auto-scaled rendering of nothing,
+ * occupying the most valuable third of the dashboard and implying a
+ * performance history that does not exist. That is not a small chart, it is a
+ * misleading one.
+ *
+ * Two conditions, both necessary. At least two *closed* sessions, because an
+ * open day is a number still moving. And at least two distinct balances,
+ * because a line that never leaves its own starting value is drawn entirely
+ * out of floating-point noise once the axis auto-scales to it.
+ */
+export function isBalanceHistoryMeaningful(
+  points: readonly BalancePoint[],
+  finalizedSessionCount: number,
+): boolean {
+  if (finalizedSessionCount < 2) return false;
+  const distinct = new Set(points.map((point) => point.balance));
+  return distinct.size >= 2;
 }
 
 export interface BuildAccountHubViewParams {
@@ -138,6 +173,8 @@ export async function buildAccountHubView(
       })
     : null;
 
+  const finalizedSessionCount = snapshotRows.filter((row) => row.status === 'finalized').length;
+
   return {
     accountId: inputs.accountId,
     state,
@@ -148,6 +185,8 @@ export async function buildAccountHubView(
     pnlTodayFormatted: formatSignedUsd(pnlToday),
     tradingDays,
     balanceHistory,
+    finalizedSessionCount,
+    balanceHistoryMeaningful: isBalanceHistoryMeaningful(balanceHistory, finalizedSessionCount),
     activatedAtLabel,
   };
 }

@@ -67,7 +67,7 @@ export default async function PayoutsPage({
 
   if (accounts.length === 0) {
     return (
-      <div className="mx-auto flex max-w-3xl flex-col gap-6">
+      <div className="flex max-w-3xl flex-col gap-6">
         {heading}
         <EmptyState
           title="Aucun compte WARIBA"
@@ -86,7 +86,7 @@ export default async function PayoutsPage({
   // cannot be submitted.
   if (performanceAccounts.length === 0) {
     return (
-      <div className="mx-auto flex max-w-3xl flex-col gap-6">
+      <div className="flex max-w-3xl flex-col gap-6">
         {heading}
         <EmptyState
           title="Compte Performance requis"
@@ -117,7 +117,7 @@ export default async function PayoutsPage({
   }));
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
+    <div className="flex max-w-3xl flex-col gap-6">
       {heading}
 
       <AccountSelector
