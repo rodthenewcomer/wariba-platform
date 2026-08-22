@@ -49,10 +49,19 @@ Buy, Sell, Stop Loss and Take Profit stay in English. They are the terms
 French-speaking traders use, and translating them makes the platform read as
 less professional to the people it is for. The rest of the interface is French.
 
-One item is deliberately left open: `trade-labels.ts` has carried
-"Achat Limite" and "Vente Stop" since before this baseline, so pending-order
-type names are still translated. That is a product copy decision, not a
-regression introduced here, and it belongs to whoever owns the vocabulary.
+Pending-order types are English for the same reason: Buy Limit, Sell Limit,
+Buy Stop, Sell Stop.
+
+They were translated when the baseline was first frozen, and the freeze
+recorded that as an open vocabulary decision rather than quietly settling it.
+It was decided on 2026-08-22 and applied in [#33](https://github.com/rodthenewcomer/wariba-platform/pull/33),
+under the explicit-human-decision clause below. The baseline SHA does not move
+for it: `7ec0613` remains the freeze point, and this is an amendment to it.
+
+That change also removed four duplicate copies of the label table. The four
+words had lived in five files, which is why changing them meant editing five
+places and why the chart context menu had already drifted into its own variant.
+`trade-labels.ts` is now their only home.
 
 ## What may change a frozen area
 
