@@ -222,7 +222,7 @@ test.describe('WariX program identity', { tag: ['@trade'] }, () => {
       await expect(activeAccountLabel(page)).toContainText('WARIBA Performance');
       // W2 §15/§16 moved Payout out of the execution dock; the Account tab now
       // links to its canonical route for a Performance account.
-      await page.getByRole('tab', { name: /^Account/ }).click();
+      await page.getByRole('tab', { name: /^Compte/ }).click();
       await expect(
         page.getByTestId('workstation-dock').getByRole('link', { name: 'Retraits' }),
       ).toBeVisible();

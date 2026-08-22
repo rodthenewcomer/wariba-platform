@@ -45,8 +45,8 @@ export function creatableSidesFor(params: {
 }
 
 const RELATIONSHIP_HINT: Record<'limit' | 'stop', string> = {
-  limit: 'Achat limite sous l’Ask · Vente limite au-dessus du Bid.',
-  stop: 'Achat stop au-dessus de l’Ask · Vente stop sous le Bid · prix non garanti.',
+  limit: 'Buy Limit sous l’Ask · Sell Limit au-dessus du Bid.',
+  stop: 'Buy Stop au-dessus de l’Ask · Sell Stop sous le Bid · prix non garanti.',
 };
 
 const RELATIONSHIP_DETAIL: Record<'limit' | 'stop', string> = {

@@ -193,7 +193,7 @@ test.describe('WariX order lifecycle', { tag: ['@trade'] }, () => {
       // closed appear there), so a still-open market order never shows up
       // there. W2 §18 folded the two order tabs into one destination with two
       // views over the same two distinct server collections.
-      await page.getByRole('tab', { name: /^Orders/ }).click();
+      await page.getByRole('tab', { name: /^Ordres/ }).click();
       await page.getByRole('button', { name: 'Récents' }).click();
       await expect(page.getByRole('cell', { name: 'Ouverture' })).toBeVisible();
       // Not getByText: PendingOrderConfirm's always-mounted GTC disclaimer
@@ -208,7 +208,7 @@ test.describe('WariX order lifecycle', { tag: ['@trade'] }, () => {
       await page.getByRole('tab', { name: /^Positions/ }).click();
       await page.getByRole('button', { name: 'Fermer EURUSD · Achat' }).click();
       await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toHaveCount(0);
-      await page.getByRole('tab', { name: /^Trades/ }).click();
+      await page.getByRole('tab', { name: /^Exécutions/ }).click();
       const history = page.getByRole('tabpanel');
       await expect(history.getByRole('cell', { name: 'EURUSD' })).toBeVisible();
       await expect(history.getByRole('cell', { name: '0.1000' })).toBeVisible();
@@ -240,7 +240,7 @@ test.describe('WariX order lifecycle', { tag: ['@trade'] }, () => {
       // Order status/reason lives under Orders → Récents; Trades is the
       // closed-position PnL/eligibility ledger and never shows rejections
       // (a rejected order never produces a fill to close).
-      await page.getByRole('tab', { name: /^Orders/ }).click();
+      await page.getByRole('tab', { name: /^Ordres/ }).click();
       await page.getByRole('button', { name: 'Récents' }).click();
       // Scoped to the active tabpanel: the rejection reason also appears in
       // the Execution Center's own status notice (which stays put regardless
@@ -718,7 +718,7 @@ test.describe('WariX partial close', { tag: ['@trade'] }, () => {
       // The position stays open at half its original size — never fully closed.
       await expect(page.getByText(/0\.05/).first()).toBeVisible();
 
-      await page.getByRole('tab', { name: /^Trades/ }).click();
+      await page.getByRole('tab', { name: /^Exécutions/ }).click();
       await expect(page.getByRole('cell', { name: '0.0500' })).toBeVisible();
     },
   );

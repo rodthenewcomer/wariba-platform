@@ -81,7 +81,7 @@ test.describe('WariX W2 review evidence', { tag: ['@warix-w2-evidence'] }, () =>
 
     await page.getByTestId('navigator-restore').click();
     await expect(page.getByTestId('market-navigator').first()).toBeVisible();
-    await page.getByRole('tab', { name: /^Trades/ }).click();
+    await page.getByRole('tab', { name: /^Exécutions/ }).click();
     await expect(page.getByRole('columnheader', { name: 'PnL éligible' })).toBeVisible();
     await shot('1440x900-dock-expanded-trades');
 

@@ -182,7 +182,7 @@ describe('TriggerPriceControl', () => {
 
   it('states the creation-side rule for the selected kind', () => {
     const { rerender } = render(<TriggerPriceControl {...baseProps} value="" />);
-    expect(screen.getByTestId('trigger-price-hint')).toHaveTextContent(/Achat limite sous l’Ask/);
+    expect(screen.getByTestId('trigger-price-hint')).toHaveTextContent(/Buy Limit sous l’Ask/);
 
     rerender(<TriggerPriceControl {...baseProps} orderKind="stop" value="" />);
     const hint = screen.getByTestId('trigger-price-hint');
@@ -214,15 +214,15 @@ describe('ExecutionActions', () => {
     onSubmit: () => {},
   };
 
-  it('renders Vente before Achat, each showing the price it references', () => {
+  it('renders Sell before Buy, each showing the price it references', () => {
     render(<ExecutionActions {...baseProps} />);
     const buttons = within(screen.getByTestId('execution-actions')).getAllByRole('button');
 
     expect(buttons[0]).toHaveAttribute('data-testid', 'execution-submit-sell');
     expect(buttons[1]).toHaveAttribute('data-testid', 'execution-submit-buy');
-    expect(buttons[0]).toHaveTextContent('Vente');
+    expect(buttons[0]).toHaveTextContent('Sell');
     expect(buttons[0]).toHaveTextContent(TICK.bid);
-    expect(buttons[1]).toHaveTextContent('Achat');
+    expect(buttons[1]).toHaveTextContent('Buy');
     expect(buttons[1]).toHaveTextContent(TICK.ask);
   });
 
@@ -231,11 +231,11 @@ describe('ExecutionActions', () => {
 
     // The accessible *name* is the verb alone — what voice control acts on,
     // and what every exact-name selector in the E2E suite depends on.
-    expect(screen.getByRole('button', { name: 'Achat' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Buy' })).toHaveAttribute(
       'data-testid',
       'execution-submit-buy',
     );
-    expect(screen.getByRole('button', { name: 'Vente' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Sell' })).toHaveAttribute(
       'data-testid',
       'execution-submit-sell',
     );
@@ -252,8 +252,8 @@ describe('ExecutionActions', () => {
 
   it('qualifies the verb for a pending order', () => {
     render(<ExecutionActions {...baseProps} orderKind="stop" />);
-    expect(screen.getByTestId('execution-submit-buy')).toHaveTextContent('Achat Stop');
-    expect(screen.getByTestId('execution-submit-sell')).toHaveTextContent('Vente Stop');
+    expect(screen.getByTestId('execution-submit-buy')).toHaveTextContent('Buy Stop');
+    expect(screen.getByTestId('execution-submit-sell')).toHaveTextContent('Sell Stop');
   });
 
   it('submits the side that was pressed', async () => {
@@ -278,7 +278,7 @@ describe('ExecutionActions', () => {
     await user.click(screen.getByTestId('execution-submit-buy'));
     expect(onSubmit).not.toHaveBeenCalled();
     // The verb stays legible while the command settles.
-    expect(screen.getByTestId('execution-submit-buy')).toHaveTextContent('Achat');
+    expect(screen.getByTestId('execution-submit-buy')).toHaveTextContent('Buy');
   });
 
   it('de-emphasises and labels the side the current quote cannot create', async () => {

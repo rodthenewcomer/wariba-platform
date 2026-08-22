@@ -27,8 +27,8 @@ export interface ExecutionActionsProps {
 }
 
 const SIDE_COPY: Record<ExecutionSide, { verb: string; accessible: string; quoteLabel: string }> = {
-  sell: { verb: 'Vente', accessible: 'Vendre', quoteLabel: 'au Bid' },
-  buy: { verb: 'Achat', accessible: 'Acheter', quoteLabel: 'à l’Ask' },
+  sell: { verb: 'Sell', accessible: 'Vendre', quoteLabel: 'au Bid' },
+  buy: { verb: 'Buy', accessible: 'Acheter', quoteLabel: 'à l’Ask' },
 };
 
 /** The only saturated colours in the panel — see the note on the component below. */

@@ -135,7 +135,7 @@ test.describe('WariX trading dock', { tag: ['@trade'] }, () => {
     await page.getByRole('button', { name: 'Fermer EURUSD · Achat' }).click();
     await expect(position).toHaveCount(0);
 
-    await page.getByRole('tab', { name: /^Orders/ }).click();
+    await page.getByRole('tab', { name: /^Ordres/ }).click();
     await expect(page.getByRole('button', { name: 'En attente' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Récents' })).toBeVisible();
     const ordersTable = page.getByRole('tabpanel').locator('tbody');
@@ -148,19 +148,19 @@ test.describe('WariX trading dock', { tag: ['@trade'] }, () => {
     await page.getByRole('button', { name: 'Récents' }).click();
     await expect(ordersTable.getByRole('cell', { name: 'EURUSD' }).first()).toBeVisible();
 
-    await page.getByRole('tab', { name: /^Trades/ }).click();
+    await page.getByRole('tab', { name: /^Exécutions/ }).click();
     // Fill-driven evidence, not order truth (W2 §19).
     for (const column of ['PnL net', 'PnL éligible', 'Durée']) {
       await expect(page.getByRole('columnheader', { name: column })).toBeVisible();
     }
 
-    await page.getByRole('tab', { name: /^Alerts/ }).click();
+    await page.getByRole('tab', { name: /^Alertes/ }).click();
     const dock = page.getByTestId('workstation-dock');
     await expect(dock).toHaveAttribute('data-empty', 'true');
     await expect(dock.getByText('Aucune activité')).toBeVisible();
     await expect.poll(async () => Math.round((await dock.boundingBox())?.height ?? 0)).toBe(48);
 
-    await page.getByRole('tab', { name: /^Account/ }).click();
+    await page.getByRole('tab', { name: /^Compte/ }).click();
     // Scoped to the dock: the public id also appears in the status bar's
     // account switcher, which is not what this asserts.
     const account = dock;
@@ -285,7 +285,7 @@ test.describe('WariX trading dock', { tag: ['@trade'] }, () => {
   test('no new critical or serious accessibility violations', async ({ page, tradeAccount }) => {
     await login(page, tradeAccount.email, tradeAccount.password);
     await openWorkstation(page);
-    await page.getByRole('tab', { name: /^Alerts/ }).click();
+    await page.getByRole('tab', { name: /^Alertes/ }).click();
 
     const results = await new AxeBuilder({ page }).analyze();
     const critical = results.violations.filter(
