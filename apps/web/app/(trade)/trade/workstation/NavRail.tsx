@@ -27,10 +27,10 @@ interface RailItem {
  * is the trader's, and `(control)` has its own shell.
  */
 const RAIL_ITEMS: readonly RailItem[] = [
-  { href: '/trade', label: 'Trade', icon: <WariXTradeIcon size="nav" /> },
+  { href: '/trade', label: 'WariX', icon: <WariXTradeIcon size="nav" /> },
   { href: '/hub', label: 'Hub', icon: <WariXHubIcon size="nav" /> },
   { href: '/comptes', label: 'Comptes', icon: <WariXAccountsIcon size="nav" /> },
-  { href: '/payouts', label: 'Payouts', icon: <WariXPayoutsIcon size="nav" /> },
+  { href: '/payouts', label: 'Retraits', icon: <WariXPayoutsIcon size="nav" /> },
 ];
 
 /**
@@ -68,7 +68,7 @@ function RailLink({ item, active }: { item: RailItem; active: boolean }) {
         href={item.href}
         aria-label={item.label}
         aria-current={active ? 'page' : undefined}
-        className={`relative flex h-10 w-10 items-center justify-center rounded-[9px] transition-[background-color,color,box-shadow,transform] duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:translate-y-px ${
+        className={`relative flex h-11 w-11 items-center justify-center rounded-[10px] transition-[background-color,color,box-shadow,transform] duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:scale-[0.97] ${
           active
             ? [
                 'bg-[color:var(--wariba-component-workstation-wash-selected-strong)]',
@@ -105,7 +105,7 @@ export const NavRail = memo(function NavRail({ currentPath }: NavRailProps) {
       <span
         aria-hidden="true"
         title="WARIBA WariX"
-        className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[color:var(--wariba-component-workstation-wash-identity)] text-[length:var(--wariba-component-workstation-type-module-title)] font-extrabold leading-none tracking-[-0.02em] text-[color:var(--wariba-component-workstation-identity-mark)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-identity-rule)]"
+        className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-[color:var(--wariba-component-workstation-wash-identity)] text-[length:var(--wariba-component-workstation-type-module-title)] font-extrabold leading-none tracking-[-0.02em] text-[color:var(--wariba-component-workstation-identity-mark)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-identity-rule)]"
       >
         W
       </span>

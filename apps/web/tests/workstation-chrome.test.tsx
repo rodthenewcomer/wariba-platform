@@ -84,14 +84,14 @@ describe('NavRail', () => {
   it('exposes an accessible name for every icon destination', () => {
     render(<NavRail currentPath="/trade" />);
     const rail = screen.getByRole('navigation', { name: 'Navigation WariX' });
-    for (const label of ['Trade', 'Hub', 'Comptes', 'Payouts', 'Plus']) {
+    for (const label of ['WariX', 'Hub', 'Comptes', 'Retraits', 'Plus']) {
       expect(within(rail).getByRole('link', { name: label })).toBeInTheDocument();
     }
   });
 
   it('marks the current route and only that route', () => {
     render(<NavRail currentPath="/trade" />);
-    expect(screen.getByRole('link', { name: 'Trade' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'WariX' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'Hub' })).not.toHaveAttribute('aria-current');
   });
 
@@ -126,7 +126,7 @@ describe('RightUtilityRail', () => {
     const buttons = within(rail).getAllByRole('button');
     expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
       'Marchés',
-      'Trade',
+      'Trader',
       'Activité',
       'Alertes',
       'Calendrier',
@@ -226,7 +226,7 @@ describe('WorkstationStatusBar', () => {
     // name plus a short and a full visible variant that CSS swaps at `sm`
     // (W2 §25). All three are in the DOM, so assert presence, not uniqueness.
     const metrics = within(screen.getByTestId('workstation-metrics'));
-    expect(metrics.getAllByText('Equity').length).toBeGreaterThan(0);
+    expect(metrics.getAllByText('Valeur').length).toBeGreaterThan(0);
     expect(metrics.getByTestId('metric-pmj')).toHaveTextContent('PMJ');
     expect(metrics.getByTestId('metric-pm')).toHaveTextContent('PM');
     // Visual closure §6 — the currency is drawn a step below its figure, so the
@@ -235,7 +235,7 @@ describe('WorkstationStatusBar', () => {
     // between the two halves.
     expect(metrics.getAllByText('10 050.00').length).toBeGreaterThan(0);
     expect(metrics.getAllByText('400.00').length).toBeGreaterThan(0);
-    expect(metrics.getByTestId('metric-equity')).toHaveTextContent('Equity10 050.00');
+    expect(metrics.getByTestId('metric-equity')).toHaveTextContent('Valeur10 050.00');
   });
 
   it('reports transport state exactly once, and never as account status', () => {
@@ -386,10 +386,10 @@ describe('WorkstationDock', () => {
     dock(EMPTY_SNAPSHOT);
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
       'Positions',
-      'Orders',
-      'Trades',
-      'Alerts',
-      'Account',
+      'Ordres',
+      'Exécutions',
+      'Alertes',
+      'Compte',
     ]);
   });
 
@@ -399,10 +399,10 @@ describe('WorkstationDock', () => {
     expect(screen.queryByRole('tab', { name: 'Payout' })).not.toBeInTheDocument();
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
       'Positions',
-      'Orders',
-      'Trades',
-      'Alerts',
-      'Account',
+      'Ordres',
+      'Exécutions',
+      'Alertes',
+      'Compte',
     ]);
   });
 
@@ -417,7 +417,7 @@ describe('WorkstationDock', () => {
     // a bounded recent window and must not carry a number that reads as a
     // lifetime total (W2 §28).
     dock(EMPTY_SNAPSHOT);
-    expect(screen.getByRole('tab', { name: /^Trades$/ })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /^Account$/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^Exécutions$/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^Compte$/ })).toBeInTheDocument();
   });
 });

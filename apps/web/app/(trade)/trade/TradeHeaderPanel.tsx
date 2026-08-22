@@ -1,7 +1,13 @@
 'use client';
 
 import { memo } from 'react';
-import { AccountContext, Alert, RiskRibbon, Text, type RiskRibbonStatus } from '@wariba/ui';
+import {
+  AccountContext,
+  RiskRibbon,
+  Text,
+  WariXInlineStatus,
+  type RiskRibbonStatus,
+} from '@wariba/ui';
 import type { AccountRisk } from '@wariba/contracts';
 import { TradeRiskDetail } from './TradeRiskDetail';
 
@@ -44,9 +50,9 @@ export const TradeHeaderPanel = memo(function TradeHeaderPanel({
       />
       <dl className="flex flex-wrap gap-x-6 gap-y-2 border-b border-[color:var(--wariba-border-subtle)] pb-2">
         {[
-          ['Balance', balanceFormatted],
-          ['Equity', equityFormatted],
-          ['Balance éligible', programEligibleBalanceFormatted],
+          ['Solde', balanceFormatted],
+          ['Valeur', equityFormatted],
+          ['Solde éligible', programEligibleBalanceFormatted],
         ].map(([label, value]) => (
           <div key={label} className="flex items-baseline gap-2">
             <dt>
@@ -69,23 +75,25 @@ export const TradeHeaderPanel = memo(function TradeHeaderPanel({
       />
       {risk && <TradeRiskDetail risk={risk} />}
       {risk?.shortDurationMonitoring.status === 'warning' && (
-        <Alert level="warning" title="Profits de très courte durée détectés">
-          {risk.shortDurationMonitoring.count24h} clôtures profitables sous 60 secondes sur 24 h.
-          Elles restent visibles mais ne comptent pas dans votre progression.
-        </Alert>
+        <WariXInlineStatus
+          tone="warning"
+          title="Profits de très courte durée détectés"
+          description={`${risk.shortDurationMonitoring.count24h} clôtures profitables sous 60 secondes sur 24 h. Elles restent visibles mais ne comptent pas dans votre progression.`}
+        />
       )}
       {risk?.shortDurationMonitoring.status === 'entry_locked' && (
-        <Alert level="warning" title="Nouvelles ouvertures temporairement suspendues">
-          Vous pouvez toujours réduire ou fermer vos positions. Le verrou suit une fenêtre glissante
-          de 24 h ; le signal reste auditable pour revue du risque et aucune violation permanente
-          n’est créée automatiquement.
-        </Alert>
+        <WariXInlineStatus
+          tone="warning"
+          title="Nouvelles ouvertures temporairement suspendues"
+          description="Vous pouvez toujours réduire ou fermer vos positions. La suspension suit une fenêtre glissante de 24 h et ne crée pas automatiquement de violation permanente."
+        />
       )}
       {isResyncing && (
-        <Alert level="warning" title="Resynchronisation en cours">
-          Un écart de séquence a été détecté. Les ordres restent bloqués jusqu&apos;au nouveau
-          snapshot serveur.
-        </Alert>
+        <WariXInlineStatus
+          tone="warning"
+          title="Resynchronisation en cours"
+          description="Un décalage de données a été détecté. Les ordres restent bloqués jusqu’à la fin de la resynchronisation."
+        />
       )}
     </>
   );

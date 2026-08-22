@@ -30,6 +30,15 @@ export const MARKET_CATEGORY_LABEL: Record<MarketCategoryId, string> = {
   other: 'Autres',
 };
 
+/** Stable French instrument names shared by every market-selection surface. */
+export const INSTRUMENT_NAME: Record<TradableSymbol, string> = {
+  EURUSD: 'Euro / Dollar US',
+  GBPUSD: 'Livre sterling / Dollar US',
+  USDJPY: 'Dollar US / Yen japonais',
+  XAUUSD: 'Or / Dollar US',
+  NAS100: 'Nasdaq 100',
+};
+
 /** Display order. Categories with no available instrument are never rendered (W2 §6). */
 export const MARKET_CATEGORY_ORDER: readonly MarketCategoryId[] = [
   'forex',
@@ -84,5 +93,8 @@ export function groupAvailableSymbols(
 export function matchesMarketQuery(symbol: TradableSymbol, query: string): boolean {
   const normalised = query.trim().toUpperCase();
   if (normalised === '') return true;
-  return symbol.toUpperCase().includes(normalised);
+  return (
+    symbol.toUpperCase().includes(normalised) ||
+    INSTRUMENT_NAME[symbol].toLocaleUpperCase('fr-FR').includes(normalised)
+  );
 }

@@ -1,27 +1,23 @@
 'use client';
 
 import { memo, useId, useMemo, useState, type ReactNode } from 'react';
-import { SectionLabel, Text, WariXFavoriteIcon, WariXSearchIcon } from '@wariba/ui';
+import {
+  InstrumentAvatar,
+  SectionLabel,
+  Text,
+  WariXFavoriteIcon,
+  WariXSearchIcon,
+} from '@wariba/ui';
 import type { SymbolSpec, TradableSymbol } from '@wariba/contracts';
 import {
   groupAvailableSymbols,
+  INSTRUMENT_NAME,
   matchesMarketQuery,
   type MarketCategoryGroup,
 } from './market-categories';
 import { useQuoteDirection } from './use-quote-direction';
 import { useTick, type TickStore } from './tick-store';
-
-const MARKET_STATUS_LABEL = {
-  open: 'Ouvert',
-  stale: 'Périmé',
-  closed: 'Fermé',
-} as const;
-
-const MARKET_STATUS_DOT = {
-  open: 'bg-[color:var(--wariba-component-workstation-text-financial-positive)]',
-  stale: 'bg-[color:var(--wariba-component-workstation-trading-warning)]',
-  closed: 'bg-[color:var(--wariba-component-workstation-text-tertiary)]',
-} as const;
+import { resolveWariXMarketDisplayState } from './market-display-state';
 
 /**
  * Quote columns, aligned once here and once in the list's own column header.
@@ -86,8 +82,24 @@ const MarketRow = memo(function MarketRow({
   const spread = tick
     ? (Number(tick.ask) - Number(tick.bid)).toFixed(spec?.pricePrecision ?? 5)
     : null;
-  const status = tick?.marketStatus ?? null;
-  const isStale = status === 'stale';
+  const marketPresentation = resolveWariXMarketDisplayState({
+    marketStatus: tick?.marketStatus ?? null,
+    /*
+     * `useTick` returns `undefined` when no quote has ever arrived, so the
+     * original `tick !== null` was true for an instrument with no data at all
+     * and presented it as "historique disponible · temps réel indisponible".
+     * That is a claim about data WariX does not have, which is the one thing
+     * the whole market-data foundation refuses to make.
+     */
+    hasUsableHistory: tick != null,
+  });
+  const isStale = marketPresentation.state === 'STALE';
+  const compactMarketLabel =
+    marketPresentation.state === 'UNAVAILABLE'
+      ? 'Non disponible'
+      : marketPresentation.state === 'HISTORY_ONLY'
+        ? 'Historique seul'
+        : marketPresentation.label;
 
   return (
     <div
@@ -96,27 +108,51 @@ const MarketRow = memo(function MarketRow({
          it. Without that the selected row's content shifted by 3px against its
          neighbours, which is the small misalignment that makes a list look
          styled rather than engineered. */
-      className={`relative flex min-h-12 items-stretch border-b border-[color:var(--wariba-component-workstation-seam-hairline)] transition-[background-color,box-shadow] duration-[var(--wariba-component-workstation-motion-quick)] before:absolute before:bottom-0 before:left-0 before:top-0 before:z-10 before:w-[3px] motion-reduce:transition-none lg:min-h-[var(--wariba-component-workstation-navigator-row-height)] ${
+      /*
+       * VX1-E §K — a row is a mini-card, not a table stripe.
+       *
+       * The list used to be full-bleed rows separated by hairlines, which is
+       * why a long watchlist read as one uninterrupted dark field. Each row now
+       * owns a small surface with its own radius and inset, so the eye lands on
+       * an instrument rather than on a line of a table.
+       *
+       * The 3px leading rule is still reserved by every row and painted only by
+       * the selected one, so selection never shifts the content beside it.
+       * Selection is a genuine material — a lifted surface with a stronger edge
+       * — rather than a background colour swap.
+       */
+      className={`relative mx-1.5 my-[3px] flex min-h-[64px] items-stretch overflow-hidden rounded-[var(--warix-radius-card)] border transition-[background-color,box-shadow,border-color] duration-[var(--wariba-component-workstation-motion-quick)] before:absolute before:bottom-0 before:left-0 before:top-0 before:z-10 before:w-[3px] motion-reduce:transition-none ${
         selected
-          ? 'bg-[color:var(--wariba-component-workstation-wash-selected)] shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light)] before:bg-[color:var(--wariba-component-workstation-seam-active)]'
-          : 'before:bg-transparent hover:bg-[color:var(--wariba-component-workstation-surface-control)]/60'
+          ? 'border-[color:var(--warix-border-strong)] bg-[color:var(--warix-surface-selected)] shadow-[inset_0_1px_0_0_var(--warix-highlight-inner-strong)] before:bg-[color:var(--warix-accent-cobalt)]'
+          : 'border-[color:var(--warix-border-subtle)] bg-[color:var(--warix-surface)] before:bg-transparent hover:border-[color:var(--warix-border-strong)] hover:bg-[color:var(--warix-surface-hover)]'
       }`}
     >
       <button
         type="button"
         onClick={() => onSelect(symbol)}
         aria-current={selected ? 'true' : undefined}
-        className="flex min-h-12 min-w-0 flex-1 flex-col justify-center gap-1 py-1 pl-2.5 pr-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:min-h-[var(--wariba-component-workstation-navigator-row-height)]"
+        className="flex min-h-[64px] min-w-0 flex-1 flex-col justify-center gap-1.5 py-1.5 pl-2.5 pr-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]"
       >
         <span className="flex items-center justify-between gap-2">
-          <span
-            className={`text-[length:var(--wariba-component-workstation-type-data-strong)] font-bold leading-none tracking-[-0.01em] ${
-              selected
-                ? 'text-[color:var(--wariba-component-workstation-interaction-selected-text)]'
-                : 'text-[color:var(--wariba-component-workstation-text-primary)]'
-            }`}
-          >
-            {symbol}
+          <span className="flex min-w-0 items-center gap-2">
+            {/* VX1-E §J — identity before text, so a watchlist is scanned
+                rather than read. Presentation only: it implies no price, no
+                session and no data the backend does not publish. */}
+            <InstrumentAvatar symbol={symbol} assetClass={spec?.assetClass} size="sm" />
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <span
+                className={`truncate text-[length:var(--wariba-component-workstation-type-data-strong)] font-bold leading-none tracking-[-0.01em] ${
+                  selected
+                    ? 'text-[color:var(--wariba-component-workstation-interaction-selected-text)]'
+                    : 'text-[color:var(--wariba-component-workstation-text-primary)]'
+                }`}
+              >
+                {symbol}
+              </span>
+              <span className="truncate text-[length:var(--wariba-component-workstation-type-meta)] leading-none text-[color:var(--wariba-component-workstation-text-tertiary)]">
+                {INSTRUMENT_NAME[symbol]}
+              </span>
+            </span>
           </span>
           {/*
            * Market state by exception — VX1-C.1 §5.
@@ -135,11 +171,11 @@ const MarketRow = memo(function MarketRow({
            * hidden: the state stays in the row's accessible name at every
            * status, exactly as it always has.
            */}
-          {status === 'open' ? (
-            <span className="sr-only">{MARKET_STATUS_LABEL.open}</span>
+          {marketPresentation.state === 'LIVE' ? (
+            <span className="sr-only">{marketPresentation.label}</span>
           ) : (
             <span
-              className={`flex items-center gap-1 rounded-[4px] px-1 py-0.5 text-[length:var(--wariba-component-workstation-type-meta)] font-semibold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-label)] ${
+              className={`flex items-center gap-1 rounded-[5px] px-1.5 py-1 text-[length:var(--wariba-component-workstation-type-meta)] font-semibold leading-none ${
                 isStale
                   ? 'bg-[color:var(--wariba-component-workstation-wash-warning)] text-[color:var(--wariba-component-workstation-trading-warning)]'
                   : 'bg-[color:var(--wariba-component-workstation-wash-neutral)] text-[color:var(--wariba-component-workstation-text-tertiary)]'
@@ -148,12 +184,14 @@ const MarketRow = memo(function MarketRow({
               <span
                 aria-hidden="true"
                 className={`h-1 w-1 rounded-full ${
-                  status
-                    ? MARKET_STATUS_DOT[status]
-                    : 'bg-[color:var(--wariba-component-workstation-text-tertiary)]'
+                  isStale
+                    ? 'bg-[color:var(--wariba-component-workstation-trading-warning)]'
+                    : marketPresentation.state === 'UNAVAILABLE'
+                      ? 'bg-[color:var(--wariba-component-workstation-trading-sell)]'
+                      : 'bg-[color:var(--wariba-component-workstation-text-tertiary)]'
                 }`}
               />
-              {tick ? MARKET_STATUS_LABEL[tick.marketStatus] : 'Indisponible'}
+              {compactMarketLabel}
             </span>
           )}
         </span>
@@ -209,7 +247,7 @@ const MarketRow = memo(function MarketRow({
         /* Refinement pass — the star aligns to the symbol's own baseline row
            rather than to the two-line row's centre, so a column of stars reads
            level with the column of instruments it marks. */
-        className={`flex min-h-12 w-7 shrink-0 items-start justify-center pt-[0.6875rem] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:min-h-[var(--wariba-component-workstation-navigator-row-height)] lg:pt-[0.5625rem] ${
+        className={`flex min-h-[64px] w-8 shrink-0 items-start justify-center pt-3 transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] ${
           favorite
             ? 'text-[color:var(--wariba-component-workstation-identity-mark)]'
             : 'text-[color:var(--wariba-component-workstation-border-strong)] hover:text-[color:var(--wariba-component-workstation-identity-mark)]'
@@ -243,7 +281,7 @@ function MarketColumnHeader() {
       <span className="min-w-0 flex-1" />
       <SectionLabel className={BID_ASK_COLUMN}>Bid</SectionLabel>
       <SectionLabel className={BID_ASK_COLUMN}>Ask</SectionLabel>
-      <SectionLabel className={SPREAD_COLUMN}>Spr.</SectionLabel>
+      <SectionLabel className={SPREAD_COLUMN}>Écart</SectionLabel>
     </div>
   );
 }

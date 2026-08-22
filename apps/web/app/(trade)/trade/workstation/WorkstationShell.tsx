@@ -29,7 +29,7 @@ export interface WorkstationShellProps {
  *
  * Desktop columns:
  *
- *     56px product rail │ minmax(0, 1fr) chart │ optional drawer │ 48px utilities
+ *     56px product rail │ minmax(0, 1fr) chart │ optional drawer │ 56px utilities
  *
  * The old permanent Market Navigator and Execution tracks no longer exist.
  * Closing the single drawer returns their entire width to the already-mounted

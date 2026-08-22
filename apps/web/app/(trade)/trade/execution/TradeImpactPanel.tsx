@@ -92,7 +92,7 @@ export function TradeImpactPanel({ impact }: TradeImpactPanelProps) {
 
       {impact.isPriceStale ? (
         <p className="text-[length:var(--wariba-component-workstation-type-label)] font-semibold text-[color:var(--wariba-component-workstation-trading-warning)]">
-          Prix périmé — l’impact affiché n’est plus à jour.
+          Cours non actualisé — l’impact affiché n’est plus à jour.
         </p>
       ) : null}
     </div>

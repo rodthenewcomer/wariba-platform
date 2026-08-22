@@ -62,6 +62,8 @@ export * from './layouts/ControlSidebar';
 
 // WARIBA-specific components — Design System §47.4, no business logic inside
 export * from './wariba/AccountContext';
+export * from './wariba/InstrumentAvatar';
+export * from './wariba/WariXFeedback';
 export * from './wariba/MissionProgress';
 export * from './wariba/RiskRibbon';
 export * from './wariba/ConsistencyMeter';

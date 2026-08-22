@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { cx } from '../lib/cx';
+import { WariXCloseIcon } from '../icons/workstation-icons';
 
 export interface BottomSheetProps {
   open: boolean;
@@ -99,7 +100,7 @@ export function BottomSheet({
         // sitting over the page. That is not theoretical: it took out the
         // quantity stepper the moment this file grew a flex column, because
         // the risk-detail sheet is always mounted and merely closed.
-        'm-0 mt-auto mb-0 w-full max-w-full flex-col open:flex',
+        'relative m-0 mt-auto mb-0 w-full max-w-full flex-col open:flex',
         'rounded-t-[var(--wariba-component-workstation-radius-sheet)] rounded-b-none',
         // The UA's white Canvas background is replaced, not merely covered:
         // a child with its own background would still leave white gutters
@@ -144,6 +145,14 @@ export function BottomSheet({
           className="h-1 w-[var(--wariba-component-bottom-sheet-minimum-handle-width)] rounded-full bg-[color:var(--wariba-component-workstation-seam-strong)]"
         />
       </div>
+      <button
+        type="button"
+        aria-label="Fermer"
+        onClick={() => ref.current?.close()}
+        className="absolute right-2 top-1.5 flex h-9 w-9 items-center justify-center rounded-[8px] text-[color:var(--wariba-component-workstation-text-tertiary)] transition-colors duration-[var(--wariba-component-workstation-motion-quick)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]"
+      >
+        <WariXCloseIcon size="toolbar" />
+      </button>
       {/* Visual closure §17 — a sheet header, not a page heading. At 18px the
           title dominated the surface it introduced and repeated identity the
           panel below already carries; at 15px with a hairline under it, it reads

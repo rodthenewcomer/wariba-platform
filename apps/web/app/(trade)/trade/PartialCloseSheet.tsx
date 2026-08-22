@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Alert, BottomSheet, Button, Input, Text } from '@wariba/ui';
+import { BottomSheet, Button, Input, Text, WariXInlineStatus } from '@wariba/ui';
 import type { MarketTick, PositionDTO, QueuedReductionDTO, SymbolSpec } from '@wariba/contracts';
 import {
   computeRealizedPnl,
@@ -224,30 +224,36 @@ export function PartialCloseSheet({
         </Text>
 
         {existingQueued && existingQueued.status === 'queued' && (
-          <Alert level="information" title="En attente de reprise du marché">
-            <p>
-              Une réduction de {existingQueued.requestedQuantity ?? 'la totalité'} lot est en file
-              d’attente depuis {new Date(existingQueued.queuedAt).toLocaleTimeString('fr-FR')}. Elle
-              s’exécutera automatiquement au premier prix à jour — le prix d’exécution final n’est
-              pas encore connu.
-            </p>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-2"
-              disabled={pending}
-              onClick={() => onCancelQueuedReduction(existingQueued.id)}
-            >
-              Annuler la demande en attente
-            </Button>
-          </Alert>
+          <WariXInlineStatus
+            tone="information"
+            title="En attente de reprise du marché"
+            description={
+              <>
+                <p>
+                  Une réduction de {existingQueued.requestedQuantity ?? 'la totalité'} lot est en
+                  attente depuis {new Date(existingQueued.queuedAt).toLocaleTimeString('fr-FR')}.
+                  Elle s’exécutera automatiquement au premier prix à jour.
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2"
+                  disabled={pending}
+                  onClick={() => onCancelQueuedReduction(existingQueued.id)}
+                >
+                  Annuler la demande en attente
+                </Button>
+              </>
+            }
+          />
         )}
 
         {isStale && !existingQueued && (
-          <Alert level="warning" title="Prix obsolète">
-            Le marché n’est pas à jour. Votre demande sera mise en file et exécutée automatiquement
-            au premier prix disponible — pas contre un ancien prix.
-          </Alert>
+          <WariXInlineStatus
+            tone="warning"
+            title="Cours non actualisé"
+            description="Votre demande sera mise en attente et exécutée automatiquement au premier prix disponible, jamais contre un ancien prix."
+          />
         )}
 
         <div className="flex flex-col gap-2">
@@ -332,26 +338,32 @@ export function PartialCloseSheet({
         )}
 
         {preview?.eligibility.isShortDurationProfit && (
-          <Alert level="warning" title="Portion profitable détenue moins de 60 secondes">
-            Cette portion profitable a été détenue moins de 60 secondes. Le profit réalisé
-            apparaîtra dans votre solde mais ne comptera pas pour votre évaluation, votre buffer,
-            vos Jours de Performance, votre consistance ou votre payout.
-          </Alert>
+          <WariXInlineStatus
+            tone="warning"
+            title="Portion profitable détenue moins de 60 secondes"
+            description="Le profit apparaîtra dans votre solde, mais ne comptera pas pour votre évaluation, votre réserve, vos Jours de Performance, votre consistance ou votre retrait."
+          />
         )}
 
         {rejection && (
-          <Alert level="danger" title="Demande refusée">
-            <p>{rejection.reason}</p>
-            <p>{rejection.action}</p>
-            <p className="wariba-data">Code : {rejection.code}</p>
-          </Alert>
+          <WariXInlineStatus
+            tone="danger"
+            title="Demande refusée"
+            description={
+              <>
+                <p>{rejection.reason}</p>
+                <p>{rejection.action}</p>
+              </>
+            }
+          />
         )}
 
         {quantityValid === false && preset === 'custom' && customQuantity.trim() && (
-          <Alert level="warning" title="Quantité invalide">
-            La quantité doit être strictement inférieure à la position ouverte et respecter le pas
-            du lot. Utilisez « Fermer la position entière » pour tout clôturer.
-          </Alert>
+          <WariXInlineStatus
+            tone="warning"
+            title="Quantité invalide"
+            description="La quantité doit être inférieure à la position ouverte et respecter le pas du lot. Utilisez « Fermer la position entière » pour tout clôturer."
+          />
         )}
 
         {quantityValid && quantity && (

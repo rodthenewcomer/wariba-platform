@@ -11,8 +11,8 @@ import {
   DataTableHead,
   DataTableHeaderCell,
   DataTableRow,
-  Dialog,
   Text,
+  WariXDialog,
   type BadgeVariant,
 } from '@wariba/ui';
 
@@ -71,7 +71,13 @@ export function CloseAllDialog({
     const failedCount = result.filter((outcome) => outcome.status === 'rejected').length;
     const closedCount = result.length - failedCount;
     return (
-      <Dialog open={open} onClose={handleClose} title="Résultat — Tout fermer" size="sm">
+      <WariXDialog
+        open={open}
+        onClose={handleClose}
+        title="Résultat — Tout fermer"
+        size="sm"
+        tone={failedCount > 0 ? 'warning' : 'success'}
+      >
         <div className="flex flex-col gap-4">
           <Text variant="body-sm" color="secondary">
             {closedCount} position{closedCount > 1 ? 's' : ''} fermée{closedCount > 1 ? 's' : ''}
@@ -102,12 +108,12 @@ export function CloseAllDialog({
         <div className="mt-6 flex justify-end">
           <Button onClick={handleClose}>Fermer</Button>
         </div>
-      </Dialog>
+      </WariXDialog>
     );
   }
 
   return (
-    <Dialog open={open} onClose={handleClose} title="Tout fermer ?" size="sm">
+    <WariXDialog open={open} onClose={handleClose} title="Tout fermer ?" size="sm" tone="danger">
       <div className="flex flex-col gap-4">
         <Text variant="body-sm" color="secondary">
           Cette action fermera {positionCount} position{positionCount > 1 ? 's' : ''} ouverte
@@ -145,6 +151,6 @@ export function CloseAllDialog({
           Confirmer
         </Button>
       </div>
-    </Dialog>
+    </WariXDialog>
   );
 }

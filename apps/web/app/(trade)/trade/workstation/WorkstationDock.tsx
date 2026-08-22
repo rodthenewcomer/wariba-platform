@@ -166,13 +166,13 @@ export const WorkstationDock = memo(function WorkstationDock({
                 {label('Positions', openPositions)}
               </Tab>
               <Tab variant="workstation" value="orders">
-                {label('Orders', pendingOrders)}
+                {label('Ordres', pendingOrders)}
               </Tab>
               <Tab variant="workstation" value="trades">
-                Trades
+                Exécutions
               </Tab>
               <Tab variant="workstation" value="alerts">
-                {label('Alerts', activeAlerts)}
+                {label('Alertes', activeAlerts)}
               </Tab>
               {/*
                * Final closure §16 — the fifth destination overflows, it does not
@@ -191,7 +191,7 @@ export const WorkstationDock = memo(function WorkstationDock({
                */}
               {!compact || overflowOpen || tab === 'account' ? (
                 <Tab variant="workstation" value="account">
-                  Account
+                  Compte
                 </Tab>
               ) : null}
             </TabList>

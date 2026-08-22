@@ -1,22 +1,15 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { WariXSearchIcon } from '@wariba/ui';
+import { InstrumentAvatar, WariXSearchIcon } from '@wariba/ui';
 import type { SymbolSpec, TradableSymbol } from '@wariba/contracts';
 import { ChartModal } from './ChartModal';
 import {
   groupAvailableSymbols,
+  INSTRUMENT_NAME,
   matchesMarketQuery,
   type MarketCategoryId,
 } from './market-categories';
-
-const INSTRUMENT_NAME: Record<TradableSymbol, string> = {
-  EURUSD: 'Euro / Dollar US',
-  GBPUSD: 'Livre sterling / Dollar US',
-  USDJPY: 'Dollar US / Yen japonais',
-  XAUUSD: 'Or / Dollar US',
-  NAS100: 'Nasdaq 100',
-};
 
 type SearchCategory = 'all' | MarketCategoryId;
 
@@ -56,12 +49,7 @@ export function SymbolSearchModal({
     () =>
       groups.flatMap((group) =>
         (category === 'all' || group.id === category
-          ? group.symbols.filter((symbol) => {
-              if (matchesMarketQuery(symbol, query)) return true;
-              return INSTRUMENT_NAME[symbol]
-                .toLocaleUpperCase('fr-FR')
-                .includes(query.trim().toLocaleUpperCase('fr-FR'));
-            })
+          ? group.symbols.filter((symbol) => matchesMarketQuery(symbol, query))
           : []
         ).map((symbol) => ({ symbol, group })),
       ),
@@ -149,16 +137,31 @@ export function SymbolSearchModal({
                       }}
                       aria-current={selected ? 'true' : undefined}
                       data-testid={`symbol-search-result-${symbol}`}
-                      className={`grid h-14 w-full grid-cols-[9rem_minmax(0,1fr)_6rem] items-center gap-3 rounded-[var(--wariba-component-workstation-radius-control)] px-3 text-left transition-[background-color,box-shadow] duration-[var(--wariba-component-workstation-motion-quick)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] ${
+                      /* VX1-E §W — a result is a mini-card carrying the same
+                         identity Markets uses, so an instrument looks like
+                         itself wherever a trader meets it. */
+                      className={`grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-[var(--warix-radius-card)] border px-3 py-2 text-left transition-[background-color,box-shadow,border-color] duration-[var(--wariba-component-workstation-motion-quick)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] sm:h-14 sm:grid-cols-[11rem_minmax(0,1fr)_6rem] sm:gap-3 sm:py-0 ${
                         selected
-                          ? 'bg-[color:var(--wariba-component-workstation-wash-selected)]'
-                          : 'hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)]'
+                          ? 'border-[color:var(--warix-border-strong)] bg-[color:var(--warix-surface-selected)] shadow-[inset_0_1px_0_0_var(--warix-highlight-inner-strong)]'
+                          : 'border-transparent hover:border-[color:var(--warix-border-subtle)] hover:bg-[color:var(--warix-surface-hover)]'
                       }`}
                     >
-                      <span className="font-bold tracking-[-0.01em] text-[color:var(--wariba-component-workstation-text-primary)]">
-                        {symbol}
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        <InstrumentAvatar
+                          symbol={symbol}
+                          assetClass={symbolSpecs[symbol]?.assetClass}
+                          size="md"
+                        />
+                        <span className="flex min-w-0 flex-col">
+                          <span className="truncate font-bold tracking-[-0.01em] text-[color:var(--wariba-component-workstation-text-primary)]">
+                            {symbol}
+                          </span>
+                          <span className="truncate text-[length:var(--wariba-component-workstation-type-meta)] text-[color:var(--wariba-component-workstation-text-tertiary)] sm:hidden">
+                            {INSTRUMENT_NAME[symbol]}
+                          </span>
+                        </span>
                       </span>
-                      <span className="truncate text-[length:var(--wariba-component-workstation-type-label)] text-[color:var(--wariba-component-workstation-text-secondary)]">
+                      <span className="hidden truncate text-[length:var(--wariba-component-workstation-type-label)] text-[color:var(--wariba-component-workstation-text-secondary)] sm:block">
                         {INSTRUMENT_NAME[symbol]}
                       </span>
                       <span className="text-right text-[length:var(--wariba-component-workstation-type-meta)] font-semibold uppercase tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]">

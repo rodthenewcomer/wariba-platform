@@ -46,8 +46,25 @@ import { cursorModeLabel, type ChartCursorMode, type ChartTool } from './chart-t
  * faking the behaviour is not.
  */
 
-const RAIL_BUTTON = 32;
+/**
+ * VX1-E — the interactive zone for a drawing tool.
+ *
+ * A 42px target inside the 56px rail leaves a calm seven-pixel gutter while
+ * giving the 28px glyph enough optical mass at a 1366px laptop viewport.
+ */
+const RAIL_BUTTON = 42;
 const HOVER_OPEN_DELAY_MS = 260;
+const MIN_FLYOUT_VISIBLE_HEIGHT = 320;
+
+function flyoutTopFor(node: HTMLButtonElement, rail: HTMLDivElement | null): number {
+  if (!rail) return node.offsetTop;
+  const railBounds = rail.getBoundingClientRect();
+  const localTop = node.getBoundingClientRect().top - railBounds.top;
+  return Math.max(
+    4,
+    Math.min(localTop, Math.max(4, railBounds.height - MIN_FLYOUT_VISIBLE_HEIGHT)),
+  );
+}
 
 export interface DrawingToolRailProps {
   tool: ChartTool;
@@ -127,7 +144,7 @@ function RailButton({
        * pixel. Disabled stays legible — an unavailable tool a trader cannot read
        * is a tool they will keep clicking.
        */
-      className={`group/rail relative flex shrink-0 items-center justify-center rounded-[var(--wariba-component-workstation-radius-micro)] transition-[background-color,color,box-shadow] duration-[var(--wariba-component-workstation-motion-quick)] ease-[var(--wariba-component-workstation-ease-move)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] disabled:cursor-not-allowed disabled:opacity-35 motion-reduce:transition-none ${
+      className={`group/rail relative flex shrink-0 items-center justify-center rounded-[var(--wariba-component-workstation-radius-micro)] transition-[background-color,color,box-shadow,transform] duration-[var(--wariba-component-workstation-motion-quick)] ease-[var(--wariba-component-workstation-ease-move)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-35 motion-reduce:transform-none motion-reduce:transition-none ${
         active || expanded
           ? activeTone === 'identity'
             ? 'bg-[color:var(--wariba-component-workstation-identity-mark)] text-[color:var(--wariba-chart-background)] shadow-[0_0_10px_-2px_var(--wariba-component-workstation-wash-identity)]'
@@ -214,6 +231,7 @@ export const DrawingToolRail = memo(function DrawingToolRail({
   onRemoveAllDrawings,
   onOpenObjectTree,
 }: DrawingToolRailProps) {
+  const railRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [openTop, setOpenTop] = useState(6);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -239,7 +257,7 @@ export const DrawingToolRail = memo(function DrawingToolRail({
     (id: string, node: HTMLButtonElement) => {
       cancelHover();
       hoverTimer.current = setTimeout(() => {
-        setOpenTop(node.offsetTop);
+        setOpenTop(flyoutTopFor(node, railRef.current));
         setOpen(id);
       }, HOVER_OPEN_DELAY_MS);
     },
@@ -273,7 +291,7 @@ export const DrawingToolRail = memo(function DrawingToolRail({
 
   const toggleFlyout = (id: string, node: HTMLButtonElement) => {
     cancelHover();
-    setOpenTop(node.offsetTop);
+    setOpenTop(flyoutTopFor(node, railRef.current));
     setOpen((current) => (current === id ? null : id));
   };
 
@@ -299,6 +317,7 @@ export const DrawingToolRail = memo(function DrawingToolRail({
   const openFamily = CHART_TOOL_FAMILIES.find((family) => family.id === open) ?? null;
   return (
     <div
+      ref={railRef}
       data-tool-rail
       role="toolbar"
       aria-orientation="vertical"
@@ -306,103 +325,107 @@ export const DrawingToolRail = memo(function DrawingToolRail({
       data-testid="chart-tools-trigger"
       /* §32 — the rail meets the plot on a hairline seam, and carries the shell's
          own rim light on its inner edge so the boundary reads as machined. */
-      className="relative flex h-full w-[var(--wariba-component-workstation-drawing-rail-width)] shrink-0 flex-col items-center justify-between overflow-visible border-r border-[color:var(--wariba-component-workstation-seam-hairline)] bg-[color:var(--wariba-component-workstation-surface-shell)] py-2 shadow-[inset_-1px_0_0_0_var(--wariba-component-workstation-rim-light)]"
+      className="relative flex h-full w-[var(--wariba-component-workstation-drawing-rail-width)] shrink-0 overflow-visible border-r border-[color:var(--wariba-component-workstation-seam-hairline)] bg-[color:var(--wariba-component-workstation-surface-shell)] shadow-[inset_-1px_0_0_0_var(--wariba-component-workstation-rim-light)]"
       onPointerLeave={cancelHover}
     >
-      <RailButton
-        label={cursorModeLabel(cursorMode)}
-        icon={activeCursor?.icon}
-        active={tool === 'select'}
-        expandable
-        expanded={open === 'cursor'}
-        testId="chart-tool-select"
-        onClick={(event) => {
-          cancelHover();
-          if (tool !== 'select') {
-            chooseCursor(cursorMode);
-            return;
+      <div className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto overflow-x-hidden overscroll-contain py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <RailButton
+          label={cursorModeLabel(cursorMode)}
+          icon={activeCursor?.icon}
+          active={tool === 'select'}
+          expandable
+          expanded={open === 'cursor'}
+          testId="chart-tool-select"
+          onClick={(event) => {
+            cancelHover();
+            if (tool !== 'select') {
+              chooseCursor(cursorMode);
+              return;
+            }
+            toggleFlyout('cursor', event.currentTarget);
+          }}
+          onHoverOpen={(node) => scheduleOpen('cursor', node)}
+          onHoverCancel={cancelHover}
+        />
+        {analysisFamilies.map(renderFamily)}
+        <Seam />
+        {measureFamily ? renderFamily(measureFamily) : null}
+        <RailButton
+          label="Zoom avant"
+          icon={<WariXZoomIcon />}
+          testId="chart-zoom-in"
+          onClick={onZoomIn}
+        />
+        <Seam />
+        <RailButton
+          label={magnet ? 'Aimant activé' : 'Aimant'}
+          icon={<WariXMagnetIcon />}
+          active={magnet}
+          testId="chart-magnet-toggle"
+          onClick={onToggleMagnet}
+        />
+        <RailButton
+          label={keepDrawingMode ? 'Mode dessin continu activé' : 'Garder le dernier outil'}
+          icon={<WariXDrawingLockIcon />}
+          active={keepDrawingMode}
+          testId="chart-keep-drawing-toggle"
+          onClick={onToggleKeepDrawingMode}
+        />
+        <RailButton
+          label={drawingsLocked ? 'Déverrouiller les dessins' : 'Verrouiller les dessins'}
+          icon={drawingsLocked ? <WariXLockClosedIcon /> : <WariXLockOpenIcon />}
+          active={drawingsLocked}
+          testId="chart-drawings-lock-toggle"
+          onClick={onToggleDrawingsLocked}
+        />
+        <RailButton
+          label="Visibilité"
+          icon={drawingsHidden || indicatorsHidden ? <WariXEyeOffIcon /> : <WariXEyeIcon />}
+          active={drawingsHidden || indicatorsHidden}
+          expandable
+          expanded={open === 'visibility'}
+          testId="chart-visibility-trigger"
+          onClick={(event) => toggleFlyout('visibility', event.currentTarget)}
+          onHoverOpen={(node) => scheduleOpen('visibility', node)}
+          onHoverCancel={cancelHover}
+        />
+        <RailButton
+          label={chartLinkCopied ? 'Lien du graphique copié' : 'Copier le lien du graphique'}
+          icon={<WariXChartLinkIcon />}
+          active
+          activeTone="identity"
+          testId="chart-copy-link"
+          onClick={onCopyChartLink}
+        />
+        <Seam />
+        <RailButton
+          label={
+            drawingCount === 0
+              ? 'Aucun dessin à supprimer'
+              : `Supprimer les ${drawingCount} dessins`
           }
-          toggleFlyout('cursor', event.currentTarget);
-        }}
-        onHoverOpen={(node) => scheduleOpen('cursor', node)}
-        onHoverCancel={cancelHover}
-      />
-      {analysisFamilies.map(renderFamily)}
-      <Seam />
-      {measureFamily ? renderFamily(measureFamily) : null}
-      <RailButton
-        label="Zoom avant"
-        icon={<WariXZoomIcon />}
-        testId="chart-zoom-in"
-        onClick={onZoomIn}
-      />
-      <Seam />
-      <RailButton
-        label={magnet ? 'Aimant activé' : 'Aimant'}
-        icon={<WariXMagnetIcon />}
-        active={magnet}
-        testId="chart-magnet-toggle"
-        onClick={onToggleMagnet}
-      />
-      <RailButton
-        label={keepDrawingMode ? 'Mode dessin continu activé' : 'Garder le dernier outil'}
-        icon={<WariXDrawingLockIcon />}
-        active={keepDrawingMode}
-        testId="chart-keep-drawing-toggle"
-        onClick={onToggleKeepDrawingMode}
-      />
-      <RailButton
-        label={drawingsLocked ? 'Déverrouiller les dessins' : 'Verrouiller les dessins'}
-        icon={drawingsLocked ? <WariXLockClosedIcon /> : <WariXLockOpenIcon />}
-        active={drawingsLocked}
-        testId="chart-drawings-lock-toggle"
-        onClick={onToggleDrawingsLocked}
-      />
-      <RailButton
-        label="Visibilité"
-        icon={drawingsHidden || indicatorsHidden ? <WariXEyeOffIcon /> : <WariXEyeIcon />}
-        active={drawingsHidden || indicatorsHidden}
-        expandable
-        expanded={open === 'visibility'}
-        testId="chart-visibility-trigger"
-        onClick={(event) => toggleFlyout('visibility', event.currentTarget)}
-        onHoverOpen={(node) => scheduleOpen('visibility', node)}
-        onHoverCancel={cancelHover}
-      />
-      <RailButton
-        label={chartLinkCopied ? 'Lien du graphique copié' : 'Copier le lien du graphique'}
-        icon={<WariXChartLinkIcon />}
-        active
-        activeTone="identity"
-        testId="chart-copy-link"
-        onClick={onCopyChartLink}
-      />
-      <Seam />
-      <RailButton
-        label={
-          drawingCount === 0 ? 'Aucun dessin à supprimer' : `Supprimer les ${drawingCount} dessins`
-        }
-        icon={<WariXTrashIcon />}
-        disabled={drawingCount === 0}
-        testId="chart-remove-drawings"
-        onClick={onRemoveAllDrawings}
-      />
-      <RailButton
-        label="Favoris"
-        icon={<WariXStarIcon />}
-        expandable
-        expanded={open === 'favorites'}
-        testId="chart-favorites-trigger"
-        onClick={(event) => toggleFlyout('favorites', event.currentTarget)}
-        onHoverOpen={(node) => scheduleOpen('favorites', node)}
-        onHoverCancel={cancelHover}
-      />
-      <RailButton
-        label="Arborescence des objets"
-        icon={<WariXLayersIcon />}
-        testId="chart-object-tree-trigger"
-        onClick={onOpenObjectTree}
-      />
+          icon={<WariXTrashIcon />}
+          disabled={drawingCount === 0}
+          testId="chart-remove-drawings"
+          onClick={onRemoveAllDrawings}
+        />
+        <RailButton
+          label="Favoris"
+          icon={<WariXStarIcon />}
+          expandable
+          expanded={open === 'favorites'}
+          testId="chart-favorites-trigger"
+          onClick={(event) => toggleFlyout('favorites', event.currentTarget)}
+          onHoverOpen={(node) => scheduleOpen('favorites', node)}
+          onHoverCancel={cancelHover}
+        />
+        <RailButton
+          label="Arborescence des objets"
+          icon={<WariXLayersIcon />}
+          testId="chart-object-tree-trigger"
+          onClick={onOpenObjectTree}
+        />
+      </div>
 
       {openFamily && (
         <ToolFlyout

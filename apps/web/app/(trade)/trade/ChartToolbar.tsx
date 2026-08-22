@@ -291,6 +291,8 @@ function Seam() {
 export interface ChartToolbarProps {
   symbol: string;
   marketStatus: 'open' | 'closed' | 'stale' | null;
+  /** Presentation resolver label; keeps weekend closure distinct from stale feed truth. */
+  marketStatusLabel?: string;
   onOpenMarkets(): void;
   timeframe: CandleTimeframe;
   onSelectTimeframe(timeframe: CandleTimeframe): void;
@@ -341,7 +343,7 @@ export type ChartStyle = 'candles' | 'bars' | 'line' | 'area';
 const MARKET_STATUS_NAME: Record<'open' | 'closed' | 'stale', string> = {
   open: 'Marché ouvert',
   closed: 'Marché fermé',
-  stale: 'Prix retardé',
+  stale: 'Cours non actualisé',
 };
 
 interface ChartStyleEntry {
@@ -367,6 +369,7 @@ const CHART_STYLES: readonly ChartStyleEntry[] = [
 export const ChartToolbar = memo(function ChartToolbar({
   symbol,
   marketStatus,
+  marketStatusLabel,
   onOpenMarkets,
   timeframe,
   onSelectTimeframe,
@@ -435,7 +438,9 @@ export const ChartToolbar = memo(function ChartToolbar({
         <button
           type="button"
           aria-label={`Rechercher un instrument. Instrument actif : ${symbol}${
-            marketStatus === null ? '' : `. ${MARKET_STATUS_NAME[marketStatus]}`
+            marketStatus === null
+              ? ''
+              : `. ${marketStatusLabel ?? MARKET_STATUS_NAME[marketStatus]}`
           }`}
           data-testid="chart-symbol-search-trigger"
           onClick={onOpenMarkets}

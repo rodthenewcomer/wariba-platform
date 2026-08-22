@@ -93,7 +93,7 @@ export const OrdersPanel = memo(function OrdersPanel({
             {pendingOrders.length === 0 ? (
               <DockEmptyState
                 title="Aucun ordre en attente"
-                hint="Les ordres Limit et Stop en attente apparaîtront ici."
+                hint="Les ordres limite et stop en attente apparaîtront ici."
               />
             ) : (
               pendingOrders.map((order) => (
@@ -146,7 +146,7 @@ export const OrdersPanel = memo(function OrdersPanel({
                     <DataTableCell colSpan={5} className="p-0">
                       <DockEmptyState
                         title="Aucun ordre en attente"
-                        hint="Les ordres Limit et Stop en attente apparaîtront ici."
+                        hint="Les ordres limite et stop en attente apparaîtront ici."
                       />
                     </DataTableCell>
                   </DataTableRow>

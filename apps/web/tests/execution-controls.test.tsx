@@ -147,12 +147,12 @@ describe('OrderTypeSelector', () => {
     return <OrderTypeSelector value={kind} onChange={setKind} />;
   }
 
-  it('offers exactly Market, Limit and Stop — no Stop Limit, no OCO, no trailing entry', () => {
+  it('offers exactly Au marché, Limite and Stop — no Stop Limit, no OCO, no trailing entry', () => {
     render(<TypeHost />);
     const options = within(screen.getByRole('radiogroup', { name: 'Type d’ordre' })).getAllByRole(
       'radio',
     );
-    expect(options.map((option) => option.textContent)).toEqual(['Market', 'Limit', 'Stop']);
+    expect(options.map((option) => option.textContent)).toEqual(['Au marché', 'Limite', 'Stop']);
   });
 
   it('is one tab stop whose options move with the arrow keys', async () => {
@@ -160,12 +160,12 @@ describe('OrderTypeSelector', () => {
     render(<TypeHost />);
 
     await user.tab();
-    expect(screen.getByRole('radio', { name: 'Market' })).toHaveFocus();
+    expect(screen.getByRole('radio', { name: 'Au marché' })).toHaveFocus();
 
     await user.keyboard('{ArrowRight}');
-    expect(screen.getByRole('radio', { name: 'Limit' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Limite' })).toBeChecked();
     await user.keyboard('{ArrowLeft}');
-    expect(screen.getByRole('radio', { name: 'Market' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Au marché' })).toBeChecked();
     // Wraps rather than dead-ending at the edge.
     await user.keyboard('{ArrowLeft}');
     expect(screen.getByRole('radio', { name: 'Stop' })).toBeChecked();
@@ -182,13 +182,13 @@ describe('TriggerPriceControl', () => {
 
   it('states the creation-side rule for the selected kind', () => {
     const { rerender } = render(<TriggerPriceControl {...baseProps} value="" />);
-    expect(screen.getByTestId('trigger-price-hint')).toHaveTextContent(/Buy Limit sous l’Ask/);
+    expect(screen.getByTestId('trigger-price-hint')).toHaveTextContent(/Achat limite sous l’Ask/);
 
     rerender(<TriggerPriceControl {...baseProps} orderKind="stop" value="" />);
     const hint = screen.getByTestId('trigger-price-hint');
     // A stop is not a guaranteed price, and the copy has to say so — briefly
     // on screen, in full in the accessible title (visual closure §11).
-    expect(hint).toHaveTextContent(/pas de garantie de prix/);
+    expect(hint).toHaveTextContent(/prix non garanti/);
     expect(hint.getAttribute('title')).toMatch(
       /écart de marché peut exécuter l’ordre au-delà du seuil/,
     );
@@ -214,15 +214,15 @@ describe('ExecutionActions', () => {
     onSubmit: () => {},
   };
 
-  it('renders Sell before Buy, each showing the price it references', () => {
+  it('renders Vente before Achat, each showing the price it references', () => {
     render(<ExecutionActions {...baseProps} />);
     const buttons = within(screen.getByTestId('execution-actions')).getAllByRole('button');
 
     expect(buttons[0]).toHaveAttribute('data-testid', 'execution-submit-sell');
     expect(buttons[1]).toHaveAttribute('data-testid', 'execution-submit-buy');
-    expect(buttons[0]).toHaveTextContent('Sell');
+    expect(buttons[0]).toHaveTextContent('Vente');
     expect(buttons[0]).toHaveTextContent(TICK.bid);
-    expect(buttons[1]).toHaveTextContent('Buy');
+    expect(buttons[1]).toHaveTextContent('Achat');
     expect(buttons[1]).toHaveTextContent(TICK.ask);
   });
 
@@ -231,11 +231,11 @@ describe('ExecutionActions', () => {
 
     // The accessible *name* is the verb alone — what voice control acts on,
     // and what every exact-name selector in the E2E suite depends on.
-    expect(screen.getByRole('button', { name: 'Buy' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Achat' })).toHaveAttribute(
       'data-testid',
       'execution-submit-buy',
     );
-    expect(screen.getByRole('button', { name: 'Sell' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Vente' })).toHaveAttribute(
       'data-testid',
       'execution-submit-sell',
     );
@@ -252,8 +252,8 @@ describe('ExecutionActions', () => {
 
   it('qualifies the verb for a pending order', () => {
     render(<ExecutionActions {...baseProps} orderKind="stop" />);
-    expect(screen.getByTestId('execution-submit-buy')).toHaveTextContent('Buy Stop');
-    expect(screen.getByTestId('execution-submit-sell')).toHaveTextContent('Sell Stop');
+    expect(screen.getByTestId('execution-submit-buy')).toHaveTextContent('Achat Stop');
+    expect(screen.getByTestId('execution-submit-sell')).toHaveTextContent('Vente Stop');
   });
 
   it('submits the side that was pressed', async () => {
@@ -278,7 +278,7 @@ describe('ExecutionActions', () => {
     await user.click(screen.getByTestId('execution-submit-buy'));
     expect(onSubmit).not.toHaveBeenCalled();
     // The verb stays legible while the command settles.
-    expect(screen.getByTestId('execution-submit-buy')).toHaveTextContent('Buy');
+    expect(screen.getByTestId('execution-submit-buy')).toHaveTextContent('Achat');
   });
 
   it('de-emphasises and labels the side the current quote cannot create', async () => {

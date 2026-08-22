@@ -75,7 +75,7 @@ describe('Guardian', () => {
         isPriceStale={false}
       />,
     );
-    expect(screen.queryByText(/Prix périmé/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Cours non actualisé/)).not.toBeInTheDocument();
 
     rerender(
       <Guardian
@@ -88,7 +88,7 @@ describe('Guardian', () => {
         isPriceStale
       />,
     );
-    expect(screen.getByText(/Prix périmé/)).toBeInTheDocument();
+    expect(screen.getByText(/Cours non actualisé/)).toBeInTheDocument();
   });
 
   it('shows the restriction label only when provided', () => {

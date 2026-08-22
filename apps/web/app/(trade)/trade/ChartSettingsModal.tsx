@@ -226,10 +226,10 @@ export function ChartSettingsModal({
         </>
       }
     >
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
         <nav
           aria-label="Sections des paramètres"
-          className="w-[11.5rem] shrink-0 overflow-y-auto border-r border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-canvas)] py-2"
+          className="flex w-full shrink-0 overflow-x-auto border-b border-[color:var(--wariba-component-workstation-border-hairline)] bg-[color:var(--wariba-component-workstation-surface-canvas)] p-1.5 sm:block sm:w-[11.5rem] sm:overflow-y-auto sm:border-b-0 sm:border-r sm:py-2"
         >
           {SECTIONS.map((entry) => {
             const active = entry.id === section;
@@ -240,7 +240,7 @@ export function ChartSettingsModal({
                 aria-current={active ? 'true' : undefined}
                 onClick={() => setSection(entry.id)}
                 data-testid={`chart-settings-section-${entry.id}`}
-                className={`relative flex w-full items-center gap-2.5 px-3 py-2 text-left text-[length:var(--wariba-component-workstation-type-data)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] ${
+                className={`relative flex min-w-max items-center gap-2 px-2.5 py-2 text-left text-[length:var(--wariba-component-workstation-type-data)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] focus-visible:outline focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] sm:w-full sm:gap-2.5 sm:px-3 ${
                   active
                     ? 'bg-[color:var(--wariba-component-workstation-wash-selected)] text-[color:var(--wariba-component-workstation-interaction-selected-text)]'
                     : 'text-[color:var(--wariba-component-workstation-text-secondary)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)]'
