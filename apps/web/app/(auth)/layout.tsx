@@ -1,19 +1,14 @@
-import Link from 'next/link';
 import type { ReactNode } from 'react';
 
+/**
+ * The auth segment renders full-bleed.
+ *
+ * This layout used to centre a 440px column and stamp a wordmark above it,
+ * which is why every auth page arrived as a card floating on an empty canvas.
+ * The composition now belongs to `AuthShell`, which owns the split, the brand
+ * side and the responsive collapse — so the layout's job is to get out of the
+ * way rather than to impose a frame each page then has to work around.
+ */
 export default function AuthLayout({ children }: { children: ReactNode }) {
-  return (
-    <div
-      data-wariba-section="auth"
-      className="flex min-h-dvh flex-col items-center justify-center gap-8 bg-[color:var(--wariba-background-canvas)] px-4 py-12"
-    >
-      <Link
-        href="/"
-        className="text-[length:var(--wariba-font-size-heading-sm)] font-semibold text-[color:var(--wariba-text-primary)]"
-      >
-        WARIBA
-      </Link>
-      <div className="w-full max-w-[440px]">{children}</div>
-    </div>
-  );
+  return children;
 }

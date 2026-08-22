@@ -1,47 +1,56 @@
 'use client';
 
 import { useActionState } from 'react';
-import { Alert, Button, Card, Input, Text } from '@wariba/ui';
+import { Alert, Button, Input } from '@wariba/ui';
+import { AuthFooterLink, AuthShell } from '../AuthShell';
+import { productCopy } from '../../../lib/product-copy';
 import { requestPasswordResetAction, type PasswordResetActionResult } from '../actions';
 
+const copy = productCopy.auth.forgotPassword;
 const initialState: PasswordResetActionResult = {};
 
 export default function ForgotPasswordPage() {
   const [state, formAction, pending] = useActionState(requestPasswordResetAction, initialState);
 
+  /*
+   * The success screen says the same thing whether or not the address is
+   * registered. Confirming "we found your account" would turn this form into
+   * an account-existence oracle for anyone with a list of e-mails.
+   */
+  if (state.submitted) {
+    return (
+      <AuthShell title={copy.sentTitle} subtitle={copy.sentBody}>
+        <AuthFooterLink href="/login" label={copy.backToLogin} />
+      </AuthShell>
+    );
+  }
+
   return (
-    <main>
-      <Card padding="comfortable" className="flex flex-col gap-6">
-        <div className="flex flex-col gap-1">
-          <Text as="h1" variant="heading-lg">
-            Mot de passe oublié
-          </Text>
-          <Text variant="body-sm" color="secondary">
-            Nous vous enverrons un lien de réinitialisation si cette adresse correspond à un compte.
-          </Text>
-        </div>
+    <AuthShell
+      title={copy.title}
+      subtitle={copy.subtitle}
+      footer={<AuthFooterLink href="/login" label={copy.backToLogin} />}
+    >
+      <form action={formAction} className="flex flex-col gap-5">
+        <Input
+          label={copy.email}
+          type="email"
+          name="email"
+          autoComplete="email"
+          inputMode="email"
+          required
+        />
 
-        <form action={formAction} className="flex flex-col gap-4">
-          <Input label="Adresse email" type="email" name="email" autoComplete="email" required />
-
-          {state.error && (
-            <Alert level="danger" title="Requête impossible">
-              {state.error}
-            </Alert>
-          )}
-
-          <Button type="submit" size="lg" loading={pending} className="w-full">
-            Envoyer le lien
-          </Button>
-        </form>
-
-        {/* Same message whether or not the account exists — no enumeration signal. */}
-        {state.submitted && (
-          <Alert level="information" title="Si un compte existe">
-            Un email de réinitialisation a été envoyé.
+        {state.error ? (
+          <Alert level="danger" title={copy.errorTitle}>
+            {state.error}
           </Alert>
-        )}
-      </Card>
-    </main>
+        ) : null}
+
+        <Button type="submit" size="lg" loading={pending} className="w-full">
+          {pending ? copy.submitting : copy.submit}
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

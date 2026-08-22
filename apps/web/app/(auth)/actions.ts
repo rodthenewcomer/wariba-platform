@@ -7,6 +7,7 @@ import { createUserProfile } from '@wariba/application';
 import { createSupabaseServerClient } from '../../lib/supabase/server';
 import { getDb } from '../../lib/db';
 import { safeInternalPath } from '../../lib/navigation';
+import { productCopy } from '../../lib/product-copy';
 
 const logger = createLogger({ service: 'web', module: 'auth.actions' });
 
@@ -80,7 +81,15 @@ export async function signUpAction(
   }
 
   logger.info('signup.completed', { userId: data.user.id });
-  redirect('/offres');
+  /*
+   * A visitor who chose an offer and was sent here to create an account should
+   * return to that offer, not to the catalogue they already left. `/offres`
+   * stays the fallback for someone who signed up without a purchase intent,
+   * and `safeInternalPath` rejects anything that is not an internal route —
+   * so an attacker-supplied `returnTo` cannot turn signup into an open
+   * redirect.
+   */
+  redirect(safeInternalPath(formData.get('returnTo'), '/offres'));
 }
 
 export async function signInAction(
@@ -92,13 +101,13 @@ export async function signInAction(
     password: formData.get('password'),
   });
   if (!parsed.success) {
-    return { error: 'Adresse email ou mot de passe invalide.' };
+    return { error: productCopy.auth.login.invalidCredentials };
   }
 
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) {
-    return { error: 'Adresse email ou mot de passe incorrect.' };
+    return { error: productCopy.auth.login.invalidCredentials };
   }
 
   redirect(safeInternalPath(formData.get('next')));
@@ -116,7 +125,7 @@ export async function requestPasswordResetAction(
 ): Promise<PasswordResetActionResult> {
   const parsed = passwordResetRequestSchema.safeParse({ email: formData.get('email') });
   if (!parsed.success) {
-    return { error: 'Adresse email invalide.' };
+    return { error: 'Adresse e-mail invalide.' };
   }
 
   const supabase = await createSupabaseServerClient();
