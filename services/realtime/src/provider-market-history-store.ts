@@ -4,6 +4,7 @@ import {
   type MarketHistoryQuery,
   type MarketHistoryWindow,
   type MarketTick,
+  classifyGaps,
   type RealtimeContinuation,
   type TradableSymbol,
 } from '@wariba/contracts';
@@ -18,7 +19,6 @@ import type { MarketDataSourceIdentity } from '@wariba/adapters';
 import Decimal from 'decimal.js';
 import type { DurableMarketHistoryStore } from './durable-market-history-store';
 import type { MarketHistoryBackfillEngine } from './market-history-backfill';
-import { classifyGaps } from './market-history-gaps';
 import { initialDepthFor, PAGINATION_HISTORY_DEPTH_BARS } from './market-history-depth';
 
 /**

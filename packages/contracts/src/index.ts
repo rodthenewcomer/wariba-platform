@@ -70,6 +70,8 @@ export {
   marketHistoryCapabilitiesSchema,
   marketHistoryQualitySchema,
   realtimeContinuationSchema,
+  // WX3 gap classification — shared so the server and the chart agree on what
+  // counts as missing data.
   type RealtimeContinuation,
   marketHistoryRequestSchema,
   marketHistoryRequestFrameSchema,
@@ -207,3 +209,13 @@ export {
   type RequestPayoutMessage,
   type PayoutResultMessage,
 } from './performance';
+export {
+  GAP_KINDS,
+  classifyGaps,
+  isWithinWeekendClosure,
+  reconnectRepairRange,
+  type ClassifyGapsOptions,
+  type DetectedGap,
+  type GapClassificationSummary,
+  type GapKind,
+} from './market-history-gaps';

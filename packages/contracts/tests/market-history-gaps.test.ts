@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { MarketCandle } from '@wariba/contracts';
+import type { MarketCandle } from '../src/market-candles';
 import {
   classifyGaps,
   isWithinWeekendClosure,
@@ -107,5 +107,44 @@ describe('reconnectRepairRange', () => {
   it('returns null when the cache is already current', () => {
     expect(reconnectRepairRange(FRIDAY, FRIDAY + 10, '1h')).toBeNull();
     expect(reconnectRepairRange(null, FRIDAY, '1h')).toBeNull();
+  });
+});
+
+describe('daily gap classification', () => {
+  /**
+   * The regression this exists for: an hourly probe over a Friday→Monday hole
+   * sees the Sunday 22:00 reopen and calls the whole weekend missing data. On a
+   * real EURUSD daily archive that mislabelled 349 weekends as gaps.
+   */
+  it('does not report a Friday-to-Monday weekend as missing daily data', () => {
+    const friday = Date.UTC(2026, 7, 21) / 1000;
+    const monday = Date.UTC(2026, 7, 24) / 1000;
+    const summary = classifyGaps([candle(friday), candle(monday)], {
+      timeframe: '1D',
+      providerCanRepair: true,
+    });
+    expect(summary.expectedSession).toBe(1);
+    expect(summary.unexpected).toBe(0);
+  });
+
+  it('does not report a Saturday-to-Monday hole as missing daily data', () => {
+    const saturday = Date.UTC(2026, 7, 22) / 1000;
+    const monday = Date.UTC(2026, 7, 24) / 1000;
+    const summary = classifyGaps([candle(saturday), candle(monday)], {
+      timeframe: '1D',
+      providerCanRepair: true,
+    });
+    expect(summary.expectedSession).toBe(1);
+  });
+
+  it('still reports a missing midweek day as a genuine gap', () => {
+    const tuesday = Date.UTC(2026, 7, 18) / 1000;
+    const thursday = Date.UTC(2026, 7, 20) / 1000;
+    const summary = classifyGaps([candle(tuesday), candle(thursday)], {
+      timeframe: '1D',
+      providerCanRepair: true,
+    });
+    expect(summary.expectedSession).toBe(0);
+    expect(summary.recoverable).toBe(1);
   });
 });

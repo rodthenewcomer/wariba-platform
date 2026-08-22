@@ -1,0 +1,50 @@
+{
+  "viewport": "1440x900",
+  "timeframes": [
+    {
+      "timeframe": "1m",
+      "candles": 800,
+      "sourceEpoch": "twelve-data:production:history-v1-map-e6d7f50d",
+      "hasMoreOlder": "true",
+      "oldestBar": "1787309700",
+      "newestBar": "1787357640",
+      "realtimeContinuation": "refused_price_divergence"
+    },
+    {
+      "timeframe": "5m",
+      "candles": 400,
+      "sourceEpoch": "twelve-data:production:history-v1-map-e6d7f50d",
+      "hasMoreOlder": "true",
+      "oldestBar": "1787237700",
+      "newestBar": "1787357400",
+      "realtimeContinuation": "refused_price_divergence"
+    },
+    {
+      "timeframe": "1D",
+      "candles": 400,
+      "sourceEpoch": "twelve-data:production:history-v1-map-e6d7f50d",
+      "hasMoreOlder": "true",
+      "oldestBar": "1750204800",
+      "newestBar": "1787356800",
+      "realtimeContinuation": "refused_price_divergence"
+    },
+    {
+      "timeframe": "1W",
+      "candles": 400,
+      "sourceEpoch": "twelve-data:production:history-v1-map-e6d7f50d",
+      "hasMoreOlder": "true",
+      "oldestBar": "1545609600",
+      "newestBar": "1786924800",
+      "realtimeContinuation": "refused_price_divergence"
+    },
+    {
+      "timeframe": "1M",
+      "candles": 400,
+      "sourceEpoch": "twelve-data:production:history-v1-map-e6d7f50d",
+      "hasMoreOlder": "true",
+      "oldestBar": "441763200",
+      "newestBar": "1785542400",
+      "realtimeContinuation": "refused_price_divergence"
+    }
+  ]
+}

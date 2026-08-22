@@ -1,7 +1,14 @@
-import { bucketEndSeconds, type CandleTimeframe, type MarketCandle } from '@wariba/contracts';
+import { bucketEndSeconds, type CandleTimeframe, type MarketCandle } from './market-candles';
 
 /**
  * WX3 §25/§26 — what a missing bucket actually means.
+ *
+ * Lives in `contracts` because both the realtime service and the browser have
+ * to answer this question about the same series, and two implementations of
+ * "is this hole a weekend" is how a server that reports a clean chart and a
+ * client that reports 191 gaps end up describing the same data differently.
+ * That is the same reasoning that put the bucket function and the aggregator
+ * here (see `market-candles.ts`).
  *
  * WX2 counted gaps and showed them honestly, which was right and also blunt: a
  * weekend is not a data problem, and reporting it as one trains a trader to
@@ -83,11 +90,33 @@ function spansOnlyClosedMarket(from: number, to: number): boolean {
 }
 
 /**
- * Calendar intervals are not classified against the intraday session.
+ * A daily hole is judged in whole days, not in hours.
  *
- * A weekly bar covers the weekend by construction, so asking "was this hole
- * inside a closure" is meaningless for it. A missing week or month is always a
- * data question.
+ * The hourly probe above is right for intraday bars and wrong for `1D`, and the
+ * difference is not academic: a normal Friday→Monday hole spans Saturday
+ * 00:00 to Monday 00:00, which includes the Sunday 22:00 reopen. Sampled
+ * hourly, those two open hours make the entire weekend look like missing data —
+ * measured against a real EURUSD daily archive that mislabelled 349 weekends as
+ * gaps and left 3 genuine ones indistinguishable among them.
+ *
+ * A daily bar covers a whole UTC day, so the honest question is whether every
+ * day the hole spans was a weekend day.
+ */
+function spansOnlyWeekendDays(from: number, to: number): boolean {
+  if (to <= from) return false;
+  for (let instant = from; instant < to; instant += DAY_SECONDS) {
+    const day = new Date(instant * 1000).getUTCDay();
+    if (day !== 0 && day !== 6) return false;
+  }
+  return true;
+}
+
+/**
+ * Calendar intervals are not classified against the session at all.
+ *
+ * A weekly or monthly bar covers weekends by construction, so asking "was this
+ * hole inside a closure" is meaningless for them. A missing week or month is
+ * always a data question.
  */
 function isCalendarInterval(timeframe: CandleTimeframe): boolean {
   return timeframe === '1W' || timeframe === '1M';
@@ -134,7 +163,9 @@ export function classifyGaps(
 }
 
 function classifyOne(from: number, to: number, options: ClassifyGapsOptions): GapKind {
-  if (!isCalendarInterval(options.timeframe) && spansOnlyClosedMarket(from, to)) {
+  if (options.timeframe === '1D') {
+    if (spansOnlyWeekendDays(from, to)) return 'expected_session_gap';
+  } else if (!isCalendarInterval(options.timeframe) && spansOnlyClosedMarket(from, to)) {
     return 'expected_session_gap';
   }
   if (options.providerEarliest !== undefined && to <= options.providerEarliest) {

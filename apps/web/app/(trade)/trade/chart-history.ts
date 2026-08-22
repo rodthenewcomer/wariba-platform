@@ -2,8 +2,8 @@
 
 import {
   DEFAULT_CANDLE_TIMEFRAME,
+  classifyGaps,
   INITIAL_HISTORY_CANDLE_LIMIT,
-  bucketEndSeconds,
   createCandleAggregator,
   mergeFinalizedCandles,
   midPrice,
@@ -313,21 +313,27 @@ export function createChartHistoryController(
     rangeTimer = null;
   }
 
+  /**
+   * WX3 §25/§26 — holes a trader should care about, not every weekend.
+   *
+   * This used to compare bucket ends directly, which counts the FX weekly
+   * closure as missing data: a daily EURUSD series produced "191 lacunes
+   * détectées" on a chart with no missing trading day at all. A status line
+   * that cries wolf every Saturday is worse than none, because it trains the
+   * trader to ignore the one case that matters.
+   *
+   * The classifier is the shared one in `contracts`, so this count and the
+   * server's `quality.gapsDetected` are the same question answered the same
+   * way rather than two implementations drifting apart.
+   */
   function countLoadedGaps(): number {
     if (identity === null) return 0;
-    let count = 0;
-    for (let index = 1; index < finalized.length; index += 1) {
-      const previous = finalized[index - 1];
-      const current = finalized[index];
-      if (
-        previous &&
-        current &&
-        bucketEndSeconds(previous.startTime, identity.timeframe) < current.startTime
-      ) {
-        count += 1;
-      }
-    }
-    return count;
+    return classifyGaps(finalized, {
+      timeframe: identity.timeframe,
+      // The client cannot know whether the server has a historical provider,
+      // and does not need to: it is counting holes, not deciding repairs.
+      providerCanRepair: true,
+    }).unexpected;
   }
 
   /**

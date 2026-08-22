@@ -1,0 +1,29 @@
+{
+  "before": {
+    "timeframe": "1D",
+    "candles": 800,
+    "sourceEpoch": "twelve-data:production:history-v1-map-e6d7f50d",
+    "hasMoreOlder": "true",
+    "oldestBar": "1701388800",
+    "newestBar": "1787356800",
+    "realtimeContinuation": "refused_price_divergence"
+  },
+  "after": {
+    "timeframe": "1D",
+    "candles": 1200,
+    "sourceEpoch": "twelve-data:production:history-v1-map-e6d7f50d",
+    "hasMoreOlder": "true",
+    "oldestBar": "1653004800",
+    "newestBar": "1787356800",
+    "realtimeContinuation": "refused_price_divergence"
+  },
+  "viewportBefore": {
+    "from": 400,
+    "to": 799
+  },
+  "viewportAfter": {
+    "from": 447.63,
+    "to": 846.63
+  },
+  "screen": "1440x900"
+}
