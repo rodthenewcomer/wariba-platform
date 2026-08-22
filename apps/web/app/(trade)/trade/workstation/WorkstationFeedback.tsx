@@ -1,6 +1,7 @@
 'use client';
 
 import { memo, useEffect, useState } from 'react';
+import { WariXToast, type WariXFeedbackTone } from '@wariba/ui';
 import type { OrderRejectionDetail } from '../execution/execution-contract';
 
 /**
@@ -62,50 +63,17 @@ function toneFor(announcement: string, rejection: OrderRejectionDetail | null): 
   return 'info';
 }
 
-const TONE_ACCENT: Record<FeedbackTone, string> = {
-  success: 'var(--wariba-component-workstation-trading-buy)',
-  rejection: 'var(--wariba-component-workstation-trading-sell)',
-  info: 'var(--wariba-component-workstation-market-current)',
-};
-
 const TONE_TITLE: Record<FeedbackTone, string> = {
   success: 'Confirmé',
   rejection: 'Refusé',
   info: 'Information',
 };
 
-function ToneGlyph({ tone }: { tone: FeedbackTone }) {
-  return (
-    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0" aria-hidden="true">
-      {tone === 'success' ? (
-        <path
-          d="M3.5 8.5l3 3 6-6.5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      ) : tone === 'rejection' ? (
-        <path
-          d="M4 4l8 8M12 4l-8 8"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
-      ) : (
-        <path
-          d="M8 7.2v4.4M8 4.6v.9"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-        />
-      )}
-    </svg>
-  );
-}
+const TOAST_TONE: Record<FeedbackTone, WariXFeedbackTone> = {
+  success: 'success',
+  rejection: 'danger',
+  info: 'information',
+};
 
 export const WorkstationFeedback = memo(function WorkstationFeedback({
   announcement,
@@ -127,7 +95,6 @@ export const WorkstationFeedback = memo(function WorkstationFeedback({
   }, [sequence]);
 
   if (!shown) return null;
-  const accent = TONE_ACCENT[shown.tone];
   /*
    * VX1-C.1 §20 — the authoritative refusal is stated once, where it happened.
    *
@@ -150,7 +117,7 @@ export const WorkstationFeedback = memo(function WorkstationFeedback({
       aria-hidden="true"
       data-testid="workstation-feedback"
       data-feedback-tone={shown.tone}
-      className={`pointer-events-none fixed z-[var(--wariba-z-toast)] flex items-start gap-2 overflow-hidden rounded-[var(--wariba-component-workstation-radius-panel)] border border-[color:var(--wariba-component-workstation-seam-strong)] bg-[color:var(--wariba-component-workstation-surface-popover)]/96 px-3 py-2 shadow-[var(--wariba-component-workstation-elevation-popover),inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong)] motion-safe:animate-[wariba-feedback-enter_var(--wariba-component-workstation-motion-standard)_var(--wariba-component-workstation-ease-settle)] ${
+      className={`pointer-events-none fixed z-[var(--wariba-z-toast)] motion-safe:animate-[wariba-feedback-enter_var(--wariba-component-workstation-motion-standard)_var(--wariba-component-workstation-ease-settle)] ${
         /* §8 — clear of the decision keys. On desktop it sits above the dock on
            the chart's left, where nothing is ever pressed in a hurry; the Buy
            and Sell keys are the one place a confirmation must never cover. */
@@ -170,29 +137,11 @@ export const WorkstationFeedback = memo(function WorkstationFeedback({
           : 'bottom-24 left-28 max-w-[min(22rem,calc(100vw-2rem))]'
       }`}
     >
-      {/* The semantic edge, and the only colour on the surface besides the glyph:
-          §8/§9 ask for an edge and an icon, not a coloured card. */}
-      <span
-        aria-hidden="true"
-        className="absolute inset-y-0 left-0 w-[3px]"
-        style={{ backgroundColor: accent }}
+      <WariXToast
+        title={deferredToPanel ? 'Ordre refusé' : TONE_TITLE[shown.tone]}
+        description={deferredToPanel ? null : shown.message.replace(/^Refusé\s*:\s*/, '')}
+        tone={TOAST_TONE[shown.tone]}
       />
-      <span className="shrink-0 pt-px" style={{ color: accent }}>
-        <ToneGlyph tone={shown.tone} />
-      </span>
-      <span className="flex min-w-0 flex-col gap-0.5">
-        <span
-          className="text-[length:var(--wariba-component-workstation-type-trade-label)] font-bold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-label)]"
-          style={{ color: accent }}
-        >
-          {deferredToPanel ? 'Ordre refusé' : TONE_TITLE[shown.tone]}
-        </span>
-        {deferredToPanel ? null : (
-          <span className="text-[length:var(--wariba-component-workstation-type-data)] font-semibold leading-snug text-[color:var(--wariba-component-workstation-text-primary)]">
-            {shown.message.replace(/^Refusé\s*:\s*/, '')}
-          </span>
-        )}
-      </span>
     </div>
   );
 });

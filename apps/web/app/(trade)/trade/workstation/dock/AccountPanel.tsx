@@ -81,10 +81,10 @@ export const AccountPanel = memo(function AccountPanel({
           Soldes
         </Text>
         <dl className="flex flex-col divide-y divide-[color:var(--wariba-border-subtle)]">
-          <Figure label="Balance" value={snapshot ? `${snapshot.balance} USD` : '—'} />
-          <Figure label="Equity" value={snapshot ? `${snapshot.equity} USD` : '—'} />
+          <Figure label="Solde" value={snapshot ? `${snapshot.balance} USD` : '—'} />
+          <Figure label="Valeur du compte" value={snapshot ? `${snapshot.equity} USD` : '—'} />
           <Figure
-            label="Balance éligible"
+            label="Solde éligible"
             value={snapshot ? `${snapshot.programEligibleBalance} USD` : '—'}
           />
         </dl>
@@ -162,7 +162,7 @@ export const AccountPanel = memo(function AccountPanel({
             href={`/payouts?account=${accountId}`}
             className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-theme-action)] underline decoration-dotted underline-offset-2"
           >
-            Payouts
+            Retraits
           </Link>
         ) : null}
       </div>

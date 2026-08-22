@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Alert, Button, Dialog, Input, Text } from '@wariba/ui';
+import { Button, Input, Text, WariXDialog, WariXInlineStatus } from '@wariba/ui';
 import type { PendingOrderDTO } from '@wariba/contracts';
 import type { OrderRejectionDetail } from './execution/execution-contract';
 import { useTick, type TickStore } from './tick-store';
@@ -80,11 +80,11 @@ export function ModifyPendingOrderDialog({
 
   if (!order) {
     return (
-      <Dialog open={open} onClose={onClose} title="Modifier l’ordre" size="sm">
+      <WariXDialog open={open} onClose={onClose} title="Modifier l’ordre" size="sm">
         <Text variant="body-sm" color="secondary">
           Cet ordre en attente n’existe plus.
         </Text>
-      </Dialog>
+      </WariXDialog>
     );
   }
 
@@ -116,7 +116,7 @@ export function ModifyPendingOrderDialog({
   };
 
   return (
-    <Dialog
+    <WariXDialog
       open={open}
       onClose={onClose}
       title={`Modifier l’ordre — ${ORDER_TYPE_LABEL[order.orderType]} ${order.symbol}`}
@@ -124,18 +124,24 @@ export function ModifyPendingOrderDialog({
     >
       <div className="flex flex-col gap-4">
         {isPriceStale && (
-          <Alert level="warning" title="Prix périmé">
-            Le prix pour {order.symbol} n’est plus à jour. Les modifications sont bloquées jusqu’à
-            son rafraîchissement.
-          </Alert>
+          <WariXInlineStatus
+            tone="warning"
+            title="Cours non actualisé"
+            description={`Les modifications sont bloquées jusqu’à la reprise du flux de ${order.symbol}.`}
+          />
         )}
 
         {rejection && (
-          <Alert level="danger" title="Modification refusée">
-            <p>{rejection.reason}</p>
-            <p>{rejection.action}</p>
-            <p className="wariba-data">Code : {rejection.code}</p>
-          </Alert>
+          <WariXInlineStatus
+            tone="danger"
+            title="Modification refusée"
+            description={
+              <>
+                <p>{rejection.reason}</p>
+                <p>{rejection.action}</p>
+              </>
+            }
+          />
         )}
 
         <Input
@@ -199,6 +205,6 @@ export function ModifyPendingOrderDialog({
           Ordre GTC — exécution serveur uniquement, jamais garantie au prix exact affiché.
         </Text>
       </div>
-    </Dialog>
+    </WariXDialog>
   );
 }

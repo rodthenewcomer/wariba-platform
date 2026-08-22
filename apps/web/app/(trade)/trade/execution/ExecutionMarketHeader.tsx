@@ -151,7 +151,7 @@ export function ExecutionMarketHeader({ symbol, spec, tick }: ExecutionMarketHea
             relationship between them, not a third quote. */}
         <div className="flex flex-col items-center justify-center gap-0.5">
           <span className="text-[length:var(--wariba-component-workstation-type-meta)] font-semibold uppercase leading-none tracking-[var(--wariba-component-workstation-tracking-section)] text-[color:var(--wariba-component-workstation-text-tertiary)]">
-            Spread
+            Écart
           </span>
           <span className="wariba-data rounded-[5px] bg-[color:var(--wariba-component-workstation-wash-neutral)] px-1 py-0.5 text-[length:var(--wariba-component-workstation-type-meta)] font-medium leading-none tabular-nums text-[color:var(--wariba-component-workstation-text-secondary)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)]">
             {spread ?? DASH}

@@ -128,14 +128,31 @@ describe('MarketNavigator', () => {
   });
 
   it('reports an unavailable quote honestly instead of a remembered one', () => {
-    renderNavigator();
-    // No tick has been pushed into the store. Bid, ask and spread each hold
-    // their own aligned column now (visual closure §8), so an instrument with
-    // no quote shows three dashes rather than one "— / —" run — the point is
-    // unchanged: a placeholder in every price cell, never a remembered figure.
-    const symbolCount = Object.keys(ACCOUNT_SPECS).length;
-    expect(screen.getAllByText('—').length).toBe(symbolCount * 3);
-    expect(screen.getAllByText('Indisponible').length).toBe(symbolCount);
+    /*
+     * Pinned to a Wednesday midday UTC on purpose.
+     *
+     * The market display state consults the real FX calendar, so without a
+     * fixed clock this assertion depends on the day the suite happens to run:
+     * on a weekday an unquoted instrument reads "Cours indisponible", and over
+     * the weekend every row correctly reads "Marché fermé" instead. Both are
+     * truthful; only one is what this test is about.
+     */
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(Date.UTC(2026, 7, 19, 12, 0, 0)));
+    try {
+      renderNavigator();
+      // No tick has been pushed into the store. Bid, ask and spread each hold
+      // their own aligned column now (visual closure §8), so an instrument with
+      // no quote shows three dashes rather than one "— / —" run — the point is
+      // unchanged: a placeholder in every price cell, never a remembered figure.
+      const symbolCount = Object.keys(ACCOUNT_SPECS).length;
+      expect(screen.getAllByText('—').length).toBe(symbolCount * 3);
+      // The row carries the compact label; the full wording lives in the
+      // accessible name and on the plot-level surface.
+      expect(screen.getAllByText('Non disponible').length).toBe(symbolCount);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('filters by search and states plainly when nothing matches', async () => {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, type ReactNode } from 'react';
+import { WariXFavoriteIcon, WariXPopover } from '@wariba/ui';
 
 /**
  * The rail's attached side panel — §10.
@@ -82,9 +83,11 @@ export function ToolFlyout({
        * ~150ms. No scale: a panel that grows out of a 32px key reads as a
        * flourish, and this one has to be usable the instant it lands.
        */
-      className="absolute left-full z-[var(--wariba-z-popover)] ml-px max-h-[min(78vh,640px)] overflow-y-auto overscroll-contain rounded-r-[var(--wariba-component-workstation-radius-panel)] rounded-bl-[var(--wariba-component-workstation-radius-panel)] border border-[color:var(--wariba-component-workstation-seam-strong)] bg-[color:var(--wariba-component-workstation-surface-popover)] py-1.5 shadow-[var(--wariba-component-workstation-elevation-popover),inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong)] motion-safe:animate-[wariba-flyout-enter_var(--wariba-component-workstation-motion-quick)_var(--wariba-component-workstation-ease-enter)]"
+      className="absolute left-full z-[var(--wariba-z-popover)] ml-px"
     >
-      {children}
+      <WariXPopover className="max-h-[min(78vh,640px)] overflow-y-auto overscroll-contain py-1.5 motion-safe:animate-[wariba-flyout-enter_var(--wariba-component-workstation-motion-quick)_var(--wariba-component-workstation-ease-enter)]">
+        {children}
+      </WariXPopover>
     </div>
   );
 }
@@ -185,15 +188,7 @@ export function FlyoutRow({
               : 'text-[color:var(--wariba-component-workstation-text-tertiary)] opacity-0 focus-visible:opacity-100 group-hover/row:opacity-100'
           }`}
         >
-          <svg viewBox="0 0 24 24" width={13} height={13} aria-hidden="true">
-            <path
-              d="M12 3.6l2.6 5.6 6 0.8-4.4 4.3 1.1 6.1L12 17.5l-5.3 2.9 1.1-6.1L3.4 10l6-0.8Z"
-              fill={favorite ? 'currentColor' : 'none'}
-              stroke="currentColor"
-              strokeWidth={1.5}
-              strokeLinejoin="round"
-            />
-          </svg>
+          <WariXFavoriteIcon size="toolbar" filled={favorite === true} />
         </button>
       ) : null}
     </div>

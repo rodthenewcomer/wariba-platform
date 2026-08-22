@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { WariXCloseIcon } from '@wariba/ui';
 
 /**
  * The chart's own modal shell — the Indicators library and the Settings modal.
@@ -105,14 +106,7 @@ export function ChartModal({
             onClick={() => ref.current?.close()}
             className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--wariba-component-workstation-radius-control)] text-[color:var(--wariba-component-workstation-text-secondary)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-seam-hairline)] transition-colors duration-[var(--wariba-component-workstation-motion-quick)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)]"
           >
-            <svg viewBox="0 0 24 24" width={16} height={16} aria-hidden="true" fill="none">
-              <path
-                d="M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4"
-                stroke="currentColor"
-                strokeWidth={1.8}
-                strokeLinecap="round"
-              />
-            </svg>
+            <WariXCloseIcon size="toolbar" />
           </button>
         </header>
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>

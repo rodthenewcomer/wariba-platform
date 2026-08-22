@@ -23,8 +23,13 @@ describe('WariX destination symbols', () => {
     const { container } = render(<WariXDestinationIcon destination="trade" />);
     const symbol = container.querySelector('svg');
 
-    expect(symbol).toHaveAttribute('width', '24');
-    expect(symbol).toHaveAttribute('height', '24');
+    // VX1-F.1 raised the rail glyph to 28. The old number is not a regression
+    // to protect: human review rejected the smaller mark for reading as a grey
+    // speck at laptop distance. What this test
+    // still guards is that the size is *stated* rather than inherited, and that
+    // the mark stays decorative — the accessible name belongs to the button.
+    expect(symbol).toHaveAttribute('width', '28');
+    expect(symbol).toHaveAttribute('height', '28');
     expect(symbol).toHaveAttribute('aria-hidden', 'true');
     expect(symbol).toHaveAttribute('focusable', 'false');
   });
@@ -35,6 +40,6 @@ describe('WariX destination symbols', () => {
     expect(screen.getByTestId('warix-symbol-family-native')).toBeInTheDocument();
     expect(screen.getByTestId('warix-symbol-family-4x')).toBeInTheDocument();
     expect(screen.getByText('États fonctionnels')).toBeInTheDocument();
-    expect(screen.getByText('Rail 48 px')).toBeInTheDocument();
+    expect(screen.getByText('Rail 56 px')).toBeInTheDocument();
   });
 });

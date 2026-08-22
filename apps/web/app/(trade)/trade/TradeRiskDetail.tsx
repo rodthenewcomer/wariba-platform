@@ -63,8 +63,8 @@ export function TradeRiskDetail({
               Progression du programme
             </Text>
             <div className="flex flex-col divide-y divide-[color:var(--wariba-border-subtle)]">
-              {row('Balance éligible', `${risk.programEligibleBalance} USD`)}
-              {row('Equity éligible', `${risk.programEligibleEquity} USD`)}
+              {row('Solde éligible', `${risk.programEligibleBalance} USD`)}
+              {row('Valeur éligible', `${risk.programEligibleEquity} USD`)}
               {row('Progression vers la cible', `${risk.target.current} USD`)}
               {row('Cible requise', `${risk.target.required} USD`)}
               {row(

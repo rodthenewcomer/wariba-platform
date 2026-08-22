@@ -1,18 +1,12 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { WariXInlineStatus } from '@wariba/ui';
 import type { AccountRisk } from '@wariba/contracts';
 import type { OrderRejectionDetail } from './execution-contract';
 import type { ExecutionGate } from './execution-gating';
 
 type NoticeLevel = 'warning' | 'danger';
-
-const NOTICE_STYLE: Record<NoticeLevel, string> = {
-  warning:
-    'border-l-[color:var(--wariba-status-warning-border)] bg-[color:var(--wariba-status-warning-background)] text-[color:var(--wariba-status-warning-text)]',
-  danger:
-    'border-l-[color:var(--wariba-status-danger-border)] bg-[color:var(--wariba-status-danger-background)] text-[color:var(--wariba-status-danger-text)]',
-};
 
 /**
  * W4 §36/§38 — the compact notice the Execution Center uses instead of a
@@ -37,27 +31,13 @@ function ExecutionNotice({
   testId?: string;
 }) {
   return (
-    <div
-      role={level === 'danger' ? 'alert' : 'status'}
-      {...(testId ? { 'data-testid': testId } : {})}
-      className={`flex flex-col gap-0.5 rounded-r-[6px] border-l-[3px] px-2 py-1 ${NOTICE_STYLE[level]}`}
-    >
-      {/*
-       * Visual closure §17 — prominent without being tall. The title stays at
-       * body size and semibold so the state is unmistakable; the explanation
-       * drops to `data-xs` with tight leading, which is what lets a rejection
-       * carry its reason, its suggested action *and* its code in the space the
-       * reason alone used to take. No content is removed.
-       */}
-      <p className="text-[length:var(--wariba-component-workstation-type-data-strong)] font-bold leading-tight">
-        {title}
-      </p>
-      {children ? (
-        <div className="flex flex-col gap-0.5 text-[length:var(--wariba-component-workstation-type-label)] leading-snug">
-          {children}
-        </div>
-      ) : null}
-    </div>
+    <WariXInlineStatus
+      compact
+      title={title}
+      description={children}
+      tone={level}
+      {...(testId ? { testId } : {})}
+    />
   );
 }
 

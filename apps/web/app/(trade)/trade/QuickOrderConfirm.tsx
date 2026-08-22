@@ -1,6 +1,6 @@
 'use client';
 
-import { Alert, Button, Dialog, Text } from '@wariba/ui';
+import { Button, Text, WariXDialog, WariXInlineStatus } from '@wariba/ui';
 import type { MarketTick, SymbolSpec, TradableSymbol } from '@wariba/contracts';
 import { estimateRequiredMargin } from '@wariba/domain';
 
@@ -58,7 +58,7 @@ export function QuickOrderConfirm({
   const isStale = tick?.marketStatus === 'stale';
 
   return (
-    <Dialog
+    <WariXDialog
       open={open}
       onClose={onClose}
       title={`${SIDE_LABEL[side]} au marché — ${symbol}`}
@@ -71,7 +71,7 @@ export function QuickOrderConfirm({
         {executablePrice && (
           <Text variant="body-sm" color="secondary" className="wariba-data">
             Prix exécutable actuel : {executablePrice}
-            {spread && ` · Spread ${spread}`}
+            {spread && ` · Écart ${spread}`}
           </Text>
         )}
         {margin && (
@@ -87,10 +87,11 @@ export function QuickOrderConfirm({
           </Text>
         )}
         {isStale && (
-          <Alert level="warning" title="Prix obsolète">
-            Le prix pour {symbol} n’est plus à jour — l’ordre sera refusé par le serveur s’il n’est
-            pas rafraîchi avant confirmation.
-          </Alert>
+          <WariXInlineStatus
+            tone="warning"
+            title="Cours non actualisé"
+            description={`Attendez la reprise du flux de ${symbol} avant de confirmer l’ordre.`}
+          />
         )}
         <Text variant="body-sm" color="tertiary">
           Exécution serveur uniquement — le prix affiché est indicatif, jamais garanti.
@@ -110,6 +111,6 @@ export function QuickOrderConfirm({
           </Button>
         </div>
       </div>
-    </Dialog>
+    </WariXDialog>
   );
 }

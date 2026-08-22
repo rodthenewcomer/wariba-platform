@@ -147,12 +147,12 @@ describe('OrderTypeSelector', () => {
     return <OrderTypeSelector value={kind} onChange={setKind} />;
   }
 
-  it('offers exactly Market, Limit and Stop — no Stop Limit, no OCO, no trailing entry', () => {
+  it('offers exactly Au marché, Limite and Stop — no Stop Limit, no OCO, no trailing entry', () => {
     render(<TypeHost />);
     const options = within(screen.getByRole('radiogroup', { name: 'Type d’ordre' })).getAllByRole(
       'radio',
     );
-    expect(options.map((option) => option.textContent)).toEqual(['Market', 'Limit', 'Stop']);
+    expect(options.map((option) => option.textContent)).toEqual(['Au marché', 'Limite', 'Stop']);
   });
 
   it('is one tab stop whose options move with the arrow keys', async () => {
@@ -160,12 +160,12 @@ describe('OrderTypeSelector', () => {
     render(<TypeHost />);
 
     await user.tab();
-    expect(screen.getByRole('radio', { name: 'Market' })).toHaveFocus();
+    expect(screen.getByRole('radio', { name: 'Au marché' })).toHaveFocus();
 
     await user.keyboard('{ArrowRight}');
-    expect(screen.getByRole('radio', { name: 'Limit' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Limite' })).toBeChecked();
     await user.keyboard('{ArrowLeft}');
-    expect(screen.getByRole('radio', { name: 'Market' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Au marché' })).toBeChecked();
     // Wraps rather than dead-ending at the edge.
     await user.keyboard('{ArrowLeft}');
     expect(screen.getByRole('radio', { name: 'Stop' })).toBeChecked();
@@ -188,7 +188,7 @@ describe('TriggerPriceControl', () => {
     const hint = screen.getByTestId('trigger-price-hint');
     // A stop is not a guaranteed price, and the copy has to say so — briefly
     // on screen, in full in the accessible title (visual closure §11).
-    expect(hint).toHaveTextContent(/pas de garantie de prix/);
+    expect(hint).toHaveTextContent(/prix non garanti/);
     expect(hint.getAttribute('title')).toMatch(
       /écart de marché peut exécuter l’ordre au-delà du seuil/,
     );

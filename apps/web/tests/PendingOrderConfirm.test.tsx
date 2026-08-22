@@ -86,7 +86,7 @@ describe('PendingOrderConfirm', () => {
 
   it('disables confirmation and warns when the market is stale', () => {
     render(<PendingOrderConfirm {...baseProps} tick={{ ...FRESH_TICK, marketStatus: 'stale' }} />);
-    expect(screen.getByText('Prix obsolète')).toBeInTheDocument();
+    expect(screen.getByText('Cours non actualisé')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Confirmer' })).toBeDisabled();
   });
 

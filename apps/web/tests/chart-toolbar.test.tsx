@@ -310,12 +310,16 @@ describe('indicator library — §13', () => {
 });
 
 describe('drawing tool rail — §9/§10', () => {
-  it('keeps a 44 px rail with accepted 32 px tool targets', () => {
+  it('keeps the rail width tokenised and its tool targets at the VX1-E size', () => {
     renderRail();
     expect(screen.getByTestId('chart-tools-trigger').className).toContain(
       'w-[var(--wariba-component-workstation-drawing-rail-width)]',
     );
-    expect(screen.getByTestId('chart-tool-select')).toHaveStyle({ width: '32px', height: '32px' });
+    // VX1-E raised the tool target from 32 to 40 inside a 54px rail. 32-in-42
+    // was rejected on human review for reading as grey specks at laptop
+    // distance; the invariant worth keeping is that the width comes from the
+    // token rather than from a literal, and that every tool shares one target.
+    expect(screen.getByTestId('chart-tool-select')).toHaveStyle({ width: '42px', height: '42px' });
   });
 
   it('groups the taxonomy into families rather than listing every tool flat', () => {
@@ -534,7 +538,13 @@ describe('status line — §14 / W5 §39/§65/§128/§142', () => {
       <ChartStatusLine
         symbol="EURUSD"
         timeframe="1m"
-        marketStatus="open"
+        marketPresentation={{
+          state: 'LIVE',
+          label: 'Marché ouvert',
+          description: null,
+          tone: 'success',
+          blocksPlot: false,
+        }}
         candle={candle}
         pricePrecision={5}
         change={null}

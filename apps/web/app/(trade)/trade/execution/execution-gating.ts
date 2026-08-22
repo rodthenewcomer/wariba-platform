@@ -128,12 +128,12 @@ function deriveEntryBlockReason(input: ExecutionGateInput): EntryBlockReason | n
 /** Compact market-state chip copy — the state names the contract actually defines (W4 §15). */
 export const MARKET_STATUS_LABEL = {
   open: 'Marché ouvert',
-  stale: 'Prix obsolète',
+  stale: 'Cours non actualisé',
   closed: 'Marché fermé',
 } as const;
 
 export const MARKET_STATUS_SHORT_LABEL = {
   open: 'Ouvert',
-  stale: 'Obsolète',
+  stale: 'Non actualisé',
   closed: 'Fermé',
 } as const;

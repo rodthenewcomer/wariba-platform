@@ -255,7 +255,17 @@ describe('history failure isolation (W3 §55/§56/§72)', () => {
 
     const status = document.querySelector('[data-testid="chart-history-status"]');
     expect(status?.getAttribute('data-history-status')).toBe('error');
-    expect(status?.textContent).toBe('Historique indisponible. Le flux temps réel continue.');
+    /*
+     * VX1-F.1 — when the market state blocks the whole plot, the corner chip
+     * stays silent and the plot-level surface carries the sentence. These
+     * fixtures render with no quote at all, which is exactly that state.
+     *
+     * The machine-readable status above is what this test actually protects:
+     * the chart still *knows* and still reports the history condition. What
+     * changed is that it no longer says it twice, which is the same
+     * one-sentence rule the reconnection veil already followed.
+     */
+    expect(status?.textContent).toBe('');
     // Not a workstation banner, and not covering anything: chart-local overlay only.
     expect(status?.className).toContain('pointer-events-none');
     for (const [name, callback] of Object.entries(h.callbacks)) {
@@ -313,7 +323,17 @@ describe('history UX states (W3 §52-§54)', () => {
     renderChart();
     const status = document.querySelector('[data-testid="chart-history-status"]');
     expect(status?.getAttribute('data-history-status')).toBe('loading');
-    expect(status?.textContent).toBe('Historique…');
+    /*
+     * VX1-F.1 — when the market state blocks the whole plot, the corner chip
+     * stays silent and the plot-level surface carries the sentence. These
+     * fixtures render with no quote at all, which is exactly that state.
+     *
+     * The machine-readable status above is what this test actually protects:
+     * the chart still *knows* and still reports the history condition. What
+     * changed is that it no longer says it twice, which is the same
+     * one-sentence rule the reconnection veil already followed.
+     */
+    expect(status?.textContent).toBe('');
   });
 
   it('says history is still being built rather than claiming the feed is down', () => {
@@ -329,7 +349,17 @@ describe('history UX states (W3 §52-§54)', () => {
 
     const status = document.querySelector('[data-testid="chart-history-status"]');
     expect(status?.getAttribute('data-history-status')).toBe('empty');
-    expect(status?.textContent).toBe('Historique en cours de constitution.');
+    /*
+     * VX1-F.1 — when the market state blocks the whole plot, the corner chip
+     * stays silent and the plot-level surface carries the sentence. These
+     * fixtures render with no quote at all, which is exactly that state.
+     *
+     * The machine-readable status above is what this test actually protects:
+     * the chart still *knows* and still reports the history condition. What
+     * changed is that it no longer says it twice, which is the same
+     * one-sentence rule the reconnection veil already followed.
+     */
+    expect(status?.textContent).toBe('');
   });
 
   it('shows no history message at all once hydrated', () => {

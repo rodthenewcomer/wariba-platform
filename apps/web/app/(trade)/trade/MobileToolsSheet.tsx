@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { cloneElement, isValidElement, useState, type ReactElement, type ReactNode } from 'react';
 import {
   WariXChevronDownIcon,
   WariXDrawingLockIcon,
   WariXEyeIcon,
   WariXEyeOffIcon,
+  WariXFavoriteIcon,
   WariXFitContentIcon,
   WariXMagnetIcon,
   WariXPreferencesIcon,
@@ -67,6 +68,7 @@ function SheetRow({
   active = false,
   disabled = false,
   trailing,
+  trailingAction,
   onSelect,
   testId,
 }: {
@@ -76,6 +78,7 @@ function SheetRow({
   active?: boolean;
   disabled?: boolean;
   trailing?: ReactNode;
+  trailingAction?: ReactNode;
   onSelect(): void;
   testId?: string;
 }) {
@@ -92,7 +95,13 @@ function SheetRow({
             : 'bg-[color:var(--wariba-component-workstation-surface-control)] text-[color:var(--wariba-component-workstation-text-secondary)]'
         }`}
       >
-        {icon ? <span className="shrink-0 opacity-90">{icon}</span> : null}
+        {icon ? (
+          <span className="shrink-0 opacity-90">
+            {isValidElement(icon)
+              ? cloneElement(icon as ReactElement<{ size?: 'mobile' }>, { size: 'mobile' })
+              : icon}
+          </span>
+        ) : null}
         <span className="min-w-0 flex-1 truncate">{label}</span>
         {detail ? (
           <span className="shrink-0 text-[length:var(--wariba-component-workstation-type-label)] text-[color:var(--wariba-component-workstation-text-tertiary)]">
@@ -101,6 +110,7 @@ function SheetRow({
         ) : null}
         {trailing}
       </button>
+      {trailingAction}
     </div>
   );
 }
@@ -210,10 +220,9 @@ export function MobileToolsSheet({
                 active={entry.tool === tool}
                 onSelect={() => pick(entry.tool)}
                 testId={`chart-tool-${entry.tool}`}
-                trailing={
-                  <span
-                    role="button"
-                    tabIndex={0}
+                trailingAction={
+                  <button
+                    type="button"
                     aria-label={
                       favorites.includes(entry.tool)
                         ? `Retirer ${entry.label} des favoris`
@@ -223,28 +232,15 @@ export function MobileToolsSheet({
                       event.stopPropagation();
                       onToggleFavorite(entry.tool);
                     }}
-                    onKeyDown={(event) => {
-                      if (event.key !== 'Enter' && event.key !== ' ') return;
-                      event.preventDefault();
-                      event.stopPropagation();
-                      onToggleFavorite(entry.tool);
-                    }}
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[7px] ${
+                    aria-pressed={favorites.includes(entry.tool)}
+                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-[9px] bg-[color:var(--wariba-component-workstation-surface-control)] ${
                       favorites.includes(entry.tool)
                         ? 'text-[color:var(--wariba-component-workstation-trading-warning)]'
                         : 'text-[color:var(--wariba-component-workstation-text-tertiary)]'
                     }`}
                   >
-                    <svg viewBox="0 0 24 24" width={15} height={15} aria-hidden="true">
-                      <path
-                        d="M12 3.6l2.6 5.6 6 0.8-4.4 4.3 1.1 6.1L12 17.5l-5.3 2.9 1.1-6.1L3.4 10l6-0.8Z"
-                        fill={favorites.includes(entry.tool) ? 'currentColor' : 'none'}
-                        stroke="currentColor"
-                        strokeWidth={1.5}
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </span>
+                    <WariXFavoriteIcon size="mobile" filled={favorites.includes(entry.tool)} />
+                  </button>
                 }
               />
             ))}

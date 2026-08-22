@@ -31,6 +31,7 @@ import {
   PanelRightClose,
   RectangleHorizontal,
   RotateCcw,
+  Search,
   ScanLine,
   ShieldAlert,
   SlidersHorizontal,
@@ -53,10 +54,10 @@ export interface WorkstationIconProps {
 }
 
 const PIXELS: Record<WorkstationIconSize, number> = {
-  toolbar: 16,
-  rail: 18,
-  nav: 20,
-  mobile: 22,
+  toolbar: 18,
+  rail: 28,
+  nav: 28,
+  mobile: 30,
 };
 
 function createWorkstationIcon(Glyph: ComponentType<LucideProps>) {
@@ -73,7 +74,7 @@ function createWorkstationIcon(Glyph: ComponentType<LucideProps>) {
         className={cx('shrink-0', className)}
         role={label ? 'img' : 'presentation'}
         size={PIXELS[size]}
-        strokeWidth={1.75}
+        strokeWidth={2}
         fill={filled ? 'currentColor' : 'none'}
       />
     );
@@ -116,26 +117,17 @@ export const WariXRiskIcon = createWorkstationIcon(ShieldAlert);
  * audit wherever the compact chart header is reused.
  */
 export function WariXSearchIcon({ size = 'toolbar', label, className }: WorkstationIconProps) {
-  const pixels = PIXELS[size];
   return (
-    <svg
+    <Search
       aria-hidden={label ? undefined : true}
       aria-label={label}
       className={cx('shrink-0', className)}
       data-warix-action="search"
-      fill="none"
-      height={pixels}
+      focusable="false"
       role={label ? 'img' : 'presentation'}
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="1.75"
-      viewBox="0 0 24 24"
-      width={pixels}
-    >
-      <circle cx="10.55" cy="10.55" r="6.05" />
-      <path d="m15.05 15.05 4.7 4.7" />
-    </svg>
+      size={PIXELS[size]}
+      strokeWidth={2}
+    />
   );
 }
 export const WariXFavoriteIcon = createWorkstationIcon(Star);

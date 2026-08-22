@@ -185,7 +185,7 @@ test.describe('WariX Execution Center', { tag: ['@trade', '@warix-w4'] }, () => 
     // button carries the English kind the ticket is expressed in. Both refer
     // to the same `buy_limit`, and asserting the dock's own label is what
     // proves the command reached the server rather than the panel.
-    await page.getByRole('tab', { name: /^Orders/ }).click();
+    await page.getByRole('tab', { name: /^Ordres/ }).click();
     await page.getByRole('button', { name: /^En attente/ }).click();
     await expect(page.getByRole('cell', { name: 'Achat Limite' }).first()).toBeVisible({
       timeout: 30_000,

@@ -1,4 +1,4 @@
-import { EmptyState } from '@wariba/ui';
+import { WariXEmptyState } from '@wariba/ui';
 
 /** Honest WX1 shell: no provider means no invented economic event or headline. */
 export function CalendarNewsPanel() {
@@ -21,7 +21,7 @@ export function CalendarNewsPanel() {
         </span>
       </div>
 
-      <EmptyState
+      <WariXEmptyState
         title="Aucun flux calendrier connecté"
         description="WariX n’affiche pas d’événements, de prévisions ou d’actualités tant qu’une source autorisée n’est pas disponible."
       />

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import { WariXChevronDownIcon, WariXChevronUpIcon } from '@wariba/ui';
 import { ORDER_KIND_LABEL } from './OrderTypeSelector';
 import type { ExecutionSide, OrderRejectionDetail, TicketOrderKind } from './execution-contract';
 
@@ -25,12 +26,9 @@ export interface ExecutionActionsProps {
   onSubmit: (side: ExecutionSide) => void;
 }
 
-const SIDE_COPY: Record<
-  ExecutionSide,
-  { verb: string; accessible: string; quoteLabel: string; glyph: string }
-> = {
-  sell: { verb: 'Sell', accessible: 'Vendre', quoteLabel: 'au Bid', glyph: '▼' },
-  buy: { verb: 'Buy', accessible: 'Acheter', quoteLabel: 'à l’Ask', glyph: '▲' },
+const SIDE_COPY: Record<ExecutionSide, { verb: string; accessible: string; quoteLabel: string }> = {
+  sell: { verb: 'Sell', accessible: 'Vendre', quoteLabel: 'au Bid' },
+  buy: { verb: 'Buy', accessible: 'Acheter', quoteLabel: 'à l’Ask' },
 };
 
 /** The only saturated colours in the panel — see the note on the component below. */
@@ -248,11 +246,12 @@ export function ExecutionActions({
                  * trading key from a coloured rectangle with two lines of text.
                  */}
                 <span className="flex items-center justify-center gap-1.5 text-[length:var(--wariba-component-workstation-type-decision)] font-bold leading-none tracking-[var(--wariba-component-workstation-tracking-decision)]">
-                  <span
-                    aria-hidden="true"
-                    className="w-3 shrink-0 text-center text-[9px] leading-none opacity-75"
-                  >
-                    {copy.glyph}
+                  <span aria-hidden="true" className="flex w-3 shrink-0 justify-center opacity-75">
+                    {side === 'buy' ? (
+                      <WariXChevronUpIcon className="h-3.5 w-3.5" />
+                    ) : (
+                      <WariXChevronDownIcon className="h-3.5 w-3.5" />
+                    )}
                   </span>
                   {label}
                 </span>

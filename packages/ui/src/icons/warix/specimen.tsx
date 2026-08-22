@@ -11,6 +11,13 @@ const LABELS: Record<WarixDestinationId, string> = {
   help: 'Aide',
 };
 
+const STATE_LABEL = {
+  idle: 'Repos',
+  hover: 'Survol',
+  active: 'Actif',
+  disabled: 'Désactivé',
+} as const;
+
 function SpecimenKey({
   destination,
   disabled = false,
@@ -53,9 +60,9 @@ export function WarixSymbolSpecimen() {
       <header className="warix-symbol-specimen__header">
         <div>
           <p>Système de symboles propriétaire · 2026</p>
-          <h2 id="warix-symbol-specimen-title">WariX Destination Symbols</h2>
+          <h2 id="warix-symbol-specimen-title">Symboles de destination WariX</h2>
         </div>
-        <span>24 × 24 optical grid · graphite + cobalt</span>
+        <span>28 px optiques · graphite + cobalt</span>
       </header>
 
       <div className="warix-symbol-specimen__section">
@@ -72,7 +79,7 @@ export function WarixSymbolSpecimen() {
         <div className="warix-symbol-specimen__states">
           {(['idle', 'hover', 'active', 'disabled'] as const).map((state) => (
             <div className="warix-symbol-specimen__state" key={state}>
-              <span>{state}</span>
+              <span>{STATE_LABEL[state]}</span>
               <SpecimenKey
                 destination="trade"
                 disabled={state === 'disabled'}
@@ -106,7 +113,7 @@ export function WarixSymbolSpecimen() {
           </div>
         </div>
         <div>
-          <p className="warix-symbol-specimen__eyebrow">Rail 48 px</p>
+          <p className="warix-symbol-specimen__eyebrow">Rail 56 px</p>
           <div className="warix-symbol-specimen__rail">
             {WARIX_DESTINATION_IDS.map((destination) => (
               <SpecimenKey destination={destination} key={destination} />

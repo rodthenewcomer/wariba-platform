@@ -106,10 +106,10 @@ export const RightUtilityRail = memo(function RightUtilityRail({
     <aside
       aria-label="Destinations WariX"
       data-testid="right-utility-rail"
-      className="flex h-full w-[var(--wariba-component-workstation-utility-rail-width)] shrink-0 flex-col items-center border-l border-[color:var(--wariba-component-workstation-seam-strong)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-1.5 py-3 shadow-[inset_1px_0_0_0_var(--wariba-component-workstation-rim-light)]"
+      className="flex h-full w-[var(--wariba-component-workstation-utility-rail-width)] shrink-0 flex-col items-center border-l border-[color:var(--wariba-component-workstation-seam-strong)] bg-[color:var(--wariba-component-workstation-surface-raised-module)] px-1.5 py-2 shadow-[inset_1px_0_0_0_var(--wariba-component-workstation-rim-light)]"
     >
       {/* Execution — the four surfaces a trader works from. */}
-      <div className="flex flex-col items-center gap-1.5">
+      <div className="flex flex-col items-center gap-2">
         <UtilityButton
           label="Marchés"
           destination="markets"
@@ -118,7 +118,7 @@ export const RightUtilityRail = memo(function RightUtilityRail({
           onClick={() => onToggleDrawer('markets')}
         />
         <UtilityButton
-          label="Trade"
+          label="Trader"
           destination="trade"
           active={activeDrawer === 'trade'}
           testId="utility-trade"
@@ -144,10 +144,10 @@ export const RightUtilityRail = memo(function RightUtilityRail({
 
       {/* §14 — negative space, not a divider: the gap is what tells a trader the
           next two destinations are a different kind of thing. */}
-      <div className="h-9 shrink-0" aria-hidden="true" />
+      <div className="h-10 shrink-0" aria-hidden="true" />
 
       {/* Intelligence — what is happening around the market. */}
-      <div className="flex flex-col items-center gap-1.5">
+      <div className="flex flex-col items-center gap-2">
         <UtilityButton
           label="Calendrier"
           destination="calendar"

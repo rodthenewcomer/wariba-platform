@@ -46,13 +46,13 @@ export function creatableSidesFor(params: {
 
 const RELATIONSHIP_HINT: Record<'limit' | 'stop', string> = {
   limit: 'Buy Limit sous l’Ask · Sell Limit au-dessus du Bid.',
-  stop: 'Buy Stop au-dessus de l’Ask · Sell Stop sous le Bid · pas de garantie de prix.',
+  stop: 'Buy Stop au-dessus de l’Ask · Sell Stop sous le Bid · prix non garanti.',
 };
 
 const RELATIONSHIP_DETAIL: Record<'limit' | 'stop', string> = {
   limit:
-    'Un Buy Limit doit être placé sous l’Ask et un Sell Limit au-dessus du Bid, sinon il s’exécuterait immédiatement.',
-  stop: 'Un Buy Stop doit être placé au-dessus de l’Ask et un Sell Stop sous le Bid. Le prix n’est pas garanti : un écart de marché peut exécuter l’ordre au-delà du seuil.',
+    'Un achat limite doit être placé sous l’Ask et une vente limite au-dessus du Bid, sinon l’ordre s’exécuterait immédiatement.',
+  stop: 'Un achat stop doit être placé au-dessus de l’Ask et une vente stop sous le Bid. Le prix n’est pas garanti : un écart de marché peut exécuter l’ordre au-delà du seuil.',
 };
 
 /**
