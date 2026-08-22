@@ -21,6 +21,7 @@ import {
   type PendingOrderDTO,
   type PendingOrderType,
   type PriceAlertDTO,
+  type CandleTimeframe,
 } from '@wariba/contracts';
 import {
   computeRealizedPnl,
@@ -79,6 +80,7 @@ import { CROSSHAIR_LINE_STYLE, type ChartTimezone } from './chart-settings-model
 import { useIsDesktop } from './use-viewport';
 import { DrawingToolRail } from './DrawingToolRail';
 import { ChartBottomBar, type ChartScaleMode } from './ChartBottomBar';
+import { readChartViewport, writeChartViewport } from './chart-viewport-preferences';
 
 export interface FillMarker {
   id: string;
@@ -361,6 +363,16 @@ export function TradeChart({
   const pendingOrderLinesRef = useRef<IPriceLine[]>([]);
   const alertLinesRef = useRef<IPriceLine[]>([]);
   const orderPreviewLineRef = useRef<IPriceLine | null>(null);
+  const viewportContextRef = useRef<{
+    key: string;
+    accountId: string;
+    symbol: TradableSymbol;
+    timeframe: CandleTimeframe;
+    presetSeconds: number | null;
+  } | null>(null);
+  const viewportReadyRef = useRef(false);
+  const viewportSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const restoredViewportKeyRef = useRef<string | null>(null);
   // lightweight-charts renders to canvas and never resolves CSS custom
   // properties itself — a raw 'var(...)' string crashes it (the same class
   // of bug fixed in PriceChart.tsx earlier in Prompt 07). Every color used
@@ -785,6 +797,37 @@ export function TradeChart({
       // The overlay coordinates always refresh: a resized plot must not keep
       // drawing yesterday's pixel positions.
       bumpChartVersion();
+      const context = viewportContextRef.current;
+      if (range !== null && context !== null && viewportReadyRef.current) {
+        const series = historyRef.current?.series();
+        const candles = series
+          ? series.current === null
+            ? series.finalized
+            : [...series.finalized, series.current]
+          : [];
+        const first = candles[Math.max(0, Math.floor(range.from))];
+        const last = candles[Math.min(candles.length - 1, Math.ceil(range.to))];
+        if (first && last && last.startTime > first.startTime) {
+          if (viewportSaveTimerRef.current !== null) clearTimeout(viewportSaveTimerRef.current);
+          viewportSaveTimerRef.current = setTimeout(() => {
+            try {
+              writeChartViewport(
+                window.localStorage,
+                context.accountId,
+                context.symbol,
+                context.timeframe,
+                {
+                  from: first.startTime,
+                  to: last.startTime,
+                  presetSeconds: context.presetSeconds,
+                },
+              );
+            } catch {
+              // Browser storage is optional; the chart session remains usable.
+            }
+          }, 250);
+        }
+      }
       // The *request* is what geometry may not cause.
       if (resizingRef.current) return;
       if (range !== null) historyRef.current?.maybeRequestOlder(range.from);
@@ -793,6 +836,7 @@ export function TradeChart({
 
     return () => {
       observer.disconnect();
+      if (viewportSaveTimerRef.current !== null) clearTimeout(viewportSaveTimerRef.current);
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(onVisibleRangeChange);
       chart.unsubscribeCrosshairMove(onCrosshair);
       analysisRef.current?.detachRenderer();
@@ -892,6 +936,13 @@ export function TradeChart({
           });
         }
       },
+      setVisibleTimeRange: (range) => {
+        viewportReadyRef.current = true;
+        chartRef.current?.timeScale().setVisibleRange({
+          from: range.from as UTCTimestamp,
+          to: range.to as UTCTimestamp,
+        });
+      },
     }),
     [],
   );
@@ -924,6 +975,16 @@ export function TradeChart({
     chartVersion,
   });
   analysisRef.current = analysis;
+  const viewportKey = `${accountId}:${symbol}:${analysis.timeframe}`;
+  const previousViewportContext = viewportContextRef.current;
+  viewportContextRef.current = {
+    key: viewportKey,
+    accountId,
+    symbol,
+    timeframe: analysis.timeframe,
+    presetSeconds:
+      previousViewportContext?.key === viewportKey ? previousViewportContext.presetSeconds : null,
+  };
 
   const historyState = useSyncExternalStore(
     useCallback((onChange: () => void) => history.subscribe(onChange), [history]),
@@ -945,6 +1006,35 @@ export function TradeChart({
     if (!analysis.preferencesLoaded) return;
     history.start({ symbol, timeframe: analysis.timeframe, pricePrecision });
   }, [history, symbol, analysis.timeframe, analysis.preferencesLoaded, pricePrecision]);
+
+  useEffect(() => {
+    if (!analysis.preferencesLoaded || historyState.status !== 'ready') return;
+    if (restoredViewportKeyRef.current === viewportKey) return;
+    restoredViewportKeyRef.current = viewportKey;
+    viewportReadyRef.current = false;
+    let saved = null;
+    try {
+      saved = readChartViewport(window.localStorage, accountId, symbol, analysis.timeframe);
+    } catch {
+      // Storage unavailable: initial hydration's one fitContent is the fallback.
+    }
+    if (saved === null) {
+      viewportReadyRef.current = true;
+      return;
+    }
+    if (viewportContextRef.current?.key === viewportKey) {
+      viewportContextRef.current.presetSeconds = saved.presetSeconds;
+    }
+    history.restoreViewport({ from: saved.from, to: saved.to });
+  }, [
+    accountId,
+    symbol,
+    analysis.timeframe,
+    analysis.preferencesLoaded,
+    history,
+    historyState.status,
+    viewportKey,
+  ]);
 
   /**
    * Visual closure §6 — teach the renderer this instrument's own precision.
@@ -2041,7 +2131,9 @@ export function TradeChart({
     historyState.status === 'idle' || historyState.status === 'ready'
       ? connectingWithoutHistory
         ? HISTORY_CONNECTING_MESSAGE
-        : null
+        : historyState.gapsDetected > 0
+          ? `Historique incomplet · ${historyState.gapsDetected} lacune${historyState.gapsDetected > 1 ? 's' : ''} détectée${historyState.gapsDetected > 1 ? 's' : ''}.`
+          : null
       : HISTORY_STATUS_MESSAGE[historyState.status];
   /*
    * VX1-C.1 §4 — the chart states its connection once.
@@ -2143,22 +2235,12 @@ export function TradeChart({
 
   const selectHorizon = useCallback(
     (seconds: number) => {
-      const chart = chartRef.current;
-      if (!chart) return;
-      const series = history.series();
-      const oldest = series.finalized[0]?.startTime;
-      const newest = series.current?.startTime ?? series.finalized.at(-1)?.startTime;
-      if (oldest === undefined || newest === undefined) return;
-      const from = newest - seconds;
-      // A visible, disabled horizon is more honest than manufacturing empty
-      // time before the process-memory window WariX actually has.
-      if (oldest > from) return;
-      chart.timeScale().setVisibleRange({
-        from: from as UTCTimestamp,
-        to: newest as UTCTimestamp,
-      });
+      if (viewportContextRef.current?.key === viewportKey) {
+        viewportContextRef.current.presetSeconds = seconds;
+      }
+      history.requestRange(seconds);
     },
-    [history],
+    [history, viewportKey],
   );
 
   useEffect(() => {
@@ -2492,6 +2574,7 @@ export function TradeChart({
             data-history-candles={historyCandleCount}
             data-history-epoch={historyState.sourceEpoch ?? ''}
             data-history-newest={historyNewestBucket}
+            data-history-gaps={historyState.gapsDetected}
             // W5 §135 — moved to the bottom edge now that the OHLC/indicator
             // legend owns the top-left corner, so a history error and the legend
             // never stack into a block that hides the chart on a 390 px screen.
@@ -2866,6 +2949,7 @@ export function TradeChart({
       <ChartBottomBar
         timezone={chartSettings.symbol.timezone}
         historyCoverageSeconds={historyCoverageSeconds}
+        canLoadOlder={historyState.hasMoreOlder}
         onSelectHorizon={selectHorizon}
         scaleMode={scaleMode}
         onScaleModeChange={setScaleMode}

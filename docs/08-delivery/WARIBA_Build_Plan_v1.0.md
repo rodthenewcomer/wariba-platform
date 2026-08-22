@@ -2615,3 +2615,21 @@ actif/standby fenced, matrice RBAC, audit/rate limit, runbooks et pipeline compl
 Les providers réels, credentials market data commerciaux, load balancer déployé,
 secrets production et approbations légales restent des gates externes ; ils ne
 sont ni simulés ni déclarés livrés.
+
+---
+
+# 62. WX2 — Chart + Market Data Foundation
+
+WX2 commence uniquement depuis la baseline WX1 acceptée et gelée. Ordre de
+livraison : (1) contrats/decisions/docs, (2) intervalles professionnels
+`1m/3m/5m/15m/30m/1h/4h/1D/1W/1M`, (3) identité et capacités provider,
+(4) migration/cache durable, (5) pagination/cutover/restart et backfill lorsque
+la source le supporte,
+(6) presets/viewport, (7) tests ciblés et preuve runtime.
+
+Non-scope : redesign WX1, changement des moteurs trading/risk/payout, provider
+réel non licencié, volume/depth fabriqué, tick charts, microservice ou nouveau
+renderer. La phase est terminée seulement quand la continuité après redémarrage,
+l'absence de doublons/phantom candles et la détection explicite des gaps sont
+prouvées. La réparation automatique d'un gap reste conditionnée à une source
+d'historique native et vérifiée.

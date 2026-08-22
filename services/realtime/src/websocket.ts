@@ -644,11 +644,12 @@ function sendHistoryError(
  * instead of hanging in `loading` (§34/§55).
  */
 export async function handleMarketHistoryRequest(
-  deps: Pick<MessageDeps, 'symbolSpecs' | 'registry' | 'logger' | 'history'>,
+  deps: Pick<MessageDeps, 'symbolSpecs' | 'registry' | 'logger' | 'history'> &
+    Partial<Pick<MessageDeps, 'metrics'>>,
   connectionId: string,
   frame: { requestId: string },
 ): Promise<void> {
-  const { symbolSpecs, registry, logger, history } = deps;
+  const { symbolSpecs, registry, logger, history, metrics } = deps;
   const { requestId } = frame;
 
   if (
@@ -696,12 +697,35 @@ export async function handleMarketHistoryRequest(
     return;
   }
 
+  const startedAt = Date.now();
   try {
     const window = await history.getCandles({
       symbol: request.symbol,
       timeframe: request.timeframe,
       limit: request.limit,
       ...(request.before === undefined ? {} : { before: request.before }),
+    });
+    const bars = window.candles.length + (window.currentCandle === null ? 0 : 1);
+    const durationMs = Date.now() - startedAt;
+    metrics?.historyRead({
+      bars,
+      durationMs,
+      ok: true,
+      cacheHit: bars > 0,
+      gapsDetected: window.quality?.gapsDetected ?? 0,
+    });
+    logger.info('ws.market_history_served', {
+      connectionId,
+      sourceId: window.sourceIdentity?.id ?? window.sourceEpoch,
+      provider: window.sourceIdentity?.provider ?? 'unknown',
+      source: window.source,
+      symbol: request.symbol,
+      timeframe: request.timeframe,
+      cacheState: bars > 0 ? 'hit' : 'miss',
+      bars,
+      hasMore: window.hasMore,
+      gapsDetected: window.quality?.gapsDetected ?? 0,
+      durationMs,
     });
     registry.send(
       connectionId,
@@ -718,6 +742,7 @@ export async function handleMarketHistoryRequest(
       }),
     );
   } catch (error: unknown) {
+    metrics?.historyRead({ bars: 0, durationMs: Date.now() - startedAt, ok: false });
     // A history read failing is a display problem, never a trading one — the
     // tick stream, the execution path and this connection all continue (§56).
     logger.error('ws.market_history_read_failed', {
@@ -826,7 +851,7 @@ async function processMessage(
 
   if (msg.type === 'market_history_request') {
     await handleMarketHistoryRequest(
-      { symbolSpecs, registry, logger, history },
+      { symbolSpecs, registry, logger, history, metrics },
       connectionId,
       msg.history,
     );

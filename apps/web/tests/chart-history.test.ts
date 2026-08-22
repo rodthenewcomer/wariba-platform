@@ -74,6 +74,7 @@ interface SinkLog {
   fitContentCalls: number;
   /** W5 §21 — one entry per older-page prepend, with the shift the renderer was told to apply. */
   prepend: { candles: MarketCandle[]; prependedCount: number }[];
+  visibleTimeRanges: { from: number; to: number }[];
 }
 
 function fakeSink(log: SinkLog) {
@@ -85,6 +86,7 @@ function fakeSink(log: SinkLog) {
     },
     prepend: (candles: readonly MarketCandle[], prependedCount: number) =>
       log.prepend.push({ candles: [...candles], prependedCount }),
+    setVisibleTimeRange: (range: { from: number; to: number }) => log.visibleTimeRanges.push(range),
   };
 }
 
@@ -148,7 +150,7 @@ let requestCounter: number;
 function build(options: { bufferMax?: number } = {}): void {
   store = createTickStore();
   transport = fakeTransport();
-  log = { setData: [], update: [], fitContentCalls: 0, prepend: [] };
+  log = { setData: [], update: [], fitContentCalls: 0, prepend: [], visibleTimeRanges: [] };
   requestCounter = 0;
   controller = createChartHistoryController({
     transport,
@@ -196,8 +198,8 @@ describe('subscribe-then-request order (W3 §32)', () => {
   });
 
   it('requests the bounded initial limit for the selected symbol and timeframe', () => {
-    controller.start({ symbol: 'XAUUSD', timeframe: '30s', pricePrecision: 2 });
-    expect(transport.requests[0]).toMatchObject({ symbol: 'XAUUSD', timeframe: '30s', limit: 400 });
+    controller.start({ symbol: 'XAUUSD', timeframe: '5m', pricePrecision: 2 });
+    expect(transport.requests[0]).toMatchObject({ symbol: 'XAUUSD', timeframe: '5m', limit: 400 });
   });
 });
 
@@ -553,14 +555,14 @@ describe('symbol switch race (W3 §45)', () => {
 });
 
 describe('timeframe switch race (W3 §46)', () => {
-  it('cannot let a late 1m or 30s result mutate the active 5s chart', () => {
+  it('cannot let late interval results mutate the active 1m chart', () => {
     startEurusd1m();
     const oneMinuteRequest = transport.lastRequestId();
 
-    controller.start({ symbol: 'EURUSD', timeframe: '30s', pricePrecision: PRECISION });
+    controller.start({ symbol: 'EURUSD', timeframe: '5m', pricePrecision: PRECISION });
     const thirtySecondRequest = transport.lastRequestId();
 
-    controller.start({ symbol: 'EURUSD', timeframe: '5s', pricePrecision: PRECISION });
+    controller.start({ symbol: 'EURUSD', timeframe: '1m', pricePrecision: PRECISION });
     const fiveSecondRequest = transport.lastRequestId();
 
     transport.deliver(
@@ -569,9 +571,9 @@ describe('timeframe switch race (W3 §46)', () => {
     transport.deliver(
       result({
         requestId: thirtySecondRequest,
-        timeframe: '30s',
-        candles: [candle(0), candle(30)],
-        historyThrough: 60,
+        timeframe: '5m',
+        candles: [candle(0), candle(300)],
+        historyThrough: 600,
       }),
     );
 
@@ -581,25 +583,38 @@ describe('timeframe switch race (W3 §46)', () => {
     transport.deliver(
       result({
         requestId: fiveSecondRequest,
-        timeframe: '5s',
-        candles: [candle(0), candle(5)],
-        historyThrough: 10,
+        timeframe: '1m',
+        candles: [candle(0), candle(60)],
+        historyThrough: 120,
       }),
     );
-    expect(controller.series().finalized.map((c) => c.startTime)).toEqual([0, 5]);
+    expect(controller.series().finalized.map((c) => c.startTime)).toEqual([0, 60]);
   });
 
   it('buckets live ticks at the newly selected timeframe', () => {
-    controller.start({ symbol: 'EURUSD', timeframe: '5s', pricePrecision: PRECISION });
-    transport.deliver(result({ requestId: transport.lastRequestId(), timeframe: '5s' }));
+    controller.start({ symbol: 'EURUSD', timeframe: '1m', pricePrecision: PRECISION });
+    transport.deliver(result({ requestId: transport.lastRequestId(), timeframe: '1m' }));
 
-    store.update(tick({ seconds: 7, mid: '1.08450', sequence: 1 }));
+    store.update(tick({ seconds: 67, mid: '1.08450', sequence: 1 }));
 
-    expect(controller.series().current?.startTime).toBe(5);
+    expect(controller.series().current?.startTime).toBe(60);
   });
 });
 
 describe('response validation (W3 §34/§67)', () => {
+  it('counts genuine missing buckets instead of hiding them', () => {
+    startEurusd1m();
+    transport.deliver(
+      result({
+        requestId: transport.lastRequestId(),
+        candles: [candle(0), candle(120), candle(180)],
+        historyThrough: 240,
+      }),
+    );
+
+    expect(controller.snapshot()).toMatchObject({ status: 'ready', gapsDetected: 1 });
+  });
+
   it('rejects a mismatched symbol on an otherwise current requestId', () => {
     startEurusd1m();
     transport.deliver(
@@ -1290,5 +1305,63 @@ describe('older-history backfill (W5 §17-§23)', () => {
     const before = transport.requests.length;
     controller.maybeRequestOlder(0);
     expect(transport.requests).toHaveLength(before);
+  });
+});
+
+describe('WX2 range and viewport restoration', () => {
+  function hydrateWindow(starts: readonly number[], options: { hasMore?: boolean } = {}): void {
+    startEurusd1m();
+    transport.deliver(
+      result({
+        requestId: transport.lastRequestId(),
+        candles: starts.map((startTime) => candle(startTime)),
+        hasMore: options.hasMore ?? false,
+        nextCursor: starts[0] ?? null,
+      }),
+    );
+  }
+
+  it('applies a range preset immediately when durable history already covers it', () => {
+    hydrateWindow(Array.from({ length: 61 }, (_, index) => index * 60));
+
+    controller.requestRange(1_800);
+
+    expect(log.visibleTimeRanges).toEqual([{ from: 1_800, to: 3_600 }]);
+    expect(transport.requests).toHaveLength(1);
+  });
+
+  it('backfills first and then applies a range preset without fitting content', () => {
+    hydrateWindow(
+      Array.from({ length: 11 }, (_, index) => 3_000 + index * 60),
+      { hasMore: true },
+    );
+    const fits = log.fitContentCalls;
+
+    controller.requestRange(3_600);
+    const olderRequest = transport.requests.at(-1);
+    expect(olderRequest?.before).toBe(3_000);
+
+    transport.deliver(
+      result({
+        requestId: olderRequest?.requestId ?? '',
+        candles: Array.from({ length: 50 }, (_, index) => index * 60).map((startTime) =>
+          candle(startTime),
+        ),
+        hasMore: false,
+        nextCursor: 0,
+      }),
+    );
+
+    expect(log.visibleTimeRanges.at(-1)).toEqual({ from: 0, to: 3_600 });
+    expect(log.fitContentCalls).toBe(fits);
+  });
+
+  it('restores a saved viewport only for a valid covered time range', () => {
+    hydrateWindow(Array.from({ length: 31 }, (_, index) => index * 60));
+
+    controller.restoreViewport({ from: 600, to: 1_200 });
+    controller.restoreViewport({ from: 1_200, to: 600 });
+
+    expect(log.visibleTimeRanges).toEqual([{ from: 600, to: 1_200 }]);
   });
 });

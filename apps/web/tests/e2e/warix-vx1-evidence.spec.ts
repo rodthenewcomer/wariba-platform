@@ -316,7 +316,7 @@ test.describe('WX/VX1 premium visual state', { tag: ['@warix-vx1'] }, () => {
 
       // C — the interval selection travelling between keys.
       await record(browser, storageState, 'vx1-motion-c-timeframe', async (scene) => {
-        for (const interval of ['15s', '30s', '1m', '5s']) {
+        for (const interval of ['3m', '5m', '15m', '1m']) {
           await scene.getByRole('radio', { name: interval, exact: true }).click();
           await scene.waitForTimeout(1_200);
         }

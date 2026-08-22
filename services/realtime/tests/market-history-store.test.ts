@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { CANDLE_TIMEFRAMES, bucketStartSeconds } from '@wariba/contracts';
+import {
+  CANDLE_TIMEFRAMES,
+  SUPPORTED_CANDLE_TIMEFRAMES,
+  bucketStartSeconds,
+} from '@wariba/contracts';
 import type { MarketTick, TradableSymbol } from '@wariba/contracts';
 import {
   MemoryMarketHistoryStore,
@@ -68,14 +72,14 @@ function pageBefore(cursor: number | null): { before?: number } {
 describe('MemoryMarketHistoryStore — one tick, five aggregators (W3 §8 / W5 §10)', () => {
   it('feeds 5s, 15s, 30s, 1m and 3m from a single accepted tick', async () => {
     const store = makeStore();
-    store.observeAcceptedTick(midTick(0, '1.08450', 1));
-    // A later bucket in all five timeframes at once (3m is the longest, so 180s).
-    store.observeAcceptedTick(midTick(180, '1.08460', 2));
+    const start = Date.UTC(2026, 5, 1) / 1000; // Monday and first of the month.
+    store.observeAcceptedTick(midTick(start, '1.08450', 1));
+    store.observeAcceptedTick(midTick(Date.UTC(2026, 6, 1) / 1000, '1.08460', 2));
 
     for (const timeframe of CANDLE_TIMEFRAMES) {
       const window = await store.getCandles({ symbol: 'EURUSD', timeframe, limit: 10 });
       expect(window.candles, timeframe).toHaveLength(1);
-      expect(window.candles.at(0)?.startTime, timeframe).toBe(0);
+      expect(window.candles.at(0)?.startTime, timeframe).toBe(start);
       expect(window.candles.at(0)?.close, timeframe).toBe('1.08450');
     }
   });
@@ -413,7 +417,7 @@ describe('MemoryMarketHistoryStore — defensive boundaries', () => {
     ).not.toThrow();
     // One key per (observed symbol, timeframe); derived so adding an interval
     // cannot make this assertion quietly wrong (W5 §10).
-    expect(store.stats().keys).toBe(CANDLE_TIMEFRAMES.length);
+    expect(store.stats().keys).toBe(SUPPORTED_CANDLE_TIMEFRAMES.length);
   });
 
   it('ignores an unparseable timestamp without throwing', () => {
@@ -443,7 +447,7 @@ describe('MemoryMarketHistoryStore — defensive boundaries', () => {
     // the two ticks. At 60 s that is every interval except 3m, which both ticks
     // share — derived rather than hard-coded so a sixth interval cannot make
     // this pass for the wrong reason.
-    const expectedStale = CANDLE_TIMEFRAMES.filter(
+    const expectedStale = SUPPORTED_CANDLE_TIMEFRAMES.filter(
       (tf) => bucketStartSeconds(60_000, tf) > bucketStartSeconds(0, tf),
     ).length;
     expect(expectedStale).toBe(4);

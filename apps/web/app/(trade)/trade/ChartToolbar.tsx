@@ -68,12 +68,13 @@ interface TimeframeSelectorProps {
  * alternative was 26px keys with 9px labels, and §5 rules out buying a key by
  * shrinking type past reading. At 320 the same arithmetic leaves room for two.
  *
- * Desktop is never constrained — it has the width for all five and always shows
- * them.
+ * Desktop is never constrained — it has the width for the complete professional
+ * family. Compact layouts always retain an overflow key: adding the WX2
+ * intervals must not widen the accepted mobile shell.
  */
 export function timeframeSlotsForWidth(width: number, compact: boolean): number {
   if (!compact) return CANDLE_TIMEFRAMES.length;
-  if (width >= 430) return CANDLE_TIMEFRAMES.length;
+  if (width >= 430) return 4;
   if (width >= 360) return 3;
   return 2;
 }
@@ -82,9 +83,9 @@ export function timeframeSlotsForWidth(width: number, compact: boolean): number 
  * Which intervals stay on the row, given the number of slots.
  *
  * The head of the canonical order, with one rule on top: **the active interval
- * is always one of them**. A trader who picked 3M at 430 and then rotated to a
+ * is always one of them**. A trader who picked 1M at 430 and then rotated to a
  * narrower window must still see which interval the chart is drawing — an
- * active key hidden behind `⋯` would leave the row reading as though 5S were
+ * active key hidden behind `⋯` would leave the row reading as though 1m were
  * selected. When that happens the active key takes the last visible slot, so
  * the order the trader learned is otherwise preserved.
  */
@@ -100,16 +101,15 @@ export function visibleTimeframes(
 }
 
 /**
- * §86 — a radiogroup, not five buttons.
+ * §86 — a radiogroup, not an undifferentiated row of buttons.
  *
  * Roving tabindex: one stop in the tab order, arrows move within the group. That
  * is the WAI-ARIA radio pattern, and it is what lets a keyboard trader change
- * interval without tabbing past four controls they did not want.
+ * interval without tabbing past every control they did not want.
  *
- * §21 — the canonical intervals only. No 1h, 4h, 1D or 1W: WX1's history depth
- * cannot serve them truthfully, and an interval that renders four bars is worse
- * than an interval that is not offered. WX2 owns long-range depth, and this
- * track will take the additions without changing shape.
+ * WX2 exposes the complete canonical professional interval family. Compact
+ * layouts keep the active interval visible and move the remaining choices into
+ * the existing overflow disclosure.
  */
 const TimeframeSelector = memo(function TimeframeSelector({
   timeframe,
@@ -215,7 +215,7 @@ const TimeframeSelector = memo(function TimeframeSelector({
               aria-checked={selected}
               tabIndex={selected ? 0 : -1}
               onClick={() => onSelect(option)}
-              className={`wariba-data relative z-10 h-7 min-w-6 shrink-0 rounded-[5px] px-0.5 text-[10px] font-semibold uppercase tabular-nums transition-colors duration-[var(--wariba-component-workstation-motion-quick)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:min-w-9 lg:px-1 lg:text-[length:var(--wariba-component-workstation-type-label)] ${
+              className={`wariba-data relative z-10 h-7 min-w-6 shrink-0 rounded-[5px] px-0.5 text-[10px] font-semibold tabular-nums transition-colors duration-[var(--wariba-component-workstation-motion-quick)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] lg:min-w-9 lg:px-1 lg:text-[length:var(--wariba-component-workstation-type-label)] ${
                 selected
                   ? 'text-[color:var(--wariba-component-workstation-text-primary)]'
                   : 'text-[color:var(--wariba-component-workstation-text-tertiary)] hover:text-[color:var(--wariba-component-workstation-text-primary)]'
@@ -265,7 +265,7 @@ const TimeframeSelector = memo(function TimeframeSelector({
                     onSelect(option);
                     setOverflowOpen(false);
                   }}
-                  className="wariba-data flex h-11 w-full items-center rounded-[6px] px-2.5 text-left text-[length:var(--wariba-component-workstation-type-data)] font-semibold uppercase tabular-nums text-[color:var(--wariba-component-workstation-text-secondary)] transition-colors hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)]"
+                  className="wariba-data flex h-11 w-full items-center rounded-[6px] px-2.5 text-left text-[length:var(--wariba-component-workstation-type-data)] font-semibold tabular-nums text-[color:var(--wariba-component-workstation-text-secondary)] transition-colors hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:text-[color:var(--wariba-component-workstation-text-primary)]"
                 >
                   {option}
                 </button>

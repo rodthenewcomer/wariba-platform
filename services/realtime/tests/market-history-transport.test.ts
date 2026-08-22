@@ -195,8 +195,8 @@ describe('history transport — authorization (W3 §28)', () => {
 
 describe('history transport — request validation (W3 §27/§28)', () => {
   it.each([
-    ['unsupported timeframe', { timeframe: '15m' }],
-    ['unsupported timeframe', { timeframe: '1h' }],
+    ['unsupported timeframe', { timeframe: '5s' }],
+    ['unsupported timeframe', { timeframe: '30s' }],
     ['zero limit', { limit: 0 }],
     ['negative limit', { limit: -5 }],
     ['fractional limit', { limit: 10.5 }],

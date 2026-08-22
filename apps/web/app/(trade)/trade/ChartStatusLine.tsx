@@ -54,9 +54,9 @@ export interface ChartStatusLineProps {
   indicatorsHidden?: boolean;
 }
 
-/** Compact interval labels — `5S`, `1M`, the way a chart header writes them. */
+/** Preserve the canonical case so one minute (`1m`) and one month (`1M`) stay distinct. */
 export function timeframeLabel(timeframe: CandleTimeframe): string {
-  return timeframe.toUpperCase();
+  return timeframe;
 }
 
 function formatPrice(value: string, precision: number | null): string {
@@ -153,7 +153,7 @@ export const ChartStatusLine = memo(function ChartStatusLine({
             >
               ·
             </span>
-            <span className="wariba-data font-semibold uppercase tabular-nums text-[color:var(--wariba-component-workstation-text-secondary)]">
+            <span className="wariba-data font-semibold tabular-nums text-[color:var(--wariba-component-workstation-text-secondary)]">
               {timeframeLabel(timeframe)}
             </span>
           </span>

@@ -39,6 +39,7 @@ interface ReplayState {
  */
 export class ReplayMarketDataProvider implements MarketDataProvider {
   readonly providerName = 'replay';
+  readonly source: MarketDataProvider['source'];
   private readonly state = new Map<TradableSymbol, ReplayState>();
   private readonly listeners = new Map<TradableSymbol, Set<(tick: MarketTick) => void>>();
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -49,6 +50,31 @@ export class ReplayMarketDataProvider implements MarketDataProvider {
     private readonly tickIntervalMs: number = 1000,
     private readonly loop: boolean = true,
   ) {
+    let recordingHash = 2166136261;
+    for (const tick of recording) {
+      const value = `${tick.symbol}:${tick.bid}:${tick.ask}:${tick.offsetMs}`;
+      for (let index = 0; index < value.length; index += 1) {
+        recordingHash ^= value.charCodeAt(index);
+        recordingHash = Math.imul(recordingHash, 16777619);
+      }
+    }
+    const version = `fnv1a-${(recordingHash >>> 0).toString(16)}-${recording.length}-${loop ? 'loop' : 'once'}`;
+    this.source = {
+      id: `replay:recording:${version}`,
+      provider: this.providerName,
+      environment: 'recording',
+      mode: 'replay',
+      version,
+      capabilities: {
+        realtimeQuotes: true,
+        bidAsk: true,
+        historicalBars: false,
+        nativeIntervals: [],
+        pagination: 'none',
+        volume: false,
+        depth: false,
+      },
+    };
     for (const symbol of symbols) {
       this.state.set(symbol, {
         ticks: recording.filter((t) => t.symbol === symbol).sort((a, b) => a.offsetMs - b.offsetMs),

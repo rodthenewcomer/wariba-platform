@@ -19,6 +19,38 @@ export interface SymbolSimConfig {
   staleThresholdMs: number;
 }
 
+export type MarketDataMode = 'sandbox' | 'replay' | 'live';
+
+export interface MarketDataCapabilities {
+  realtimeQuotes: boolean;
+  bidAsk: boolean;
+  historicalBars: boolean;
+  nativeIntervals: readonly string[];
+  pagination: 'none' | 'cursor' | 'time_range';
+  volume: boolean;
+  depth: boolean;
+}
+
+export interface MarketDataSourceIdentity {
+  /** Stable, non-secret identity used to partition the durable bar cache. */
+  id: string;
+  provider: string;
+  environment: string;
+  mode: MarketDataMode;
+  version: string;
+  capabilities: MarketDataCapabilities;
+}
+
+const REALTIME_QUOTE_ONLY_CAPABILITIES: MarketDataCapabilities = {
+  realtimeQuotes: true,
+  bidAsk: true,
+  historicalBars: false,
+  nativeIntervals: [],
+  pagination: 'none',
+  volume: false,
+  depth: false,
+};
+
 /**
  * Prompt 07B — shared lifecycle every provider implements, regardless of
  * where its ticks actually come from (an in-process generator, a recorded
@@ -29,6 +61,7 @@ export interface SymbolSimConfig {
  */
 export interface MarketDataProvider {
   readonly providerName: string;
+  readonly source: MarketDataSourceIdentity;
   start(): void;
   stop(): void;
   getSnapshot(symbol: TradableSymbol): MarketTick;
@@ -78,6 +111,7 @@ interface SymbolState {
 
 export class MockMarketDataProvider implements MarketDataProvider {
   readonly providerName = 'mock';
+  readonly source: MarketDataSourceIdentity;
   private readonly configs: Record<TradableSymbol, SymbolSimConfig>;
   private readonly state = new Map<TradableSymbol, SymbolState>();
   private readonly listeners = new Map<TradableSymbol, Set<(tick: MarketTick) => void>>();
@@ -88,6 +122,14 @@ export class MockMarketDataProvider implements MarketDataProvider {
     configs: Record<TradableSymbol, SymbolSimConfig>,
     private readonly tickIntervalMs: number = 1000,
   ) {
+    this.source = {
+      id: `mock:sandbox:seed-${seed}:v1`,
+      provider: this.providerName,
+      environment: 'sandbox',
+      mode: 'sandbox',
+      version: `seed-${seed}:v1`,
+      capabilities: REALTIME_QUOTE_ONLY_CAPABILITIES,
+    };
     this.configs = configs;
     for (const symbol of Object.keys(configs) as TradableSymbol[]) {
       this.state.set(symbol, {

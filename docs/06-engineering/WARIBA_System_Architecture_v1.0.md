@@ -3538,3 +3538,34 @@ réconciliation, payout, trésorerie et scénarios actuariels.
 Lightweight Charts reste le renderer V1. Toute évaluation future d'Advanced
 Charts doit d'abord isoler le code renderer derrière `ChartEngineAdapter`
 (ARCH-028), sans déplacer la logique trading/risk/finance hors du serveur.
+
+---
+
+# 140. Appendice WX2 — Professional Chart + Market Data Foundation
+
+WX2 conserve la baseline visuelle WX1 et n'ajoute aucun processus runtime.
+Le flux reste :
+
+```text
+MarketDataProvider
+  -> admission ordonnée du tick
+  -> agrégateur canonique multi-intervalle
+  -> write-behind idempotent vers app.market_bars
+  -> MarketHistoryPort paginé
+  -> raccord client par source + sequence watermark
+  -> ChartEngineAdapter / Lightweight Charts
+```
+
+`MarketDataProvider` annonce une identité stable et ses capacités réelles.
+`mock`, `replay` et `fcs` n'annoncent pas d'historique natif tant que cette
+capacité n'est pas intégrée et vérifiée. Le cache durable ne contient donc que
+des bougies effectivement observées. PostgreSQL déduplique par
+`(source_id, symbol, interval, open_time)` et conserve les nombres financiers
+en `numeric` sérialisés comme chaînes aux frontières.
+
+Une seule souscription amont alimente exécution et agrégation après l'admission
+du tick. Le write-behind ne bloque pas le chemin d'exécution et est flushé à
+l'arrêt. Au démarrage, le service reprend les bougies persistées compatibles
+avec la même source. Les pages plus anciennes n'entraînent aucun remount du
+graphique et préservent la plage logique. Le document détaillé est
+`docs/06-engineering/WARIX_WX2_CHART_MARKET_DATA_FOUNDATION.md`.

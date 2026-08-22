@@ -19,7 +19,7 @@ import { expect, test } from './fixtures';
  * candles on every timeframe it was called for** — and W3's history is observed
  * process memory at one tick per second, so:
  *
- *   5s → ~8 min · 15s → ~25 min · 30s → ~50 min · 1m → ~1 h 40 · 3m → ~5 h
+ *   1m → ~1 h 40 · 3m → ~5 h · 5m → ~8 h 20
  *
  * against a 10-minute test timeout. The spec could not honestly execute. The
  * fix is *not* to fabricate candles, shorten the market's clock or hide missing
@@ -27,7 +27,7 @@ import { expect, test } from './fixtures';
  * needs:
  *
  * - **Indicator proof** (§A) runs on one timeframe only, the shortest honest one
- *   (5s), and waits for the realtime process to genuinely observe enough bars
+ *   (1m), and waits for the durable cache to contain enough observed bars
  *   for SMA 100 to have a value.
  * - **Timeframe proof** (§B) asks only that the interval became active and the
  *   chart honestly rendered whatever it has observed. Sparse 1m/3m history on a
@@ -50,12 +50,12 @@ import { expect, test } from './fixtures';
  */
 const OUT_DIR = 'test-results/warix-w5-review';
 
-/** §A — SMA 100's warm-up, on the shortest honest interval. 100 bars × 5s ≈ 8 min. */
-const INDICATOR_TIMEFRAME = '5s';
+/** §A — SMA 100's warm-up, on the shortest professional interval. */
+const INDICATOR_TIMEFRAME = '1m';
 const INDICATOR_MINIMUM_CANDLES = 100;
 /** Generous: this is genuine observation time, and the process may be cold. */
 const INDICATOR_WARMUP_TIMEOUT_MS = 900_000;
-/** A second page needs more than one initial page (400) retained. 400 × 5s ≈ 34 min. */
+/** A second page requires more than one retained initial page; no bars are fabricated. */
 const BACKFILL_TIMEOUT_MS = 300_000;
 
 async function signIn(page: Page, email: string, password: string): Promise<void> {
@@ -263,7 +263,7 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
     await selectSymbol('NAS100');
 
     const timeframeProof: Record<string, unknown> = {};
-    for (const timeframe of ['5s', '15s', '30s', '1m', '3m']) {
+    for (const timeframe of ['1m', '3m', '5m', '15m', '1h']) {
       await selectTimeframe(timeframe);
       const observed = await candleCount();
       timeframeProof[timeframe] = {
@@ -279,9 +279,8 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
             ? 'sparse — fewer observed bars than a 100-period average needs; correct W3 state'
             : 'sufficient for every default indicator',
       };
-      // The two intervals W5 adds are captured here, inside the one pass, so
-      // the harness does not switch timeframe twice for the same evidence.
-      if (timeframe === '15s') await shot('1440x900-02a-nas100-15s-timeframe-active');
+      // Capture the shortest professional intervals inside the same pass.
+      if (timeframe === '1m') await shot('1440x900-02a-nas100-1m-timeframe-active');
       if (timeframe === '3m') await shot('1440x900-02b-nas100-3m-timeframe-active');
     }
     manifest.timeframeProof = timeframeProof;
@@ -325,19 +324,19 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
 
     /**
      * §115/§77 — the same two records, read on a different interval. Drawings
-     * are symbol-scoped and never timeframe-scoped, so switching to 15s must
+     * are symbol-scoped and never timeframe-scoped, so switching to 5m must
      * show the same two drawings at the same time/price anchors, not duplicates
      * and not nothing.
      */
-    await selectTimeframe('15s');
+    await selectTimeframe('5m');
     await expect(chart()).toHaveAttribute('data-drawing-count', '2');
     manifest.timeframeSharing = {
       drawnOn: '3m',
-      readOn: '15s',
+      readOn: '5m',
       drawingCount: await chart().getAttribute('data-drawing-count'),
       note: 'same records, no duplication — drawings are symbol-scoped, never timeframe-scoped',
     };
-    await shot('1440x900-03b-eurusd-15s-same-drawings-other-timeframe');
+    await shot('1440x900-03b-eurusd-5m-same-drawings-other-timeframe');
 
     // Fibonacci and the rectangle go on the denser interval, where the tool is
     // actually legible for a reviewer.
@@ -361,7 +360,7 @@ test.describe('WariX W5 review evidence', { tag: ['@warix-w5-evidence'] }, () =>
       legend: await page.getByTestId('chart-indicator-legend').textContent(),
       sourceEpoch: await sourceEpoch(),
     };
-    await shot('1440x900-01-nas100-5s-four-moving-averages');
+    await shot('1440x900-01-nas100-1m-four-moving-averages');
 
     await page.getByTestId('chart-indicators-trigger').click();
     await expect(page.getByTestId('chart-indicator-options')).toBeVisible();

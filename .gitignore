@@ -13,6 +13,7 @@ coverage
 # Playwright screenshots from apps/web/scripts/visual-verify.mjs — regenerate locally, not checked in.
 .visual-verify
 test-results
+.playwright-cli/
 playwright-report
 # Local before/after evidence from product and visual audits.
 output

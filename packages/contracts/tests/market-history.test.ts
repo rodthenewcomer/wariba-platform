@@ -62,10 +62,10 @@ describe('history request contract (W3 §16/§27)', () => {
       marketHistoryRequestSchema.safeParse({ ...base, symbol: 'BTCUSD', timeframe: '1m' }).success,
     ).toBe(false);
     expect(
-      marketHistoryRequestSchema.safeParse({ ...base, symbol: 'EURUSD', timeframe: '15m' }).success,
+      marketHistoryRequestSchema.safeParse({ ...base, symbol: 'EURUSD', timeframe: '5s' }).success,
     ).toBe(false);
     expect(
-      marketHistoryRequestSchema.safeParse({ ...base, symbol: 'EURUSD', timeframe: '5s' }).success,
+      marketHistoryRequestSchema.safeParse({ ...base, symbol: 'EURUSD', timeframe: '15m' }).success,
     ).toBe(true);
   });
 

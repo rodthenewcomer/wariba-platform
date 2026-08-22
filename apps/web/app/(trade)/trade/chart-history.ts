@@ -3,6 +3,7 @@
 import {
   DEFAULT_CANDLE_TIMEFRAME,
   INITIAL_HISTORY_CANDLE_LIMIT,
+  bucketEndSeconds,
   createCandleAggregator,
   mergeFinalizedCandles,
   midPrice,
@@ -101,6 +102,8 @@ export interface ChartHistorySeriesSink {
    * the cursor. One write, whatever the page size (§75).
    */
   prepend(candles: readonly MarketCandle[], prependedCount: number): void;
+  /** Range preset / saved viewport, only after enough durable history is loaded. */
+  setVisibleTimeRange?(range: { from: number; to: number }): void;
 }
 
 export interface ChartHistorySnapshot {
@@ -119,6 +122,8 @@ export interface ChartHistorySnapshot {
   hasMoreOlder: boolean;
   /** True while an older page is in flight — the chart may say so, quietly. */
   backfilling: boolean;
+  /** Gaps between loaded canonical buckets; visible rather than silently implied. */
+  gapsDetected: number;
 }
 
 export interface ChartHistoryTickSource {
@@ -146,10 +151,14 @@ export interface ChartHistoryController {
    * so a trader dragging left produces one request, not one per frame.
    */
   maybeRequestOlder(barsToLeftEdge: number): void;
+  requestRange(seconds: number): void;
+  restoreViewport(range: { from: number; to: number }): void;
   /** Inspection seam for tests and the renderer adapter. */
   series(): { finalized: readonly MarketCandle[]; current: MarketCandle | null };
   dispose(): void;
 }
+
+const RANGE_BACKFILL_INTERVAL_MS = 1700;
 
 export interface CreateChartHistoryControllerOptions {
   transport: ChartHistoryTransport;
@@ -196,6 +205,7 @@ const IDLE: ChartHistorySnapshot = {
   errorReason: null,
   hasMoreOlder: false,
   backfilling: false,
+  gapsDetected: 0,
 };
 
 export function createChartHistoryController(
@@ -233,6 +243,9 @@ export function createChartHistoryController(
   let backfill: Backfill | null = null;
   let hasMoreOlder = false;
   let oldestCursor: number | null = null;
+  let rangeTarget: { from: number; to: number } | null = null;
+  let rangeTimer: ReturnType<typeof setTimeout> | null = null;
+  let gapsDetected = 0;
 
   function emit(next: ChartHistorySnapshot): void {
     if (
@@ -240,7 +253,8 @@ export function createChartHistoryController(
       next.sourceEpoch === snapshot.sourceEpoch &&
       next.errorReason === snapshot.errorReason &&
       next.hasMoreOlder === snapshot.hasMoreOlder &&
-      next.backfilling === snapshot.backfilling
+      next.backfilling === snapshot.backfilling &&
+      next.gapsDetected === snapshot.gapsDetected
     ) {
       // Identity-stable when nothing changed: this snapshot is read through
       // useSyncExternalStore, so a new object every tick would re-render the
@@ -259,6 +273,7 @@ export function createChartHistoryController(
       errorReason,
       hasMoreOlder,
       backfilling: backfill !== null,
+      gapsDetected,
     });
   }
 
@@ -275,6 +290,27 @@ export function createChartHistoryController(
     backfill = null;
     hasMoreOlder = false;
     oldestCursor = null;
+    gapsDetected = 0;
+    rangeTarget = null;
+    if (rangeTimer !== null) clearTimeout(rangeTimer);
+    rangeTimer = null;
+  }
+
+  function countLoadedGaps(): number {
+    if (identity === null) return 0;
+    let count = 0;
+    for (let index = 1; index < finalized.length; index += 1) {
+      const previous = finalized[index - 1];
+      const current = finalized[index];
+      if (
+        previous &&
+        current &&
+        bucketEndSeconds(previous.startTime, identity.timeframe) < current.startTime
+      ) {
+        count += 1;
+      }
+    }
+    return count;
   }
 
   /**
@@ -401,6 +437,29 @@ export function createChartHistoryController(
     });
   }
 
+  function driveRangeTarget(immediate = false): void {
+    if (rangeTarget === null || identity === null || hydration !== null || backfill !== null)
+      return;
+    const oldest = finalized[0]?.startTime ?? aggregator.current()?.startTime ?? null;
+    if (oldest !== null && oldest <= rangeTarget.from) {
+      sink.setVisibleTimeRange?.(rangeTarget);
+      rangeTarget = null;
+      return;
+    }
+    if (!hasMoreOlder || oldestCursor === null || hydratedEpoch === null) {
+      rangeTarget = null;
+      return;
+    }
+    const request = () => {
+      rangeTimer = null;
+      maybeRequestOlder(0);
+    };
+    if (immediate) request();
+    else {
+      rangeTimer = setTimeout(request, RANGE_BACKFILL_INTERVAL_MS);
+    }
+  }
+
   /**
    * W5 §20/§21/§22 — merge one older page and hold the viewport.
    *
@@ -448,6 +507,7 @@ export function createChartHistoryController(
     }
 
     finalized = merge.candles;
+    gapsDetected = countLoadedGaps();
     hasMoreOlder = result.hasMore;
     oldestCursor = result.nextCursor ?? oldestCursor;
 
@@ -465,6 +525,7 @@ export function createChartHistoryController(
       Math.max(0, prependedCount),
     );
     publish(finalized.length === 0 ? 'empty' : 'ready');
+    driveRangeTarget();
   }
 
   function onResult(result: MarketHistoryResult): void {
@@ -517,6 +578,7 @@ export function createChartHistoryController(
     }
 
     finalized = merge.candles;
+    gapsDetected = countLoadedGaps();
     hydratedEpoch = result.sourceEpoch;
     // W5 §17 — the pagination contract W3 defined, now actually consumed. The
     // cursor is the oldest candle *the series holds*, not the oldest this
@@ -552,6 +614,7 @@ export function createChartHistoryController(
     for (const tick of replay) applyTick(tick, current.pricePrecision);
 
     publish(finalized.length === 0 ? 'empty' : 'ready');
+    driveRangeTarget();
   }
 
   function onError(error: MarketHistoryErrorMessage): void {
@@ -560,6 +623,9 @@ export function createChartHistoryController(
     // and the next pan re-arms it only if the server said there is more.
     if (backfill !== null && error.requestId === backfill.requestId) {
       backfill = null;
+      rangeTarget = null;
+      if (rangeTimer !== null) clearTimeout(rangeTimer);
+      rangeTimer = null;
       publish(snapshot.status);
       return;
     }
@@ -627,6 +693,25 @@ export function createChartHistoryController(
       emit(IDLE);
     },
     maybeRequestOlder,
+    requestRange(seconds) {
+      if (!Number.isFinite(seconds) || seconds <= 0) return;
+      const newest = aggregator.current()?.startTime ?? finalized.at(-1)?.startTime ?? null;
+      if (newest === null) return;
+      rangeTarget = { from: Math.max(0, newest - Math.floor(seconds)), to: newest };
+      driveRangeTarget(true);
+    },
+    restoreViewport(range) {
+      if (
+        !Number.isFinite(range.from) ||
+        !Number.isFinite(range.to) ||
+        range.from < 0 ||
+        range.to <= range.from
+      ) {
+        return;
+      }
+      rangeTarget = { from: Math.floor(range.from), to: Math.floor(range.to) };
+      driveRangeTarget(true);
+    },
     snapshot: () => snapshot,
     subscribe(listener) {
       listeners.add(listener);
@@ -634,6 +719,7 @@ export function createChartHistoryController(
     },
     series: () => ({ finalized, current: aggregator.current() }),
     dispose() {
+      if (rangeTimer !== null) clearTimeout(rangeTimer);
       detachTicks?.();
       detachTicks = null;
       detachTransport();

@@ -39,6 +39,26 @@ const CONFIG = {
 } as const;
 
 describe('MockMarketDataProvider — DATA-001/002 determinism', () => {
+  it('exposes a stable, seed-partitioned source identity with honest capabilities', () => {
+    const first = new MockMarketDataProvider(42, CONFIG);
+    const same = new MockMarketDataProvider(42, CONFIG);
+    const different = new MockMarketDataProvider(43, CONFIG);
+
+    expect(first.source).toEqual(same.source);
+    expect(first.source.id).not.toBe(different.source.id);
+    expect(first.source).toMatchObject({
+      provider: 'mock',
+      environment: 'sandbox',
+      mode: 'sandbox',
+      capabilities: {
+        historicalBars: false,
+        nativeIntervals: [],
+        volume: false,
+        depth: false,
+      },
+    });
+  });
+
   it('produces the exact same tick sequence for the same seed', () => {
     const providerA = new MockMarketDataProvider(42, CONFIG);
     const providerB = new MockMarketDataProvider(42, CONFIG);

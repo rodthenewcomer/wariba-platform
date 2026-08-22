@@ -114,6 +114,35 @@ describe('FcsMarketDataProvider — with a credential, using an injected socket 
       () => socket,
     );
     expect(provider.providerName).toBe('fcs');
+    expect(provider.source).toMatchObject({
+      id: expect.stringMatching(/^fcs:live:quotes-v1-map-[0-9a-f]+$/),
+      provider: 'fcs',
+      mode: 'live',
+      capabilities: {
+        realtimeQuotes: true,
+        historicalBars: false,
+        nativeIntervals: [],
+        volume: false,
+        depth: false,
+      },
+    });
+  });
+
+  it('partitions durable source identity when the provider symbol mapping changes', () => {
+    const socket = fakeSocket();
+    const first = new FcsMarketDataProvider({ ...BASE_CONFIG, apiKey: 'real-key' }, () => socket);
+    const remapped = new FcsMarketDataProvider(
+      {
+        ...BASE_CONFIG,
+        apiKey: 'real-key',
+        symbols: {
+          ...BASE_CONFIG.symbols,
+          EURUSD: { providerSymbol: 'EURUSD.FX', staleThresholdMs: 5000 },
+        },
+      },
+      () => socket,
+    );
+    expect(first.source.id).not.toBe(remapped.source.id);
   });
 });
 

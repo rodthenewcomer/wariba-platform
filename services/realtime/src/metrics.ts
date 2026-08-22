@@ -14,6 +14,15 @@ export interface RealtimeMetricsSnapshot {
   protectionTriggers: number;
   alertNotifications: number;
   queuedReductions: number;
+  historyReads: number;
+  historyReadFailures: number;
+  historyBarsReturned: number;
+  historyCacheHits: number;
+  historyCacheMisses: number;
+  historyGapsDetected: number;
+  historyFlushBars: number;
+  historyFlushFailures: number;
+  historyLatencyMs: { p50: number; p95: number; p99: number };
   commandLatencyMs: { p50: number; p95: number; p99: number };
 }
 
@@ -40,8 +49,17 @@ export class RealtimeOperationalMetrics {
   private protectionTriggers = 0;
   private alertNotifications = 0;
   private queuedReductions = 0;
+  private historyReads = 0;
+  private historyReadFailures = 0;
+  private historyBarsReturned = 0;
+  private historyCacheHits = 0;
+  private historyCacheMisses = 0;
+  private historyGapsDetected = 0;
+  private historyFlushBars = 0;
+  private historyFlushFailures = 0;
   private readonly observedUsers = new Set<string>();
   private readonly commandLatenciesMs: number[] = [];
+  private readonly historyLatenciesMs: number[] = [];
 
   connectionOpened(userId: string): void {
     this.connectedClients += 1;
@@ -98,6 +116,30 @@ export class RealtimeOperationalMetrics {
     this.queuedReductions += count;
   }
 
+  historyRead(result: {
+    bars: number;
+    durationMs: number;
+    ok: boolean;
+    cacheHit?: boolean;
+    gapsDetected?: number;
+  }): void {
+    this.historyReads += 1;
+    this.historyBarsReturned += result.bars;
+    if (!result.ok) this.historyReadFailures += 1;
+    if (result.cacheHit === true) this.historyCacheHits += 1;
+    if (result.cacheHit === false) this.historyCacheMisses += 1;
+    this.historyGapsDetected += Math.max(0, result.gapsDetected ?? 0);
+    this.historyLatenciesMs.push(Math.max(0, result.durationMs));
+    if (this.historyLatenciesMs.length > 2_048) this.historyLatenciesMs.shift();
+  }
+
+  historyFlush(result: { bars: number; durationMs: number; ok: boolean }): void {
+    this.historyFlushBars += result.bars;
+    if (!result.ok) this.historyFlushFailures += 1;
+    this.historyLatenciesMs.push(Math.max(0, result.durationMs));
+    if (this.historyLatenciesMs.length > 2_048) this.historyLatenciesMs.shift();
+  }
+
   snapshot(): RealtimeMetricsSnapshot {
     return {
       connectedClients: this.connectedClients,
@@ -115,6 +157,19 @@ export class RealtimeOperationalMetrics {
       protectionTriggers: this.protectionTriggers,
       alertNotifications: this.alertNotifications,
       queuedReductions: this.queuedReductions,
+      historyReads: this.historyReads,
+      historyReadFailures: this.historyReadFailures,
+      historyBarsReturned: this.historyBarsReturned,
+      historyCacheHits: this.historyCacheHits,
+      historyCacheMisses: this.historyCacheMisses,
+      historyGapsDetected: this.historyGapsDetected,
+      historyFlushBars: this.historyFlushBars,
+      historyFlushFailures: this.historyFlushFailures,
+      historyLatencyMs: {
+        p50: percentile(this.historyLatenciesMs, 0.5),
+        p95: percentile(this.historyLatenciesMs, 0.95),
+        p99: percentile(this.historyLatenciesMs, 0.99),
+      },
       commandLatencyMs: {
         p50: percentile(this.commandLatenciesMs, 0.5),
         p95: percentile(this.commandLatenciesMs, 0.95),

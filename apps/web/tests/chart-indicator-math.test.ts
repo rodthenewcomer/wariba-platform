@@ -226,16 +226,16 @@ describe('calculateIndicator dispatch', () => {
   });
 
   it('detects a gap against the timeframe it was told, not a fixed interval', () => {
-    // 60 s apart is a gap on a 5s chart and contiguous on a 1m one. The same
+    // 180 s apart is contiguous on a 3m chart and a gap on a 1m one. The same
     // candles therefore break in one reading and not in the other — which is
     // why the interval is a parameter rather than inferred from the data.
-    const candles = ramp(6);
-    const onOneMinute = calculateIndicator({ type: 'sma', period: 2 }, candles, '1m');
-    expect(values(onOneMinute).slice(1).includes(null)).toBe(false);
+    const candles = ramp(6, 0, 180);
+    const onThreeMinutes = calculateIndicator({ type: 'sma', period: 2 }, candles, '3m');
+    expect(values(onThreeMinutes).slice(1).includes(null)).toBe(false);
 
-    const onFiveSeconds = calculateIndicator({ type: 'sma', period: 2 }, candles, '5s');
+    const onOneMinute = calculateIndicator({ type: 'sma', period: 2 }, candles, '1m');
     expect(
-      values(onFiveSeconds)
+      values(onOneMinute)
         .slice(1)
         .every((value) => value === null),
     ).toBe(true);

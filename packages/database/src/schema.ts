@@ -687,6 +687,33 @@ export interface StaffActionRateLimitsTable {
   last_attempt_at: Timestamp;
 }
 
+export interface MarketDataSourcesTable {
+  id: string;
+  provider: string;
+  environment: string;
+  mode: 'sandbox' | 'replay' | 'live';
+  source_version: string;
+  capabilities: unknown;
+  created_at: GeneratedTimestamp;
+  last_seen_at: GeneratedTimestamp;
+}
+
+export interface MarketBarsTable {
+  source_id: string;
+  symbol: string;
+  interval: string;
+  open_time: Timestamp;
+  open: string;
+  high: string;
+  low: string;
+  close: string;
+  is_final: Generated<boolean>;
+  first_observed_sequence: number | null;
+  observed_through_sequence: number | null;
+  observed_at: Timestamp;
+  updated_at: GeneratedTimestamp;
+}
+
 // Prompt 08 Phase E — see the matching migration's doc comment.
 export type TreasuryReserveEntryType = 'deposit' | 'withdrawal' | 'adjustment';
 
@@ -739,6 +766,8 @@ export interface Database {
   'app.operations_incidents': OperationsIncidentsTable;
   'app.account_reconciliation_runs': AccountReconciliationRunsTable;
   'app.staff_action_rate_limits': StaffActionRateLimitsTable;
+  'app.market_data_sources': MarketDataSourcesTable;
+  'app.market_bars': MarketBarsTable;
   'audit.audit_events': AuditEventsTable;
   'auth.users': AuthUsersTable;
 }

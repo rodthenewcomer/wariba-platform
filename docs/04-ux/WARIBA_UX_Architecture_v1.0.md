@@ -3076,3 +3076,21 @@ les opérations sûres de fermeture/réduction/annulation. `Soumis` ou
 Realtime, WariX se reconnecte et réconcilie snapshots, ordres, positions,
 alertes et notifications sans exiger un reload manuel lorsque le navigateur
 supporte la reconnexion automatique.
+
+## Appendice WX2 — continuité du graphique WariX
+
+La composition, les rails, les symboles, les chips, les overlays SL/TP, les
+matériaux, le mobile et le reduced motion acceptés en WX1 sont gelés. WX2 ajoute
+uniquement le comportement fonctionnel du graphique : intervalles
+`1m/3m/5m/15m/30m/1h/4h/1D/1W/1M`, historique durable et paginé, source
+visible, presets de plage et restauration du viewport.
+
+Le chargement initial peut cadrer les données une seule fois. Lorsque le trader
+pan vers la gauche, les bougies préfixées compensent exactement la plage
+logique ; aucun `fitContent()` ne lui retire son contexte. Après reconnexion,
+le rattrapage provider précède la reprise live lorsque la source annonce un
+historique natif vérifié. Sans cette capability, les gaps restent visibles et
+ne sont jamais comblés par des bougies inventées. Les préférences de
+plage/viewport sont locales,
+versionnées et non autoritatives. L'absence de volume, d'historique provider ou
+de depth est un état explicite, jamais remplacé par une donnée inventée.

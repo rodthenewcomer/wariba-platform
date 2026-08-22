@@ -33,6 +33,15 @@ const METRICS: RealtimeMetricsSnapshot = {
   protectionTriggers: 0,
   alertNotifications: 0,
   queuedReductions: 0,
+  historyReads: 0,
+  historyReadFailures: 0,
+  historyBarsReturned: 0,
+  historyCacheHits: 0,
+  historyCacheMisses: 0,
+  historyGapsDetected: 0,
+  historyFlushBars: 0,
+  historyFlushFailures: 0,
+  historyLatencyMs: { p50: 0, p95: 0, p99: 0 },
   commandLatencyMs: { p50: 0, p95: 0, p99: 0 },
 };
 

@@ -36,7 +36,7 @@ function renderToolbar(overrides: Partial<React.ComponentProps<typeof ChartToolb
     chartStyle: 'candles' as const,
     onSelectChartStyle: vi.fn(),
     onOpenAlerts: vi.fn(),
-    timeframe: '5s' as const,
+    timeframe: '1m' as const,
     onSelectTimeframe: vi.fn(),
     onOpenIndicators: vi.fn(),
     indicatorsActive: true,
@@ -99,12 +99,12 @@ describe('timeframe selector — W5 §14/§86', () => {
     expect(trigger.querySelector('[data-warix-symbol="markets"]')).toBeNull();
   });
 
-  it('offers all five W5 timeframes in one control', () => {
+  it('offers all ten WX2 professional timeframes in one control', () => {
     renderToolbar();
     const group = screen.getByRole('radiogroup', { name: 'Intervalle du graphique' });
     const options = within(group).getAllByRole('radio');
     expect(options.map((option) => option.textContent)).toEqual([...CANDLE_TIMEFRAMES]);
-    expect(options).toHaveLength(5);
+    expect(options).toHaveLength(CANDLE_TIMEFRAMES.length);
   });
 
   it('exposes the current interval to assistive technology, not just to the eye', () => {
@@ -116,31 +116,31 @@ describe('timeframe selector — W5 §14/§86', () => {
   it('changes timeframe in a single action', async () => {
     const user = userEvent.setup();
     const props = renderToolbar();
-    await user.click(screen.getByRole('radio', { name: '15s' }));
+    await user.click(screen.getByRole('radio', { name: '3m' }));
     expect(props.onSelectTimeframe).toHaveBeenCalledTimes(1);
-    expect(props.onSelectTimeframe).toHaveBeenCalledWith('15s');
+    expect(props.onSelectTimeframe).toHaveBeenCalledWith('3m');
   });
 
   it('moves between intervals with the arrow keys and keeps one tab stop', async () => {
     const user = userEvent.setup();
-    const props = renderToolbar({ timeframe: '30s' });
-    const selected = screen.getByRole('radio', { name: '30s' });
+    const props = renderToolbar({ timeframe: '5m' });
+    const selected = screen.getByRole('radio', { name: '5m' });
     expect(selected).toHaveAttribute('tabIndex', '0');
     expect(screen.getByRole('radio', { name: '1m' })).toHaveAttribute('tabIndex', '-1');
 
     selected.focus();
     await user.keyboard('{ArrowRight}');
-    expect(props.onSelectTimeframe).toHaveBeenCalledWith('1m');
+    expect(props.onSelectTimeframe).toHaveBeenCalledWith('15m');
     await user.keyboard('{ArrowLeft}');
-    expect(props.onSelectTimeframe).toHaveBeenCalledWith('15s');
+    expect(props.onSelectTimeframe).toHaveBeenCalledWith('3m');
   });
 
   it('wraps at both ends so no interval is unreachable by keyboard', async () => {
     const user = userEvent.setup();
-    const props = renderToolbar({ timeframe: '5s' });
-    screen.getByRole('radio', { name: '5s' }).focus();
+    const props = renderToolbar({ timeframe: '1m' });
+    screen.getByRole('radio', { name: '1m' }).focus();
     await user.keyboard('{ArrowLeft}');
-    expect(props.onSelectTimeframe).toHaveBeenCalledWith('3m');
+    expect(props.onSelectTimeframe).toHaveBeenCalledWith('1M');
   });
 
   /**
@@ -151,45 +151,45 @@ describe('timeframe selector — W5 §14/§86', () => {
    * order, and the active interval is never one of the hidden ones.
    */
   it('keeps every interval on the row when there is width for them', () => {
-    expect(visibleTimeframes(5, '5s')).toEqual([...CANDLE_TIMEFRAMES]);
+    expect(visibleTimeframes(CANDLE_TIMEFRAMES.length, '1m')).toEqual([...CANDLE_TIMEFRAMES]);
     expect(timeframeSlotsForWidth(1440, false)).toBe(CANDLE_TIMEFRAMES.length);
     expect(timeframeSlotsForWidth(320, false)).toBe(CANDLE_TIMEFRAMES.length);
   });
 
   it('moves the tail of the interval order behind the overflow on a phone', () => {
     // The counts come from the measured strip — see `timeframeSlotsForWidth`.
-    expect(timeframeSlotsForWidth(430, true)).toBe(CANDLE_TIMEFRAMES.length);
+    expect(timeframeSlotsForWidth(430, true)).toBe(4);
     expect(timeframeSlotsForWidth(390, true)).toBe(3);
     expect(timeframeSlotsForWidth(320, true)).toBe(2);
-    expect(visibleTimeframes(3, '5s')).toEqual(['5s', '15s', '30s']);
-    expect(visibleTimeframes(2, '5s')).toEqual(['5s', '15s']);
+    expect(visibleTimeframes(3, '1m')).toEqual(['1m', '3m', '5m']);
+    expect(visibleTimeframes(2, '1m')).toEqual(['1m', '3m']);
   });
 
   it('never hides the interval the chart is actually drawing', () => {
-    expect(visibleTimeframes(3, '3m')).toEqual(['5s', '15s', '3m']);
-    expect(visibleTimeframes(4, '3m')).toEqual(['5s', '15s', '30s', '3m']);
+    expect(visibleTimeframes(3, '1M')).toEqual(['1m', '3m', '1M']);
+    expect(visibleTimeframes(4, '1M')).toEqual(['1m', '3m', '5m', '1M']);
   });
 
   it('reaches an overflowed interval through its menu rather than by scrolling', async () => {
     const user = userEvent.setup();
-    const props = renderToolbar({ compact: true, timeframe: '5s' });
-    // jsdom reports a desktop-width window, so the row is asked for the narrow
-    // composition directly — the width rule itself is covered above.
+    const props = renderToolbar({ compact: true, timeframe: '1m' });
+    // Compact mode preserves the accepted phone shell even when jsdom reports
+    // a desktop-sized window.
     const group = screen.getByTestId('chart-timeframe-group');
-    expect(within(group).getAllByRole('radio')).toHaveLength(5);
-    expect(screen.queryByTestId('chart-timeframe-overflow')).not.toBeInTheDocument();
+    expect(within(group).getAllByRole('radio')).toHaveLength(4);
+    expect(screen.getByTestId('chart-timeframe-overflow')).toBeInTheDocument();
 
     cleanup();
     const desktopWidth = window.innerWidth;
     window.innerWidth = 320;
     try {
-      renderToolbar({ compact: true, timeframe: '5s', onSelectTimeframe: props.onSelectTimeframe });
+      renderToolbar({ compact: true, timeframe: '1m', onSelectTimeframe: props.onSelectTimeframe });
       expect(
         within(screen.getByTestId('chart-timeframe-group')).getAllByRole('radio'),
       ).toHaveLength(2);
       await user.click(screen.getByTestId('chart-timeframe-overflow'));
-      await user.click(screen.getByTestId('chart-timeframe-overflow-3m'));
-      expect(props.onSelectTimeframe).toHaveBeenCalledWith('3m');
+      await user.click(screen.getByTestId('chart-timeframe-overflow-1M'));
+      expect(props.onSelectTimeframe).toHaveBeenCalledWith('1M');
     } finally {
       window.innerWidth = desktopWidth;
     }
@@ -202,10 +202,10 @@ describe('timeframe selector — W5 §14/§86', () => {
    * track would render a chart with a handful of bars and look like a data bug
    * rather than a scope decision.
    */
-  it('exposes no long-range interval WX1 history cannot support', () => {
+  it('exposes the complete long-range WX2 family', () => {
     renderToolbar();
     for (const absent of ['1h', '4h', '1D', '1W', '1M']) {
-      expect(screen.queryByRole('radio', { name: absent })).not.toBeInTheDocument();
+      expect(screen.getByRole('radio', { name: absent })).toBeInTheDocument();
     }
   });
 });
@@ -454,7 +454,8 @@ describe('toolbar density — W5 §61/§62/§63 + reopen §20', () => {
 
   it('drops the desktop cluster on a compact viewport, keeping timeframes reachable (§67)', () => {
     renderToolbar({ compact: true });
-    expect(screen.getAllByRole('radio')).toHaveLength(5);
+    expect(screen.getAllByRole('radio')).toHaveLength(4);
+    expect(screen.getByTestId('chart-timeframe-overflow')).toBeInTheDocument();
     expect(screen.getByTestId('chart-indicators-trigger')).toBeInTheDocument();
     expect(screen.queryByTestId('chart-settings-trigger')).not.toBeInTheDocument();
   });
@@ -532,7 +533,7 @@ describe('status line — §14 / W5 §39/§65/§128/§142', () => {
     render(
       <ChartStatusLine
         symbol="EURUSD"
-        timeframe="5s"
+        timeframe="1m"
         marketStatus="open"
         candle={candle}
         pricePrecision={5}
@@ -548,7 +549,7 @@ describe('status line — §14 / W5 §39/§65/§128/§142', () => {
     renderStatus();
     const identity = screen.getByTestId('chart-identity-line');
     expect(identity).toHaveTextContent('EURUSD');
-    expect(identity).toHaveTextContent('5S');
+    expect(identity).toHaveTextContent('1m');
   });
 
   it('shows O/H/L/C at the instrument’s own precision', () => {

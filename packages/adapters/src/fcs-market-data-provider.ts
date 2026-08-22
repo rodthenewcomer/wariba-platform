@@ -55,6 +55,19 @@ export type WebSocketFactory = (url: string) => WebSocketLike;
 
 const OPEN_READY_STATE = 1;
 
+function sourceMappingVersion(symbols: FcsProviderConfig['symbols']): string {
+  const mapping = Object.entries(symbols)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([symbol, config]) => `${symbol}=${config.providerSymbol}`)
+    .join('|');
+  let hash = 2166136261;
+  for (let index = 0; index < mapping.length; index += 1) {
+    hash ^= mapping.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `quotes-v1-map-${(hash >>> 0).toString(16)}`;
+}
+
 interface FcsSymbolState {
   lastTick: MarketTick | null;
   receivedAt: number | null;
@@ -81,6 +94,7 @@ const RECONNECT_MAX_DELAY_MS = 30000;
  */
 export class FcsMarketDataProvider implements MarketDataProvider {
   readonly providerName = 'fcs';
+  readonly source: MarketDataProvider['source'];
   private readonly symbolByProviderTicker = new Map<string, TradableSymbol>();
   private readonly state = new Map<TradableSymbol, FcsSymbolState>();
   private readonly listeners = new Map<TradableSymbol, Set<(tick: MarketTick) => void>>();
@@ -111,6 +125,23 @@ export class FcsMarketDataProvider implements MarketDataProvider {
         'FCS_WS_PRIMARY_URL and FCS_REST_BASE_URL must both be set alongside FCS_API_KEY.',
       );
     }
+    const version = sourceMappingVersion(config.symbols);
+    this.source = {
+      id: `fcs:live:${version}`,
+      provider: 'fcs',
+      environment: 'live-unverified',
+      mode: 'live',
+      version: `${version}-unverified`,
+      capabilities: {
+        realtimeQuotes: true,
+        bidAsk: true,
+        historicalBars: false,
+        nativeIntervals: [],
+        pagination: 'none',
+        volume: false,
+        depth: false,
+      },
+    };
     for (const [symbol, symbolConfig] of Object.entries(config.symbols) as [
       TradableSymbol,
       FcsSymbolConfig,

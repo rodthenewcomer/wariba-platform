@@ -2784,6 +2784,23 @@ Un écart bloque.
 
 # 111. Symbol specification parity
 
+---
+
+# 112. WX2 — assurance historique market data
+
+La gate WX2 couvre au minimum : frontières d'intervalles UTC, OHLC exact,
+upsert idempotent, pagination ordonnée, déduplication historique/live,
+watermark de cutover, réponse obsolète, reconnexion avec rattrapage, continuité
+après redémarrage, absence de `fitContent()` après préfixage, restauration du
+viewport et absence de seconde souscription.
+
+Les tables `app.market_data_sources` et `app.market_bars` ont RLS activée et
+aucun droit direct `anon`/`authenticated`. Les logs et métriques exposent
+source, mode, intervalle, hit/miss cache, barres retournées, latence, gaps,
+backfills, reconnects et erreurs de persistance sans clé provider ni payload
+sensible. Un test ne peut déclarer l'historique réel, le volume ou la profondeur
+verts si la capability correspondante est fausse.
+
 CI ou test vérifie :
 
 - precision ;
