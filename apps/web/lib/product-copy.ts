@@ -64,6 +64,11 @@ export const productCopy = {
       haveAccount: 'Vous avez déjà un compte ?',
       signIn: 'Se connecter',
       passwordHint: 'Au moins 12 caractères, dont une majuscule, un chiffre et un symbole.',
+      country: 'Pays de résidence',
+      countryPlaceholder: 'Sélectionnez votre pays',
+      countryMissing: 'Sélectionnez votre pays de résidence.',
+      /** Shown when only one country is offered, so the value is stated rather than hidden. */
+      countrySingleNote: 'WARIBA est actuellement disponible dans ce pays.',
       errorTitle: 'Création impossible',
     },
 

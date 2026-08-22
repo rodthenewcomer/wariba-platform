@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { Alert, Button, Input } from '@wariba/ui';
 import { AuthFooterLink, AuthShell } from '../AuthShell';
 import { PasswordField } from '../PasswordField';
+import { CountryField } from '../CountryField';
 import { productCopy } from '../../../lib/product-copy';
 import { signUpAction, type ActionResult } from '../actions';
 
@@ -29,7 +30,6 @@ function SignupForm() {
     >
       <form action={formAction} className="flex flex-col gap-5">
         <input type="hidden" name="returnTo" value={returnTo} />
-        <input type="hidden" name="country" value="CI" />
         <input type="hidden" name="language" value="fr" />
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -45,6 +45,8 @@ function SignupForm() {
           inputMode="email"
           required
         />
+
+        <CountryField />
 
         <PasswordField
           label={copy.password}
