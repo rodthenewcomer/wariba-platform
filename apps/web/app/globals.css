@@ -72,6 +72,116 @@
   --warix-radius-panel: 10px;
 }
 
+/*
+ * Product OS 1.1 — the Hub's own measurements.
+ *
+ * The Hub is not the workstation and does not inherit its density. These sit
+ * beside the WariX ladder rather than inside it so a change to one shell can
+ * never silently move the other.
+ */
+[data-wariba-section='hub'] {
+  --hub-sidebar-expanded: 232px;
+  --hub-sidebar-collapsed: 68px;
+  /* Content starts one gutter after the sidebar, not a page-width margin
+     later. 32px at every desktop width; the column then uses what is left. */
+  --hub-gutter: 32px;
+  /* The reading width a dashboard stops growing past. Below ~1500px the
+     column never reaches it, which is what makes collapsing the sidebar hand
+     real width back to the content instead of widening a margin. */
+  --hub-content-max: 1240px;
+  --hub-header-height: 64px;
+  /* Fixed bottom navigation, so content can reserve exactly its height. */
+  --hub-mobile-nav-height: 70px;
+  /* What `main` reserves below its last row. On a phone that is the tab bar
+     plus the home indicator plus a gap — a fixed bar overlapping content is
+     the most common way a mobile layout silently loses its final control. */
+  --hub-content-bottom: calc(var(--hub-mobile-nav-height) + env(safe-area-inset-bottom) + 24px);
+
+  /*
+   * The Hub runs the graphite ladder, so the general surface tokens are
+   * re-pointed at it here.
+   *
+   * Shared design-system components — MissionProgress, ConsistencyMeter,
+   * ActivityTimeline, Alert — paint `--wariba-background-surface`, the
+   * light-first general token. Under the dark theme that resolves to #121620
+   * while the Hub's own panels sit elsewhere on the ladder: close enough to
+   * look like a mistake rather than a decision, and every panel on the
+   * dashboard was a shade off from the shell containing it.
+   *
+   * Modules sit a full step above the chrome. Canvas #080B13, sidebar and
+   * header #0D111A, modules #141A27, controls inside them #1C2333 — four
+   * legible levels rather than two shades that argue. Content that reads as
+   * lifted off the chrome is most of what separates a dashboard that looks
+   * finished from one that looks like a page with borders on it.
+   *
+   * Re-pointing three tokens for this section fixes all of them at once and
+   * touches nothing outside it. The alternative — a Hub-native copy of every
+   * shared component — is how two implementations of the same panel start
+   * drifting apart.
+   */
+  --wariba-background-canvas: var(--warix-shell);
+  --wariba-background-surface: var(--warix-surface);
+  --wariba-background-subtle: var(--warix-surface-raised);
+}
+
+@media (min-width: 768px) {
+  [data-wariba-section='hub'] {
+    /* No fixed bar at this width; the page just needs to breathe at the end. */
+    --hub-content-bottom: 40px;
+  }
+}
+
+/*
+ * Product OS 1.1 — auth measurements.
+ *
+ * Scoped to the auth segment rather than raised globally: the 40px control
+ * height is correct in a workstation where a dozen controls share a row, and
+ * wrong on a screen with one form and one decision. Overriding here keeps
+ * both true without giving the design system two conflicting defaults.
+ */
+[data-wariba-section='auth'] {
+  --wariba-component-input-height: 48px;
+  --auth-form-max: 27.5rem;
+  --auth-title-size: 32px;
+  --auth-title-line: 38px;
+}
+
+@media (max-width: 400px) {
+  [data-wariba-section='auth'] {
+    --auth-title-size: 28px;
+    --auth-title-line: 34px;
+  }
+}
+
+/*
+ * A reveal, not an alarm.
+ *
+ * An error that shakes or flashes tells someone their mistake was dramatic.
+ * Opacity and 4px of travel over 160ms says the same thing without the
+ * theatre, and stops entirely under reduced motion.
+ */
+@keyframes wariba-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.wariba-reveal {
+  animation: wariba-reveal var(--wariba-component-workstation-motion-standard)
+    var(--wariba-component-workstation-ease-enter) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wariba-reveal {
+    animation: none;
+  }
+}
+
 * {
   box-sizing: border-box;
 }

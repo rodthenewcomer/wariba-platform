@@ -26,6 +26,16 @@ export const productCopy = {
       tagline: 'Plateforme de trading simulé',
       /** Shown beside the form on desktop. States what the platform is, without selling. */
       promise: 'Un capital simulé, des règles claires, une exécution mesurée.',
+      /**
+       * Three facts about how the platform works, under the statement.
+       *
+       * Every one of them is verifiable from the product itself: the accounts
+       * are simulated, the rulebook is published and versioned, the risk
+       * engine is authoritative. Deliberately not statistics, payout totals or
+       * testimonials — the three things this category puts here and the three
+       * things WARIBA cannot substantiate on a login screen.
+       */
+      truths: ['Trading simulé', 'Règles publiées', 'Risque contrôlé'] as const,
     },
 
     login: {
@@ -125,7 +135,16 @@ export const productCopy = {
 
     sessionExpired: {
       title: 'Votre session a expiré',
-      body: 'Reconnectez-vous pour continuer.',
+      /*
+       * Says why before it says what to do. An expiry with no reason reads as
+       * a fault; naming the protection turns the same event into the platform
+       * doing its job.
+       *
+       * The requested wording opened with "Votre session a expiré", which is
+       * already the title directly above it — so the clause is carried by the
+       * pronoun instead of stuttered twice on one screen.
+       */
+      body: 'Elle a été fermée pour protéger votre compte. Reconnectez-vous pour continuer.',
       submit: 'Se reconnecter',
     },
   },
@@ -135,13 +154,14 @@ export const productCopy = {
       title: 'Page introuvable',
       body: 'Cette page n’existe pas ou n’est plus disponible.',
       home: 'Retour au tableau de bord',
-      back: 'Retour',
+      back: 'Page précédente',
     },
     forbidden: {
       title: 'Accès non autorisé',
       /** Says nothing about what the resource is — that would be its own leak. */
-      body: 'Vous n’avez pas accès à cette page.',
+      body: 'Vous n’avez pas accès à cette ressource.',
       home: 'Retour au tableau de bord',
+      support: 'Contacter le support',
     },
     serverError: {
       title: 'Un problème est survenu',
@@ -166,8 +186,54 @@ export const productCopy = {
 
   hub: {
     title: 'Votre espace trader',
+
+    /**
+     * The Hub dashboard's own words.
+     *
+     * Only the strings this phase introduced live here. The pre-existing hub
+     * prose stays where it is rather than being dragged through a rename that
+     * would touch every read model — centralisation is worth doing when a
+     * wording decision is at stake, not as a filing exercise.
+     */
+    dashboard: {
+      /** The contextual action. WariX is a product you open, not a page you visit. */
+      openWarix: 'Ouvrir WariX',
+      objective: 'Objectif',
+      /** Concise, and still the legally required statement (Rulebook §43.3). */
+      simulated: 'Compte simulé',
+      today: 'Aujourd’hui',
+      pnlToday: 'PnL du jour',
+      balance: 'Solde',
+      evolution: 'Évolution du compte',
+      /*
+       * What an account with no finalised session says instead of a chart.
+       *
+       * A flat line between 9 999,95 and 10 000,05 is not a small chart, it is
+       * a false one: it renders noise at a scale that makes an untouched
+       * account look like it has a performance history. Absence stated plainly
+       * is the truthful rendering.
+       */
+      noSessions: 'Aucune session terminée pour le moment.',
+      /* One closed session is a point, not a line. Saying "aucune session"
+         there would be false; saying nothing would leave the panel blank. */
+      notEnoughHistory: 'Pas encore assez d’historique pour tracer une évolution.',
+      noSessionsHint: 'La courbe apparaîtra dès qu’une première journée de trading sera clôturée.',
+      details: 'Détails du compte',
+      reference: 'Référence',
+      activatedOn: 'Activé le',
+      rules: 'Règles',
+    },
+
     nav: {
       dashboard: 'Tableau de bord',
+      /*
+       * The phone tab bar gets one word.
+       *
+       * "Tableau de bord" is fifteen characters in a 64px-wide tab at 320px;
+       * it truncates to "Tablea…", which is not a label, it is damage. "Hub"
+       * is what the product already calls this place everywhere else.
+       */
+      dashboardShort: 'Hub',
       accounts: 'Comptes',
       trade: 'WariX',
       payouts: 'Payouts',
@@ -177,6 +243,8 @@ export const productCopy = {
     },
     user: {
       menu: 'Menu du compte',
+      /** Fallback name when the profile carries neither a first nor a last name. */
+      unnamed: 'Votre compte',
       profile: 'Profil',
       settings: 'Paramètres',
       signOut: 'Se déconnecter',

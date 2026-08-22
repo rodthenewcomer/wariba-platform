@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { productCopy } from '../../lib/product-copy';
 import { AuthVisual } from './AuthVisual';
+import { AuthStatusMark, type AuthStatusMarkTone } from './AuthStatusMark';
 
 interface AuthShellProps {
   title: string;
@@ -9,6 +10,12 @@ interface AuthShellProps {
   children: ReactNode;
   /** Links and secondary actions, below the form. */
   footer?: ReactNode;
+  /**
+   * Outcome screens — verified, sent, updated, expired — state their result
+   * with a mark before they state it in words. Forms never take one: a glyph
+   * above a login field is decoration on a screen that has a job to do.
+   */
+  mark?: AuthStatusMarkTone;
 }
 
 /**
@@ -19,12 +26,24 @@ interface AuthShellProps {
  * screen is calm because they are arriving. Same graphite, same cobalt, same
  * typography — more air, larger type, one thing to do.
  *
- * The split is roughly 55/45 rather than 50/50 so the form column stays a
- * column and not a half-page, and the brand side collapses entirely below
- * `lg` rather than being squeezed into a strip. A shrunken desktop composition
- * is worse on a phone than no composition at all.
+ * ## Proportion
+ *
+ * 58/42 rather than half and half. The visual side carries a composition and
+ * needs room to breathe; the form side carries a 440px column and gains
+ * nothing from being wider, so the extra width would become margin. Below
+ * `lg` the brand pane is dropped entirely rather than squeezed into a strip —
+ * a shrunken desktop composition is worse on a phone than no composition.
+ *
+ * ## Vertical rhythm
+ *
+ * The column centres itself only when there is a pane beside it to centre
+ * against. On a phone it starts under the brand row and stays there: the
+ * earlier build centred at every width, which floated a short login form far
+ * down a 390px screen with the brand stranded at the top and nothing between
+ * them. Top-aligned is also what keeps a submit button reachable once the
+ * keyboard is open.
  */
-export function AuthShell({ title, subtitle, children, footer }: AuthShellProps) {
+export function AuthShell({ title, subtitle, children, footer, mark }: AuthShellProps) {
   return (
     <div
       data-wariba-section="auth"
@@ -40,7 +59,7 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
        */
       data-wariba-theme="auth"
       data-theme="dark"
-      className="grid min-h-dvh grid-cols-1 bg-[color:var(--warix-shell)] text-[color:var(--wariba-text-primary)] lg:grid-cols-[55fr_45fr] xl:grid-cols-[57fr_43fr]"
+      className="grid min-h-dvh grid-cols-1 bg-[color:var(--warix-shell)] text-[color:var(--wariba-text-primary)] lg:grid-cols-[58fr_42fr]"
     >
       <AuthVisual />
 
@@ -62,21 +81,29 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
               {productCopy.auth.brand.name}
             </span>
           </Link>
+          <span className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
+            {productCopy.auth.brand.truths[0]}
+          </span>
         </header>
 
-        {/*
-         * `justify-center` on tall viewports, top-aligned once the content
-         * outgrows the screen — a form that centres itself while the keyboard
-         * is open pushes its own submit button out of reach on a phone.
-         */}
-        <main className="flex flex-1 items-center justify-center px-5 py-10 sm:px-8 lg:px-12">
-          <div className="w-full max-w-[26rem]">
+        <main
+          data-testid="auth-form-column"
+          className="flex flex-1 items-start justify-center px-5 pb-12 pt-7 sm:px-8 lg:items-center lg:px-14 lg:py-10"
+        >
+          <div className="w-full max-w-[var(--auth-form-max)]">
             <div className="mb-7">
-              <h1 className="text-[length:var(--wariba-font-size-heading-lg)] font-bold leading-tight tracking-[-0.02em] text-[color:var(--wariba-text-primary)]">
+              {mark ? <AuthStatusMark tone={mark} /> : null}
+              <h1
+                className="font-bold tracking-[-0.02em] text-[color:var(--wariba-text-primary)]"
+                style={{
+                  fontSize: 'var(--auth-title-size)',
+                  lineHeight: 'var(--auth-title-line)',
+                }}
+              >
                 {title}
               </h1>
               {subtitle ? (
-                <p className="mt-2 text-[length:var(--wariba-font-size-body-md)] leading-relaxed text-[color:var(--wariba-text-secondary)]">
+                <p className="mt-2.5 text-[length:var(--wariba-font-size-body-md)] leading-relaxed text-[color:var(--wariba-text-secondary)]">
                   {subtitle}
                 </p>
               ) : null}
@@ -116,5 +143,21 @@ export function AuthFooterLink({
         {label}
       </Link>
     </p>
+  );
+}
+
+/**
+ * The raised panel an outcome screen sits its action on.
+ *
+ * Verification, recovery and expiry pages have one sentence and one button, so
+ * without a surface under them they read as text abandoned on a canvas. One
+ * step up the material ladder is enough; a card with a shadow would make a
+ * confirmation look like a modal.
+ */
+export function AuthPanel({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-5 rounded-[12px] border border-[color:var(--warix-border-subtle)] bg-[color:var(--warix-panel)] p-5 shadow-[inset_0_1px_0_0_var(--warix-highlight-inner)]">
+      {children}
+    </div>
   );
 }

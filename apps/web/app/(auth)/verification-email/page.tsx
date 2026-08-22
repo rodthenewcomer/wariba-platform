@@ -1,4 +1,4 @@
-import { AuthShell } from '../AuthShell';
+import { AuthPanel, AuthShell } from '../AuthShell';
 import { ResendControl } from './ResendControl';
 import { SignOutLink } from './SignOutLink';
 import { productCopy, maskEmail } from '../../../lib/product-copy';
@@ -30,21 +30,23 @@ export default async function EmailVerificationPage() {
 
   if (verified) {
     return (
-      <AuthShell title={copy.verifiedTitle} subtitle={copy.verifiedBody}>
-        <SignOutLink verified />
+      <AuthShell title={copy.verifiedTitle} subtitle={copy.verifiedBody} mark="success">
+        <AuthPanel>
+          <SignOutLink verified />
+        </AuthPanel>
       </AuthShell>
     );
   }
 
   return (
-    <AuthShell title={copy.title} subtitle={copy.sentBody(masked)}>
-      <div className="flex flex-col gap-6">
+    <AuthShell title={copy.title} subtitle={copy.sentBody(masked)} mark="pending">
+      <AuthPanel>
         <p className="text-[length:var(--wariba-font-size-body-md)] leading-relaxed text-[color:var(--wariba-text-secondary)]">
           {copy.waitingBody}
         </p>
         <ResendControl />
         <SignOutLink />
-      </div>
+      </AuthPanel>
     </AuthShell>
   );
 }

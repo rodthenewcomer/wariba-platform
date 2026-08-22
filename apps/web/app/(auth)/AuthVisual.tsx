@@ -33,8 +33,22 @@ export function AuthVisual() {
         className="absolute inset-0"
         style={{
           background:
-            'radial-gradient(120% 90% at 12% 8%, rgba(46,86,168,0.28) 0%, rgba(46,86,168,0) 58%),' +
+            'radial-gradient(120% 90% at 12% 8%, rgba(46,86,168,0.30) 0%, rgba(46,86,168,0) 58%),' +
             'radial-gradient(90% 70% at 88% 96%, rgba(92,74,168,0.18) 0%, rgba(92,74,168,0) 60%)',
+        }}
+      />
+
+      {/* A vignette that sinks the corners.
+
+          Without it the pane is uniformly lit and the eye finds no depth to
+          read; with it the composition sits *in* something. It is a darkening,
+          not a glow — the difference between a lit room and a neon sign, and
+          the line this category crosses constantly. */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(115% 85% at 42% 38%, rgba(5,7,12,0) 42%, rgba(5,7,12,0.55) 100%)',
         }}
       />
 
@@ -113,13 +127,37 @@ export function AuthVisual() {
           </span>
         </div>
 
-        <div className="max-w-[26rem]">
+        <div className="max-w-[28rem]">
           <p className="text-[length:var(--wariba-font-size-heading-lg)] font-semibold leading-tight tracking-[-0.02em] text-[color:var(--wariba-text-primary)]">
             {productCopy.auth.brand.promise}
           </p>
           <p className="mt-3 text-[length:var(--wariba-font-size-body-md)] leading-relaxed text-[color:var(--wariba-text-secondary)]">
             {productCopy.auth.brand.tagline}
           </p>
+
+          {/*
+           * Three facts, not three claims.
+           *
+           * Each one is checkable inside the product a minute after signing in:
+           * the accounts are simulated, the rulebook is published with a
+           * version, the risk engine is authoritative. This is the slot where
+           * competitors put payout totals and five-star quotes; those would be
+           * numbers WARIBA has not earned, on the first screen it shows.
+           */}
+          <ul className="mt-7 flex flex-wrap items-center gap-x-2.5 gap-y-2">
+            {productCopy.auth.brand.truths.map((truth) => (
+              <li
+                key={truth}
+                className="flex items-center gap-2 rounded-full border border-[color:var(--warix-border-subtle)] bg-[color:color-mix(in_srgb,var(--warix-panel)_72%,transparent)] py-1.5 pl-2.5 pr-3 text-[length:var(--wariba-font-size-label-sm)] font-medium text-[color:var(--wariba-text-secondary)] backdrop-blur-[2px]"
+              >
+                <span
+                  aria-hidden="true"
+                  className="h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--warix-accent-cobalt)]"
+                />
+                {truth}
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
 

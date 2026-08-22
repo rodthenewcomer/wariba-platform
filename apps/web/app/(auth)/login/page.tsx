@@ -2,8 +2,9 @@
 
 import { Suspense, useActionState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Alert, Button, Input } from '@wariba/ui';
+import { Button, Input } from '@wariba/ui';
 import { AuthFooterLink, AuthShell } from '../AuthShell';
+import { AuthNotice } from '../AuthNotice';
 import { PasswordField } from '../PasswordField';
 import { productCopy } from '../../../lib/product-copy';
 import { signInAction, type ActionResult } from '../actions';
@@ -35,9 +36,9 @@ function LoginForm() {
         <input type="hidden" name="next" value={next} />
 
         {expired ? (
-          <Alert level="information" title={productCopy.auth.sessionExpired.title}>
+          <AuthNotice tone="information" title={productCopy.auth.sessionExpired.title}>
             {productCopy.auth.sessionExpired.body}
-          </Alert>
+          </AuthNotice>
         ) : null}
 
         <Input
@@ -64,9 +65,7 @@ function LoginForm() {
         {state.error ? (
           /* One message for a wrong address and a wrong password alike — see
              the note on `productCopy.auth.login.invalidCredentials`. */
-          <Alert level="danger" title={copy.errorTitle}>
-            {state.error}
-          </Alert>
+          <AuthNotice title={copy.errorTitle}>{state.error}</AuthNotice>
         ) : null}
 
         <Button type="submit" size="lg" loading={pending} className="w-full">

@@ -2,8 +2,9 @@
 
 import { Suspense, useActionState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Alert, Button, Input } from '@wariba/ui';
+import { Button, Input } from '@wariba/ui';
 import { AuthFooterLink, AuthShell } from '../AuthShell';
+import { AuthNotice } from '../AuthNotice';
 import { PasswordField } from '../PasswordField';
 import { CountryField } from '../CountryField';
 import { productCopy } from '../../../lib/product-copy';
@@ -56,11 +57,7 @@ function SignupForm() {
           required
         />
 
-        {state.error ? (
-          <Alert level="danger" title={copy.errorTitle}>
-            {state.error}
-          </Alert>
-        ) : null}
+        {state.error ? <AuthNotice title={copy.errorTitle}>{state.error}</AuthNotice> : null}
 
         <Button type="submit" size="lg" loading={pending} className="w-full">
           {pending ? copy.submitting : copy.submit}

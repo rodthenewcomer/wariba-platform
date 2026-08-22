@@ -1,7 +1,8 @@
 'use client';
 
 import { useActionState, useEffect, useState } from 'react';
-import { Alert, Button } from '@wariba/ui';
+import { Button } from '@wariba/ui';
+import { AuthNotice } from '../AuthNotice';
 import { productCopy } from '../../../lib/product-copy';
 import { resendVerificationAction, type ResendVerificationResult } from '../actions';
 
@@ -37,15 +38,13 @@ export function ResendControl() {
   return (
     <div className="flex flex-col gap-4">
       {state.sent && remaining > 0 ? (
-        <Alert level="success" title={copy.resentBody}>
+        <AuthNotice tone="success" title={copy.resentBody}>
           {copy.resendCooldown(remaining)}
-        </Alert>
+        </AuthNotice>
       ) : null}
 
       {state.error ? (
-        <Alert level="danger" title={productCopy.auth.login.errorTitle}>
-          {state.error}
-        </Alert>
+        <AuthNotice title={productCopy.auth.login.errorTitle}>{state.error}</AuthNotice>
       ) : null}
 
       <form action={formAction}>

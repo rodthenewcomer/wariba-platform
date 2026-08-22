@@ -2,8 +2,9 @@
 
 import { useActionState } from 'react';
 import Link from 'next/link';
-import { Alert, Button } from '@wariba/ui';
-import { AuthFooterLink, AuthShell } from '../AuthShell';
+import { Button } from '@wariba/ui';
+import { AuthFooterLink, AuthPanel, AuthShell } from '../AuthShell';
+import { AuthNotice } from '../AuthNotice';
 import { PasswordField } from '../PasswordField';
 import { productCopy } from '../../../lib/product-copy';
 import { updatePasswordAction, type UpdatePasswordActionResult } from '../actions';
@@ -28,13 +29,15 @@ export default function RecoveryPage() {
 
   if (state.updated) {
     return (
-      <AuthShell title={copy.successTitle} subtitle={copy.successBody}>
-        <Link
-          href="/login"
-          className="flex h-12 w-full items-center justify-center rounded-[var(--wariba-component-input-radius)] bg-[color:var(--wariba-color-cobalt-600)] px-4 text-[length:var(--wariba-font-size-label-lg)] font-semibold text-[color:var(--wariba-color-white)] transition-[filter,transform] hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)] active:translate-y-px"
-        >
-          {copy.signIn}
-        </Link>
+      <AuthShell title={copy.successTitle} subtitle={copy.successBody} mark="success">
+        <AuthPanel>
+          <Link
+            href="/login"
+            className="flex h-12 w-full items-center justify-center rounded-[var(--wariba-component-input-radius)] bg-[color:var(--wariba-color-cobalt-600)] px-4 text-[length:var(--wariba-font-size-label-lg)] font-semibold text-[color:var(--wariba-color-white)] transition-[filter,transform] hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)] active:translate-y-px"
+          >
+            {copy.signIn}
+          </Link>
+        </AuthPanel>
       </AuthShell>
     );
   }
@@ -60,11 +63,7 @@ export default function RecoveryPage() {
           required
         />
 
-        {state.error ? (
-          <Alert level="danger" title={copy.errorTitle}>
-            {state.error}
-          </Alert>
-        ) : null}
+        {state.error ? <AuthNotice title={copy.errorTitle}>{state.error}</AuthNotice> : null}
 
         <Button type="submit" size="lg" loading={pending} className="w-full">
           {pending ? copy.submitting : copy.submit}

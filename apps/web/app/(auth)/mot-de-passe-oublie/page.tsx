@@ -1,8 +1,9 @@
 'use client';
 
 import { useActionState } from 'react';
-import { Alert, Button, Input } from '@wariba/ui';
-import { AuthFooterLink, AuthShell } from '../AuthShell';
+import { Button, Input } from '@wariba/ui';
+import { AuthFooterLink, AuthPanel, AuthShell } from '../AuthShell';
+import { AuthNotice } from '../AuthNotice';
 import { productCopy } from '../../../lib/product-copy';
 import { requestPasswordResetAction, type PasswordResetActionResult } from '../actions';
 
@@ -19,8 +20,10 @@ export default function ForgotPasswordPage() {
    */
   if (state.submitted) {
     return (
-      <AuthShell title={copy.sentTitle} subtitle={copy.sentBody}>
-        <AuthFooterLink href="/login" label={copy.backToLogin} />
+      <AuthShell title={copy.sentTitle} subtitle={copy.sentBody} mark="pending">
+        <AuthPanel>
+          <AuthFooterLink href="/login" label={copy.backToLogin} />
+        </AuthPanel>
       </AuthShell>
     );
   }
@@ -41,11 +44,7 @@ export default function ForgotPasswordPage() {
           required
         />
 
-        {state.error ? (
-          <Alert level="danger" title={copy.errorTitle}>
-            {state.error}
-          </Alert>
-        ) : null}
+        {state.error ? <AuthNotice title={copy.errorTitle}>{state.error}</AuthNotice> : null}
 
         <Button type="submit" size="lg" loading={pending} className="w-full">
           {pending ? copy.submitting : copy.submit}

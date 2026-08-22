@@ -31,7 +31,18 @@ describe('product copy', () => {
   });
 
   it('says nothing about the restricted resource on a refusal', () => {
-    expect(productCopy.system.forbidden.body).toBe('Vous n’avez pas accès à cette page.');
+    expect(productCopy.system.forbidden.body).toBe('Vous n’avez pas accès à cette ressource.');
+  });
+
+  /**
+   * The auth side of the product sells nothing, and in particular sells
+   * nothing it would have to substantiate. This is the slot where competitors
+   * put payout totals and testimonials.
+   */
+  it('states facts on the auth screen rather than figures', () => {
+    for (const truth of productCopy.auth.brand.truths) {
+      expect(truth).not.toMatch(/\d/);
+    }
   });
 
   it('promises no completion time for maintenance', () => {
