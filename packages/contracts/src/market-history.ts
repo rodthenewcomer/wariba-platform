@@ -36,7 +36,14 @@ import {
  * a bounded cache of candles the realtime process aggregated from accepted
  * ticks it observed itself, so that is what the wire says.
  */
-export const historySourceSchema = z.enum(['observed_memory_cache', 'observed_postgres_cache']);
+export const historySourceSchema = z.enum([
+  'observed_memory_cache',
+  'observed_postgres_cache',
+  // WX3 — genuine provider bars served from the durable cache. Named
+  // separately from the observed caches because it is a different claim: these
+  // candles describe the market, not this process's view of its own tick feed.
+  'provider_postgres_cache',
+]);
 export type HistorySource = z.infer<typeof historySourceSchema>;
 
 /**
@@ -64,12 +71,25 @@ export const marketHistoryCapabilitiesSchema = z.object({
   pagination: z.enum(['none', 'cursor', 'time_range']),
   volume: z.boolean(),
   depth: z.boolean(),
+  /** WX3.1 §5 — what this source may contractually be shown to. */
+  displayRights: z.enum(['internal', 'external', 'unknown']).optional(),
 });
 export type MarketHistoryCapabilities = z.infer<typeof marketHistoryCapabilitiesSchema>;
 
 export const marketHistoryQualitySchema = z.object({
+  /** Holes that are genuinely missing data — expected market closures excluded. */
   gapsDetected: z.number().int().nonnegative(),
   continuity: z.enum(['observed', 'gapped']),
+  /**
+   * WX3 §25/§26 — a weekend is not a data problem. Counting closures
+   * separately is what keeps `gapsDetected` meaning something a trader should
+   * care about instead of firing every Saturday.
+   */
+  sessionGaps: z.number().int().nonnegative().optional(),
+  recoverableGaps: z.number().int().nonnegative().optional(),
+  unrecoverableGaps: z.number().int().nonnegative().optional(),
+  /** How the bars in this window were obtained. */
+  historyOrigin: z.enum(['observed', 'provider_history', 'derived', 'mixed']).optional(),
 });
 export type MarketHistoryQuality = z.infer<typeof marketHistoryQualitySchema>;
 
@@ -136,6 +156,14 @@ export type MarketHistoryRequestFrame = z.infer<typeof marketHistoryRequestFrame
  * missing field are indistinguishable to the receiver. A stable shape is what
  * lets the client validate exactly instead of defensively.
  */
+export const realtimeContinuationSchema = z.enum([
+  'attached',
+  'refused_source_mismatch',
+  'refused_price_divergence',
+  'refused_by_config',
+]);
+export type RealtimeContinuation = z.infer<typeof realtimeContinuationSchema>;
+
 export const marketHistoryResultSchema = z.object({
   requestId: z.string().min(1),
   symbol: symbolSchema,
@@ -190,6 +218,17 @@ export const marketHistoryResultSchema = z.object({
   hasMore: z.boolean(),
   /** Exclusive `before` cursor for the next older page — the oldest returned candle's `startTime`. */
   nextCursor: z.number().int().nonnegative().nullable(),
+  /**
+   * WX3 §12 — the explicit historical/realtime cutover decision.
+   *
+   * When history and live ticks come from different vendors they are two
+   * different claims about the same market, and appending one to the other is
+   * only honest if they agree. The server decides and says so; the client
+   * appends live candles only when this reads `attached`. A refusal is not an
+   * error — the chart shows genuine history and simply stops there, which is
+   * the truthful outcome and the one WX2 already has status grammar for.
+   */
+  realtimeContinuation: realtimeContinuationSchema.optional(),
 });
 export type MarketHistoryResult = z.infer<typeof marketHistoryResultSchema>;
 
@@ -260,6 +299,7 @@ export interface MarketHistoryWindow {
   sourceIdentity?: MarketHistorySourceIdentity;
   capabilities?: MarketHistoryCapabilities;
   quality?: MarketHistoryQuality;
+  realtimeContinuation?: RealtimeContinuation;
 }
 
 /**

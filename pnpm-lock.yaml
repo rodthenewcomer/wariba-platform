@@ -142,6 +142,9 @@ importers:
 
   packages/adapters:
     dependencies:
+      '@wariba/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       decimal.js:
         specifier: ^10.4.3
         version: 10.6.0

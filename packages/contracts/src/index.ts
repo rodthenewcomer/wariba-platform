@@ -69,6 +69,10 @@ export {
   marketHistorySourceIdentitySchema,
   marketHistoryCapabilitiesSchema,
   marketHistoryQualitySchema,
+  realtimeContinuationSchema,
+  // WX3 gap classification — shared so the server and the chart agree on what
+  // counts as missing data.
+  type RealtimeContinuation,
   marketHistoryRequestSchema,
   marketHistoryRequestFrameSchema,
   marketHistoryResultSchema,
@@ -205,3 +209,26 @@ export {
   type RequestPayoutMessage,
   type PayoutResultMessage,
 } from './performance';
+export {
+  GAP_KINDS,
+  classifyGaps,
+  isWithinWeekendClosure,
+  reconnectRepairRange,
+  type ClassifyGapsOptions,
+  type DetectedGap,
+  type GapClassificationSummary,
+  type GapKind,
+} from './market-history-gaps';
+export {
+  BAR_SESSION_STATES,
+  classifyBarSession,
+  isWithinWeeklyClosure,
+  type BarSessionState,
+} from './market-session';
+export {
+  HISTORY_PROVENANCES,
+  INSTRUMENT_HISTORY_START,
+  historyProvenanceFor,
+  instrumentHistoryStart,
+  type HistoryProvenance,
+} from './instrument-history';

@@ -21,6 +21,21 @@ export interface SymbolSimConfig {
 
 export type MarketDataMode = 'sandbox' | 'replay' | 'live';
 
+/**
+ * WX3.1 §5 — what this source is contractually allowed to be shown to.
+ *
+ * `internal` covers research, backtesting and internal dashboards. `external`
+ * is what a customer-facing chart needs. `unknown` is the honest default and
+ * is deliberately not treated as permission.
+ *
+ * This is a configuration statement about a commercial agreement, not a legal
+ * conclusion drawn by this code. Nothing here clears anything; it exists so a
+ * production deployment cannot quietly present a development-tier,
+ * non-display key as a cleared market-data licence.
+ */
+export const DISPLAY_RIGHTS = ['internal', 'external', 'unknown'] as const;
+export type DisplayRights = (typeof DISPLAY_RIGHTS)[number];
+
 export interface MarketDataCapabilities {
   realtimeQuotes: boolean;
   bidAsk: boolean;
@@ -29,6 +44,8 @@ export interface MarketDataCapabilities {
   pagination: 'none' | 'cursor' | 'time_range';
   volume: boolean;
   depth: boolean;
+  /** Absent on WX2-era sources, which predate the field; treat as `unknown`. */
+  displayRights?: DisplayRights;
 }
 
 export interface MarketDataSourceIdentity {
@@ -49,6 +66,9 @@ const REALTIME_QUOTE_ONLY_CAPABILITIES: MarketDataCapabilities = {
   pagination: 'none',
   volume: false,
   depth: false,
+  // Simulated prices generated in this process. There is no vendor and
+  // therefore no vendor restriction on showing them.
+  displayRights: 'external',
 };
 
 /**

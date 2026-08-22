@@ -154,6 +154,12 @@ export async function loadMarketBarPage(
     interval: string;
     limit: number;
     before?: number;
+    /**
+     * WX3.1 — restrict to the default visible series: regular-session bars of
+     * the instrument's own history. The excluded rows stay in the table with
+     * their provenance; this is a display decision, not a deletion.
+     */
+    visibleOnly?: boolean;
   },
 ): Promise<MarketBarPage> {
   let selection = db
@@ -163,6 +169,11 @@ export async function loadMarketBarPage(
     .where('symbol', '=', query.symbol)
     .where('interval', '=', query.interval)
     .where('is_final', '=', true);
+  if (query.visibleOnly === true) {
+    selection = selection
+      .where('session_state', '=', 'regular')
+      .where('history_provenance', '=', 'instrument');
+  }
   if (query.before !== undefined) {
     selection = selection.where('open_time', '<', new Date(query.before * 1000));
   }

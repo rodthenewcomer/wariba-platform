@@ -828,6 +828,17 @@ export function TradeChart({
           }, 250);
         }
       }
+      // WX3 §20 — the visible logical range, written imperatively as an
+      // evidence anchor. A pagination test needs to prove the viewport did not
+      // jump when older bars were prepended, and inferring that from a drawing
+      // overlay couples the proof to whichever drawing tool happens to exist.
+      // Written to the DOM rather than to React state on purpose: this fires on
+      // every pan frame, and re-rendering the workstation for it would undo the
+      // whole render-ownership design. It renders nothing.
+      if (range !== null) {
+        containerRef.current?.setAttribute('data-visible-from', range.from.toFixed(2));
+        containerRef.current?.setAttribute('data-visible-to', range.to.toFixed(2));
+      }
       // The *request* is what geometry may not cause.
       if (resizingRef.current) return;
       if (range !== null) historyRef.current?.maybeRequestOlder(range.from);
@@ -2574,6 +2585,16 @@ export function TradeChart({
             data-history-candles={historyCandleCount}
             data-history-epoch={historyState.sourceEpoch ?? ''}
             data-history-newest={historyNewestBucket}
+            // WX3 §53 — the oldest loaded bucket, so a pagination test can prove
+            // the left edge genuinely moved back into older market history
+            // rather than merely that the candle count grew.
+            data-history-oldest={historyFirstBucket ?? ''}
+            // WX3 §12 — whether the server attached live ticks to this series.
+            data-history-continuation={historyState.realtimeContinuation}
+            // WX3.1 — why a hydration was refused, when it was. Empty in the
+            // ordinary case; a diagnosis rather than a message to the trader,
+            // who sees the existing status chip instead.
+            data-history-error={historyState.errorReason ?? ''}
             data-history-gaps={historyState.gapsDetected}
             // W5 §135 — moved to the bottom edge now that the OHLC/indicator
             // legend owns the top-left corner, so a history error and the legend

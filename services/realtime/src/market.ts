@@ -7,6 +7,8 @@ import {
   type MarketDataProvider,
   type SymbolSimConfig,
   type FcsSymbolConfig,
+  TwelveDataQuoteProvider,
+  parseTwelveDataQuoteSymbols,
 } from '@wariba/adapters';
 import type { AssetClass } from '@wariba/contracts';
 import type { RealtimeConfig } from './config';
@@ -159,6 +161,26 @@ export function createMarketDataProvider(
       Object.keys(specs) as TradableSymbol[],
       config.MARKET_TICK_INTERVAL_MS,
     );
+  }
+  if (config.MARKET_DATA_PROVIDER === 'twelve-data') {
+    const configs = {} as Record<TradableSymbol, SymbolSimConfig>;
+    for (const symbol of Object.keys(specs) as TradableSymbol[]) {
+      configs[symbol] = {
+        basePrice: SANDBOX_BASE_PRICES[symbol],
+        pricePrecision: specs[symbol].pricePrecision,
+        spreadPoints: specs[symbol].spreadPoints,
+        staleThresholdMs: specs[symbol].staleThresholdMs,
+      };
+    }
+    return new TwelveDataQuoteProvider({
+      apiKey: config.TWELVE_DATA_API_KEY,
+      baseUrl: config.TWELVE_DATA_BASE_URL,
+      // Only symbols explicitly mapped are quoted; the rest report closed
+      // rather than receiving an invented price.
+      symbols: parseTwelveDataQuoteSymbols(config.TWELVE_DATA_QUOTE_SYMBOL_MAP, configs),
+      pollIntervalMs: config.TWELVE_DATA_QUOTE_INTERVAL_MS,
+      displayRights: config.MARKET_HISTORY_DISPLAY_RIGHTS,
+    });
   }
   if (config.MARKET_DATA_PROVIDER === 'fcs') {
     const symbolMap = parseFcsSymbolMap(config.FCS_SYMBOL_MAP);

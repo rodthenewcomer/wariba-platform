@@ -1,0 +1,18 @@
+{
+  "scenario": "service restarted after a simulated outage beginning 2026-08-20 12:00 UTC",
+  "method": "rows genuinely fetched earlier were deleted and coverage was moved back to match; nothing was injected",
+  "source": "twelve-data:production:history-v1-map-e6d7f50d",
+  "symbol": "EURUSD",
+  "interval": "5m",
+  "beforeRestart": { "bars": 1040, "newestBar": "2026-08-20T12:00:00Z" },
+  "afterRestart": { "bars": 1440, "newestBar": "2026-08-22T02:35:00Z" },
+  "events": [
+    "history.gap.detected  missingBars=400 trigger=service_start",
+    "history.gap.repaired  barsWritten=400 providerRequests=1 trigger=service_start",
+    "history.gap.repair_pass_completed  repaired=1 skippedNoGap=19 failed=0 durationMs=254"
+  ],
+  "weekendGuard": {
+    "observed": "an earlier restart at 2026-08-22T02:36Z measured a range lying entirely inside the weekend closure and declined every series",
+    "events": ["history.gap.repair_pass_completed  repaired=0 skippedNoGap=20 failed=0"]
+  }
+}

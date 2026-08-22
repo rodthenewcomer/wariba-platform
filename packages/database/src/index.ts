@@ -19,6 +19,15 @@ export {
   type PersistedMarketBar,
   type MarketBarPage,
 } from './market-bars';
+export {
+  loadMarketBarBounds,
+  loadMarketBarCoverage,
+  saveMarketBarCoverage,
+  upsertProviderMarketBars,
+  withMarketHistoryBackfillLock,
+  type MarketBarCoverage,
+  type ProviderMarketBar,
+} from './market-history-coverage';
 export type {
   Database,
   TradableSymbol,
@@ -32,6 +41,10 @@ export type {
   AlertRecurrence,
   PayoutProviderStatus,
   ActuarialScenarioName,
+  MarketBarOrigin,
+  MarketBarVolumeSemantics,
+  MarketBarSessionState,
+  MarketBarHistoryProvenance,
 } from './schema';
 export {
   getStaffRole,

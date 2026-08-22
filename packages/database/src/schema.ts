@@ -712,6 +712,35 @@ export interface MarketBarsTable {
   observed_through_sequence: number | null;
   observed_at: Timestamp;
   updated_at: GeneratedTimestamp;
+  /** WX3 provenance — observed ticks, provider archive, or deterministic derivation. */
+  origin: Generated<MarketBarOrigin>;
+  /** WX3 genuine provider volume; null when the source publishes none. */
+  volume: string | null;
+  volume_semantics: MarketBarVolumeSemantics | null;
+  /** WX3.1 — which side of the spot-FX trading week this bar sits on. */
+  session_state: Generated<MarketBarSessionState>;
+  /** WX3.1 — the instrument's own history, or a pre-existence reconstruction. */
+  history_provenance: Generated<MarketBarHistoryProvenance>;
+}
+
+export type MarketBarSessionState = 'regular' | 'out_of_session';
+export type MarketBarHistoryProvenance = 'instrument' | 'synthetic_prehistory';
+
+// WX3 — durable record of what history a source actually holds, and whether
+// the provider has anything older. See the matching migration's doc comment.
+export type MarketBarOrigin = 'observed' | 'provider_history' | 'derived';
+export type MarketBarVolumeSemantics = 'tick' | 'exchange';
+
+export interface MarketBarCoverageTable {
+  source_id: string;
+  symbol: string;
+  interval: string;
+  earliest_bar: Timestamp;
+  latest_bar: Timestamp;
+  has_more_older: Generated<boolean>;
+  provider_exhausted_at: Timestamp | null;
+  last_backfill_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
 }
 
 // Prompt 08 Phase E — see the matching migration's doc comment.
@@ -768,6 +797,7 @@ export interface Database {
   'app.staff_action_rate_limits': StaffActionRateLimitsTable;
   'app.market_data_sources': MarketDataSourcesTable;
   'app.market_bars': MarketBarsTable;
+  'app.market_bar_coverage': MarketBarCoverageTable;
   'audit.audit_events': AuditEventsTable;
   'auth.users': AuthUsersTable;
 }
