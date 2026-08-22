@@ -1,0 +1,12 @@
+{
+  "viewport": "1440x900",
+  "snapshot": {
+    "timeframe": "5m",
+    "candles": 800,
+    "sourceEpoch": "twelve-data:production:history-v1-map-e6d7f50d",
+    "oldestBar": "1787106000",
+    "newestBar": "1787345700",
+    "realtimeContinuation": "attached",
+    "gaps": "0"
+  }
+}

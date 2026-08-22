@@ -1,4 +1,5 @@
 import { bucketEndSeconds, type CandleTimeframe, type MarketCandle } from './market-candles';
+import { isWithinWeeklyClosure } from './market-session';
 
 /**
  * WX3 §25/§26 — what a missing bucket actually means.
@@ -50,29 +51,17 @@ const HOUR_SECONDS = 3600;
 const DAY_SECONDS = 86_400;
 
 /**
- * The spot FX weekly closure, in UTC.
+ * The trading week comes from `market-session.ts`, not from a second
+ * approximation here.
  *
- * Deliberately conservative at both ends. The market's real boundaries shift
- * with northern-hemisphere daylight saving, and a classifier that is too tight
- * would label a genuine one-hour outage as a weekend twice a year. Being wide
- * means an hour of real missing data on a Friday night is classified as an
- * expected closure — the failure mode that under-reports rather than the one
- * that cries wolf every Saturday.
+ * This module briefly carried its own fixed-UTC-hour version, which is wrong
+ * for half the year because the FX close is defined at 17:00 New York and
+ * daylight saving moves that between 21:00 and 22:00 UTC. Two definitions of
+ * "is the market open" is precisely the drift this file exists to prevent, so
+ * the name is re-exported for existing callers and the rule has one home.
  */
-const WEEKEND_CLOSE_DAY = 5; // Friday
-const WEEKEND_CLOSE_HOUR_UTC = 21;
-const WEEKEND_OPEN_DAY = 0; // Sunday
-const WEEKEND_OPEN_HOUR_UTC = 22;
-
-export function isWithinWeekendClosure(epochSeconds: number): boolean {
-  const date = new Date(epochSeconds * 1000);
-  const day = date.getUTCDay();
-  const hour = date.getUTCHours();
-  if (day === 6) return true;
-  if (day === WEEKEND_CLOSE_DAY && hour >= WEEKEND_CLOSE_HOUR_UTC) return true;
-  if (day === WEEKEND_OPEN_DAY && hour < WEEKEND_OPEN_HOUR_UTC) return true;
-  return false;
-}
+export { isWithinWeeklyClosure } from './market-session';
+export { isWithinWeeklyClosure as isWithinWeekendClosure } from './market-session';
 
 /**
  * A hole is an expected closure when every instant inside it is closed market.
@@ -84,9 +73,9 @@ export function isWithinWeekendClosure(epochSeconds: number): boolean {
 function spansOnlyClosedMarket(from: number, to: number): boolean {
   if (to <= from) return false;
   for (let instant = from; instant < to; instant += HOUR_SECONDS) {
-    if (!isWithinWeekendClosure(instant)) return false;
+    if (!isWithinWeeklyClosure(instant)) return false;
   }
-  return isWithinWeekendClosure(to - 1);
+  return isWithinWeeklyClosure(to - 1);
 }
 
 /**

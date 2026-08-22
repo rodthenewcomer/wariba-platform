@@ -2591,6 +2591,10 @@ export function TradeChart({
             data-history-oldest={historyFirstBucket ?? ''}
             // WX3 §12 — whether the server attached live ticks to this series.
             data-history-continuation={historyState.realtimeContinuation}
+            // WX3.1 — why a hydration was refused, when it was. Empty in the
+            // ordinary case; a diagnosis rather than a message to the trader,
+            // who sees the existing status chip instead.
+            data-history-error={historyState.errorReason ?? ''}
             data-history-gaps={historyState.gapsDetected}
             // W5 §135 — moved to the bottom edge now that the OHLC/indicator
             // legend owns the top-left corner, so a history error and the legend

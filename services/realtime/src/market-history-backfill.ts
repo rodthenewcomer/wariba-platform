@@ -84,6 +84,19 @@ export interface BackfillRequest {
   before?: number;
   /** How many bars the caller needs. Defaults to the configured depth for the timeframe. */
   targetBars?: number;
+  /**
+   * What the caller is asking for.
+   *
+   * `depth` — the default — is satisfied by the cache already holding enough
+   * bars, which is what makes ordinary chart requests free.
+   *
+   * `repair` is the case where that question is the wrong one. After an outage
+   * the cache holds thousands of *older* bars and is missing only the newest,
+   * so counting rows says "satisfied" while the hole is still there. A repair
+   * therefore always goes to the provider for the newest window; the idempotent
+   * upsert makes the overlap with what is already held free.
+   */
+  mode?: 'depth' | 'repair';
 }
 
 export type BackfillOutcome =
@@ -171,7 +184,7 @@ export class MarketHistoryBackfillEngine {
       (request.before === undefined ? initialDepthFor(timeframe) : PAGINATION_HISTORY_DEPTH_BARS);
 
     const cached = await this.countCachedBars(symbol, timeframe, request.before, targetBars);
-    if (cached >= targetBars) {
+    if (request.mode !== 'repair' && cached >= targetBars) {
       this.metrics?.cacheHit();
       this.logger.info('history.cache.hit', {
         sourceId: this.sourceId,

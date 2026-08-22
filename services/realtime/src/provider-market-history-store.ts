@@ -203,6 +203,7 @@ export class ProviderMarketHistoryStore implements MarketHistoryPort {
       ...(coverage === null ? {} : { providerEarliest: coverage.earliestBar }),
     });
 
+    // Newest row the archive holds, used for the cutover price comparison.
     const newest = candles.at(-1) ?? null;
     const oldest = candles[0] ?? null;
     const live = query.before === undefined ? await this.observed.getCandles(query) : null;
@@ -212,17 +213,44 @@ export class ProviderMarketHistoryStore implements MarketHistoryPort {
     );
     const attached = continuation === 'attached';
 
+    /**
+     * WX3.1 §2 — the seam carries no duplicate bucket.
+     *
+     * A provider archive includes the bucket that is still forming: ask for
+     * monthly EURUSD in August and the newest row is August, partial. The live
+     * aggregator owns that same bucket. Serving both puts two candles at one
+     * timestamp, which the client correctly refuses as an integrity fault —
+     * the chart showed "Historique indisponible" on `1M` until this existed.
+     *
+     * The in-progress bucket belongs to the live series, so the provider's
+     * partial row is withheld from the finalized window rather than the live
+     * candle being dropped. Nothing is deleted: the row stays cached and
+     * becomes authoritative again the moment the bucket closes.
+     */
+    const liveBucketStart = attached ? (live?.currentCandle?.startTime ?? null) : null;
+    const finalizedCandles =
+      liveBucketStart === null
+        ? candles
+        : candles.filter((candle) => candle.startTime < liveBucketStart);
+    const newestFinalized = finalizedCandles.at(-1) ?? null;
+
     return {
       source: 'provider_postgres_cache',
       sourceEpoch: this.providerSource.id,
       priceBasis: 'mid',
-      candles,
+      candles: finalizedCandles,
       currentCandle: attached ? (live?.currentCandle ?? null) : null,
       finalizedObservedThroughSequence: null,
       currentCandleObservedThroughSequence: attached
         ? (live?.currentCandleObservedThroughSequence ?? null)
         : null,
-      historyThrough: newest === null ? null : bucketEndSeconds(newest.startTime, query.timeframe),
+      // The end of the window actually served, not of the row withheld at the
+      // seam. The client validates these two agree and refuses the hydration
+      // when they do not — which is how the mismatch was caught.
+      historyThrough:
+        newestFinalized === null
+          ? null
+          : bucketEndSeconds(newestFinalized.startTime, query.timeframe),
       // Older bars exist when this page is not the end of the cache, or when
       // the provider has not yet said it is out of archive.
       hasMore: page.hasMore || (coverage?.hasMoreOlder ?? false),

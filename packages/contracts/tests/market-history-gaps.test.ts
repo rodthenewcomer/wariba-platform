@@ -26,14 +26,17 @@ describe('isWithinWeekendClosure', () => {
     expect(isWithinWeekendClosure(FRIDAY + 22 * HOUR)).toBe(true);
     expect(isWithinWeekendClosure(FRIDAY + DAY + 12 * HOUR)).toBe(true);
     expect(isWithinWeekendClosure(FRIDAY + 2 * DAY + 12 * HOUR)).toBe(true);
-    expect(isWithinWeekendClosure(FRIDAY + 2 * DAY + 23 * HOUR)).toBe(false);
+    expect(isWithinWeekendClosure(FRIDAY + 2 * DAY + 21 * HOUR)).toBe(false);
   });
 });
 
 describe('classifyGaps', () => {
   it('does not report a weekend as missing data', () => {
     const fridayLastHour = FRIDAY + 20 * HOUR;
-    const sundayReopen = FRIDAY + 2 * DAY + 22 * HOUR;
+    // Sunday 21:00 UTC — 17:00 New York, which is the actual reopen in August.
+    // The previous fixed-UTC approximation put it an hour later and would have
+    // hidden a genuine hour of missing Sunday-evening data.
+    const sundayReopen = FRIDAY + 2 * DAY + 21 * HOUR;
     const summary = classifyGaps([candle(fridayLastHour), candle(sundayReopen)], {
       timeframe: '1h',
       providerCanRepair: true,

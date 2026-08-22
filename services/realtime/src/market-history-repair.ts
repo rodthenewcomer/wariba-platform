@@ -140,6 +140,8 @@ export class MarketHistoryRepairService {
           symbol,
           timeframe,
           targetBars: missing,
+          // Counting cached rows cannot answer "is the newest window present".
+          mode: 'repair',
         });
         if (result.status === 'backfilled') {
           outcome.repaired += 1;

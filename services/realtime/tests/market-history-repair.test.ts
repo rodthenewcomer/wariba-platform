@@ -175,6 +175,27 @@ describe('reconnect gap repair', () => {
     expect(logger.warn).toHaveBeenCalledWith('history.gap.unrecoverable', expect.anything());
   });
 
+  /**
+   * The regression that made the first wired repair a no-op.
+   *
+   * After an outage the cache is full of older bars, so a depth request answers
+   * "already satisfied" while the newest window is still missing. A repair has
+   * to say what it actually wants.
+   */
+  it('asks the provider even when the cache holds plenty of older bars', async () => {
+    loadMarketBarCoverage.mockResolvedValue({ latestBar: MIDWEEK - 2 * HOUR, hasMoreOlder: true });
+    const ensure = vi.fn().mockResolvedValue({
+      status: 'backfilled',
+      barsWritten: 120,
+      providerRequests: 1,
+    });
+    const { instance } = service({ ensure, now: MIDWEEK });
+
+    await instance.repair('feed_reconnect');
+
+    expect(ensure.mock.calls[0]?.[0].mode).toBe('repair');
+  });
+
   it('skips a symbol the provider does not carry', async () => {
     loadMarketBarCoverage.mockResolvedValue({ latestBar: MIDWEEK - HOUR, hasMoreOlder: true });
     const ensure = vi.fn().mockResolvedValue({ status: 'unsupported', reason: 'not mapped' });
