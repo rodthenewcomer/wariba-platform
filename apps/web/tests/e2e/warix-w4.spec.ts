@@ -187,7 +187,7 @@ test.describe('WariX Execution Center', { tag: ['@trade', '@warix-w4'] }, () => 
     // proves the command reached the server rather than the panel.
     await page.getByRole('tab', { name: /^Ordres/ }).click();
     await page.getByRole('button', { name: /^En attente/ }).click();
-    await expect(page.getByRole('cell', { name: 'Achat Limite' }).first()).toBeVisible({
+    await expect(page.getByRole('cell', { name: 'Buy Limit' }).first()).toBeVisible({
       timeout: 30_000,
     });
   });

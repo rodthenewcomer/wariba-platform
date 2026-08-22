@@ -19,11 +19,23 @@ export const CONCENTRATION_BUCKET_LABEL: Record<string, string> = {
   nas100: 'Indices (NAS100)',
 };
 
+/**
+ * Pending-order types, in the vocabulary traders actually use.
+ *
+ * Buy, Sell, Limit and Stop stay English for the same reason Stop Loss and
+ * Take Profit do: they are what a French-speaking trader says out loud, and
+ * translating them makes a platform read as less professional to the very
+ * people it is built for. The rest of the interface is French.
+ *
+ * This is the one place these strings live. Four other surfaces used to carry
+ * their own copy of this table, which is why changing four words used to mean
+ * editing five files and why they had already drifted apart.
+ */
 export const PENDING_ORDER_TYPE_LABEL: Record<PendingOrderType, string> = {
-  buy_limit: 'Achat Limite',
-  sell_limit: 'Vente Limite',
-  buy_stop: 'Achat Stop',
-  sell_stop: 'Vente Stop',
+  buy_limit: 'Buy Limit',
+  sell_limit: 'Sell Limit',
+  buy_stop: 'Buy Stop',
+  sell_stop: 'Sell Stop',
 };
 
 export const ORDER_TYPE_LABEL: Record<OrderType, string> = {

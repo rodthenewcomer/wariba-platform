@@ -16,6 +16,7 @@ import {
   WariXStudiesIcon,
   WariXTrashIcon,
 } from '@wariba/ui';
+import { PENDING_ORDER_TYPE_LABEL } from './trade-labels';
 import type { MarketTick, PendingOrderType, PositionDTO } from '@wariba/contracts';
 import { isPendingOrderCreationPriceValid } from '@wariba/domain';
 
@@ -103,12 +104,19 @@ export interface ChartContextMenuContentProps extends ChartContextMenuChartActio
   disabledReason: string | null;
 }
 
-const PENDING_ORDER_TYPE_LABEL: Record<PendingOrderType, string> = {
-  buy_limit: 'Achat Limite ici',
-  sell_limit: 'Vente Limite ici',
-  buy_stop: 'Achat Stop ici',
-  sell_stop: 'Vente Stop ici',
-};
+/**
+ * The context menu says "<type> ici" — the order type, then where.
+ *
+ * Composed from the canonical table rather than restating it, so the four type
+ * names have one home and this surface cannot drift from the ticket, the
+ * overlay and the modify dialog the way it previously had.
+ */
+const PENDING_ORDER_HERE_LABEL: Record<PendingOrderType, string> = Object.fromEntries(
+  (Object.keys(PENDING_ORDER_TYPE_LABEL) as PendingOrderType[]).map((type) => [
+    type,
+    `${PENDING_ORDER_TYPE_LABEL[type]} ici`,
+  ]),
+) as Record<PendingOrderType, string>;
 
 const PENDING_ORDER_TYPES: readonly PendingOrderType[] = [
   'buy_limit',
@@ -177,7 +185,7 @@ export function buildContextMenuActions(
       if (valid) {
         actions.push({
           key: `pending_${orderType}`,
-          label: PENDING_ORDER_TYPE_LABEL[orderType],
+          label: PENDING_ORDER_HERE_LABEL[orderType],
           onSelect: () => props.onPendingOrderRequest(orderType),
         });
       }

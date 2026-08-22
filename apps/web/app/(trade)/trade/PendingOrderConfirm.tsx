@@ -1,6 +1,7 @@
 'use client';
 
 import { Button, Text, WariXDialog, WariXInlineStatus } from '@wariba/ui';
+import { PENDING_ORDER_TYPE_LABEL as ORDER_TYPE_LABEL } from './trade-labels';
 import type { MarketTick, PendingOrderType, SymbolSpec, TradableSymbol } from '@wariba/contracts';
 import { isPendingOrderCreationPriceValid, pendingOrderDistancePoints } from '@wariba/domain';
 
@@ -19,16 +20,9 @@ export interface PendingOrderConfirmProps {
   onConfirm: () => void;
 }
 
-const ORDER_TYPE_LABEL: Record<PendingOrderType, string> = {
-  buy_limit: 'Achat Limite',
-  sell_limit: 'Vente Limite',
-  buy_stop: 'Achat Stop',
-  sell_stop: 'Vente Stop',
-};
-
 /**
  * Prompt 7 Appendix 07-D §8 — shown when a pending-order type is chosen from
- * the chart context menu ("Achat Limite ici" etc.), same one-click-trading
+ * the chart context menu ("Buy Limit ici" etc.), same one-click-trading
  * gate as QuickOrderConfirm's market-order equivalent
  * (ONE_CLICK_TRADING_DEFAULT = false, apps/web/lib/one-click-trading.ts).
  * Uses the order ticket's own current quantity/SL/TP, same convention as
