@@ -43,6 +43,8 @@ export type {
   ActuarialScenarioName,
   MarketBarOrigin,
   MarketBarVolumeSemantics,
+  MarketBarSessionState,
+  MarketBarHistoryProvenance,
 } from './schema';
 export {
   getStaffRole,

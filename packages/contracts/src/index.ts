@@ -219,3 +219,16 @@ export {
   type GapClassificationSummary,
   type GapKind,
 } from './market-history-gaps';
+export {
+  BAR_SESSION_STATES,
+  classifyBarSession,
+  isWithinWeeklyClosure,
+  type BarSessionState,
+} from './market-session';
+export {
+  HISTORY_PROVENANCES,
+  INSTRUMENT_HISTORY_START,
+  historyProvenanceFor,
+  instrumentHistoryStart,
+  type HistoryProvenance,
+} from './instrument-history';

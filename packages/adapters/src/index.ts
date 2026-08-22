@@ -39,6 +39,8 @@ export {
   type MarketDataMode,
   type MarketDataCapabilities,
   type MarketDataSourceIdentity,
+  DISPLAY_RIGHTS,
+  type DisplayRights,
 } from './market-data-provider';
 export {
   ReplayMarketDataProvider,
@@ -93,3 +95,9 @@ export {
   type OandaProviderConfig,
   type OandaSymbolConfig,
 } from './oanda-historical-provider';
+export {
+  TwelveDataQuoteProvider,
+  parseTwelveDataQuoteSymbols,
+  type TwelveDataQuoteProviderConfig,
+  type TwelveDataQuoteSymbolConfig,
+} from './twelve-data-quote-provider';

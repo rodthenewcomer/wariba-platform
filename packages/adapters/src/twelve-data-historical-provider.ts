@@ -8,7 +8,11 @@ import {
   type HistoricalMarketDataProvider,
 } from './historical-market-data-provider';
 import { MarketDataProviderBlockedError } from './fcs-market-data-provider';
-import type { MarketDataSourceIdentity, TradableSymbol } from './market-data-provider';
+import type {
+  DisplayRights,
+  MarketDataSourceIdentity,
+  TradableSymbol,
+} from './market-data-provider';
 
 /**
  * WX3 — Twelve Data `/time_series` historical bars.
@@ -73,6 +77,16 @@ export interface TwelveDataProviderConfig {
    */
   symbols: Partial<Record<TradableSymbol, TwelveDataSymbolConfig>>;
   requestTimeoutMs?: number;
+  /**
+   * WX3.1 §5 — what the *purchased plan* permits, stated by configuration.
+   *
+   * Defaults to `unknown` because that is the truth about an unconfigured
+   * deployment. The free Basic tier is documented as internal non-display use;
+   * whether any paid tier covers external customer display is a commercial
+   * question for a human, and this field carries their answer rather than
+   * guessing it.
+   */
+  displayRights?: DisplayRights;
 }
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 15000;
@@ -209,6 +223,7 @@ export class TwelveDataHistoricalProvider implements HistoricalMarketDataProvide
         // number (WX3 §30).
         volume: false,
         depth: false,
+        displayRights: config.displayRights ?? 'unknown',
       },
     };
   }

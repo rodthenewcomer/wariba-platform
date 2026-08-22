@@ -26,6 +26,7 @@ export function createHistoricalMarketDataProvider(
       apiKey: config.TWELVE_DATA_API_KEY,
       baseUrl: config.TWELVE_DATA_BASE_URL,
       symbols: parseTwelveDataSymbolMap(config.TWELVE_DATA_SYMBOL_MAP),
+      displayRights: config.MARKET_HISTORY_DISPLAY_RIGHTS,
     });
   }
   if (config.MARKET_HISTORY_PROVIDER === 'oanda') {

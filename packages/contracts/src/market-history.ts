@@ -71,6 +71,8 @@ export const marketHistoryCapabilitiesSchema = z.object({
   pagination: z.enum(['none', 'cursor', 'time_range']),
   volume: z.boolean(),
   depth: z.boolean(),
+  /** WX3.1 §5 — what this source may contractually be shown to. */
+  displayRights: z.enum(['internal', 'external', 'unknown']).optional(),
 });
 export type MarketHistoryCapabilities = z.infer<typeof marketHistoryCapabilitiesSchema>;
 

@@ -4,7 +4,13 @@ import {
   type HistoricalMarketDataProvider,
   type HistoricalProviderErrorKind,
 } from '@wariba/adapters';
-import { bucketEndSeconds, type CandleTimeframe, type TradableSymbol } from '@wariba/contracts';
+import {
+  bucketEndSeconds,
+  classifyBarSession,
+  historyProvenanceFor,
+  type CandleTimeframe,
+  type TradableSymbol,
+} from '@wariba/contracts';
 import {
   loadMarketBarBounds,
   loadMarketBarCoverage,
@@ -427,6 +433,11 @@ export class MarketHistoryBackfillEngine {
       origin: this.provider.supportsTimeframe(timeframe) ? 'provider_history' : 'derived',
       volume: bar.volume?.value ?? null,
       volumeSemantics: bar.volume?.semantics ?? null,
+      // WX3.1 — classified at write time, from the canonical session calendar
+      // and instrument table. Provenance is recorded once, where the bar enters
+      // the system, rather than recomputed by every reader.
+      sessionState: classifyBarSession(bar.startTime, timeframe),
+      historyProvenance: historyProvenanceFor(symbol, bar.startTime),
       fetchedAt: this.now().toISOString(),
     };
   }

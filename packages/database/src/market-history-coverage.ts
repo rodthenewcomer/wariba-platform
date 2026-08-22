@@ -1,6 +1,11 @@
 import { sql } from 'kysely';
 import type { Db, DbExecutor } from './client';
-import type { MarketBarOrigin, MarketBarVolumeSemantics } from './schema';
+import type {
+  MarketBarHistoryProvenance,
+  MarketBarOrigin,
+  MarketBarSessionState,
+  MarketBarVolumeSemantics,
+} from './schema';
 
 /**
  * WX3 — persistence for genuine provider history and for the record of what
@@ -26,6 +31,8 @@ export interface ProviderMarketBar {
   origin: MarketBarOrigin;
   volume: string | null;
   volumeSemantics: MarketBarVolumeSemantics | null;
+  sessionState: MarketBarSessionState;
+  historyProvenance: MarketBarHistoryProvenance;
   fetchedAt: string;
 }
 
@@ -81,6 +88,8 @@ export async function upsertProviderMarketBars(
           origin: bar.origin,
           volume: bar.volume,
           volume_semantics: bar.volumeSemantics,
+          session_state: bar.sessionState,
+          history_provenance: bar.historyProvenance,
         })),
       )
       .onConflict((conflict) =>
@@ -95,6 +104,8 @@ export async function upsertProviderMarketBars(
             origin: (eb) => eb.ref('excluded.origin'),
             volume: (eb) => eb.ref('excluded.volume'),
             volume_semantics: (eb) => eb.ref('excluded.volume_semantics'),
+            session_state: (eb) => eb.ref('excluded.session_state'),
+            history_provenance: (eb) => eb.ref('excluded.history_provenance'),
             observed_at: (eb) => eb.ref('excluded.observed_at'),
             updated_at: new Date(),
           })

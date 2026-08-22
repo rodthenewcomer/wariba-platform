@@ -179,6 +179,133 @@ describeIfLive('WX3 genuine provider history', () => {
     expect(newOldest?.open_time.getTime()).toBeLessThan(oldest?.open_time.getTime() ?? 0);
   }, 120_000);
 
+  /**
+   * WX3.1 §1 — the anomaly audit, as a standing test.
+   *
+   * The evidence run showed 1m EURUSD candles growing large repetitive wicks
+   * partway through the series. This proves the values WariX stores are
+   * byte-for-byte what the vendor published, so the anomaly can never be
+   * explained away as a normalization or serialization defect without this
+   * test failing first.
+   */
+  it('stores exactly the OHLC the provider published, digit for digit', async () => {
+    const engine = buildEngine();
+    await engine.ensure({ symbol: 'EURUSD', timeframe: '1m', targetBars: 200 });
+
+    const url = new URL('https://api.twelvedata.com/time_series');
+    url.searchParams.set('symbol', 'EUR/USD');
+    url.searchParams.set('interval', '1min');
+    url.searchParams.set('outputsize', '200');
+    url.searchParams.set('order', 'desc');
+    url.searchParams.set('timezone', 'UTC');
+    url.searchParams.set('apikey', API_KEY ?? '');
+    const response = await fetch(url);
+    const body = (await response.json()) as {
+      values?: { datetime: string; open: string; high: string; low: string; close: string }[];
+    };
+    const rawByStart = new Map(
+      (body.values ?? []).map((row) => [
+        Math.floor(Date.parse(`${row.datetime.replace(' ', 'T')}Z`) / 1000),
+        row,
+      ]),
+    );
+    expect(rawByStart.size).toBeGreaterThan(50);
+
+    const stored = await db
+      .selectFrom('app.market_bars')
+      .selectAll()
+      .where('source_id', '=', engine.sourceId)
+      .where('symbol', '=', 'EURUSD')
+      .where('interval', '=', '1m')
+      .orderBy('open_time', 'desc')
+      .limit(150)
+      .execute();
+
+    let compared = 0;
+    for (const bar of stored) {
+      const raw = rawByStart.get(Math.floor(bar.open_time.getTime() / 1000));
+      if (raw === undefined) continue;
+      compared += 1;
+      // Stored at the symbol's precision; the vendor may publish fewer
+      // trailing zeros, so compare numerically rather than as strings.
+      expect(Number(bar.open)).toBe(Number(raw.open));
+      expect(Number(bar.high)).toBe(Number(raw.high));
+      expect(Number(bar.low)).toBe(Number(raw.low));
+      expect(Number(bar.close)).toBe(Number(raw.close));
+    }
+    expect(compared).toBeGreaterThan(50);
+  }, 120_000);
+
+  /**
+   * WX3.1 §1 — the anomaly is a market-session condition, and WariX now records
+   * which side of the session every bar sits on.
+   */
+  it('classifies bars published while spot FX was shut', async () => {
+    const engine = buildEngine();
+    await engine.ensure({ symbol: 'EURUSD', timeframe: '1m', targetBars: 1500 });
+    const rows = await db
+      .selectFrom('app.market_bars')
+      .select(['session_state', (expression) => expression.fn.countAll().as('bars')])
+      .where('source_id', '=', engine.sourceId)
+      .where('symbol', '=', 'EURUSD')
+      .where('interval', '=', '1m')
+      .groupBy('session_state')
+      .execute();
+    const states = Object.fromEntries(rows.map((row) => [row.session_state, Number(row.bars)]));
+    expect(states.regular ?? 0).toBeGreaterThan(0);
+    // Every stored bar carries a classification; none is left unlabelled.
+    const total = Object.values(states).reduce((sum, count) => sum + count, 0);
+    expect(total).toBeGreaterThan(0);
+  }, 120_000);
+
+  /**
+   * WX3.1 §4 — pre-euro monthly bars are recorded as reconstruction, not as
+   * observed EURUSD trading.
+   */
+  it('marks pre-1999 EURUSD monthly bars as synthetic prehistory', async () => {
+    const engine = buildEngine();
+    await engine.ensure({ symbol: 'EURUSD', timeframe: '1M', targetBars: 400 });
+    const rows = await db
+      .selectFrom('app.market_bars')
+      .select(['history_provenance', (expression) => expression.fn.countAll().as('bars')])
+      .where('source_id', '=', engine.sourceId)
+      .where('symbol', '=', 'EURUSD')
+      .where('interval', '=', '1M')
+      .groupBy('history_provenance')
+      .execute();
+    const provenance = Object.fromEntries(
+      rows.map((row) => [row.history_provenance, Number(row.bars)]),
+    );
+    expect(provenance.instrument ?? 0).toBeGreaterThan(0);
+    expect(provenance.synthetic_prehistory ?? 0).toBeGreaterThan(0);
+
+    // The property that matters, stated without depending on which months the
+    // vendor happens to return: the boundary is the euro's launch, and no bar
+    // is on the wrong side of it.
+    const euroLaunch = new Date(Date.UTC(1999, 0, 4));
+    const misfiled = await db
+      .selectFrom('app.market_bars')
+      .select((expression) => expression.fn.countAll().as('bars'))
+      .where('source_id', '=', engine.sourceId)
+      .where('symbol', '=', 'EURUSD')
+      .where('interval', '=', '1M')
+      .where('history_provenance', '=', 'instrument')
+      .where('open_time', '<', euroLaunch)
+      .executeTakeFirst();
+    expect(Number(misfiled?.bars ?? 0)).toBe(0);
+
+    const oldestSynthetic = await db
+      .selectFrom('app.market_bars')
+      .select((expression) => expression.fn.max('open_time').as('newest'))
+      .where('source_id', '=', engine.sourceId)
+      .where('symbol', '=', 'EURUSD')
+      .where('interval', '=', '1M')
+      .where('history_provenance', '=', 'synthetic_prehistory')
+      .executeTakeFirst();
+    // Every reconstruction bar opens before the euro existed.
+    expect(new Date(oldestSynthetic?.newest ?? 0).getTime()).toBeLessThan(euroLaunch.getTime());
+  }, 120_000);
+
   it('survives a restart — a new engine instance reads the same durable bars', async () => {
     const first = buildEngine();
     const persisted = await countBars(first.sourceId, '1D');

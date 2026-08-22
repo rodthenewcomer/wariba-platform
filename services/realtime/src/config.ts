@@ -18,7 +18,7 @@ const realtimeEnvSchema = baseEnvironmentSchema.extend({
   SUPABASE_ANON_KEY: z.string().min(1),
   // Prompt 07B — mock/replay never touch the network; fcs requires a real
   // FCS_API_KEY (FcsMarketDataProvider fails fast at construction otherwise).
-  MARKET_DATA_PROVIDER: z.enum(['mock', 'replay', 'fcs']).default('mock'),
+  MARKET_DATA_PROVIDER: z.enum(['mock', 'replay', 'fcs', 'twelve-data']).default('mock'),
   // Safety override: forces replay behavior regardless of MARKET_DATA_PROVIDER
   // — e.g. a MARKET_DATA_PROVIDER=fcs config can be staged/reviewed without
   // ever risking a live connection until this is explicitly turned off.
@@ -62,6 +62,17 @@ const realtimeEnvSchema = baseEnvironmentSchema.extend({
   // sandbox walk being drawn onto a genuine series.
   MARKET_HISTORY_CUTOVER: z.enum(['never', 'verified', 'always']).default('verified'),
   MARKET_HISTORY_CUTOVER_TOLERANCE_BPS: z.coerce.number().int().positive().default(50),
+  // WX3.1 §5 — the display rights the purchased market-data plan actually
+  // grants, recorded by whoever bought it. Defaults to 'unknown', which a
+  // production start treats as not cleared. This is a configuration statement,
+  // not a legal conclusion.
+  MARKET_HISTORY_DISPLAY_RIGHTS: z.enum(['internal', 'external', 'unknown']).default('unknown'),
+  // WX3.1 §2 — genuine Twelve Data quotes, so the historical archive and the
+  // tick feed describe the same market and the attached cutover path can be
+  // proved. Costs one credit per mapped symbol per poll against the same
+  // budget the backfill uses, so it is opt-in and slow by default.
+  TWELVE_DATA_QUOTE_SYMBOL_MAP: z.string().default(''),
+  TWELVE_DATA_QUOTE_INTERVAL_MS: z.coerce.number().int().positive().default(30000),
   // DATA-001/002: fixed default so a fresh checkout reproduces the same
   // sandbox price sequence — override per-environment if ever needed.
   SANDBOX_MARKET_SEED: z.coerce.number().int().default(20260804),

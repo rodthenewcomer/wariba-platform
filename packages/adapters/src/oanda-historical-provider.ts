@@ -174,6 +174,10 @@ export class OandaHistoricalProvider implements HistoricalMarketDataProvider {
         // which spot FX does not have.
         volume: true,
         depth: false,
+        // Not configurable. OANDA's API License Agreement prohibits providing
+        // FXTrade rates to any third party, so no deployment setting can make
+        // this source externally displayable.
+        displayRights: 'internal',
       },
     };
   }

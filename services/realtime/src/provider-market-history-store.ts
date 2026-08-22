@@ -20,6 +20,7 @@ import Decimal from 'decimal.js';
 import type { DurableMarketHistoryStore } from './durable-market-history-store';
 import type { MarketHistoryBackfillEngine } from './market-history-backfill';
 import { initialDepthFor, PAGINATION_HISTORY_DEPTH_BARS } from './market-history-depth';
+import { decideRealtimeContinuation, type CutoverMode } from './market-history-cutover';
 
 /**
  * WX3 — the history port a chart actually reads when a historical provider is
@@ -37,8 +38,6 @@ import { initialDepthFor, PAGINATION_HISTORY_DEPTH_BARS } from './market-history
  * beautiful lie; a real EURUSD daily history that simply stops at the last
  * genuine bar is the truth.
  */
-
-export type CutoverMode = 'never' | 'verified' | 'always';
 
 interface ProviderHistoryLogger {
   info(event: string, fields?: Record<string, unknown>): void;
@@ -155,11 +154,16 @@ export class ProviderMarketHistoryStore implements MarketHistoryPort {
       return this.observed.getCandles(query);
     }
 
+    // WX3.1 — the default visible series is regular-session bars of the
+    // instrument's own history. Out-of-session quotes and pre-existence
+    // reconstructions stay in the cache with their provenance; they are simply
+    // not what a trader is shown when they open a chart.
     const page = await loadMarketBarPage(this.db, {
       sourceId: this.providerSource.id,
       symbol: query.symbol,
       interval: query.timeframe,
       limit: query.limit,
+      visibleOnly: true,
       ...(query.before === undefined ? {} : { before: query.before }),
     });
 
@@ -249,38 +253,37 @@ export class ProviderMarketHistoryStore implements MarketHistoryPort {
   }
 
   /**
-   * The cutover decision (WX3 §12).
-   *
-   * Same vendor for history and ticks is the easy case and needs no price
-   * check. Different vendors is the case that matters, and the rule is that
-   * two sources may be joined only if they demonstrably describe the same
-   * market — verified against the actual numbers, not asserted in config.
-   * A sandbox feed walking around 1.0845 and a genuine EURUSD history fail
-   * that check by an enormous margin, which is exactly the outcome that stops
-   * a synthetic price from being drawn onto a real series.
+   * The cutover decision (WX3 §12), delegated to the rule module so it can be
+   * tested without a database and so there is exactly one implementation.
    */
   private decideContinuation(
     providerClose: string | null,
     liveClose: string | null,
   ): RealtimeContinuation {
-    if (this.cutoverMode === 'never') return 'refused_by_config';
-    if (this.providerSource.provider === this.realtimeSource.provider) return 'attached';
-    if (this.cutoverMode === 'always') return 'attached';
-    if (providerClose === null || liveClose === null) return 'refused_source_mismatch';
-    const provider = new Decimal(providerClose);
-    if (provider.isZero()) return 'refused_source_mismatch';
-    const divergenceBps = new Decimal(liveClose)
-      .minus(provider)
-      .dividedBy(provider)
-      .abs()
-      .times(10_000);
-    if (divergenceBps.lessThanOrEqualTo(this.toleranceBps)) return 'attached';
-    this.logger.warn('history.cutover.refused_price_divergence', {
-      historySourceId: this.providerSource.id,
-      realtimeSourceId: this.realtimeSource.id,
-      divergenceBps: divergenceBps.toFixed(1),
+    const decision = decideRealtimeContinuation({
+      mode: this.cutoverMode,
       toleranceBps: this.toleranceBps,
+      historyProvider: this.providerSource.provider,
+      realtimeProvider: this.realtimeSource.provider,
+      providerClose,
+      liveClose,
     });
-    return 'refused_price_divergence';
+    if (decision.continuation === 'refused_price_divergence') {
+      this.logger.warn('history.cutover.refused_price_divergence', {
+        historySourceId: this.providerSource.id,
+        realtimeSourceId: this.realtimeSource.id,
+        divergenceBps: decision.divergenceBps,
+        toleranceBps: this.toleranceBps,
+      });
+    }
+    if (decision.continuation === 'attached' && decision.divergenceBps !== null) {
+      this.logger.info('history.cutover.attached', {
+        historySourceId: this.providerSource.id,
+        realtimeSourceId: this.realtimeSource.id,
+        divergenceBps: decision.divergenceBps,
+        toleranceBps: this.toleranceBps,
+      });
+    }
+    return decision.continuation;
   }
 }

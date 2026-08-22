@@ -717,7 +717,14 @@ export interface MarketBarsTable {
   /** WX3 genuine provider volume; null when the source publishes none. */
   volume: string | null;
   volume_semantics: MarketBarVolumeSemantics | null;
+  /** WX3.1 — which side of the spot-FX trading week this bar sits on. */
+  session_state: Generated<MarketBarSessionState>;
+  /** WX3.1 — the instrument's own history, or a pre-existence reconstruction. */
+  history_provenance: Generated<MarketBarHistoryProvenance>;
 }
+
+export type MarketBarSessionState = 'regular' | 'out_of_session';
+export type MarketBarHistoryProvenance = 'instrument' | 'synthetic_prehistory';
 
 // WX3 — durable record of what history a source actually holds, and whether
 // the provider has anything older. See the matching migration's doc comment.
