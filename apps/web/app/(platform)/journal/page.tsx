@@ -9,6 +9,8 @@ import { SegmentedFilter } from '../../../components/hub/SegmentedFilter';
 import { Surface } from '../../../components/hub/Surface';
 import { AccountSwitcher } from '../hub/AccountSwitcher';
 import { toSwitcherAccounts } from '../hub/switcher-accounts';
+import { JournalTable } from './JournalTable';
+import { JournalSummary } from './JournalSummary';
 import { TradeRow } from './TradeRow';
 
 export const dynamic = 'force-dynamic';
@@ -139,13 +141,27 @@ export default async function JournalPage({
           compact
         />
       ) : (
-        <Surface className="p-3 sm:p-4">
-          <ul data-testid="journal-list" className="flex list-none flex-col gap-2 p-0">
-            {journal.entries.map((entry) => (
-              <TradeRow key={entry.id} entry={entry} />
-            ))}
-          </ul>
-        </Surface>
+        <>
+          {/*
+           * The same figures the Performance page reports, over the same
+           * filtered set — §17. A record with no total at the top makes the
+           * reader add eleven numbers to answer the first question they have.
+           */}
+          <JournalSummary summary={journal.summary} />
+
+          <Surface className="p-3 sm:p-4 lg:p-5">
+            {/* Table from lg up, cards below — see JournalTable's note. */}
+            <JournalTable entries={journal.entries} />
+            <ul
+              data-testid="journal-list"
+              className="flex list-none flex-col gap-2 p-0 lg:hidden"
+            >
+              {journal.entries.map((entry) => (
+                <TradeRow key={entry.id} entry={entry} />
+              ))}
+            </ul>
+          </Surface>
+        </>
       )}
     </div>
   );

@@ -52,6 +52,11 @@ export function PerformanceSnapshot({
       sentiment: 'auto' as const,
       numericValue: netPnlValue,
       hint: `${kpis.tradeCount} trade${kpis.tradeCount > 1 ? 's' : ''}`,
+      /*
+       * §27 — the record's headline. Everything else on the grid qualifies
+       * this one number, so it carries the weight and the others do not.
+       */
+      emphasis: 'primary' as const,
     },
     {
       label: 'Taux de réussite',
@@ -134,6 +139,7 @@ export function PerformanceSnapshot({
           {...('hint' in tile ? { hint: tile.hint } : {})}
           {...('sentiment' in tile ? { sentiment: tile.sentiment } : {})}
           {...('numericValue' in tile ? { numericValue: tile.numericValue } : {})}
+          {...('emphasis' in tile ? { emphasis: tile.emphasis } : {})}
           compact
         />
       ))}

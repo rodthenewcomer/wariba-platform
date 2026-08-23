@@ -83,13 +83,28 @@ export function Surface({
   tone = 'default',
   className = '',
   children,
+  style: styleOverride,
   ...rest
 }: SurfaceProps) {
   const style = TONE[tone];
+  /*
+   * Merged, not replaced.
+   *
+   * `style` used to arrive via `...rest` after the tone's own style object,
+   * which meant any caller tinting a background silently dropped the inset
+   * highlight and the shadow with it — the panel lost its top edge and stopped
+   * matching every other surface on the page. Spreading the override last lets
+   * a caller change one property and keep the material.
+   */
   return (
     <Tag
       className={`rounded-[12px] border ${className}`}
-      style={{ background: style.background, borderColor: style.border, boxShadow: style.shadow }}
+      style={{
+        background: style.background,
+        borderColor: style.border,
+        boxShadow: style.shadow,
+        ...styleOverride,
+      }}
       {...rest}
     >
       {children}

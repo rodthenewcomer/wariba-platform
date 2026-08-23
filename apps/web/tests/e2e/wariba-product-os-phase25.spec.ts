@@ -202,7 +202,7 @@ test.describe('@phase25 Product OS 2.5 — command centre', () => {
     await page.setViewportSize(SIZES.desktop);
     await signIn(page, populated.email);
     await page.goto(`/performance?account=${populated.accountId}`);
-    await page.waitForLoadState('networkidle');
+    await page.getByTestId('hub-sidebar').waitFor();
     await shoot(page, '11-performance-populated-1440');
   });
 
@@ -210,7 +210,7 @@ test.describe('@phase25 Product OS 2.5 — command centre', () => {
     await page.setViewportSize(SIZES.desktop);
     await signIn(page, populated.email);
     await page.goto(`/journal?account=${populated.accountId}`);
-    await page.waitForLoadState('networkidle');
+    await page.getByTestId('hub-sidebar').waitFor();
     await shoot(page, '13-journal-populated-1440');
   });
 
@@ -218,7 +218,7 @@ test.describe('@phase25 Product OS 2.5 — command centre', () => {
     await page.setViewportSize(SIZES.desktop);
     await signIn(page, populated.email);
     await page.goto('/comptes');
-    await page.waitForLoadState('networkidle');
+    await page.getByTestId('hub-sidebar').waitFor();
     await shoot(page, '08-comptes-1440');
   });
 
@@ -226,7 +226,7 @@ test.describe('@phase25 Product OS 2.5 — command centre', () => {
     await page.setViewportSize(SIZES.desktop);
     await signIn(page, populated.email);
     await page.goto('/comptes/nouveau');
-    await page.waitForLoadState('networkidle');
+    await page.getByTestId('hub-sidebar').waitFor();
     await shoot(page, '10-comptes-nouveau-1440');
   });
 
@@ -234,7 +234,7 @@ test.describe('@phase25 Product OS 2.5 — command centre', () => {
     await page.setViewportSize(SIZES.desktop);
     await signIn(page, populated.email);
     await page.goto('/facturation');
-    await page.waitForLoadState('networkidle');
+    await page.getByTestId('hub-sidebar').waitFor();
     await shoot(page, '18-facturation-1440');
   });
 
@@ -242,7 +242,7 @@ test.describe('@phase25 Product OS 2.5 — command centre', () => {
     await page.setViewportSize(SIZES.desktop);
     await signIn(page, populated.email);
     await page.goto('/payouts');
-    await page.waitForLoadState('networkidle');
+    await page.getByTestId('hub-sidebar').waitFor();
     await shoot(page, '15-payouts-1440');
   });
 
@@ -287,7 +287,7 @@ test.describe('@phase25 Product OS 2.5 — command centre', () => {
       await page.setViewportSize(size);
       await signIn(page, populated.email);
       await page.goto(`/performance?account=${populated.accountId}`);
-      await page.waitForLoadState('networkidle');
+      await page.getByTestId('hub-sidebar').waitFor();
       expect(await noHorizontalOverflow(page)).toBe(true);
     });
 
@@ -295,7 +295,7 @@ test.describe('@phase25 Product OS 2.5 — command centre', () => {
       await page.setViewportSize(size);
       await signIn(page, populated.email);
       await page.goto(`/journal?account=${populated.accountId}`);
-      await page.waitForLoadState('networkidle');
+      await page.getByTestId('hub-sidebar').waitFor();
       expect(await noHorizontalOverflow(page)).toBe(true);
     });
   }

@@ -1,6 +1,7 @@
 import type { AccountOverviewItem } from '@wariba/application';
 import { ActionLink } from '../../../components/hub/Action';
 import { StatusPill } from '../../../components/hub/StatusPill';
+import { RiskMeter } from '../../../components/hub/RiskMeter';
 import { Surface } from '../../../components/hub/Surface';
 import { ProgressBar } from '../../../components/motion/primitives';
 import {
@@ -126,10 +127,6 @@ export function AccountCard({ item }: { item: AccountOverviewItem }) {
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[color:var(--warix-border-subtle)] pt-4 sm:grid-cols-3">
             {[
               { label: 'Solde', value: detail.balanceFormatted },
-              // The same words as the dashboard. Two screens naming the same
-              // authoritative figure differently is worse than either name.
-              { label: 'Perte quotidienne restante', value: detail.dailyLossRemainingFormatted },
-              { label: 'Perte maximale restante', value: detail.maximumLossRemainingFormatted },
               ...(detail.consistencyLabel
                 ? [{ label: 'Consistance', value: detail.consistencyLabel }]
                 : []),
@@ -150,6 +147,39 @@ export function AccountCard({ item }: { item: AccountOverviewItem }) {
               </div>
             ))}
           </dl>
+
+          {/*
+           * The two budgets, as strips (§18/§28).
+           *
+           * The portfolio's job is comparison, and comparison across accounts
+           * is exactly where text figures fail: "300 USD" and "764 USD" on two
+           * different account sizes are not comparable without dividing each
+           * by its own budget first. The bars have already done that division,
+           * so a trader scanning five accounts sees which one is short of room
+           * without reading a single number.
+           *
+           * The same words as the dashboard, from the same projection — two
+           * screens naming one authoritative figure differently is worse than
+           * either name.
+           */}
+          <div className="grid gap-x-6 gap-y-3 border-t border-[color:var(--warix-border-subtle)] pt-4 sm:grid-cols-2">
+            <RiskMeter
+              label="Perte quotidienne restante"
+              remainingFormatted={detail.dailyLossRemainingFormatted}
+              budgetFormatted={`${detail.room.dailyRemainingPercent} % du budget`}
+              percent={detail.room.dailyRemainingPercent}
+              tested={detail.tradingDays !== null}
+              binding={detail.room.binding === 'daily'}
+            />
+            <RiskMeter
+              label="Perte maximale restante"
+              remainingFormatted={detail.maximumLossRemainingFormatted}
+              budgetFormatted={`${detail.room.maximumRemainingPercent} % du budget`}
+              percent={detail.room.maximumRemainingPercent}
+              tested={detail.tradingDays !== null}
+              binding={detail.room.binding === 'maximum'}
+            />
+          </div>
         </>
       ) : (
         <p className="text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-text-secondary)]">

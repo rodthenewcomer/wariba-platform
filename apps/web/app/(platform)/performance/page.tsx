@@ -11,6 +11,7 @@ import { HubEmptyState } from '../../../components/hub/HubEmptyState';
 import { PageHeader } from '../../../components/hub/PageHeader';
 import { PerformanceSnapshot } from '../../../components/hub/PerformanceSnapshot';
 import { SegmentedFilter } from '../../../components/hub/SegmentedFilter';
+import { WinLossRing } from '../../../components/hub/WinLossRing';
 import { Surface, SurfaceTitle } from '../../../components/hub/Surface';
 import { Stagger, StaggerItem } from '../../../components/motion/primitives';
 import { AccountSwitcher } from '../hub/AccountSwitcher';
@@ -163,13 +164,22 @@ export default async function PerformancePage({
             </StaggerItem>
           ) : null}
 
+          {/*
+           * The day's results and the win/loss split, side by side. Both answer
+           * "what is the shape of this record" — one across time, one across
+           * outcomes — and reading them together is what separates a lucky
+           * month from a repeatable one.
+           */}
           <StaggerItem>
-            <Surface className="p-5 sm:p-6">
-              <SurfaceTitle>P&L par journée</SurfaceTitle>
-              <div className="mt-4">
-                <DailyPnl daily={analytics.daily} variant="bars" />
-              </div>
-            </Surface>
+            <div className="grid gap-5 xl:grid-cols-3">
+              <Surface className="p-5 sm:p-6 xl:col-span-2">
+                <SurfaceTitle>P&L par journée</SurfaceTitle>
+                <div className="mt-4">
+                  <DailyPnl daily={analytics.daily} variant="bars" />
+                </div>
+              </Surface>
+              <WinLossRing kpis={analytics.kpis} />
+            </div>
           </StaggerItem>
 
           <StaggerItem>

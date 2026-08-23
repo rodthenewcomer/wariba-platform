@@ -33,6 +33,17 @@ export interface KpiTileProps {
   numericValue?: number | null;
   icon?: ReactNode;
   compact?: boolean;
+  /**
+   * Visual weight, not a different component (§27).
+   *
+   * Twelve identical dark rectangles is a wall, not a hierarchy — the eye has
+   * no entry point and reads them in DOM order, which is rarely importance
+   * order. `primary` gives the one figure the surface is *about* a larger
+   * numeral and a wash tinted by its own sentiment, so a profitable record
+   * leads green and a losing one leads red. Surfaces stay consistent; only the
+   * weight varies.
+   */
+  emphasis?: 'primary' | 'default';
 }
 
 function resolveColor(sentiment: KpiSentiment, numericValue: number | null | undefined): string {
@@ -52,11 +63,29 @@ export function KpiTile({
   numericValue,
   icon,
   compact = false,
+  emphasis = 'default',
 }: KpiTileProps) {
   const missing = value === null;
+  const primary = emphasis === 'primary' && !missing;
+  const color = missing ? 'var(--wariba-text-tertiary)' : resolveColor(sentiment, numericValue);
 
   return (
-    <Surface tone="raised" className={compact ? 'p-3.5' : 'p-4'}>
+    <Surface
+      tone="raised"
+      className={compact ? 'p-3.5' : 'p-4'}
+      /*
+       * The wash is derived from the resolved figure colour rather than picked
+       * separately, so it can never disagree with the number sitting on it.
+       */
+      {...(primary
+        ? {
+            style: {
+              background: `color-mix(in srgb, ${color} 9%, var(--warix-surface-raised))`,
+              borderColor: `color-mix(in srgb, ${color} 28%, transparent)`,
+            },
+          }
+        : {})}
+    >
       <div className="flex items-start justify-between gap-2">
         <p className="text-[length:var(--wariba-font-size-label-sm)] font-medium text-[color:var(--wariba-text-tertiary)]">
           {label}
@@ -68,11 +97,9 @@ export function KpiTile({
 
       <p
         className={`wariba-data mt-2 font-semibold leading-none tracking-[-0.01em] ${
-          compact ? 'text-[18px]' : 'text-[22px]'
+          primary ? 'text-[26px]' : compact ? 'text-[18px]' : 'text-[22px]'
         }`}
-        style={{
-          color: missing ? 'var(--wariba-text-tertiary)' : resolveColor(sentiment, numericValue),
-        }}
+        style={{ color }}
       >
         {/* An em dash, not "0". See the note above. */}
         {value ?? '—'}

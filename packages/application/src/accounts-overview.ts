@@ -1,6 +1,6 @@
 import type { Db } from '@wariba/database';
 import { listAccountsForUser, type AccountSummaryDTO } from './accounts-list';
-import { buildAccountRiskView } from './risk-view';
+import { buildAccountRiskView, type AccountRiskView } from './risk-view';
 import { buildAccountMissionView } from './mission-view';
 import { buildAccountPerformanceMissionView } from './performance-mission-view';
 import { deriveAccountHealth, type AccountHealthView } from './account-health';
@@ -32,6 +32,15 @@ export interface AccountOverviewDetail {
   progressPercent: number | null;
   objectiveDetail: string | null;
   consistencyLabel: string | null;
+  /**
+   * Remaining room on each budget, 0-100.
+   *
+   * Carried per account so the portfolio can draw the same risk strips the
+   * dashboard draws, from the same projection. `health.roomPercent` is only
+   * the *worse* of the two — enough for a single ring, not enough to show a
+   * trader which of their five accounts is short of daily room specifically.
+   */
+  room: AccountRiskView['room'];
   /** Closed sessions on this account. `null` when none have been recorded. */
   tradingDays: number | null;
   /** `21 août 2026` — the last day the account actually recorded a session. */
@@ -145,6 +154,7 @@ export async function buildAccountsOverview(
             dailyLossRemainingFormatted: risk.dailyLossRemainingFormatted,
             maximumLossRemainingFormatted: risk.maximumLossRemainingFormatted,
             health,
+            room: risk.room,
             progressPercent: mission.available ? mission.progressPercent : null,
             objectiveDetail: mission.available ? (mission.conditions[0]?.detail ?? null) : null,
             consistencyLabel: mission.available

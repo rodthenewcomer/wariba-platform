@@ -320,6 +320,8 @@ export {
 
 export {
   buildJournalView,
+  summarize as summarizeJournal,
+  type JournalSummaryView,
   type JournalView,
   type JournalEntry,
   type JournalFilters,

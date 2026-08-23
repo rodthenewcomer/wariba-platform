@@ -62,8 +62,41 @@ export interface JournalFilters {
   direction?: JournalDirection;
 }
 
+/**
+ * What the filtered rows add up to.
+ *
+ * Deliberately *not* `buildPerformanceAnalytics`. That answers a question about
+ * the whole account over a date range; this answers a question about the set
+ * the trader is currently looking at. A trader who has narrowed the journal to
+ * NAS100 losers wants to know what those cost — and putting the account-wide
+ * figure above a filtered table would place two disagreeing totals on one
+ * screen.
+ *
+ * It lives here rather than in the page because it is arithmetic over money.
+ * `apps/web` does not carry `decimal.js` on purpose: eleven float additions of
+ * two-decimal currency drift, and a total a cent off from the column above it
+ * costs a support conversation and a great deal of trust.
+ */
+export interface JournalSummaryView {
+  netPnl: string;
+  netPnlFormatted: string;
+  tradeCount: number;
+  wins: number;
+  losses: number;
+  /**
+   * Over *decided* trades only — a break-even is neither won nor lost, and
+   * counting it in the denominator quietly depresses the rate. `null` when
+   * nothing has been decided, never 0.
+   */
+  winRatePercent: number | null;
+  averageWinFormatted: string | null;
+  averageLossFormatted: string | null;
+}
+
 export interface JournalView {
   entries: JournalEntry[];
+  /** `null` when the filtered set is empty — there is nothing to total. */
+  summary: JournalSummaryView | null;
   /** Every symbol this account has actually closed a trade on, for the filter. */
   symbols: string[];
   totalCount: number;
@@ -133,6 +166,28 @@ export async function buildJournalView(
 
   const rows = await query.limit(params.limit ?? 200).execute();
 
+  /*
+   * Prices are stored at full numeric precision and are meaningless at it.
+   * NAS100 quotes to one decimal; rendering "20355.00000" in a column beside
+   * "1.08300" tells a trader that the index moved in hundred-thousandths and
+   * makes the column impossible to scan. `symbol_specs.price_precision` is the
+   * published quoting precision for exactly this reason, so the record is
+   * formatted to what the instrument actually trades in.
+   */
+  const specRows = await db
+    .selectFrom('app.symbol_specs')
+    .select(['symbol', 'price_precision'])
+    .execute();
+  const precisionOf = new Map<string, number>();
+  for (const spec of specRows) precisionOf.set(spec.symbol, spec.price_precision);
+
+  const price = (value: string | null, symbol: string): string | null => {
+    if (value === null) return null;
+    // Unknown symbol keeps the stored value rather than guessing a precision.
+    const digits = precisionOf.get(symbol);
+    return digits === undefined ? value : new Decimal(value).toFixed(digits);
+  };
+
   const entries = rows
     .map((row): JournalEntry => {
       const pnl = new Decimal(row.netRealizedPnl ?? row.realizedPnl);
@@ -150,8 +205,8 @@ export async function buildJournalView(
          */
         direction: row.side === 'sell' ? 'long' : 'short',
         quantity: row.quantity as string,
-        entryPrice: (row.entryPrice as string | null) ?? null,
-        exitPrice: row.exitPrice as string,
+        entryPrice: price((row.entryPrice as string | null) ?? null, row.symbol as string),
+        exitPrice: price(row.exitPrice as string, row.symbol as string) as string,
         netPnl: pnl.toFixed(2),
         netPnlFormatted: formatUsd(pnl),
         outcome: pnl.greaterThan(0) ? 'win' : pnl.lessThan(0) ? 'loss' : 'breakeven',
@@ -177,5 +232,44 @@ export async function buildJournalView(
 
   const symbols = [...new Set(rows.map((row) => row.symbol as string))].sort();
 
-  return { entries, symbols, totalCount: entries.length };
+  return { entries, summary: summarize(entries), symbols, totalCount: entries.length };
+}
+
+/**
+ * Sums and counts over values the entries already carry.
+ *
+ * It does not decide what a win is, what net P&L means or which fills count —
+ * every one of those was settled above and arrives resolved. Exported so the
+ * arithmetic can be tested without a database.
+ */
+export function summarize(entries: readonly JournalEntry[]): JournalSummaryView | null {
+  if (entries.length === 0) return null;
+
+  const net = entries.reduce((sum, entry) => sum.plus(entry.netPnl), new Decimal(0));
+  const wins = entries.filter((entry) => entry.outcome === 'win');
+  const losses = entries.filter((entry) => entry.outcome === 'loss');
+
+  const averageWin =
+    wins.length > 0
+      ? wins.reduce((sum, entry) => sum.plus(entry.netPnl), new Decimal(0)).dividedBy(wins.length)
+      : null;
+  const averageLoss =
+    losses.length > 0
+      ? losses
+          .reduce((sum, entry) => sum.plus(entry.netPnl), new Decimal(0))
+          .dividedBy(losses.length)
+      : null;
+
+  const decided = wins.length + losses.length;
+
+  return {
+    netPnl: net.toFixed(2),
+    netPnlFormatted: formatUsd(net),
+    tradeCount: entries.length,
+    wins: wins.length,
+    losses: losses.length,
+    winRatePercent: decided > 0 ? Math.round((wins.length / decided) * 100) : null,
+    averageWinFormatted: averageWin ? formatUsd(averageWin) : null,
+    averageLossFormatted: averageLoss ? formatUsd(averageLoss) : null,
+  };
 }
