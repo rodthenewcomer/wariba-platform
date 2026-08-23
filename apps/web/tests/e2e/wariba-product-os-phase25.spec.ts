@@ -388,6 +388,61 @@ test.describe('@phase25 Product OS 2.5 — command centre', () => {
     });
   }
 
+  /* --------------------------------------------------- empty states (§26) */
+
+  /**
+   * The empty surfaces, photographed on the fresh account.
+   *
+   * §26's rule is that an empty state preserves the shape of the product: the
+   * filters stay, the frame stays, and the page says what will appear here
+   * rather than rendering the metrics as zeros. These captures are how that is
+   * judged rather than asserted.
+   */
+  test('performance renders its empty state', async ({ page }) => {
+    await page.setViewportSize(SIZES.desktop);
+    await signIn(page, fresh.email);
+    await page.goto('/performance');
+    await settled(page);
+    // Never a fabricated zero — §26.
+    await expect(page.getByText('0 %')).toHaveCount(0);
+    await shoot(page, '12-performance-empty-1440');
+  });
+
+  test('journal renders its empty state', async ({ page }) => {
+    await page.setViewportSize(SIZES.desktop);
+    await signIn(page, fresh.email);
+    await page.goto('/journal');
+    await settled(page);
+    await shoot(page, '14-journal-empty-1440');
+  });
+
+  /* -------------------------------------------------------- mobile (§25) */
+
+  for (const [path, name] of [
+    ['/performance', '21-mobile-performance-populated-390'],
+    ['/journal', '22-mobile-journal-populated-390'],
+    ['/comptes', '23-mobile-comptes-390'],
+    ['/comptes/nouveau', '24-mobile-comptes-nouveau-390'],
+    ['/payouts', '25-mobile-payouts-390'],
+    ['/plus', '26-mobile-plus-390'],
+  ] as const) {
+    test(`mobile ${path} has no overflow and is photographed`, async ({ page }) => {
+      await page.setViewportSize(SIZES.mobile);
+      await signIn(page, populated.email);
+      await page.goto(path);
+      await settled(page);
+      expect(await noHorizontalOverflow(page)).toBe(true);
+      await shootViewport(page, name);
+    });
+  }
+
+  test('mobile hub populated', async ({ page }) => {
+    await page.setViewportSize(SIZES.mobile);
+    await signIn(page, populated.email);
+    expect(await noHorizontalOverflow(page)).toBe(true);
+    await shootViewport(page, '20-mobile-hub-populated-390');
+  });
+
   /* ------------------------------------------------ lifecycle states (§33) */
 
   /**
