@@ -80,8 +80,11 @@
  * never silently move the other.
  */
 [data-wariba-section='hub'] {
-  --hub-sidebar-expanded: 232px;
-  --hub-sidebar-collapsed: 68px;
+  /* Phase 2 §4. 244px holds a 26px glyph, a 12px gutter and a two-word label
+     without truncation; 72px holds the glyph inside a 44px target with the
+     breathing room that keeps a rail from reading as a toolbar. */
+  --hub-sidebar-expanded: 244px;
+  --hub-sidebar-collapsed: 72px;
   /* Content starts one gutter after the sidebar, not a page-width margin
      later. 32px at every desktop width; the column then uses what is left. */
   --hub-gutter: 32px;
@@ -129,6 +132,62 @@
     /* No fixed bar at this width; the page just needs to breathe at the end. */
     --hub-content-bottom: 40px;
   }
+}
+
+/*
+ * Product OS 2 — the semantic accent set.
+ *
+ * The Hub was graphite, one blue, and nothing else. That reads as an admin
+ * console: every fact rendered in the same colour is every fact claiming the
+ * same importance, so the eye finds no route through the page and a trader has
+ * to read a dashboard instead of scanning it.
+ *
+ * These are roles, not decoration. A colour on this surface means something
+ * specific and means it everywhere:
+ *
+ *   indigo   the action WARIBA wants taken, and selection
+ *   emerald  healthy, achieved, positive, funded
+ *   amber    warning, pending, awaiting review
+ *   red      breach, failure, loss
+ *   cyan     data and market state — informational, never a verdict
+ *   copper   WARIBA's own identity, used sparingly enough to stay identity
+ *
+ * Six roles is already the ceiling. A seventh would stop being a language and
+ * start being a palette, and the moment a trader has to remember what a colour
+ * means, colour has stopped doing its job.
+ *
+ * Each has a `-wash` (a translucent field to sit content on) and a `-edge` (a
+ * border or rule) so a component asks for a role and a use, never for an
+ * opacity it invented.
+ */
+:root {
+  --wariba-accent-indigo: #6684ff;
+  --wariba-accent-indigo-wash: color-mix(in srgb, #6684ff 12%, transparent);
+  --wariba-accent-indigo-edge: color-mix(in srgb, #6684ff 34%, transparent);
+
+  --wariba-accent-emerald: #36b37e;
+  --wariba-accent-emerald-wash: color-mix(in srgb, #36b37e 12%, transparent);
+  --wariba-accent-emerald-edge: color-mix(in srgb, #36b37e 34%, transparent);
+
+  --wariba-accent-amber: #e2a53a;
+  --wariba-accent-amber-wash: color-mix(in srgb, #e2a53a 12%, transparent);
+  --wariba-accent-amber-edge: color-mix(in srgb, #e2a53a 34%, transparent);
+
+  --wariba-accent-red: #e05a5a;
+  --wariba-accent-red-wash: color-mix(in srgb, #e05a5a 12%, transparent);
+  --wariba-accent-red-edge: color-mix(in srgb, #e05a5a 34%, transparent);
+
+  --wariba-accent-cyan: #3fb8c4;
+  --wariba-accent-cyan-wash: color-mix(in srgb, #3fb8c4 12%, transparent);
+  --wariba-accent-cyan-edge: color-mix(in srgb, #3fb8c4 34%, transparent);
+
+  --wariba-accent-copper: #d89a7d;
+  --wariba-accent-copper-wash: color-mix(in srgb, #d89a7d 14%, transparent);
+  --wariba-accent-copper-edge: color-mix(in srgb, #be6945 40%, transparent);
+
+  /* The well every progress fill travels along. Darker than the module it sits
+     in, so an empty bar reads as empty rather than as a divider. */
+  --wariba-track: color-mix(in srgb, #05070c 70%, transparent);
 }
 
 /*
