@@ -114,6 +114,12 @@ function describeInvalidDsn(dsn) {
   if (dsn !== dsn.trim()) {
     return 'The connection string has leading or trailing whitespace (often a trailing newline from a copy-paste).';
   }
+  // Whitespace *inside* the value, which a wrapped copy-paste from a dashboard
+  // introduces and which trimming cannot see. This is the failure that is
+  // hardest to spot by eye in a secret field that renders as a single line.
+  if (/\s/.test(dsn.trim())) {
+    return 'The connection string contains a space or line break in the middle — usually a paste that wrapped across two lines. It must be one unbroken line.';
+  }
   if (!/^postgres(ql)?:\/\//.test(dsn.trim())) {
     return 'The value does not start with postgresql:// — this should be the pooled connection string from Project Settings → Database, not the project URL or an API key.';
   }
