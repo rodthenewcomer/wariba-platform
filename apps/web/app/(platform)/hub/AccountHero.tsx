@@ -57,10 +57,15 @@ export interface AccountHeroProps {
  *
  * ## Why the order still changes with the width
  *
- * On a phone the DOM order is identity → figures → decision, so the objective
- * and "Ouvrir WariX" stay inside the first viewport at 320px. Rendering the
- * risk meters before the button pushed it below the fold on a 568px screen:
- * the one thing the page exists to offer, out of sight.
+ * On a laptop the decision sits in its own column beside the figures. On a
+ * phone there is no beside, and the reading order has to be identity → the
+ * headline figures → the decision → the risk detail. §25 is explicit that the
+ * action must not follow three secondary metrics, and the risk meters are two
+ * full-width blocks: rendering them first pushed "Ouvrir WariX" past the fold
+ * at 390px, which is the one thing the screen exists to offer.
+ *
+ * So the phone's copy of the action is passed into the telemetry block and
+ * placed between the figures and the meters, and this column is `lg`-only.
  */
 export function AccountHero({
   program,
@@ -108,7 +113,9 @@ export function AccountHero({
         {/* 3 — the decision. */}
         {action ? (
           <div
-            className="flex w-full min-w-0 flex-col gap-4 lg:col-start-2 lg:row-start-1 lg:justify-center"
+            /* Desktop only — the phone gets its copy inside the telemetry
+               block, above the risk meters (§25). */
+            className="hidden w-full min-w-0 flex-col gap-4 lg:flex lg:col-start-2 lg:row-start-1 lg:justify-center"
             data-testid="account-primary-action"
           >
             {action}

@@ -1,4 +1,5 @@
 import { mkdirSync } from 'node:fs';
+import { AxeBuilder } from '@axe-core/playwright';
 import {
   E2E_TEST_PASSWORD,
   createFixtureAccount,
@@ -62,6 +63,22 @@ async function shootViewport(page: Page, name: string) {
   mkdirSync(OUT, { recursive: true });
   await page.waitForTimeout(700);
   await page.screenshot({ path: `${OUT}/${name}.png` });
+}
+
+/**
+ * Waits for the Hub shell to be on screen at whatever width we are at.
+ *
+ * Not `networkidle` — the dashboard polls telemetry every four seconds, so the
+ * network is never idle and that wait can only ever time out. Not the sidebar
+ * either: it is `md:flex`, correctly hidden below 768px, so waiting on it hangs
+ * every mobile test. `:visible` picks whichever of the two navigations the
+ * current viewport actually renders.
+ */
+async function settled(page: Page): Promise<void> {
+  await page
+    .locator('[data-testid="hub-sidebar"]:visible, [data-testid="hub-mobile-nav"]:visible')
+    .first()
+    .waitFor();
 }
 
 async function noHorizontalOverflow(page: Page): Promise<boolean> {
@@ -202,7 +219,7 @@ test.describe('@phase25 Product OS 2.5 — command centre', () => {
     await page.setViewportSize(SIZES.desktop);
     await signIn(page, populated.email);
     await page.goto(`/performance?account=${populated.accountId}`);
-    await page.getByTestId('hub-sidebar').waitFor();
+    await settled(page);
     await shoot(page, '11-performance-populated-1440');
   });
 
@@ -210,7 +227,7 @@ test.describe('@phase25 Product OS 2.5 — command centre', () => {
     await page.setViewportSize(SIZES.desktop);
     await signIn(page, populated.email);
     await page.goto(`/journal?account=${populated.accountId}`);
-    await page.getByTestId('hub-sidebar').waitFor();
+    await settled(page);
     await shoot(page, '13-journal-populated-1440');
   });
 
@@ -218,7 +235,7 @@ test.describe('@phase25 Product OS 2.5 — command centre', () => {
     await page.setViewportSize(SIZES.desktop);
     await signIn(page, populated.email);
     await page.goto('/comptes');
-    await page.getByTestId('hub-sidebar').waitFor();
+    await settled(page);
     await shoot(page, '08-comptes-1440');
   });
 
@@ -226,7 +243,7 @@ test.describe('@phase25 Product OS 2.5 — command centre', () => {
     await page.setViewportSize(SIZES.desktop);
     await signIn(page, populated.email);
     await page.goto('/comptes/nouveau');
-    await page.getByTestId('hub-sidebar').waitFor();
+    await settled(page);
     await shoot(page, '10-comptes-nouveau-1440');
   });
 
@@ -234,7 +251,7 @@ test.describe('@phase25 Product OS 2.5 — command centre', () => {
     await page.setViewportSize(SIZES.desktop);
     await signIn(page, populated.email);
     await page.goto('/facturation');
-    await page.getByTestId('hub-sidebar').waitFor();
+    await settled(page);
     await shoot(page, '18-facturation-1440');
   });
 
@@ -242,7 +259,7 @@ test.describe('@phase25 Product OS 2.5 — command centre', () => {
     await page.setViewportSize(SIZES.desktop);
     await signIn(page, populated.email);
     await page.goto('/payouts');
-    await page.getByTestId('hub-sidebar').waitFor();
+    await settled(page);
     await shoot(page, '15-payouts-1440');
   });
 
@@ -287,7 +304,7 @@ test.describe('@phase25 Product OS 2.5 — command centre', () => {
       await page.setViewportSize(size);
       await signIn(page, populated.email);
       await page.goto(`/performance?account=${populated.accountId}`);
-      await page.getByTestId('hub-sidebar').waitFor();
+      await settled(page);
       expect(await noHorizontalOverflow(page)).toBe(true);
     });
 
@@ -295,7 +312,7 @@ test.describe('@phase25 Product OS 2.5 — command centre', () => {
       await page.setViewportSize(size);
       await signIn(page, populated.email);
       await page.goto(`/journal?account=${populated.accountId}`);
-      await page.getByTestId('hub-sidebar').waitFor();
+      await settled(page);
       expect(await noHorizontalOverflow(page)).toBe(true);
     });
   }
@@ -313,6 +330,47 @@ test.describe('@phase25 Product OS 2.5 — command centre', () => {
     expect(await noHorizontalOverflow(page)).toBe(true);
     await shootViewport(page, '19-mobile-hub-fresh-390');
   });
+
+  /* --------------------------------------------------- accessibility (§31) */
+
+  /**
+   * Acceptance is 0 critical and 0 serious — §31.
+   *
+   * Run against the *populated* account on purpose. An empty surface has
+   * almost nothing to get wrong; the violations this phase could plausibly
+   * introduce live in the things only real data renders — the progress bars'
+   * roles and values, the table's headers and caption, the ring's hidden
+   * decoration, the aria-live freshness label, and the contrast of semantic
+   * figures against tinted washes.
+   */
+  for (const [name, path] of [
+    ['hub', '/hub'],
+    ['performance', '/performance'],
+    ['journal', '/journal'],
+    ['comptes', '/comptes'],
+  ] as const) {
+    test(`${name} has no critical or serious axe violations`, async ({ page }) => {
+      await page.setViewportSize(SIZES.desktop);
+      await signIn(page, populated.email);
+      if (path !== '/hub') {
+        await page.goto(path);
+        await settled(page);
+      }
+
+      const results = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+        .analyze();
+
+      const blocking = results.violations.filter(
+        (violation) => violation.impact === 'critical' || violation.impact === 'serious',
+      );
+      // Named in the failure so a regression says which rule broke, not just
+      // that a number went up.
+      expect(
+        blocking.map((violation) => `${violation.impact}: ${violation.id}`),
+      ).toEqual([]);
+    });
+  }
 
   /* -------------------------------------------------- reduced motion (§31) */
 

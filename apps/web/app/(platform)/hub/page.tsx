@@ -306,6 +306,26 @@ export default async function HubPage({
                   objectivePercent: mission.available ? mission.progressPercent : null,
                   capturedAt: command.capturedAt,
                 }}
+                /*
+                 * The phone's copy of the decision, rendered above the risk
+                 * meters (§25). A distinct test id rather than a second
+                 * `hub-next-action`: only one of the two is ever visible, but
+                 * both are in the DOM, and a locator matching both is a strict
+                 * -mode failure waiting for whichever suite runs next.
+                 */
+                mobileAction={
+                  heroAction ? (
+                    <ActionLink
+                      href={heroAction.href}
+                      size="lg"
+                      icon={heroAction.label === copy.openWarix ? 'warix' : 'chevron'}
+                      className="w-full"
+                      data-testid="hub-next-action-mobile"
+                    >
+                      {heroAction.label}
+                    </ActionLink>
+                  ) : null
+                }
               />
             }
             action={

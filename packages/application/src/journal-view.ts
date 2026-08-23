@@ -107,10 +107,23 @@ export interface BuildJournalViewParams extends JournalFilters {
   limit?: number;
 }
 
+/**
+ * The note a row carries, when it has something to say.
+ *
+ * Only the exceptional case does. `loss_counted` and `breakeven` are the
+ * *default* treatments — every loss counts in full and a flat trade is flat —
+ * so annotating them repeats the rulebook on every second row and trains the
+ * reader to skip the column. By the time a genuinely unusual note appears —
+ * a profit the objective will not count — the eye has learned to ignore it,
+ * which is the opposite of what an exception notice is for.
+ *
+ * `short_duration_profit` is the only reason that changes what a figure means,
+ * so it is the only one rendered.
+ */
 const ELIGIBILITY_NOTE: Record<string, string> = {
   short_duration_profit: 'Profit non retenu pour l’objectif : position tenue moins de 60 secondes.',
-  loss_counted: 'Perte intégralement comptée.',
-  breakeven: 'Résultat nul.',
+  loss_counted: '',
+  breakeven: '',
   eligible: '',
 };
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { AccountTelemetry } from '@wariba/application/presentation';
 import { RiskMeter } from '../../../components/hub/RiskMeter';
 import { TelemetryStrip, type TelemetryFigure } from './TelemetryStrip';
@@ -63,9 +63,26 @@ export interface LiveTelemetryProps {
   tested: boolean;
   /** Polling is pointless on a finished account: nothing will move again. */
   live?: boolean;
+  /**
+   * The page's primary action, for narrow viewports only.
+   *
+   * §25: the decision must not sit below three secondary metrics. On a phone
+   * the risk meters are two full-width blocks, and putting "Ouvrir WariX"
+   * after them pushed the one thing the screen exists to offer past the fold
+   * at 390px. On a laptop the action lives in the hero's side column instead,
+   * which is why this copy is `lg:hidden` — the same responsive-duplication
+   * the header's own copy of the button already uses.
+   */
+  mobileAction?: ReactNode;
 }
 
-export function LiveTelemetry({ accountId, initial, tested, live = true }: LiveTelemetryProps) {
+export function LiveTelemetry({
+  accountId,
+  initial,
+  tested,
+  live = true,
+  mobileAction,
+}: LiveTelemetryProps) {
   const { telemetry, updatedAt, stale, stopped } = useAccountTelemetry(accountId, {
     intervalMs: REFRESH_INTERVAL_MS,
     enabled: live,
@@ -146,6 +163,8 @@ export function LiveTelemetry({ accountId, initial, tested, live = true }: LiveT
         }}
         figures={figures}
       />
+
+      {mobileAction ? <div className="lg:hidden">{mobileAction}</div> : null}
 
       <div className="grid gap-x-8 gap-y-5 border-t border-[color:var(--warix-border-subtle)] pt-5 sm:grid-cols-2">
         <RiskMeter
