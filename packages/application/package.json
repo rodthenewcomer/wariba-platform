@@ -2,10 +2,14 @@
   "name": "@wariba/application",
   "version": "0.0.0",
   "private": true,
-  "description": "Application layer — use-cases that orchestrate domain logic and infrastructure (packages/database, packages/adapters) behind DTOs. apps/web (presentation) depends on this instead of @wariba/database directly (AGENTS.md §7.1).",
+  "description": "Application layer \u2014 use-cases that orchestrate domain logic and infrastructure (packages/database, packages/adapters) behind DTOs. apps/web (presentation) depends on this instead of @wariba/database directly (AGENTS.md \u00a77.1).",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./presentation": "./src/presentation.ts"
+  },
   "scripts": {
     "lint": "eslint --config ../../eslint.config.mjs .",
     "typecheck": "tsc --noEmit",

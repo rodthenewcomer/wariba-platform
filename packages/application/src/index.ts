@@ -256,6 +256,85 @@ export {
 
 export { ACCOUNT_STATUS_LABEL, accountStatusLabel } from './account-status-labels';
 
+/* Product OS Phase 2 — the account's life, payouts, identity, and the record. */
+export {
+  deriveAccountLifecycle,
+  deriveAccountLifecycleState,
+  journeyStepIndex,
+  EVALUATION_JOURNEY,
+  type AccountLifecycleState,
+  type AccountLifecycleView,
+  type LifecycleTone,
+  type DeriveAccountLifecycleParams,
+} from './account-lifecycle';
+
+export {
+  buildOfferCatalog,
+  type OfferCatalog,
+  type OfferConfiguration,
+  type OfferRule,
+} from './offer-configuration';
+
+export {
+  buildAccountsOverview,
+  accountFilterOf,
+  type AccountOverviewItem,
+  type AccountOverviewDetail,
+  type AccountFilter,
+} from './accounts-overview';
+
+export {
+  deriveAccountHealth,
+  type AccountHealth,
+  type AccountHealthView,
+  type DeriveAccountHealthParams,
+} from './account-health';
+
+export {
+  deriveKycState,
+  kycView,
+  reachableKycStates,
+  KYC_PROVIDER_INTEGRATED,
+  type KycState,
+  type KycView,
+} from './kyc-state';
+
+export {
+  buildPayoutLifecycle,
+  PAYOUT_BLOCKING_REASON,
+  type PayoutLifecycleState,
+  type PayoutLifecycleView,
+  type BuildPayoutLifecycleParams,
+} from './payout-lifecycle';
+
+export {
+  buildPerformanceAnalytics,
+  type PerformanceAnalytics,
+  type PerformanceKpis,
+  type DailyResult,
+  type SymbolResult,
+  type DurationBucket,
+  type BuildPerformanceAnalyticsParams,
+} from './performance-analytics';
+
+export {
+  buildJournalView,
+  type JournalView,
+  type JournalEntry,
+  type JournalFilters,
+  type JournalOutcome,
+  type JournalDirection,
+  type BuildJournalViewParams,
+} from './journal-view';
+
+export {
+  buildBillingView,
+  SAVED_PAYMENT_METHODS_AVAILABLE,
+  type BillingView,
+  type BillingOrder,
+  type OrderDisplayStatus,
+} from './billing-view';
+
 export {
   buildAccountHubView,
   isBalanceHistoryMeaningful,

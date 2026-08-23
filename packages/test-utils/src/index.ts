@@ -11,6 +11,13 @@ export const PACKAGE_NAME = '@wariba/test-utils';
 
 export { seedTradeAccount, type TradeAccountFixture } from './trade-account-fixture';
 export {
+  seedLifecycleFixture,
+  deleteLifecycleFixture,
+  type LifecycleFixture,
+  type LifecycleFixtureState,
+  type LifecycleFixtureEnvironment,
+} from './lifecycle-fixture';
+export {
   seedPayoutAccount,
   deletePayoutAccount,
   type PayoutAccountFixture,

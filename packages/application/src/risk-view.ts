@@ -24,6 +24,26 @@ export interface AccountRiskView {
   nextResetLabel: string;
   currentEquityFormatted: string;
   violations: readonly AccountRiskViolation[];
+  /**
+   * The same figures, unformatted.
+   *
+   * Added in Phase 2 so the account-health reading — which is a ratio of
+   * remaining room against a published budget — can be computed from the
+   * authoritative numbers rather than by parsing "300 USD" back out of a
+   * display string. Every consumer that only needs to render still uses the
+   * `Formatted` fields above; nothing on the client does arithmetic on these.
+   */
+  amounts: {
+    dailyLossRemaining: string;
+    /** Today's full daily-loss budget: reference − floor. */
+    dailyLossBudget: string;
+    maximumLossRemaining: string;
+    /** nominal × maximum-loss rate. Fixed, unaffected by floor ratcheting. */
+    maximumLossBudget: string;
+    currentEquity: string;
+    /** The ratcheting floor itself, for drawing on an equity curve. */
+    maximumLossFloor: string;
+  };
 }
 
 export interface BuildAccountRiskViewParams {
@@ -82,12 +102,24 @@ export function projectAccountRiskView(inputs: AccountRiskEngineInputs): Account
     used: result.dailyLoss.used,
   });
 
+  const dailyLossBudget = new Decimal(result.dailyLoss.reference)
+    .minus(result.dailyLoss.floor)
+    .toFixed(2);
+
   return {
     status,
     dailyLossRemainingFormatted: formatUsd(dailyLossRemaining),
     maximumLossRemainingFormatted: formatUsd(result.maximumLoss.remaining),
     nextResetLabel: '00:00 UTC',
     currentEquityFormatted: formatUsd(result.currentEquity),
+    amounts: {
+      dailyLossRemaining,
+      dailyLossBudget,
+      maximumLossRemaining: result.maximumLoss.remaining,
+      maximumLossBudget,
+      currentEquity: result.currentEquity,
+      maximumLossFloor: result.maximumLoss.floor,
+    },
     violations: result.violations.map((violation): AccountRiskViolation => ({
       ruleCode: violation.ruleCode,
       ruleLabel: RISK_RULE_LABELS[violation.ruleCode] ?? violation.ruleCode,
