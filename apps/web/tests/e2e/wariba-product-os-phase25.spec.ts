@@ -547,6 +547,18 @@ test.describe('@phase25 Product OS 2.5 — command centre', () => {
           await expect(page.getByText('Perte maximale non atteinte')).toHaveCount(0);
         }
 
+        if (state === 'funded_active') {
+          /*
+           * §10.3 — a funded account leads with its payout path, not with the
+           * evaluation card wearing a different badge. It holds even between
+           * cycles: the state, its description and the identity gate are all
+           * resolved whether or not a cycle is open, and returning nothing
+           * there left the dashboard with an empty column exactly where the
+           * payout path belongs.
+           */
+          await expect(page.getByTestId('payout-summary')).toBeVisible();
+        }
+
         if (state === 'payout_ready' || state === 'payout_eligible_kyc_required') {
           await page.goto('/payouts');
           await settled(page);

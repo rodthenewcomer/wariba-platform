@@ -354,7 +354,7 @@ export default async function HubPage({
          * take out and when". Rendering the same order as an evaluation would
          * make the funded dashboard the evaluation card with a different badge.
          */}
-        {payout?.cycle ? (
+        {payout ? (
           <StaggerItem>
             <PayoutSummary payout={payout} accountId={activeAccount.id} />
           </StaggerItem>
@@ -419,10 +419,26 @@ export default async function HubPage({
                   }
                 />
               ) : (
-                <Surface className="p-5 sm:p-6">
+                /*
+                 * §26 — the module states its own absence rather than
+                 * collapsing to a sentence and leaving the column short. A
+                 * Performance account between cycles legitimately has no
+                 * mission to show, and a thin strip of text beside a full
+                 * -height health panel reads as a page that failed to load.
+                 */
+                <Surface className="flex flex-col gap-3 p-5 sm:p-6">
+                  <SurfaceTitle>Progression</SurfaceTitle>
                   <Text variant="body-sm" color="secondary">
                     {mission.reason}
                   </Text>
+                  <Text variant="body-sm" color="tertiary">
+                    Votre progression réapparaîtra ici dès qu’un cycle sera ouvert sur ce compte.
+                  </Text>
+                  <div className="pt-1">
+                    <ActionLink href="/programme#regles" variant="secondary" size="sm">
+                      Voir les règles du programme
+                    </ActionLink>
+                  </div>
                 </Surface>
               )}
 
