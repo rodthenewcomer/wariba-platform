@@ -342,9 +342,24 @@ export {
   type AccountHubView,
   type AccountBadgeVariant,
   type BalancePoint,
+  type DailyPnlPoint,
   type TradingDayItem,
   type BuildAccountHubViewParams,
 } from './hub-view';
+
+export {
+  nextResetAt,
+  tradingDayOf,
+  millisecondsUntilReset,
+} from './trading-day';
+
+export {
+  buildCommandCenterView,
+  buildAccountTelemetry,
+  type CommandCenterView,
+  type BuildCommandCenterViewParams,
+  type AccountTelemetry,
+} from './command-center';
 
 export {
   buildRecentActivityView,

@@ -17,6 +17,20 @@ export interface BalancePoint {
   balance: number;
 }
 
+/**
+ * One finalised session's realised result.
+ *
+ * Separate from `BalancePoint` because it answers a different question — "what
+ * happened that day" rather than "where was the account" — and because only
+ * finalised days belong here. An open day's figure is still moving, and a bar
+ * chart that redraws its last column every few seconds reads as a bug.
+ */
+export interface DailyPnlPoint {
+  /** ISO date (YYYY-MM-DD). */
+  date: string;
+  netPnl: number;
+}
+
 export interface AccountHubView {
   accountId: string;
   state: HubDisplayState;
@@ -39,6 +53,29 @@ export interface AccountHubView {
    */
   balanceHistoryMeaningful: boolean;
   activatedAtLabel: string | null;
+  /** Realised result per finalised session, oldest first. */
+  dailyPnl: DailyPnlPoint[];
+  /**
+   * The same two headline figures, unformatted.
+   *
+   * Phase 2.5 §12: before this existed, the dashboard recovered the sign of
+   * today's P&L with `Number.parseFloat(pnlTodayFormatted.replace(/[^\d.-]/g,''))`
+   * — a locale-dependent regex over a display string, deciding whether a
+   * trader's day is rendered green or red. The number the colour depends on
+   * now travels as a number.
+   */
+  amounts: {
+    balance: string;
+    pnlToday: string;
+  };
+  /**
+   * When this snapshot was taken.
+   *
+   * §23 forbids labelling a surface "live" that is not. The Hub shows
+   * "Actualisé il y a 2 s" computed from this instant, which is a claim it can
+   * actually keep.
+   */
+  updatedAt: string;
 }
 
 /**
@@ -175,7 +212,22 @@ export async function buildAccountHubView(
 
   const finalizedSessionCount = snapshotRows.filter((row) => row.status === 'finalized').length;
 
+  // Finalised sessions only — see DailyPnlPoint. Ascending, like the chart.
+  const dailyPnl: DailyPnlPoint[] = [...snapshotRows]
+    .reverse()
+    .filter((row) => row.status === 'finalized' && row.realized_net_profit_for_day !== null)
+    .map((row) => ({
+      date: row.trading_day,
+      netPnl: Number.parseFloat(row.realized_net_profit_for_day as string),
+    }));
+
   return {
+    dailyPnl,
+    amounts: {
+      balance: inputs.currentBalance,
+      pnlToday,
+    },
+    updatedAt: params.now.toISOString(),
     accountId: inputs.accountId,
     state,
     readOnly: isHubStateReadOnly(state),

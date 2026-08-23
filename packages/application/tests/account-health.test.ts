@@ -89,3 +89,62 @@ describe('deriveAccountHealth on a finished account', () => {
     expect(view.description).not.toMatch(/il vous reste/i);
   });
 });
+
+/**
+ * Phase 2.5 §11 — the reading must not congratulate a trader for not having
+ * traded. An untouched budget is a statement about an absence of activity, and
+ * dressing it as praise primes exactly the confidence a first evaluation
+ * punishes.
+ */
+describe('deriveAccountHealth — untested accounts (§11)', () => {
+  it('does not call a fresh account excellent', () => {
+    const view = deriveAccountHealth({ ...base, hasMeaningfulActivity: false });
+    expect(view.state).toBe('untested');
+    expect(view.label).toBe('Risque intact');
+    expect(view.label).not.toBe('Excellent');
+  });
+
+  it('states the budgets are intact without grading them', () => {
+    const view = deriveAccountHealth({ ...base, hasMeaningfulActivity: false });
+    expect(view.description).toContain('entiers');
+    expect(view.tone).toBe('neutral');
+  });
+
+  it('still reports the real room, so a ring is not blank', () => {
+    expect(deriveAccountHealth({ ...base, hasMeaningfulActivity: false }).roomPercent).toBe(100);
+  });
+
+  it('grades normally once something has happened', () => {
+    expect(deriveAccountHealth({ ...base, hasMeaningfulActivity: true }).state).toBe('excellent');
+    // The default is the permissive one, so existing callers are unchanged.
+    expect(deriveAccountHealth(base).state).toBe('excellent');
+  });
+
+  it('does not soften a genuinely consumed budget on a dormant account', () => {
+    // "Nothing has happened yet" must not overwrite a real warning: an account
+    // can sit dormant having already lost half of today's budget.
+    const view = deriveAccountHealth({
+      ...base,
+      dailyLossRemaining: '60.00',
+      hasMeaningfulActivity: false,
+    });
+    expect(view.state).toBe('watch');
+  });
+
+  it('a breach outranks it — an account can be lost on its first trade', () => {
+    const view = deriveAccountHealth({
+      ...base,
+      hasMeaningfulActivity: false,
+      terminal: true,
+    });
+    expect(view.state).toBe('critical');
+    expect(view.label).toBe('Terminé');
+    expect(view.roomPercent).toBe(0);
+  });
+
+  it('a live violation outranks it', () => {
+    expect(
+      deriveAccountHealth({ ...base, hasMeaningfulActivity: false, hasViolation: true }).state,
+    ).toBe('critical');
+  });
+});

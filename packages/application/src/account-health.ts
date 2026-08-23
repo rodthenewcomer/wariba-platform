@@ -22,23 +22,39 @@ import Decimal from 'decimal.js';
  * two numbers is fine would be exactly the reassurance that gets an account
  * breached.
  *
- * There is no fifth state and no numeric score. Four words, each of which maps
- * to an action.
+ * ## Why "untested" exists (Phase 2.5 §11)
+ *
+ * An account activated ten minutes ago has 100 % of both budgets, and the
+ * arithmetic above happily called that "Excellent". It is not. Nothing has
+ * been risked, so nothing has been demonstrated — the reading is a statement
+ * about an *absence* of trading, dressed as praise for the trader's discipline.
+ * That is the same class of error as a 0 % win rate on an account with no
+ * trades, and it primes exactly the confidence a first evaluation punishes.
+ *
+ * `untested` is therefore a distinct state, not a label swap: it reports the
+ * budgets as intact and declines to grade them. Praise resumes the moment
+ * there is behaviour to praise.
+ *
+ * There is no numeric score. Five words, each of which maps to an action or to
+ * an honest absence of one.
  */
 
-export type AccountHealth = 'excellent' | 'good' | 'watch' | 'critical';
+export type AccountHealth = 'untested' | 'excellent' | 'good' | 'watch' | 'critical';
 
 export interface AccountHealthView {
   state: AccountHealth;
   label: string;
   /** Names the constraint that produced the state — never a generic sentence. */
   description: string;
-  tone: 'success' | 'attention' | 'danger';
+  tone: 'neutral' | 'success' | 'attention' | 'danger';
   /** 0-100, the worse of the two remaining-room ratios. For a ring or a bar. */
   roomPercent: number;
 }
 
 const LABEL: Record<AccountHealth, { label: string; tone: AccountHealthView['tone'] }> = {
+  // Factual, not congratulatory — §11. The budgets are whole; that is all this
+  // says, and it is all that is true.
+  untested: { label: 'Risque intact', tone: 'neutral' },
   excellent: { label: 'Excellent', tone: 'success' },
   good: { label: 'Bon', tone: 'success' },
   watch: { label: 'À surveiller', tone: 'attention' },
@@ -66,6 +82,15 @@ export interface DeriveAccountHealthParams {
    * reassurance this panel could produce.
    */
   terminal?: boolean;
+  /**
+   * Whether this account has done anything yet.
+   *
+   * True once the account has either closed a trade or finalised a session —
+   * i.e. once the budgets above have actually been exposed to a decision.
+   * Defaults to `true` so existing callers keep their current reading and only
+   * the surfaces that can answer the question opt into the stricter one.
+   */
+  hasMeaningfulActivity?: boolean;
 }
 
 function ratio(remaining: string, budget: string): number {
@@ -82,16 +107,27 @@ export function deriveAccountHealth(params: DeriveAccountHealthParams): AccountH
   const worst = Math.min(daily, maximum);
   const roomPercent = Math.round(worst * 100);
 
+  const untested = params.hasMeaningfulActivity === false;
+
+  const graded: AccountHealth =
+    worst <= 0.15 ? 'critical' : worst <= 0.4 ? 'watch' : worst <= 0.7 ? 'good' : 'excellent';
+
+  /*
+   * Order matters. A terminal account or a live violation outranks everything,
+   * including "nothing has happened yet" — an account can be breached on its
+   * first trade, and that is emphatically meaningful activity.
+   *
+   * Below that, an untested account still reports a *real* consumed budget if
+   * it somehow has one, so `graded` is only overridden while the reading would
+   * be praise. A dormant account that has already lost half its daily budget is
+   * "À surveiller", not "Risque intact".
+   */
   const state: AccountHealth =
     params.terminal || params.hasViolation
       ? 'critical'
-      : worst <= 0.15
-        ? 'critical'
-        : worst <= 0.4
-          ? 'watch'
-          : worst <= 0.7
-            ? 'good'
-            : 'excellent';
+      : untested && (graded === 'excellent' || graded === 'good')
+        ? 'untested'
+        : graded;
 
   const binding = daily <= maximum ? 'daily' : 'maximum';
 
@@ -107,8 +143,10 @@ export function deriveAccountHealth(params: DeriveAccountHealthParams): AccountH
       ? 'Ce compte est terminé. Aucune marge de risque ne s’applique plus.'
       : params.hasViolation
         ? 'Une règle a été enfreinte sur ce compte.'
-        : binding === 'daily'
-          ? `Il vous reste ${roomPercent} % de votre limite de perte quotidienne.`
-          : `Il vous reste ${roomPercent} % de votre budget de perte maximale.`,
+        : state === 'untested'
+          ? 'Vos budgets de risque sont entiers. Aucune limite n’a encore été approchée.'
+          : binding === 'daily'
+            ? `Il vous reste ${roomPercent} % de votre limite de perte quotidienne.`
+            : `Il vous reste ${roomPercent} % de votre budget de perte maximale.`,
   };
 }
