@@ -95,7 +95,17 @@ export function WinLossRing({ kpis }: { kpis: PerformanceKpis }) {
          * reader loses the term/description pairing that is the entire reason
          * this is a <dl>. The separator is a class on the row instead.
          */}
-        <dl className="flex min-w-0 flex-1 flex-col gap-3">
+        {/*
+         * A real minimum, not `min-w-0`.
+         *
+         * The ring is a fixed 132px and does not shrink. With `min-w-0` the
+         * list happily compressed to the ~84px left beside it at 320px, and
+         * "+289,14 USD" simply overflowed the page — a `justify-between` row
+         * has nowhere to put a figure that no longer fits. Given a floor wide
+         * enough to hold the longest label-and-amount pair, flex-wrap does the
+         * right thing instead and drops the list under the ring.
+         */}
+        <dl className="flex min-w-[190px] flex-1 flex-col gap-3">
           <Row
             label="Trades gagnants"
             value={String(kpis.wins)}

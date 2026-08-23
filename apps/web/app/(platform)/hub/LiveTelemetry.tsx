@@ -64,6 +64,17 @@ export interface LiveTelemetryProps {
   /** Polling is pointless on a finished account: nothing will move again. */
   live?: boolean;
   /**
+   * The account is over — breached or closed.
+   *
+   * §10.4: a terminal account must not retain healthy praise. The risk budgets
+   * are the sharpest case, because a breach on the *maximum* loss leaves the
+   * *daily* budget genuinely untouched — so the engine reports 100 %, and two
+   * full bars appear beside a panel reading "Terminé, 0 %". Both figures are
+   * arithmetically true and the pair is a lie: it tells a trader whose account
+   * just ended that they have all their room left.
+   */
+  terminal?: boolean;
+  /**
    * The page's primary action, for narrow viewports only.
    *
    * §25: the decision must not sit below three secondary metrics. On a phone
@@ -81,6 +92,7 @@ export function LiveTelemetry({
   initial,
   tested,
   live = true,
+  terminal = false,
   mobileAction,
 }: LiveTelemetryProps) {
   const { telemetry, updatedAt, stale, stopped } = useAccountTelemetry(accountId, {
@@ -127,6 +139,11 @@ export function LiveTelemetry({
         objectivePercent: initial.objectivePercent,
       };
 
+  /*
+   * A terminal account keeps the figures that are still facts about it — what
+   * it was worth, how far it got — and drops the two that describe room to
+   * keep trading, because there is none and the budgets say otherwise.
+   */
   const figures: TelemetryFigure[] = [
     {
       label: initial.pnlTodayLabel,
@@ -135,16 +152,20 @@ export function LiveTelemetry({
       signed: true,
       unit: 'USD',
     },
-    {
-      label: 'Risque jour restant',
-      value: current.dailyLossRemainingFormatted,
-      hint: `${current.dailyRemainingPercent} % du budget`,
-    },
-    {
-      label: 'Perte max. restante',
-      value: current.maximumLossRemainingFormatted,
-      hint: `${current.maximumRemainingPercent} % du budget`,
-    },
+    ...(terminal
+      ? []
+      : [
+          {
+            label: 'Risque jour restant',
+            value: current.dailyLossRemainingFormatted,
+            hint: `${current.dailyRemainingPercent} % du budget`,
+          },
+          {
+            label: 'Perte max. restante',
+            value: current.maximumLossRemainingFormatted,
+            hint: `${current.maximumRemainingPercent} % du budget`,
+          },
+        ]),
     ...(current.objectivePercent !== null
       ? [
           {
@@ -169,25 +190,34 @@ export function LiveTelemetry({
 
       {mobileAction ? <div className="lg:hidden">{mobileAction}</div> : null}
 
-      <div className="grid gap-x-8 gap-y-5 border-t border-[color:var(--warix-border-subtle)] pt-5 sm:grid-cols-2">
-        <RiskMeter
-          label="Perte quotidienne"
-          remainingFormatted={current.dailyLossRemainingFormatted}
-          budgetFormatted={initial.dailyBudgetFormatted}
-          percent={current.dailyRemainingPercent}
-          tested={tested}
-          binding={current.binding === 'daily'}
-        />
-        <RiskMeter
-          label="Perte maximale"
-          remainingFormatted={current.maximumLossRemainingFormatted}
-          budgetFormatted={initial.maximumBudgetFormatted}
-          percent={current.maximumRemainingPercent}
-          tested={tested}
-          binding={current.binding === 'maximum'}
-          footnote={`Plancher ${initial.maximumLossFloorFormatted}`}
-        />
-      </div>
+      {terminal ? (
+        <p
+          className="border-t border-[color:var(--warix-border-subtle)] pt-5 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]"
+          data-testid="terminal-risk-note"
+        >
+          Ce compte est terminé. Les limites de risque ne s’appliquent plus.
+        </p>
+      ) : (
+        <div className="grid gap-x-8 gap-y-5 border-t border-[color:var(--warix-border-subtle)] pt-5 sm:grid-cols-2">
+          <RiskMeter
+            label="Perte quotidienne"
+            remainingFormatted={current.dailyLossRemainingFormatted}
+            budgetFormatted={initial.dailyBudgetFormatted}
+            percent={current.dailyRemainingPercent}
+            tested={tested}
+            binding={current.binding === 'daily'}
+          />
+          <RiskMeter
+            label="Perte maximale"
+            remainingFormatted={current.maximumLossRemainingFormatted}
+            budgetFormatted={initial.maximumBudgetFormatted}
+            percent={current.maximumRemainingPercent}
+            tested={tested}
+            binding={current.binding === 'maximum'}
+            footnote={`Plancher ${initial.maximumLossFloorFormatted}`}
+          />
+        </div>
+      )}
 
       {live && !stopped ? (
         <FreshnessLabel updatedAt={updatedAt} stale={stale} capturedAt={initial.capturedAt} />

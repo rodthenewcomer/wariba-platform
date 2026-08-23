@@ -288,6 +288,7 @@ export default async function HubPage({
                  * activity where there is none.
                  */
                 live={!lifecycle.terminal}
+                terminal={lifecycle.terminal}
                 initial={{
                   balance: Number.parseFloat(hub.amounts.balance),
                   balanceFormatted: hub.balanceFormatted,
@@ -362,7 +363,37 @@ export default async function HubPage({
         <StaggerItem>
           <div className="grid gap-5 lg:grid-cols-3">
             <div className="flex flex-col gap-5 lg:col-span-2">
-              {mission.available ? (
+              {/*
+               * A finished account gets the record, not the checklist — §10.4.
+               *
+               * The conditions are evaluated live, and on a terminal account
+               * that produces green ticks for rules the trader is no longer
+               * being measured against. The breached capture showed the exact
+               * failure: a banner reading "la perte maximale a été atteinte"
+               * above a checklist reading "Perte maximale non atteinte ✓". Both
+               * come from the engine and both are defensible in isolation; the
+               * pair is incoherent, and the trader has to decide which of their
+               * platform's two statements to believe.
+               *
+               * The lifecycle banner already carries the reason, the threshold,
+               * the observed value and when it happened. That is the truthful
+               * account of a finished evaluation.
+               */}
+              {lifecycle.terminal ? (
+                <Surface className="flex flex-col gap-3 p-5 sm:p-6">
+                  <Text variant="body-md" color="primary">
+                    {lifecycle.label}
+                  </Text>
+                  <Text variant="body-sm" color="secondary">
+                    {lifecycle.description}
+                  </Text>
+                  <div className="pt-1">
+                    <ActionLink href="/comptes/nouveau" icon="addAccount" size="sm">
+                      Choisir une nouvelle évaluation
+                    </ActionLink>
+                  </div>
+                </Surface>
+              ) : mission.available ? (
                 <MissionChecklist
                   eyebrow={
                     mission.variant === 'performance'

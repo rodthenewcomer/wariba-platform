@@ -11,6 +11,7 @@ import {
   expect,
   seedTradingRecord,
   test,
+  withLifecycle,
   type E2eFixtureAccount,
 } from './fixtures';
 
@@ -384,6 +385,74 @@ test.describe('@phase25 Product OS 2.5 — command centre', () => {
           ),
         ),
       ).toEqual([]);
+    });
+  }
+
+  /* ------------------------------------------------ lifecycle states (§33) */
+
+  /**
+   * The dashboard changes shape with the account's lifecycle, and §10.3/§10.4
+   * are specific about how: a funded account leads with its payout cycle
+   * rather than the evaluation card with a new badge, and a breached account
+   * must not retain a single word of praise.
+   *
+   * Each state gets its own seeded account. Photographing one account and
+   * mutating it between shots would let an earlier state's cache leak into a
+   * later capture, which is how evidence quietly stops being evidence.
+   */
+  for (const [state, name] of [
+    ['objective_reached', '03-hub-objective-reached-1440'],
+    ['under_review', '04-hub-under-review-1440'],
+    ['funded_active', '05-hub-funded-active-1440'],
+    ['breached', '06-hub-breached-1440'],
+    ['payout_ready', '16-payout-request-ready-1440'],
+    ['payout_eligible_kyc_required', '17-payout-kyc-gate-1440'],
+  ] as const) {
+    test(`hub renders the ${state} lifecycle`, async ({ page }) => {
+      await withLifecycle(state, async (fixture) => {
+        await page.setViewportSize(SIZES.desktop);
+        await page.goto('/login');
+        await page.getByLabel('Adresse e-mail').fill(fixture.email);
+        await page.getByLabel('Mot de passe', { exact: true }).fill(fixture.password);
+        await page.getByRole('button', { name: 'Se connecter' }).click();
+        await page.waitForURL('**/hub', { timeout: 60_000 });
+        await settled(page);
+
+        if (state === 'breached') {
+          /*
+           * §10.4 — a terminal account keeps no praise. "Excellent" and a
+           * healthy ring on an account that cannot trade again is the single
+           * most damaging reassurance this surface could produce.
+           */
+          await expect(page.getByTestId('health-panel')).not.toContainText('Excellent');
+          await expect(page.getByTestId('health-panel')).not.toContainText('Risque intact');
+          // No route into a terminal that would refuse the trade anyway.
+          await expect(page.getByTestId('header-open-warix')).toHaveCount(0);
+          /*
+           * And no full risk bars. A maximum-loss breach leaves the daily
+           * budget genuinely untouched, so the engine reports 100 % — two full
+           * bars beside a panel reading "Terminé, 0 %" tells a trader whose
+           * account just ended that they have all their room left.
+           */
+          await expect(page.getByTestId('terminal-risk-note')).toBeVisible();
+          await expect(page.getByRole('progressbar', { name: /Perte quotidienne/ })).toHaveCount(0);
+          await expect(page.getByRole('progressbar', { name: /Perte maximale/ })).toHaveCount(0);
+          /*
+           * And no live checklist. Its conditions are evaluated against rules
+           * the trader is no longer measured by, which produced a green
+           * "Perte maximale non atteinte" directly under a banner saying it
+           * had been.
+           */
+          await expect(page.getByText('Perte maximale non atteinte')).toHaveCount(0);
+        }
+
+        if (state === 'payout_ready' || state === 'payout_eligible_kyc_required') {
+          await page.goto('/payouts');
+          await settled(page);
+        }
+
+        await shoot(page, name);
+      });
     });
   }
 
