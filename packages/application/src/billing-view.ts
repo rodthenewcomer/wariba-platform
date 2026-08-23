@@ -48,9 +48,35 @@ export interface BillingOrder {
   paymentProvider: string | null;
 }
 
+/**
+ * The order history, counted.
+ *
+ * §21 asks for paid/fulfilled/refunded counts "if derivable". They are — every
+ * order already carries a resolved `status` — so they are derived here rather
+ * than in the page, for the same reason the journal's totals are: `apps/web`
+ * carries no decimal library, and a count rendered beside a total that was
+ * computed somewhere else is a pair that can disagree.
+ *
+ * `fulfilled` is counted separately from `paid` because they mean different
+ * things to a trader: paid is money taken, fulfilled is an account they can
+ * actually trade. An order can sit at paid while activation is still running,
+ * and collapsing the two hides exactly the state someone would open this page
+ * to check.
+ */
+export interface BillingSummary {
+  orderCount: number;
+  /** Paid but not yet activated. */
+  paidCount: number;
+  /** Paid and the account exists. */
+  fulfilledCount: number;
+  refundedCount: number;
+  failedCount: number;
+}
+
 export interface BillingView {
   orders: BillingOrder[];
   totalSpentFormatted: string;
+  summary: BillingSummary;
   /** True when the trader has never bought anything. */
   empty: boolean;
 }
@@ -156,6 +182,20 @@ export async function buildBillingView(db: Db, params: { userId: string }): Prom
   return {
     orders,
     totalSpentFormatted: formatMoney(total.toFixed(2), orders[0]?.currency ?? 'USD'),
+    summary: summarizeOrders(orders),
     empty: orders.length === 0,
+  };
+}
+
+/** Counts by resolved status. Exported so it is testable without a database. */
+export function summarizeOrders(orders: readonly BillingOrder[]): BillingSummary {
+  const count = (status: OrderDisplayStatus) =>
+    orders.filter((order) => order.status === status).length;
+  return {
+    orderCount: orders.length,
+    paidCount: count('paid'),
+    fulfilledCount: count('fulfilled'),
+    refundedCount: count('refunded'),
+    failedCount: count('payment_failed'),
   };
 }

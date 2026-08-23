@@ -95,7 +95,7 @@ export function LiveTelemetry({
   terminal = false,
   mobileAction,
 }: LiveTelemetryProps) {
-  const { telemetry, updatedAt, stale, stopped } = useAccountTelemetry(accountId, {
+  const { telemetry, updatedAt, stale, stopped, refresh } = useAccountTelemetry(accountId, {
     intervalMs: REFRESH_INTERVAL_MS,
     enabled: live,
   });
@@ -220,7 +220,12 @@ export function LiveTelemetry({
       )}
 
       {live && !stopped ? (
-        <FreshnessLabel updatedAt={updatedAt} stale={stale} capturedAt={initial.capturedAt} />
+        <FreshnessLabel
+          updatedAt={updatedAt}
+          stale={stale}
+          capturedAt={initial.capturedAt}
+          onRetry={refresh}
+        />
       ) : null}
     </div>
   );
@@ -236,10 +241,12 @@ function FreshnessLabel({
   updatedAt,
   stale,
   capturedAt,
+  onRetry,
 }: {
   updatedAt: Date | null;
   stale: boolean;
   capturedAt: string;
+  onRetry: () => void;
 }) {
   const reference = updatedAt ?? new Date(capturedAt);
   const [seconds, setSeconds] = useState(0);
@@ -273,6 +280,21 @@ function FreshnessLabel({
       {stale
         ? `Données non actualisées — dernière mise à jour ${ageLabel(seconds)}`
         : `Actualisé ${ageLabel(seconds)}`}
+      {/*
+       * §40 — a visible way to try again. The loop retries on its own, but a
+       * line that only says "stale" leaves the trader with nothing to do and
+       * no way to tell a blip from a dead session.
+       */}
+      {stale ? (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="ml-1 rounded-[4px] px-1.5 py-px font-medium underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]"
+          data-testid="telemetry-retry"
+        >
+          Réessayer
+        </button>
+      ) : null}
     </p>
   );
 }

@@ -241,14 +241,60 @@ test.describe('@phase25 Product OS 2.5 — command centre', () => {
     await signIn(page, populated.email);
     await page.goto('/comptes/nouveau');
     await settled(page);
+    // The desktop summary owns the decision; the sticky bar is mobile-only.
+    await expect(page.getByTestId('offer-checkout')).toBeVisible();
+    await expect(page.getByTestId('configurator-sticky-cta')).toBeHidden();
     await shoot(page, '10-comptes-nouveau-1440');
   });
 
-  test('billing page', async ({ page }) => {
+  test('the configurator keeps its price and CTA in reach on a phone', async ({ page }) => {
+    await page.setViewportSize(SIZES.mobile);
+    await signIn(page, populated.email);
+    await page.goto('/comptes/nouveau');
+    await settled(page);
+
+    /*
+     * §19 — without this the summary is the third thing on the page: below the
+     * programme step and below five size cards. A trader who has just chosen a
+     * size scrolls past everything they already decided to find the button,
+     * with the price they are agreeing to off-screen while they do it.
+     */
+    const sticky = page.getByTestId('configurator-sticky-cta');
+    await expect(sticky).toBeVisible();
+    await expect(sticky.getByTestId('offer-checkout-sticky')).toBeVisible();
+
+    /*
+     * And it must not cover the content it sits over — §19 says so explicitly,
+     * and a sticky CTA sitting on top of the last option is the classic
+     * version of this bug: the trader can see the choice and cannot tap it.
+     * Scrolled to the bottom, the summary card's last pixel has to clear the
+     * bar's first one.
+     */
+    await page.mouse.wheel(0, 4000);
+    await page.waitForTimeout(400);
+    const summaryBox = await page.getByTestId('offer-summary').boundingBox();
+    const stickyBox = await sticky.boundingBox();
+    expect(summaryBox).not.toBeNull();
+    expect(stickyBox).not.toBeNull();
+    expect(summaryBox!.y + summaryBox!.height).toBeLessThanOrEqual(stickyBox!.y);
+
+    expect(await noHorizontalOverflow(page)).toBe(true);
+  });
+
+  test('billing page reports the record without inventing a card vault', async ({ page }) => {
     await page.setViewportSize(SIZES.desktop);
     await signIn(page, populated.email);
     await page.goto('/facturation');
     await settled(page);
+
+    // §21 — counts beside the total, and the provider that took the money.
+    await expect(page.getByText('Total dépensé')).toBeVisible();
+    await expect(page.getByText('Comptes activés')).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: 'Prestataire' })).toBeVisible();
+
+    // And emphatically no vault: SAVED_PAYMENT_METHODS_AVAILABLE is false.
+    await expect(page.getByText(/carte enregistrée|•{4}|\*{4}/i)).toHaveCount(0);
+
     await shoot(page, '18-facturation-1440');
   });
 

@@ -333,6 +333,8 @@ export {
 export {
   buildBillingView,
   SAVED_PAYMENT_METHODS_AVAILABLE,
+  summarizeOrders,
+  type BillingSummary,
   type BillingView,
   type BillingOrder,
   type OrderDisplayStatus,

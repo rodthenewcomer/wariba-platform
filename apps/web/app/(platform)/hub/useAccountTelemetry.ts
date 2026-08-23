@@ -47,6 +47,17 @@ export interface AccountTelemetryState {
   stale: boolean;
   /** Stopped for good — the account has no telemetry to report. */
   stopped: boolean;
+  /**
+   * Fetch now, outside the interval.
+   *
+   * §40 asks that a telemetry failure show retry behaviour. The loop already
+   * retries on its own every few seconds, but a surface that only says "stale"
+   * gives the trader nothing to do and no way to tell a transient blip from a
+   * dead session. A control that visibly tries again — and clears the warning
+   * when it works — is the difference between a page that is broken and a page
+   * that is having trouble.
+   */
+  refresh: () => void;
 }
 
 export function useAccountTelemetry(
@@ -56,7 +67,7 @@ export function useAccountTelemetry(
   const intervalMs = options?.intervalMs ?? DEFAULT_INTERVAL_MS;
   const enabled = options?.enabled ?? true;
 
-  const [state, setState] = useState<AccountTelemetryState>({
+  const [state, setState] = useState<Omit<AccountTelemetryState, 'refresh'>>({
     telemetry: null,
     updatedAt: null,
     stale: false,
@@ -157,5 +168,16 @@ export function useAccountTelemetry(
     };
   }, [poll, intervalMs, enabled]);
 
-  return state;
+  /*
+   * A manual retry clears the terminal stop as well as the stale flag: the
+   * user asking again is a stronger signal than the last response, and a
+   * session that came back after re-authentication should not stay dead until
+   * a reload.
+   */
+  const refresh = useCallback(() => {
+    stopped.current = false;
+    void poll();
+  }, [poll]);
+
+  return { ...state, refresh };
 }

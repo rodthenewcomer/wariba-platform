@@ -53,7 +53,13 @@ export function Configurator({
   if (!selected) return null;
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_22rem] lg:items-start">
+    /*
+     * `pb-28` below `lg` reserves the sticky bar's own height (§19: the bar
+     * must never hide required content). Without it the last size card sits
+     * under the bar and cannot be tapped — the classic sticky-CTA bug, and
+     * the one that costs the sale.
+     */
+    <div className="grid gap-5 pb-28 lg:grid-cols-[1fr_22rem] lg:items-start lg:pb-0">
       <div className="flex flex-col gap-5">
         {/* Step 1 — the program. One purchasable program, stated as a fact
             rather than dressed up as a choice between two. */}
@@ -218,6 +224,45 @@ export function Configurator({
           ) : null}
         </div>
       </Surface>
+
+      {/*
+       * The decision, kept in reach on a phone — §19.
+       *
+       * The summary card is the third thing on the page at 390px: below the
+       * programme step and below five size cards. A trader who has just tapped
+       * "25 000 USD" has to scroll past everything they already decided to
+       * find the button, and the price they are agreeing to is off-screen
+       * while they do it. The bar carries both, so the figure and the action
+       * stay together wherever the page is scrolled to.
+       *
+       * It sits above the 70px bottom navigation rather than over it, so the
+       * two never fight, and it repeats no information the summary does not
+       * already own — same `selected`, same formatting, one source.
+       */}
+      {rulesAvailable ? (
+        <div
+          className="fixed inset-x-0 bottom-[70px] z-30 border-t border-[color:var(--warix-border-subtle)] bg-[color:color-mix(in_srgb,var(--warix-panel)_96%,transparent)] px-4 py-3 backdrop-blur-[12px] lg:hidden"
+          data-testid="configurator-sticky-cta"
+        >
+          <div className="flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
+                {selected.nominalFormatted}
+              </p>
+              <p className="wariba-data truncate text-[length:var(--wariba-font-size-body-md)] font-semibold text-[color:var(--wariba-text-primary)]">
+                {selected.priceFormatted}
+              </p>
+            </div>
+            <ActionLink
+              href={`/checkout?product=${selected.product.code}`}
+              size="md"
+              data-testid="offer-checkout-sticky"
+            >
+              Continuer
+            </ActionLink>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

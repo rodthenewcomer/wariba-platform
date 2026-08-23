@@ -68,14 +68,42 @@ export default async function BillingPage() {
       <Stagger className="flex flex-col gap-5">
         <StaggerItem>
           <Surface className="flex flex-col gap-4 p-5 sm:p-6">
-            <SurfaceTitle>Total dépensé</SurfaceTitle>
-            <p className="wariba-data text-[28px] font-semibold leading-none tracking-[-0.02em] text-[color:var(--wariba-text-primary)]">
-              {billing.totalSpentFormatted}
-            </p>
-            <p className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
-              {billing.orders.length} commande{billing.orders.length > 1 ? 's' : ''} · comptes payés
-              et activés uniquement
-            </p>
+            <SurfaceTitle>Récapitulatif</SurfaceTitle>
+            {/*
+             * §21 — counts beside the total, and only the ones that occurred.
+             * A "Remboursées 0" row on an account that has never had a refund
+             * is a column of zeros pretending to be a report; a trader reads
+             * it as a status they should worry about. Statuses with nothing
+             * behind them are dropped, the same rule the account cards use.
+             */}
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
+              <div className="min-w-0">
+                <dt className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
+                  Total dépensé
+                </dt>
+                <dd className="wariba-data mt-1 text-[26px] font-semibold leading-none tracking-[-0.02em] text-[color:var(--wariba-text-primary)]">
+                  {billing.totalSpentFormatted}
+                </dd>
+              </div>
+              {[
+                { label: 'Commandes', value: billing.summary.orderCount, always: true },
+                { label: 'Comptes activés', value: billing.summary.fulfilledCount, always: true },
+                { label: 'En attente d’activation', value: billing.summary.paidCount },
+                { label: 'Remboursées', value: billing.summary.refundedCount },
+                { label: 'Paiements échoués', value: billing.summary.failedCount },
+              ]
+                .filter((row) => row.always || row.value > 0)
+                .map((row) => (
+                  <div key={row.label} className="min-w-0">
+                    <dt className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
+                      {row.label}
+                    </dt>
+                    <dd className="wariba-data mt-1 text-[26px] font-semibold leading-none text-[color:var(--wariba-text-primary)]">
+                      {row.value}
+                    </dd>
+                  </div>
+                ))}
+            </dl>
           </Surface>
         </StaggerItem>
 
@@ -89,15 +117,17 @@ export default async function BillingPage() {
               <table className="w-full border-collapse text-left">
                 <thead>
                   <tr className="border-b border-[color:var(--warix-border-subtle)]">
-                    {['Date', 'Produit', 'Montant', 'Statut', 'Reçu'].map((heading) => (
-                      <th
-                        key={heading}
-                        scope="col"
-                        className="py-2.5 pr-4 text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase tracking-[var(--wariba-letter-spacing-wide)] text-[color:var(--wariba-text-tertiary)]"
-                      >
-                        {heading}
-                      </th>
-                    ))}
+                    {['Date', 'Produit', 'Montant', 'Prestataire', 'Statut', 'Reçu'].map(
+                      (heading) => (
+                        <th
+                          key={heading}
+                          scope="col"
+                          className="py-2.5 pr-4 text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase tracking-[var(--wariba-letter-spacing-wide)] text-[color:var(--wariba-text-tertiary)]"
+                        >
+                          {heading}
+                        </th>
+                      ),
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -114,6 +144,12 @@ export default async function BillingPage() {
                       </td>
                       <td className="wariba-data py-3 pr-4 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-primary)]">
                         {order.amountFormatted}
+                      </td>
+                      {/* Which provider took the money — the first thing
+                          support asks about a disputed charge. Null until an
+                          attempt records one; a dash, never a guess. */}
+                      <td className="py-3 pr-4 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
+                        {order.paymentProvider ?? '—'}
                       </td>
                       <td className="py-3 pr-4">
                         <StatusPill tone={order.statusTone} size="sm">
@@ -151,6 +187,11 @@ export default async function BillingPage() {
                   <p className="wariba-data mt-2.5 text-[length:var(--wariba-font-size-body-md)] font-semibold text-[color:var(--wariba-text-primary)]">
                     {order.amountFormatted}
                   </p>
+                  {order.paymentProvider ? (
+                    <p className="mt-1 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
+                      {order.paymentProvider}
+                    </p>
+                  ) : null}
                 </li>
               ))}
             </ul>
