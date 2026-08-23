@@ -158,10 +158,7 @@ export function projectAccountRiskView(
     .toFixed(2);
 
   const dailyRemainingPercent = remainingPercent(dailyLossRemaining, dailyLossBudget);
-  const maximumRemainingPercent = remainingPercent(
-    result.maximumLoss.remaining,
-    maximumLossBudget,
-  );
+  const maximumRemainingPercent = remainingPercent(result.maximumLoss.remaining, maximumLossBudget);
 
   return {
     status,

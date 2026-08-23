@@ -173,9 +173,27 @@
   --wariba-accent-amber-wash: color-mix(in srgb, #e2a53a 12%, transparent);
   --wariba-accent-amber-edge: color-mix(in srgb, #e2a53a 34%, transparent);
 
-  --wariba-accent-red: #e05a5a;
-  --wariba-accent-red-wash: color-mix(in srgb, #e05a5a 12%, transparent);
-  --wariba-accent-red-edge: color-mix(in srgb, #e05a5a 34%, transparent);
+  /*
+   * Raised from #e05a5a in Phase 2.5, to clear WCAG AA as text.
+   *
+   * The old value measured 4.32:1 against --warix-surface-raised (#1c2333),
+   * just under the 4.5:1 AA floor for normal-weight text. Every negative
+   * figure in the product is painted with it — a losing KPI, a losing day, a
+   * losing symbol, a red row in the journal — so the one colour that reports
+   * bad news was the one colour a low-vision trader could not reliably read.
+   * #e86060 measures 4.69:1 on the raised surface and 5.2:1 on the canvas.
+   *
+   * Fixed centrally rather than per call site (§29): the alternative was a
+   * separate red-for-text token threaded through some sixty usages, which is
+   * two reds that would drift. Verified safe for WariX — the workstation runs
+   * its own --warix-* palette and references --wariba-accent-red nowhere.
+   *
+   * The wash and edge derive from the same hex, so a red panel's tint and rim
+   * still match the figure sitting on them.
+   */
+  --wariba-accent-red: #e86060;
+  --wariba-accent-red-wash: color-mix(in srgb, #e86060 12%, transparent);
+  --wariba-accent-red-edge: color-mix(in srgb, #e86060 34%, transparent);
 
   --wariba-accent-cyan: #3fb8c4;
   --wariba-accent-cyan-wash: color-mix(in srgb, #3fb8c4 12%, transparent);

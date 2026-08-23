@@ -64,7 +64,12 @@ export function Launchpad({ catalog }: { catalog: OfferCatalog }) {
                 Performance.
               </p>
               <div className="mt-5 flex flex-wrap items-center gap-3">
-                <ActionLink href="/comptes/nouveau" size="lg" icon="addAccount" data-testid="launchpad-primary">
+                <ActionLink
+                  href="/comptes/nouveau"
+                  size="lg"
+                  icon="addAccount"
+                  data-testid="launchpad-primary"
+                >
                   Choisir une évaluation
                 </ActionLink>
                 <ActionLink href="/programme#regles" variant="ghost" size="lg">
@@ -180,8 +185,7 @@ export function Launchpad({ catalog }: { catalog: OfferCatalog }) {
                 </dl>
                 {catalog.policyVersion ? (
                   <p className="mt-4 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
-                    Version des règles{' '}
-                    <span className="wariba-data">{catalog.policyVersion}</span>
+                    Version des règles <span className="wariba-data">{catalog.policyVersion}</span>
                     {' · '}
                     exemple pour {catalog.offers[0]?.nominalFormatted}
                   </p>

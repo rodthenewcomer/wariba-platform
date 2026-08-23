@@ -57,9 +57,7 @@ export function PayoutSummary({
           <p
             className="wariba-data mt-1.5 text-[30px] font-semibold leading-none tracking-[-0.02em]"
             style={{
-              color: ready
-                ? 'var(--wariba-accent-emerald)'
-                : 'var(--wariba-text-primary)',
+              color: ready ? 'var(--wariba-accent-emerald)' : 'var(--wariba-text-primary)',
             }}
             data-testid="payout-available"
           >

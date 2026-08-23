@@ -103,9 +103,7 @@ export function TelemetryStrip({ balance, figures }: TelemetryStripProps) {
           <dd
             className="wariba-data mt-1 text-[length:var(--wariba-font-size-heading-xs)] font-semibold leading-none tracking-[-0.01em]"
             style={{
-              color: figure.signed
-                ? signColor(figure.numericValue)
-                : 'var(--wariba-text-primary)',
+              color: figure.signed ? signColor(figure.numericValue) : 'var(--wariba-text-primary)',
             }}
           >
             {typeof figure.numericValue === 'number' && figure.unit ? (
@@ -120,12 +118,19 @@ export function TelemetryStrip({ balance, figures }: TelemetryStripProps) {
             ) : (
               figure.value
             )}
+            {/*
+             * Inside the <dd>, not beside it. A <div> within a <dl> may hold
+             * only <dt>/<dd> pairs — a sibling <p> makes the list malformed
+             * (axe `definition-list`) and costs a screen reader the term /
+             * description pairing that is the whole point of the element. The
+             * hint qualifies the value, so it belongs to the value.
+             */}
+            {figure.hint ? (
+              <span className="mt-1 block text-[length:var(--wariba-font-size-label-sm)] font-normal text-[color:var(--wariba-text-tertiary)]">
+                {figure.hint}
+              </span>
+            ) : null}
           </dd>
-          {figure.hint ? (
-            <p className="mt-1 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
-              {figure.hint}
-            </p>
-          ) : null}
         </div>
       ))}
     </dl>

@@ -90,7 +90,10 @@ export function LiveTelemetry({
 
   const current: Pick<
     AccountTelemetry,
-    'balanceFormatted' | 'pnlTodayFormatted' | 'dailyLossRemainingFormatted' | 'maximumLossRemainingFormatted'
+    | 'balanceFormatted'
+    | 'pnlTodayFormatted'
+    | 'dailyLossRemainingFormatted'
+    | 'maximumLossRemainingFormatted'
   > & {
     balance: number;
     pnlToday: number;

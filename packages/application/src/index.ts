@@ -349,11 +349,7 @@ export {
   type BuildAccountHubViewParams,
 } from './hub-view';
 
-export {
-  nextResetAt,
-  tradingDayOf,
-  millisecondsUntilReset,
-} from './trading-day';
+export { nextResetAt, tradingDayOf, millisecondsUntilReset } from './trading-day';
 
 export {
   buildCommandCenterView,

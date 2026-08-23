@@ -43,12 +43,15 @@ export function JournalSummary({ summary }: { summary: JournalSummaryView | null
           <dt className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
             Trades clôturés
           </dt>
-          <dd className="wariba-data mt-1 text-[22px] font-semibold leading-none text-[color:var(--wariba-text-primary)]">
-            {summary.tradeCount}
+          {/* The breakdown lives inside the <dd> — see TelemetryStrip's note. */}
+          <dd className="mt-1">
+            <span className="wariba-data text-[22px] font-semibold leading-none text-[color:var(--wariba-text-primary)]">
+              {summary.tradeCount}
+            </span>
+            <span className="mt-1 block text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
+              {summary.wins} gagnants · {summary.losses} perdants
+            </span>
           </dd>
-          <p className="mt-1 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
-            {summary.wins} gagnants · {summary.losses} perdants
-          </p>
         </div>
 
         <div className="min-w-0">

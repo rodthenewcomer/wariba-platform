@@ -47,10 +47,6 @@ async function signIn(page: Page, email: string) {
   await page.waitForURL('**/hub', { timeout: 60_000 });
 }
 
-async function signOut(page: Page) {
-  await page.context().clearCookies();
-}
-
 async function shoot(page: Page, name: string) {
   mkdirSync(OUT, { recursive: true });
   // Long enough for the stagger to settle and one telemetry tick to land, so
@@ -357,6 +353,17 @@ test.describe('@phase25 Product OS 2.5 — command centre', () => {
         await settled(page);
       }
 
+      /*
+       * Let the entrance settle before measuring.
+       *
+       * `Stagger` fades panels in from opacity 0. axe computes contrast from
+       * *rendered* colour, so a card sampled at opacity 0.4 reports its text
+       * blended toward the background and fails a check it passes at rest.
+       * Auditing mid-animation measures the animation, not the design — and
+       * produces a suite whose result depends on how fast the machine is.
+       */
+      await page.waitForTimeout(1200);
+
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
         .analyze();
@@ -364,10 +371,18 @@ test.describe('@phase25 Product OS 2.5 — command centre', () => {
       const blocking = results.violations.filter(
         (violation) => violation.impact === 'critical' || violation.impact === 'serious',
       );
-      // Named in the failure so a regression says which rule broke, not just
-      // that a number went up.
+      /*
+       * The failure names the rule *and the node*. "serious: color-contrast"
+       * tells you something broke; it does not tell you which of ninety
+       * elements, and hunting for it by eye is how an accessibility failure
+       * gets suppressed instead of fixed.
+       */
       expect(
-        blocking.map((violation) => `${violation.impact}: ${violation.id}`),
+        blocking.flatMap((violation) =>
+          violation.nodes.map(
+            (node) => `${violation.impact}: ${violation.id} @ ${node.target.join(' ')}`,
+          ),
+        ),
       ).toEqual([]);
     });
   }

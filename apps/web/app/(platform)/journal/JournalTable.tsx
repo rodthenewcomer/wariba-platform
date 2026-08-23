@@ -43,8 +43,8 @@ export function JournalTable({ entries }: { entries: readonly JournalEntry[] }) 
     <div className="hidden overflow-x-auto lg:block">
       <table className="w-full border-collapse text-left" data-testid="journal-table">
         <caption className="sr-only">
-          Aller-retours clôturés : date, instrument, sens, quantité, prix d’entrée, prix de
-          sortie, durée et résultat net.
+          Aller-retours clôturés : date, instrument, sens, quantité, prix d’entrée, prix de sortie,
+          durée et résultat net.
         </caption>
         <thead>
           <tr className="border-b border-[color:var(--warix-border-subtle)]">

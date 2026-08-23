@@ -150,8 +150,7 @@ export function DailyPnlStrip({ points }: { points: readonly DailyPnlPoint[] }) 
           <dd
             className="wariba-data text-[length:var(--wariba-font-size-body-sm)] font-medium"
             style={{
-              color:
-                worst.netPnl < 0 ? 'var(--wariba-accent-red)' : 'var(--wariba-text-primary)',
+              color: worst.netPnl < 0 ? 'var(--wariba-accent-red)' : 'var(--wariba-text-primary)',
             }}
           >
             {formatSigned(worst.netPnl)}

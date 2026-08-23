@@ -261,9 +261,7 @@ export async function seedTradingRecord(
     .selectFrom('app.trading_accounts')
     .select(['nominal_balance', 'policy_version_id'])
     .where('id', '=', accountId)
-    .executeTakeFirstOrThrow(
-      () => new Error(`seedTradingRecord: account ${accountId} not found.`),
-    );
+    .executeTakeFirstOrThrow(() => new Error(`seedTradingRecord: account ${accountId} not found.`));
 
   const maximumLossRate = new Decimal('0.08');
   let sequence = 1;
@@ -539,8 +537,5 @@ export async function deleteTradingRecord(db: Db, accountId: string): Promise<vo
   await db.deleteFrom('app.fills').where('account_id', '=', accountId).execute();
   await db.deleteFrom('app.trade_orders').where('account_id', '=', accountId).execute();
   await db.deleteFrom('app.positions').where('account_id', '=', accountId).execute();
-  await db
-    .deleteFrom('app.account_daily_snapshots')
-    .where('account_id', '=', accountId)
-    .execute();
+  await db.deleteFrom('app.account_daily_snapshots').where('account_id', '=', accountId).execute();
 }

@@ -87,6 +87,14 @@ export function WinLossRing({ kpis }: { kpis: PerformanceKpis }) {
           </div>
         </div>
 
+        {/*
+         * Every child of the <dl> is one <div> holding a <dt>/<dd> pair, and
+         * nothing deeper. Wrapping a row in a second <div> to hang a separator
+         * on it put the <dt> two levels down, which is a malformed definition
+         * list — axe reports it as `definition-list` and `dlitem`, and a screen
+         * reader loses the term/description pairing that is the entire reason
+         * this is a <dl>. The separator is a class on the row instead.
+         */}
         <dl className="flex min-w-0 flex-1 flex-col gap-3">
           <Row
             label="Trades gagnants"
@@ -98,13 +106,12 @@ export function WinLossRing({ kpis }: { kpis: PerformanceKpis }) {
             value={String(kpis.losses)}
             color="var(--wariba-accent-red)"
           />
-          <div className="border-t border-[color:var(--warix-border-subtle)] pt-3">
-            <Row
-              label="Gain moyen"
-              value={formatUsd(kpis.averageWin) ?? '—'}
-              color="var(--wariba-accent-emerald)"
-            />
-          </div>
+          <Row
+            label="Gain moyen"
+            value={formatUsd(kpis.averageWin) ?? '—'}
+            color="var(--wariba-accent-emerald)"
+            className="border-t border-[color:var(--warix-border-subtle)] pt-3"
+          />
           <Row
             label="Perte moyenne"
             value={formatUsd(kpis.averageLoss) ?? '—'}
@@ -130,9 +137,19 @@ export function WinLossRing({ kpis }: { kpis: PerformanceKpis }) {
   );
 }
 
-function Row({ label, value, color }: { label: string; value: string; color: string }) {
+function Row({
+  label,
+  value,
+  color,
+  className,
+}: {
+  label: string;
+  value: string;
+  color: string;
+  className?: string;
+}) {
   return (
-    <div className="flex items-baseline justify-between gap-3">
+    <div className={`flex items-baseline justify-between gap-3 ${className ?? ''}`}>
       <dt className="flex items-center gap-2 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
         <span
           aria-hidden="true"

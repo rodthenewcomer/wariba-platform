@@ -34,10 +34,7 @@ import { getDb } from '../../../../../../lib/db';
  */
 export const dynamic = 'force-dynamic';
 
-export async function GET(
-  request: Request,
-  context: { params: Promise<{ accountId: string }> },
-) {
+export async function GET(request: Request, context: { params: Promise<{ accountId: string }> }) {
   const correlationId = correlationIdFromHeaders(Object.fromEntries(request.headers.entries()));
   const headers = { [CORRELATION_ID_HEADER]: correlationId };
 

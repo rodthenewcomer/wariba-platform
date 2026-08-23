@@ -5,7 +5,7 @@
  * refuses to run against anything but a local database (see `assertLocal`).
  * Every user it creates is `@wariba-test.invalid`.
  *
- *   pnpm --filter @wariba/test-utils exec tsx scripts/seed-phase25-evidence.ts
+ *   pnpm --filter @wariba/application seed:phase25
  */
 import { createDbClient, loadAccountBalanceProjection } from '@wariba/database';
 import {
@@ -16,9 +16,13 @@ import {
   buildJournalView,
   buildPerformanceAnalytics,
   listAccountsForUser,
-} from '@wariba/application';
-import { E2E_TEST_PASSWORD, createFixtureAccount, createFixtureDb } from '../src/hub-account-fixture';
-import { seedTradingRecord } from '../src/trading-record-fixture';
+} from '../src/index';
+import {
+  E2E_TEST_PASSWORD,
+  createFixtureAccount,
+  createFixtureDb,
+  seedTradingRecord,
+} from '@wariba/test-utils';
 
 /**
  * A guard, not a formality.
@@ -83,7 +87,11 @@ async function main(): Promise<void> {
   console.log('avg win     ', analytics.kpis.averageWin);
   console.log('avg loss    ', analytics.kpis.averageLoss);
   console.log('expectancy  ', analytics.kpis.expectancy);
-  console.log('best day    ', analytics.kpis.bestDay?.date, analytics.kpis.bestDay?.netPnlFormatted);
+  console.log(
+    'best day    ',
+    analytics.kpis.bestDay?.date,
+    analytics.kpis.bestDay?.netPnlFormatted,
+  );
   console.log(
     'worst day   ',
     analytics.kpis.worstDay?.date,
@@ -92,8 +100,14 @@ async function main(): Promise<void> {
   console.log('trading days', analytics.kpis.tradingDays);
   console.log('streak      ', analytics.kpis.currentStreak);
   console.log('avg duration', analytics.kpis.averageDurationMs, 'ms');
-  console.log('by symbol   ', analytics.bySymbol.map((s) => `${s.symbol} ${s.netPnlFormatted}`));
-  console.log('by duration ', analytics.byDuration.map((d) => `${d.label} ${d.wins}W/${d.losses}L`));
+  console.log(
+    'by symbol   ',
+    analytics.bySymbol.map((s) => `${s.symbol} ${s.netPnlFormatted}`),
+  );
+  console.log(
+    'by duration ',
+    analytics.byDuration.map((d) => `${d.label} ${d.wins}W/${d.losses}L`),
+  );
   console.log('');
   console.log('--- journal ---');
   console.log('entries     ', journal.entries.length);
@@ -102,22 +116,44 @@ async function main(): Promise<void> {
   console.log('balance          ', hub.balanceFormatted, '| raw', hub.amounts.balance);
   console.log('P&L today        ', hub.pnlTodayFormatted, '| raw', hub.amounts.pnlToday);
   console.log('finalised days   ', hub.finalizedSessionCount);
-  console.log('history points   ', hub.balanceHistory.length, '| meaningful', hub.balanceHistoryMeaningful);
+  console.log(
+    'history points   ',
+    hub.balanceHistory.length,
+    '| meaningful',
+    hub.balanceHistoryMeaningful,
+  );
   console.log('daily P&L points ', hub.dailyPnl.length);
-  console.log('daily room       ', risk.dailyLossRemainingFormatted, `(${risk.room.dailyRemainingPercent}%)`);
-  console.log('max room         ', risk.maximumLossRemainingFormatted, `(${risk.room.maximumRemainingPercent}%)`);
+  console.log(
+    'daily room       ',
+    risk.dailyLossRemainingFormatted,
+    `(${risk.room.dailyRemainingPercent}%)`,
+  );
+  console.log(
+    'max room         ',
+    risk.maximumLossRemainingFormatted,
+    `(${risk.room.maximumRemainingPercent}%)`,
+  );
   console.log('binding          ', risk.room.binding);
   console.log('next reset       ', risk.nextResetAt);
-  console.log('objective        ', mission.available ? `${mission.progressPercent}%` : mission.reason);
-  console.log('consistency      ', mission.available && mission.consistency
-    ? `${mission.consistency.ratioPercent}% / limit ${mission.consistency.limitPercent}%`
-    : '—');
+  console.log(
+    'objective        ',
+    mission.available ? `${mission.progressPercent}%` : mission.reason,
+  );
+  console.log(
+    'consistency      ',
+    mission.available && mission.consistency
+      ? `${mission.consistency.ratioPercent}% / limit ${mission.consistency.limitPercent}%`
+      : '—',
+  );
   console.log('');
   console.log('--- command center ---');
   console.log('lifecycle         ', command.lifecycle.state, '|', command.lifecycle.label);
   console.log('health            ', command.health.state, '|', command.health.label);
   console.log('meaningful activity', command.hasMeaningfulActivity);
-  console.log('thresholds        ', command.thresholds.map((t) => `${t.label} ${t.value}`));
+  console.log(
+    'thresholds        ',
+    command.thresholds.map((t) => `${t.label} ${t.value}`),
+  );
 
   console.log('\n=== FRESH ACCOUNT ===');
   console.log('email     ', fresh.email);

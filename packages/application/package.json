@@ -14,7 +14,8 @@
     "lint": "eslint --config ../../eslint.config.mjs .",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run --exclude 'tests/*.integration.test.ts'",
-    "test:integration": "vitest run --testTimeout=15000 tests/*.integration.test.ts --no-file-parallelism"
+    "test:integration": "vitest run --testTimeout=15000 tests/*.integration.test.ts --no-file-parallelism",
+    "seed:phase25": "tsx scripts/seed-phase25-evidence.ts"
   },
   "dependencies": {
     "@wariba/adapters": "workspace:*",
@@ -27,6 +28,7 @@
   "devDependencies": {
     "@wariba/test-utils": "workspace:*",
     "kysely": "^0.28.17",
+    "tsx": "^4.23.1",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   }

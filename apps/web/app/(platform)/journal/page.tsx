@@ -152,10 +152,7 @@ export default async function JournalPage({
           <Surface className="p-3 sm:p-4 lg:p-5">
             {/* Table from lg up, cards below — see JournalTable's note. */}
             <JournalTable entries={journal.entries} />
-            <ul
-              data-testid="journal-list"
-              className="flex list-none flex-col gap-2 p-0 lg:hidden"
-            >
+            <ul data-testid="journal-list" className="flex list-none flex-col gap-2 p-0 lg:hidden">
               {journal.entries.map((entry) => (
                 <TradeRow key={entry.id} entry={entry} />
               ))}

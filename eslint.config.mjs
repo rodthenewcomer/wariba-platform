@@ -61,5 +61,26 @@ export default tseslint.config(
       'no-console': ['error', { allow: ['warn', 'error'] }],
     },
   },
+  {
+    /*
+     * Standalone TypeScript CLI scripts under `packages/*​/scripts/`.
+     *
+     * `no-console` exists to keep stray debugging out of library and request
+     * code, where stdout is not a user interface and the observability package
+     * is. A script whose entire purpose is to print a report to a terminal is
+     * the case the rule is not aimed at — and routing it through
+     * `console.error` to satisfy the linter would put an operator's report on
+     * stderr, which is worse than the thing being prevented.
+     *
+     * Scoped to `scripts/`, so nothing that ships is covered. The glob is
+     * cwd-relative in flat config and each package lints from its own
+     * directory, so it has to match both `packages/x/scripts/...` from the
+     * root and `scripts/...` from inside the package.
+     */
+    files: ['**/scripts/**/*.ts'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
   prettier,
 );

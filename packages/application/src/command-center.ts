@@ -133,12 +133,10 @@ export async function buildCommandCenterView(
     (isPerformance
       ? buildAccountPerformanceMissionView(db, { accountId: account.id })
       : buildAccountMissionView(db, { accountId: account.id, now })
-    ).catch(
-      (): AccountMissionUnavailable => ({
-        available: false,
-        reason: 'La progression de ce compte n’est pas encore disponible.',
-      }),
-    ),
+    ).catch((): AccountMissionUnavailable => ({
+      available: false,
+      reason: 'La progression de ce compte n’est pas encore disponible.',
+    })),
     buildAccountRiskView(db, { accountId: account.id, now }),
     buildRecentActivityView(db, { accountId: account.id, limit: 12 }),
     buildOpenPositionsView(db, { accountId: account.id }),
