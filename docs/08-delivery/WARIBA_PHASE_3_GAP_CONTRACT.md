@@ -1,7 +1,41 @@
 # WARIBA — Phase 3 Gap Contract
 
 **Baseline:** `main` @ `8c061176ecdd521740af06c98c7b74930687133c`
-**Companion:** `WARIBA_PHASE_3_SOURCE_AUDIT.md` (evidence for every claim here)
+**Companion:** `WARIBA_PHASE_3_SOURCE_AUDIT.md` (26-area source audit)
+**Superseded by:** `WARIBA_PRODUCT_OS_MASTER_IMPLEMENTATION_AUDIT_2026-08-23.md`
+
+> ## Reconciliation — 2026-08-23
+>
+> The 190-requirement Product OS Master audit is now the Phase 3 source of
+> truth. This contract is retained because its *findings* were confirmed, but
+> its **sequencing is superseded** by §12 below.
+>
+> **What the Master audit confirmed.** Every gap this contract identified is
+> real and appears in the matrix. Nothing here was over-claimed.
+>
+> **What the Master audit changed.**
+>
+> 1. **Notifications are not a gap.** This contract listed a notification model
+>    as missing. `ENG-031` and `UX-HUB-010` are `LOCKED` and defer it
+>    explicitly — the correct status is `INTENTIONALLY_DEFERRED`. Building it
+>    would contradict a locked decision. **Removed from scope.**
+> 2. **Deployment is `BLOCKED_EXTERNAL`, not simply `MISSING`.** `ARCH-023` and
+>    `ARCH-024` are `OPEN` provider selections. The *manifests* were missing —
+>    that part is in-repo and is 3.1A. The *hosting* is a business decision.
+>    This is why 3.1 splits into 3.1A and 3.1B.
+> 3. **Seven canonical routes are missing that this contract never mentioned:**
+>    `/regles`, `/confiance`, `/status`, `/comptes/{accountId}`, `/profil`,
+>    Hub `/support`, and all five `?view=` workspaces. `/status` is required by
+>    `OPS-010` `LOCKED`.
+> 4. **Three Control queues are missing** (§75 Pass Review, §76 KYC, §78
+>    Disputes), and 15 of 19 Control surfaces are read-only. This contract
+>    treated Control as complete.
+> 5. **Coverage is measurable**: 77.1% overall, 77.4% critical. This contract
+>    offered no number.
+>
+> **What this contract still gets right and the Master audit reinforces:** the
+> support/disputes gap is the highest-value *unblocked* work, and
+> `PRIVATE_BETA_READY` cannot reach `yes` from in-repo work alone (D6).
 
 ## The question
 
@@ -99,7 +133,7 @@ server-side breach and the workstation reflecting it.
 
 ---
 
-## 4. Dependency order
+## 4. Dependency order (SUPERSEDED — see §12)
 
 ```
                     ┌──────────────────────────┐
@@ -188,3 +222,44 @@ Of the 44 rows in §11, this contract expects at completion:
 `PRIVATE_BETA_READY = yes` is reachable, but not without WARIBA provisioning
 external accounts. That is a business decision, not an engineering gap, and this
 contract will not pretend otherwise.
+
+
+---
+
+# 12. Sequencing — authoritative as of 2026-08-23
+
+Supersedes §4. Reordered after the Master audit, and split so that no slice
+waits on a vendor account that does not exist yet.
+
+```text
+3.1A  DEPLOYABILITY FOUNDATION            in-repo, zero credentials   ← DONE
+3.2   SUPPORT + DISPUTES                  UX-010 LOCKED
+3.3   OPERATOR CLOSURE                    §75 §76 §78
+3.4   LIFECYCLE + REMAINING ROUTES        /comptes/{id} /profil /parametres
+3.5   WARIX PROFESSIONAL COMPLETION       view=, 5 indicators, server prefs
+3.6   PUBLIC PROOF + WAITLIST + FEEDBACK  /status /confiance /regles
+3.1B  REAL STAGING INTEGRATION            ← as soon as accounts exist
+3.7   SECURITY / RELIABILITY / BETA GATE
+```
+
+**Why 3.1A and 3.1B are separated.** Everything a deployment needs that WARIBA
+can write itself — container manifests, graceful shutdown, readiness semantics,
+environment contracts, a build that carries no secrets — needs no vendor at all.
+Everything that needs an account is 3.1B. Splitting them means the deployability
+work is finished and reviewed *before* the first credential arrives, so 3.1B
+becomes configuration rather than construction.
+
+**Why 3.1B sits after 3.6 rather than blocking it.** 3.2 through 3.6 are all
+in-repo. Holding them behind a provider decision would idle the entire phase on
+a purchasing conversation. 3.1B is written to run *as soon as* the accounts
+land, wherever that falls in the sequence.
+
+**Why 3.7 is last and unchanged.** Certification needs something deployed to
+certify.
+
+## 13. Credential dependency
+
+3.1B requires eight external decisions, enumerated with their Decision Log IDs
+in `WARIBA_PHASE_3_CREDENTIAL_CHECKLIST.md`. Four are hard blockers for beta
+(Supabase staging, web hosting, container hosting, email); four are deferrable
+by ADR (market data, payment sandbox, KYC sandbox, payout provider).

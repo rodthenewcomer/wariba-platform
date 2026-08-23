@@ -170,6 +170,40 @@ async function start(): Promise<void> {
     await db.destroy();
   });
 
+  /*
+   * Run the teardown above on a platform stop signal.
+   *
+   * `onClose` already does the right things — it stops the alert monitor and
+   * the market feed, closes the history store, **releases the leadership
+   * lease** and destroys the pool. Nothing triggered it. A container platform
+   * stops a process with SIGTERM, so every deploy and every scale-down killed
+   * the leader without releasing its lease, and the standby had to wait out
+   * the full lease duration before taking over. That is a self-inflicted
+   * market-data outage on every deploy, measured in `LEADER_LEASE_DURATION_MS`
+   * rather than in the takeover target the failover tests hold us to.
+   *
+   * `app.close()` runs the hook and waits for in-flight requests, which is
+   * exactly the graceful stop a platform's grace period exists for.
+   */
+  let closing = false;
+  for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+    process.on(signal, () => {
+      if (closing) return;
+      closing = true;
+      logger.info('realtime.shutdown_started', { signal, instanceId: config.INSTANCE_ID });
+      void app
+        .close()
+        .then(() => {
+          logger.info('realtime.shutdown_complete', { signal });
+          process.exit(0);
+        })
+        .catch((error: unknown) => {
+          logger.error('realtime.shutdown_failed', { errorCode: (error as Error).message });
+          process.exit(1);
+        });
+    });
+  }
+
   try {
     const address = await app.listen({ port: config.REALTIME_PORT, host: '0.0.0.0' });
     logger.info('realtime.started', {
