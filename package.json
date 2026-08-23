@@ -2,7 +2,7 @@
   "name": "wariba-platform",
   "version": "0.0.0",
   "private": true,
-  "description": "WARIBA — infrastructure de progression pour traders disciplinés (Afrique francophone).",
+  "description": "WARIBA \u2014 infrastructure de progression pour traders disciplin\u00e9s (Afrique francophone).",
   "license": "UNLICENSED",
   "engines": {
     "node": ">=24.14.0 <25.0.0"
@@ -53,7 +53,8 @@
     "db:test": "node scripts/run-test-gate.mjs DATABASE_URL -- sh -c 'supabase test db --db-url \"$DATABASE_URL\"'",
     "boundaries:check": "node scripts/check-boundaries.mjs",
     "secrets:scan": "node scripts/secret-scan.mjs",
-    "ci": "pnpm test:fast && pnpm build && pnpm db:test && pnpm test:integration:smoke && pnpm test:rls:smoke && pnpm test:e2e:smoke"
+    "ci": "pnpm test:fast && pnpm build && pnpm db:test && pnpm test:integration:smoke && pnpm test:rls:smoke && pnpm test:e2e:smoke",
+    "db:keepalive": "pnpm --filter @wariba/database db:keepalive"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
