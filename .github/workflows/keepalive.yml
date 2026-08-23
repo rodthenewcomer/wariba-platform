@@ -1,0 +1,66 @@
+name: DB Keepalive
+
+# Twice daily. The inactivity window is about a week, so once a day would be
+# ample — but this job doubles as WARIBA's only availability check until 3.7
+# brings error tracking and a status page (ARCH-026 and OPS-011 are still
+# OPEN), and a twelve-hour blind spot is worse than the two minutes of runner
+# time a second run costs.
+#
+# 06:23/18:23 UTC deliberately avoids 02:17, when the certification workflow
+# runs — that one uses a *local* Supabase and never touches the hosted project,
+# so it has never contributed a single minute of activity.
+on:
+  schedule:
+    - cron: '23 6 * * *'
+    - cron: '23 18 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  keepalive:
+    name: Keep hosted Supabase awake
+    runs-on: ubuntu-latest
+    # A hung connection must not hold a runner for six hours.
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-node
+
+      - name: Ping the hosted database
+        id: ping
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_KEEPALIVE_DATABASE_URL }}
+        run: |
+          set +e
+          pnpm --filter @wariba/database db:keepalive
+          code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
+          # 2 means the secret is not configured — on a fork, or before the
+          # secret is added. That is not a failure of the database and must not
+          # page anyone; it fails the job only on the canonical repository,
+          # where a missing secret genuinely means the keepalive is not running.
+          if [ "$code" = "2" ]; then
+            if [ "$GITHUB_REPOSITORY" = "rodthenewcomer/wariba-platform" ]; then
+              echo "::error::SUPABASE_KEEPALIVE_DATABASE_URL is not set. The hosted project is NOT being kept awake and will pause after ~7 days of inactivity."
+              exit 1
+            fi
+            echo "::notice::Keepalive secret absent — skipping (fork or unconfigured)."
+            exit 0
+          fi
+
+          exit $code
+
+      - name: Explain a failure
+        if: failure() && steps.ping.outputs.code == '1'
+        run: |
+          echo "::error::The hosted Supabase project did not answer."
+          echo "If the log says ENOTFOUND or 'tenant/user not found', the project is almost"
+          echo "certainly PAUSED rather than deleted — a paused project has its DNS withdrawn."
+          echo "Restore it from the Supabase dashboard; a restore can take a few hours."
