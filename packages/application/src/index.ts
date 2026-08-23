@@ -304,6 +304,7 @@ export {
   PAYOUT_BLOCKING_REASON,
   type PayoutLifecycleState,
   type PayoutLifecycleView,
+  type PayoutCycleProgress,
   type BuildPayoutLifecycleParams,
 } from './payout-lifecycle';
 

@@ -1,4 +1,6 @@
+import Decimal from 'decimal.js';
 import {
+  evaluateCycleProgress,
   evaluatePayoutEligibility,
   loadPayoutRequestsForAccount,
   type Db,
@@ -70,6 +72,29 @@ export interface PayoutLifecycleView {
   kyc: KycView;
   /** The precise blocking reason, when the trader is not yet eligible. */
   blockingReason: string | null;
+  /**
+   * How much money is actually on the table, and what stands between the
+   * trader and it.
+   *
+   * §14's first question is "am I eligible", but its third is "how much is
+   * available" — and a page that answers the first two and not the third has
+   * made the trader open a calculator. `null` when the cycle cannot be read.
+   */
+  cycle: PayoutCycleProgress | null;
+}
+
+export interface PayoutCycleProgress {
+  cycleNumber: number;
+  /** Withdrawable now: realised balance above the permanent buffer floor. */
+  availableFormatted: string;
+  /** The floor itself, which never becomes withdrawable. */
+  bufferFloorFormatted: string;
+  /** Realised balance, so a trader below the floor can still see how close. */
+  realizedBalanceFormatted: string;
+  /** 0-100 toward the buffer floor. 100 once the excess is positive. */
+  bufferProgressPercent: number;
+  performanceDaysCompleted: number;
+  performanceDaysRequired: number;
 }
 
 /**
@@ -128,12 +153,32 @@ export async function buildPayoutLifecycle(
    * says so: the trader is left unable to tell a missing cycle from a broken
    * platform. So the failure becomes a state, with the honest sentence.
    */
-  const [eligibility, requests] = await Promise.all([
+  const [eligibility, requests, progress] = await Promise.all([
     evaluatePayoutEligibility(db, params.accountId).catch(
       () => ({ eligible: false, rejectionCode: 'no_active_cycle' }) as const,
     ),
     loadPayoutRequestsForAccount(db, params.accountId).catch(() => []),
+    // Same reasoning as the eligibility call: no cycle is a state, not a 500.
+    evaluateCycleProgress(db, params.accountId).catch(() => null),
   ]);
+
+  const cycle: PayoutCycleProgress | null = progress
+    ? {
+        cycleNumber: progress.cycleNumber,
+        availableFormatted: formatUsd(progress.eligibleExcess),
+        bufferFloorFormatted: formatUsd(progress.bufferFloor),
+        realizedBalanceFormatted: formatUsd(progress.realizedBalance),
+        /*
+         * Progress toward the floor, not toward an arbitrary target. A trader
+         * below the buffer has nothing withdrawable, and this is the only
+         * figure that tells them how far off they are — `eligibleExcess` is
+         * clamped to zero and cannot.
+         */
+        bufferProgressPercent: bufferProgress(progress.realizedBalance, progress.bufferFloor),
+        performanceDaysCompleted: progress.performanceDaysCompleted,
+        performanceDaysRequired: progress.performanceDaysRequired,
+      }
+    : null;
 
   const kyc = kycView(deriveKycState({ verified: params.kycVerified }));
 
@@ -145,7 +190,7 @@ export async function buildPayoutLifecycle(
    * unsettled request is therefore what the page reports on.
    */
   const open = requests.find((request) => !SETTLED.has(request.status));
-  if (open) return fromRequestStatus(open.status, kyc);
+  if (open) return { ...fromRequestStatus(open.status, kyc), cycle };
 
   if (eligibility.eligible) {
     return {
@@ -158,6 +203,7 @@ export async function buildPayoutLifecycle(
       awaitingPlatform: false,
       kyc,
       blockingReason: null,
+      cycle,
     };
   }
 
@@ -180,6 +226,7 @@ export async function buildPayoutLifecycle(
       awaitingPlatform: false,
       kyc,
       blockingReason: reason,
+      cycle,
     };
   }
 
@@ -195,6 +242,7 @@ export async function buildPayoutLifecycle(
       awaitingPlatform: false,
       kyc,
       blockingReason: reason,
+      cycle,
     };
   }
 
@@ -212,7 +260,22 @@ export async function buildPayoutLifecycle(
     awaitingPlatform: platformOwned,
     kyc,
     blockingReason: reason,
+    cycle,
   };
+}
+
+function formatUsd(amount: string): string {
+  return `${new Decimal(amount)
+    .toDecimalPlaces(2)
+    .toNumber()
+    .toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
+}
+
+function bufferProgress(realizedBalance: string, bufferFloor: string): number {
+  const floor = new Decimal(bufferFloor);
+  if (floor.lessThanOrEqualTo(0)) return 100;
+  const ratio = new Decimal(realizedBalance).dividedBy(floor).times(100).toNumber();
+  return Math.min(100, Math.max(0, Math.round(ratio)));
 }
 
 function fromRequestStatus(status: string, kyc: KycView): PayoutLifecycleView {
@@ -283,6 +346,7 @@ function fromRequestStatus(status: string, kyc: KycView): PayoutLifecycleView {
     awaitingPlatform: entry.waiting,
     kyc,
     blockingReason: null,
+    cycle: null,
   };
 }
 

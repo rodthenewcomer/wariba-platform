@@ -116,33 +116,56 @@ export function Stagger({
   children,
   className,
   step = 0.045,
+  as = 'div',
 }: {
   children: ReactNode;
   className?: string;
   step?: number;
+  /**
+   * The element to render.
+   *
+   * A list of staggered cards has to stay a list: wrapping each `<li>` in a
+   * motion `<div>` puts a non-`li` child inside the `<ul>` and an `<li>`
+   * outside one, which axe reports as a serious violation and a screen reader
+   * resolves by guessing how many items there are.
+   */
+  as?: 'div' | 'ul';
 }) {
   const reduced = useReducedMotion();
-  if (reduced) return <div className={className}>{children}</div>;
+  const Tag = as;
+  const Motion = as === 'ul' ? motion.ul : motion.div;
+  if (reduced) return <Tag className={className}>{children}</Tag>;
 
   return (
-    <motion.div
+    <Motion
       className={className}
       initial="hidden"
       animate="shown"
       variants={{ shown: { transition: { staggerChildren: step } } }}
     >
       {children}
-    </motion.div>
+    </Motion>
   );
 }
 
 /** One member of a `Stagger`. Also usable alone for a single reveal. */
-export function StaggerItem({ children, className }: { children: ReactNode; className?: string }) {
+export function StaggerItem({
+  children,
+  className,
+  as = 'div',
+}: {
+  children: ReactNode;
+  className?: string;
+  /** `li` when the stagger is a list — see the note on `Stagger`. */
+  as?: 'div' | 'li';
+}) {
   const reduced = useReducedMotion();
-  if (reduced) return <div className={className}>{children}</div>;
+  const Tag = as;
+  const Motion = as === 'li' ? motion.li : motion.div;
+  if (reduced) return <Tag className={className}>{children}</Tag>;
 
   return (
-    <motion.div
+    <Motion
       className={className}
       variants={{
         hidden: { opacity: 0, y: 8 },
@@ -150,7 +173,7 @@ export function StaggerItem({ children, className }: { children: ReactNode; clas
       }}
     >
       {children}
-    </motion.div>
+    </Motion>
   );
 }
 

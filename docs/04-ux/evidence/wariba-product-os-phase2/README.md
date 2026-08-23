@@ -40,6 +40,20 @@ journal with no data, the no-account dashboard, the WariX gate.
 
 **Motion** — `50`: reduced motion.
 
+## Second pass — what the source prompt caught that the first pass missed
+
+| Gap | Fixed |
+|---|---|
+| §14 never answered "how much is available" | The payout panel now leads with the withdrawable excess, the buffer floor it sits above, the realised balance, and Performance Days |
+| §25 wanted loading and error states everywhere; only `/hub` had them | Shared `(platform)/loading.tsx` and `error.tsx` — a skeleton shaped like the pages, and a failure that keeps the shell so the trader's way out survives |
+| §11's card was missing consistency, sessions and last activity | Added, each dropped rather than zero-filled when the account has no closed session |
+| §8E asked for date-range presets on the dashboard chart | The read model caps at 14 snapshots, so a "90 jours" preset there would show 14 days and call it ninety. The chart states its window and links to `/performance`, which queries by date |
+| §33 listed route permissions, account filters and French state mapping as untested | All three now tested, plus axe on all eight new destinations |
+
+That last scan found a real structural bug: the account list wrapped each `<li>`
+in a motion `<div>`, so the `<ul>` had non-list children and the items had no list
+parent. `Stagger` and `StaggerItem` now take an `as` prop and the list stays a list.
+
 ## What is asserted, not eyeballed
 
 - every sidebar glyph measures 24-28px and every row clears 44px, in the collapsed rail;
@@ -51,7 +65,13 @@ journal with no data, the no-account dashboard, the WariX gate.
 - a breached account has no route into the terminal;
 - the identity gate contains no file input and never names a document;
 - the Plus sheet traps focus and returns it on Escape;
-- reduced motion leaves the hero at opacity 1 and the sidebar with `transition-property: none`.
+- reduced motion leaves the hero at opacity 1 and the sidebar with `transition-property: none`;
+- every Hub destination redirects an unauthenticated visitor **and carries where they
+  were going**, so signing in lands there rather than on the hub;
+- an unknown `?etat=` falls back to every account rather than to none — a filter nobody
+  chose must never hide a trader's accounts;
+- axe reports zero critical and zero serious violations on all eight new destinations;
+- the Plus sheet is `aria-modal`, takes focus on open and returns it on Escape.
 
 ## Fixtures
 

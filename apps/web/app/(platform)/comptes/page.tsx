@@ -108,19 +108,18 @@ export default async function AccountsPage({
           compact
         />
       ) : (
-        <Stagger>
-          {/* Two columns only when there is a second card to put in one. A
-              lone half-width card beside an empty half reads as a page that
-              failed to load the rest. */}
-          <ul
-            className={`grid list-none gap-4 p-0 ${visible.length > 1 ? 'xl:grid-cols-2' : 'max-w-3xl'}`}
-          >
-            {visible.map((item) => (
-              <StaggerItem key={item.account.id}>
-                <AccountCard item={item} />
-              </StaggerItem>
-            ))}
-          </ul>
+        /* Two columns only when there is a second card to put in one. A lone
+           half-width card beside an empty half reads as a page that failed to
+           load the rest. */
+        <Stagger
+          as="ul"
+          className={`grid list-none gap-4 p-0 ${visible.length > 1 ? 'xl:grid-cols-2' : 'max-w-3xl'}`}
+        >
+          {visible.map((item) => (
+            <StaggerItem key={item.account.id} as="li">
+              <AccountCard item={item} />
+            </StaggerItem>
+          ))}
         </Stagger>
       )}
     </div>

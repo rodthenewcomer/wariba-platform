@@ -465,6 +465,7 @@ export default async function HubPage({
             finalizedSessionCount={hubView.finalizedSessionCount}
             meaningful={hubView.balanceHistoryMeaningful}
             thresholds={thresholds}
+            performanceHref={`/performance?account=${activeAccount.id}`}
           />
         </StaggerItem>
 

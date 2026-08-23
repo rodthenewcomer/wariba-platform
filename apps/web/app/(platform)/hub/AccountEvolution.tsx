@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { BalancePoint } from '@wariba/application';
 import { productCopy } from '../../../lib/product-copy';
 import { EquityCurve, type EquityThreshold } from '../../../components/hub/charts/EquityCurve';
@@ -12,6 +13,8 @@ export interface AccountEvolutionProps {
   meaningful: boolean;
   /** The floor and the target, drawn on the curve. Real values only. */
   thresholds?: readonly EquityThreshold[];
+  /** Where the date-range presets live. */
+  performanceHref?: string;
 }
 
 /**
@@ -36,6 +39,7 @@ export function AccountEvolution({
   finalizedSessionCount,
   meaningful,
   thresholds = [],
+  performanceHref = '/performance',
 }: AccountEvolutionProps) {
   if (!meaningful) {
     return (
@@ -88,6 +92,24 @@ export function AccountEvolution({
       >
         {copy.evolution}
       </SurfaceTitle>
+      {/*
+       * The window is stated rather than made adjustable here.
+       *
+       * The dashboard read model caps the series at the last 14 snapshots, so
+       * a "90 jours" preset on this chart would silently show 14 days and call
+       * it ninety. The ranges live on /performance, which queries by date —
+       * so this says what it is showing and points at where to change it.
+       */}
+      <p className="mt-2 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
+        {finalizedSessionCount} dernière{finalizedSessionCount > 1 ? 's' : ''} journée
+        {finalizedSessionCount > 1 ? 's' : ''} clôturée{finalizedSessionCount > 1 ? 's' : ''} ·{' '}
+        <Link
+          href={performanceHref}
+          className="rounded-[4px] underline decoration-[color:var(--warix-border-strong)] underline-offset-4 transition-colors hover:text-[color:var(--wariba-text-secondary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)] motion-reduce:transition-none"
+        >
+          choisir une période
+        </Link>
+      </p>
       <div className="mt-4">
         <EquityCurve
           points={points.map((point) => ({ time: point.time, value: point.balance }))}

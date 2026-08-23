@@ -61,11 +61,10 @@ export function AccountCard({ item }: { item: AccountOverviewItem }) {
 
   return (
     <Surface
-      as="li"
       tone={lifecycle.state === 'breached' ? 'red' : 'default'}
       data-testid="account-card"
       data-lifecycle={lifecycle.state}
-      className="flex flex-col gap-4 p-5"
+      className="flex h-full flex-col gap-4 p-5"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
@@ -112,6 +111,18 @@ export function AccountCard({ item }: { item: AccountOverviewItem }) {
             </div>
           ) : null}
 
+          {/*
+           * The figures a trader compares across accounts.
+           *
+           * Consistency, sessions and last activity are here rather than only
+           * on the dashboard because comparing two accounts is exactly what
+           * this page is for — and "which of my three has stalled" cannot be
+           * answered without the last date.
+           *
+           * Rows with nothing behind them are dropped, never rendered as a
+           * zero: an account that has not closed a session has no consistency
+           * ratio, and "0 %" would be a claim it does.
+           */}
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[color:var(--warix-border-subtle)] pt-4 sm:grid-cols-3">
             {[
               { label: 'Solde', value: detail.balanceFormatted },
@@ -119,6 +130,15 @@ export function AccountCard({ item }: { item: AccountOverviewItem }) {
               // authoritative figure differently is worse than either name.
               { label: 'Perte quotidienne restante', value: detail.dailyLossRemainingFormatted },
               { label: 'Perte maximale restante', value: detail.maximumLossRemainingFormatted },
+              ...(detail.consistencyLabel
+                ? [{ label: 'Consistance', value: detail.consistencyLabel }]
+                : []),
+              ...(detail.tradingDays === null
+                ? []
+                : [{ label: 'Journées clôturées', value: String(detail.tradingDays) }]),
+              ...(detail.lastActivityLabel
+                ? [{ label: 'Dernière activité', value: detail.lastActivityLabel }]
+                : []),
             ].map((row) => (
               <div key={row.label}>
                 <dt className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">

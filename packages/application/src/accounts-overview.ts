@@ -32,6 +32,10 @@ export interface AccountOverviewDetail {
   progressPercent: number | null;
   objectiveDetail: string | null;
   consistencyLabel: string | null;
+  /** Closed sessions on this account. `null` when none have been recorded. */
+  tradingDays: number | null;
+  /** `21 août 2026` — the last day the account actually recorded a session. */
+  lastActivityLabel: string | null;
   hasViolation: boolean;
 }
 
@@ -94,11 +98,27 @@ export async function buildAccountsOverview(
 
       try {
         const now = new Date();
-        const [risk, mission] = await Promise.all([
+        const [risk, mission, sessions] = await Promise.all([
           buildAccountRiskView(db, { accountId: account.id, now }),
           account.programType === 'WARIBA_PERFORMANCE'
             ? buildAccountPerformanceMissionView(db, { accountId: account.id })
             : buildAccountMissionView(db, { accountId: account.id, now }),
+          /*
+           * Closed sessions, newest first.
+           *
+           * "Last activity" on a trading account means the last day it
+           * actually traded, not the last time a row was touched — an
+           * `updated_at` moves whenever a background job writes, which would
+           * tell a dormant trader they were active this morning.
+           */
+          db
+            .selectFrom('app.account_daily_snapshots')
+            .select(['trading_day'])
+            .where('account_id', '=', account.id)
+            .where('status', '=', 'finalized')
+            .orderBy('trading_day', 'desc')
+            .execute()
+            .catch(() => [] as { trading_day: string }[]),
         ]);
 
         const lifecycle = deriveAccountLifecycle({
@@ -130,6 +150,14 @@ export async function buildAccountsOverview(
             consistencyLabel: mission.available
               ? (mission.conditions.find((condition) => condition.label === 'Consistance')
                   ?.detail ?? null)
+              : null,
+            tradingDays: sessions.length > 0 ? sessions.length : null,
+            lastActivityLabel: sessions[0]
+              ? new Date(`${sessions[0].trading_day}T00:00:00.000Z`).toLocaleDateString('fr-FR', {
+                  day: '2-digit',
+                  month: 'long',
+                  year: 'numeric',
+                })
               : null,
             hasViolation: risk.violations.length > 0,
           },

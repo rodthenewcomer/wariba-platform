@@ -1,5 +1,6 @@
 import type { PayoutLifecycleView } from '@wariba/application';
 import { ActionLink } from '../../../components/hub/Action';
+import { ProgressBar } from '../../../components/motion/primitives';
 import { HubIcon } from '../../../components/hub/icons';
 import { StatusPill } from '../../../components/hub/StatusPill';
 import { Surface } from '../../../components/hub/Surface';
@@ -94,6 +95,62 @@ export function PayoutStatus({ payout }: { payout: PayoutLifecycleView }) {
           </ActionLink>
         ) : null}
       </div>
+
+      {/*
+       * How much is on the table.
+       *
+       * §14's third question, and the one a page that answers only "eligible /
+       * not eligible" leaves the trader to work out with a calculator. Only
+       * the excess above the permanent buffer is ever withdrawable — so the
+       * floor is stated beside the amount, and a trader still below it sees
+       * how far off they are rather than a bare zero.
+       */}
+      {payout.cycle ? (
+        <div
+          data-testid="payout-available"
+          className="rounded-[10px] border border-[color:var(--warix-border-subtle)] bg-[color:var(--warix-surface-raised)] p-4"
+        >
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <span className="text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase tracking-[var(--wariba-letter-spacing-wide)] text-[color:var(--wariba-text-tertiary)]">
+              Disponible pour payout
+            </span>
+            <span className="wariba-data text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
+              Cycle n°{payout.cycle.cycleNumber}
+            </span>
+          </div>
+
+          <p className="wariba-data mt-2 text-[26px] font-semibold leading-none tracking-[-0.02em] text-[color:var(--wariba-text-primary)]">
+            {payout.cycle.availableFormatted}
+          </p>
+
+          <ProgressBar
+            percent={payout.cycle.bufferProgressPercent}
+            label="Progression vers le plancher du buffer"
+            tone={payout.cycle.bufferProgressPercent >= 100 ? 'emerald' : 'indigo'}
+            className="mt-3"
+          />
+
+          <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
+            {[
+              { term: 'Solde éligible', value: payout.cycle.realizedBalanceFormatted },
+              { term: 'Plancher du buffer', value: payout.cycle.bufferFloorFormatted },
+              {
+                term: 'Performance Days',
+                value: `${payout.cycle.performanceDaysCompleted} / ${payout.cycle.performanceDaysRequired}`,
+              },
+            ].map((row) => (
+              <div key={row.term}>
+                <dt className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
+                  {row.term}
+                </dt>
+                <dd className="wariba-data mt-0.5 text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-text-primary)]">
+                  {row.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      ) : null}
 
       {/* The identity gate is stated even when it is not the blocker, so a
           trader knows it is coming rather than meeting it at the last step. */}

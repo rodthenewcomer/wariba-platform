@@ -481,3 +481,141 @@ test.describe('@phase2 accessibility and motion', () => {
     await shoot(page, '50-reduced-motion');
   });
 });
+
+test.describe('@phase2 route permissions', () => {
+  test('every Hub destination refuses an unauthenticated visitor and remembers where they were going', async ({
+    browser,
+  }) => {
+    test.setTimeout(300_000);
+    /*
+     * A fresh context, because the shared storage state signs the suite in.
+     * The point of this test is the *absence* of a session.
+     */
+    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    const page = await context.newPage();
+
+    try {
+      for (const path of [
+        '/hub',
+        '/comptes',
+        '/comptes/nouveau',
+        '/performance',
+        '/journal',
+        '/payouts',
+        '/facturation',
+        '/parametres',
+        '/verification-identite',
+      ]) {
+        await page.goto(path);
+        await expect(page, `${path} did not redirect`).toHaveURL(/\/login/);
+        /*
+         * And it carries the destination, so signing in lands where the trader
+         * was going rather than dropping them on the hub. `safeInternalPath`
+         * validates it server-side — this only asserts it was carried.
+         */
+        expect(new URL(page.url()).searchParams.get('next'), `${path} lost its destination`).toBe(
+          path,
+        );
+      }
+    } finally {
+      await context.close();
+    }
+  });
+});
+
+test.describe('@phase2 account filters', () => {
+  test('a filter is an address, and it actually filters', async ({ page, tradeAccount }) => {
+    test.setTimeout(600_000);
+    await page.setViewportSize(SIZES.desktop);
+    await signIn(page, tradeAccount);
+
+    await page.goto('/comptes');
+    await expect(page.getByTestId('account-card')).toHaveCount(1);
+
+    // The fixture account is an active evaluation, so it belongs to exactly
+    // one bucket and to none of the others.
+    await page.goto('/comptes?etat=evaluation');
+    await expect(page.getByTestId('account-card')).toHaveCount(1);
+    await expect(page.getByTestId('account-card')).toHaveAttribute('data-lifecycle', /evaluation_/);
+
+    for (const empty of ['funded', 'failed', 'closed', 'review']) {
+      await page.goto(`/comptes?etat=${empty}`);
+      await expect(page.getByTestId('account-card')).toHaveCount(0);
+      // An empty bucket says so rather than rendering a blank page.
+      await expect(page.getByTestId('hub-empty-state')).toBeVisible();
+    }
+
+    // An unknown value falls back to everything rather than to nothing —
+    // a filter nobody chose must never hide a trader's accounts.
+    await page.goto('/comptes?etat=nimportequoi');
+    await expect(page.getByTestId('account-card')).toHaveCount(1);
+  });
+});
+
+test.describe('@phase2 accessibility', () => {
+  test('every new destination is free of critical and serious violations', async ({
+    page,
+    tradeAccount,
+  }) => {
+    test.setTimeout(900_000);
+    await page.setViewportSize(SIZES.desktop);
+    await signIn(page, tradeAccount);
+
+    const AxeBuilder = (await import('@axe-core/playwright')).default;
+
+    for (const path of [
+      '/comptes',
+      '/comptes/nouveau',
+      '/performance',
+      '/journal',
+      '/payouts',
+      '/facturation',
+      '/parametres',
+      '/verification-identite',
+    ]) {
+      await page.goto(path);
+      await expect(page.getByTestId('hub-main')).toBeVisible();
+      /*
+       * After the entrance settles.
+       *
+       * The card stagger animates opacity from 0, and axe computes effective
+       * colour including it — a scan mid-animation reports the blend of the
+       * text against its own background as a contrast failure. What matters is
+       * the settled state, which is what a reader actually reads.
+       */
+      // Longer than the 220ms entrance plus its stagger. A blanket "every
+      // element is fully opaque" check cannot work: some elements are
+      // deliberately dimmed, like the unavailable programme card on the
+      // configurator.
+      await page.waitForTimeout(700);
+      const results = await new AxeBuilder({ page }).analyze();
+      const blocking = results.violations.filter(
+        (violation) => violation.impact === 'critical' || violation.impact === 'serious',
+      );
+      expect(blocking, `${path}: ${JSON.stringify(blocking, null, 2)}`).toHaveLength(0);
+    }
+  });
+
+  test('the mobile sheet is a real dialog', async ({ page, tradeAccount }) => {
+    test.setTimeout(600_000);
+    await page.setViewportSize(SIZES.mobile);
+    await signIn(page, tradeAccount);
+
+    const trigger = page.getByTestId('hub-mobile-more');
+    await trigger.click();
+    const sheet = page.getByTestId('bottom-sheet');
+    await expect(sheet).toHaveAttribute('aria-modal', 'true');
+
+    // Focus moves in, so a keyboard user is not left behind the backdrop.
+    const focusedInsideSheet = await page.evaluate(() => {
+      const dialog = document.querySelector('[data-testid="bottom-sheet"]');
+      return Boolean(dialog && document.activeElement && dialog.contains(document.activeElement));
+    });
+    expect(focusedInsideSheet).toBe(true);
+
+    await page.keyboard.press('Escape');
+    await expect(sheet).toBeHidden();
+    // ...and comes back to the control that opened it.
+    await expect(trigger).toBeFocused();
+  });
+});
