@@ -11,6 +11,13 @@ export const PACKAGE_NAME = '@wariba/test-utils';
 
 export { seedTradeAccount, type TradeAccountFixture } from './trade-account-fixture';
 export {
+  seedLifecycleFixture,
+  deleteLifecycleFixture,
+  type LifecycleFixture,
+  type LifecycleFixtureState,
+  type LifecycleFixtureEnvironment,
+} from './lifecycle-fixture';
+export {
   seedPayoutAccount,
   deletePayoutAccount,
   type PayoutAccountFixture,
@@ -22,6 +29,8 @@ export {
   createFixtureAccount,
   attachFixtureAccountToUser,
   deleteFixtureAccount,
+  createFixtureUserWithoutAccount,
+  deleteFixtureUser,
   type E2eFixtureAccount,
 } from './hub-account-fixture';
 export {
@@ -45,3 +54,9 @@ export {
   type Db,
   type StaffRole,
 } from '@wariba/database';
+
+export {
+  seedTradingRecord,
+  deleteTradingRecord,
+  type TradingRecordFixture,
+} from './trading-record-fixture';

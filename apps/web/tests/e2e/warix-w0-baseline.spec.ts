@@ -38,8 +38,8 @@ test.describe('WariX W0 baseline', { tag: ['@warix-baseline'] }, () => {
     mkdirSync(OUT_DIR, { recursive: true });
 
     await page.goto('/login');
-    await page.getByLabel('Adresse email').fill(tradeAccount.email);
-    await page.getByLabel('Mot de passe').fill(tradeAccount.password);
+    await page.getByLabel('Adresse e-mail').fill(tradeAccount.email);
+    await page.getByLabel('Mot de passe', { exact: true }).fill(tradeAccount.password);
     await page.getByRole('button', { name: 'Se connecter' }).click();
     await page.waitForURL('**/hub', { timeout: 30_000 });
 

@@ -1,5 +1,7 @@
 import { test as base, expect } from '@playwright/test';
 import {
+  seedLifecycleFixture,
+  deleteLifecycleFixture,
   seedTradeAccount,
   createFixtureDb,
   createFixtureAccount,
@@ -8,6 +10,13 @@ import {
   E2E_TEST_PASSWORD,
   type TradeAccountFixture,
   type E2eFixtureAccount,
+  type LifecycleFixture,
+  type LifecycleFixtureState,
+  seedTradingRecord,
+  deleteTradingRecord,
+  createFixtureUserWithoutAccount,
+  deleteFixtureUser,
+  type TradingRecordFixture,
 } from '@wariba/test-utils';
 
 export type TradeAccount = TradeAccountFixture;
@@ -18,7 +27,12 @@ export {
   attachFixtureAccountToUser,
   deleteFixtureAccount,
   E2E_TEST_PASSWORD,
+  seedTradingRecord,
+  deleteTradingRecord,
+  createFixtureUserWithoutAccount,
+  deleteFixtureUser,
   type E2eFixtureAccount,
+  type TradingRecordFixture,
 };
 
 /**
@@ -48,4 +62,35 @@ export const test = base.extend<{ tradeAccount: TradeAccount }>({
   },
 });
 
+/**
+ * An account posed in a named lifecycle state.
+ *
+ * Phase 2 §32. The Hub's composition changes by state — evaluation, review and
+ * funded are three different pages — so auditing them means being able to put
+ * an account into each on demand rather than waiting for a real trader to get
+ * there. Teardown runs in a `finally` so a failed assertion never leaves a
+ * synthetic user behind.
+ */
+export function lifecycleEnv() {
+  return {
+    databaseUrl: process.env.DATABASE_URL as string,
+    supabaseUrl: process.env.SUPABASE_URL as string,
+    supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
+  };
+}
+
+export async function withLifecycle<T>(
+  state: LifecycleFixtureState,
+  run: (fixture: LifecycleFixture) => Promise<T>,
+): Promise<T> {
+  const env = lifecycleEnv();
+  const fixture = await seedLifecycleFixture(env, state);
+  try {
+    return await run(fixture);
+  } finally {
+    await deleteLifecycleFixture(env, fixture);
+  }
+}
+
+export type { LifecycleFixture, LifecycleFixtureState };
 export { expect };

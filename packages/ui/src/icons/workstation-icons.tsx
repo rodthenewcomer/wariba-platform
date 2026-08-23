@@ -44,7 +44,7 @@ import {
 } from 'lucide-react';
 import { cx } from '../lib/cx';
 
-export type WorkstationIconSize = 'toolbar' | 'rail' | 'nav' | 'mobile';
+export type WorkstationIconSize = 'toolbar' | 'rail' | 'nav' | 'tab' | 'mobile';
 
 export interface WorkstationIconProps {
   size?: WorkstationIconSize;
@@ -57,6 +57,16 @@ const PIXELS: Record<WorkstationIconSize, number> = {
   toolbar: 18,
   rail: 28,
   nav: 28,
+  /*
+   * Phone bottom navigation.
+   *
+   * `mobile` at 30px was sized for a workstation drawer, where a glyph is the
+   * only thing in its row. In a five-item tab bar the glyph shares 70px of
+   * height with a label, and 30px crowds it until the label has to shrink
+   * below legibility to fit. 25px keeps both readable — and keeps the row's
+   * optical weight closer to the 24-26px every phone platform converged on.
+   */
+  tab: 25,
   mobile: 30,
 };
 

@@ -15,13 +15,20 @@ export interface HubBalanceChartProps {
 }
 
 /**
- * Real chart (lightweight-charts — the same library WariX uses), not a
- * static image: a filled area series of the account's realized daily
- * balance (account_daily_snapshots). Uses the Hub's general theme tokens,
- * light by default (Design System §28.1) — not WariX's always-dark chart
- * tokens, which would render a mismatched dark canvas here.
+ * The account's realised daily balance, drawn with the same library the
+ * workstation uses rather than shipped as an image.
+ *
+ * It reads the Hub's own material tokens at mount instead of the general
+ * light-first ones it used to: the shell runs the graphite ladder, and a
+ * chart painting `--wariba-background-surface` produced a panel a shade off
+ * from the module it sits inside.
+ *
+ * Whether this should render at all is not decided here. `AccountEvolution`
+ * asks the read model, because "is there enough history to be worth drawing"
+ * is a question about the data, and a chart component that quietly decides not
+ * to draw is a chart component that will one day quietly decide to.
  */
-export function HubBalanceChart({ points, height = 220 }: HubBalanceChartProps) {
+export function HubBalanceChart({ points, height = 240 }: HubBalanceChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Area'> | null>(null);
@@ -30,15 +37,17 @@ export function HubBalanceChart({ points, height = 220 }: HubBalanceChartProps) 
     const container = containerRef.current;
     if (!container) return;
 
-    const background = readToken(container, '--wariba-background-surface', '#FFFFFF');
-    const grid = readToken(container, '--wariba-border-subtle', '#E8DFD1');
-    const textSecondary = readToken(container, '--wariba-text-secondary', '#555E6E');
-    const lineColor = readToken(container, '--wariba-action-primary', '#3157F5');
+    const background = readToken(container, '--warix-panel', '#0D111A');
+    const grid = readToken(container, '--warix-border-subtle', '#272D3A');
+    const textSecondary = readToken(container, '--wariba-text-tertiary', '#9AA3B1');
+    const lineColor = readToken(container, '--warix-accent-cobalt', '#6684FF');
 
     const chart = createChart(container, {
       height,
       layout: { background: { color: background }, textColor: textSecondary },
-      grid: { vertLines: { color: grid }, horzLines: { color: grid } },
+      // Horizontal rules only. Vertical grid lines on a daily balance series
+      // add ink without adding a reading — the dates are already on the axis.
+      grid: { vertLines: { visible: false }, horzLines: { color: grid } },
       timeScale: { borderColor: grid },
       rightPriceScale: { borderColor: grid },
     });
@@ -71,13 +80,9 @@ export function HubBalanceChart({ points, height = 220 }: HubBalanceChartProps) 
     seriesRef.current?.setData(points.map((point) => ({ time: point.time, value: point.balance })));
   }, [points]);
 
-  if (points.length === 0) {
-    return (
-      <p className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
-        L’historique apparaîtra après votre première journée de trading.
-      </p>
-    );
-  }
+  // Defensive only: `AccountEvolution` already refuses to mount this without
+  // a series worth drawing.
+  if (points.length === 0) return null;
 
   return <div ref={containerRef} className="w-full" />;
 }

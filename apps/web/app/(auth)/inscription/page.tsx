@@ -1,69 +1,80 @@
 'use client';
 
-import { useActionState } from 'react';
-import Link from 'next/link';
-import { Alert, Button, Card, Input, Select, Text } from '@wariba/ui';
+import { Suspense, useActionState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Button, Input } from '@wariba/ui';
+import { AuthFooterLink, AuthShell } from '../AuthShell';
+import { AuthNotice } from '../AuthNotice';
+import { PasswordField } from '../PasswordField';
+import { CountryField } from '../CountryField';
+import { productCopy } from '../../../lib/product-copy';
 import { signUpAction, type ActionResult } from '../actions';
 
+const copy = productCopy.auth.signup;
 const initialState: ActionResult = {};
 
-export default function SignupPage() {
+function SignupForm() {
   const [state, formAction, pending] = useActionState(signUpAction, initialState);
+  const searchParams = useSearchParams();
+  /*
+   * A visitor who picked an offer and then discovered they needed an account
+   * should land back on that offer, not on a generic hub. The value is carried
+   * as a hidden field and validated server-side; anything unsafe falls back.
+   */
+  const returnTo = searchParams.get('returnTo') ?? searchParams.get('next') ?? '';
 
   return (
-    <main>
-      <Card padding="comfortable" className="flex flex-col gap-6">
-        <div className="flex flex-col gap-1">
-          <Text as="h1" variant="heading-lg">
-            Créer un compte
-          </Text>
-          <Text variant="body-sm" color="secondary">
-            Quelques informations, puis choisissez votre évaluation.
-          </Text>
+    <AuthShell
+      title={copy.title}
+      subtitle={copy.subtitle}
+      footer={<AuthFooterLink prompt={copy.haveAccount} href="/login" label={copy.signIn} />}
+    >
+      <form action={formAction} className="flex flex-col gap-5">
+        <input type="hidden" name="returnTo" value={returnTo} />
+        <input type="hidden" name="language" value="fr" />
+
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <Input label={copy.firstName} name="firstName" autoComplete="given-name" required />
+          <Input label={copy.lastName} name="lastName" autoComplete="family-name" required />
         </div>
 
-        <form action={formAction} className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Prénom" name="firstName" autoComplete="given-name" required />
-            <Input label="Nom" name="lastName" autoComplete="family-name" required />
-          </div>
-          <Input label="Adresse email" type="email" name="email" autoComplete="email" required />
-          <Input
-            label="Mot de passe"
-            type="password"
-            name="password"
-            autoComplete="new-password"
-            helperText="Au moins 12 caractères."
-            required
-          />
-          <Select label="Pays" name="country" defaultValue="CI" required>
-            <option value="CI">Côte d&apos;Ivoire</option>
-            <option value="SN">Sénégal</option>
-            <option value="ML">Mali</option>
-            <option value="BF">Burkina Faso</option>
-            <option value="TG">Togo</option>
-            <option value="BJ">Bénin</option>
-          </Select>
-          <input type="hidden" name="language" value="fr" />
+        <Input
+          label={copy.email}
+          type="email"
+          name="email"
+          autoComplete="email"
+          inputMode="email"
+          required
+        />
 
-          {state.error && (
-            <Alert level="danger" title="Impossible de continuer">
-              {state.error}
-            </Alert>
-          )}
+        <CountryField />
 
-          <Button type="submit" size="lg" loading={pending} className="w-full">
-            Créer mon compte
-          </Button>
-        </form>
+        <PasswordField
+          label={copy.password}
+          name="password"
+          autoComplete="new-password"
+          helperText={copy.passwordHint}
+          required
+        />
 
-        <Text variant="body-sm" color="secondary">
-          Déjà un compte ?{' '}
-          <Link href="/login" className="underline">
-            Se connecter
-          </Link>
-        </Text>
-      </Card>
-    </main>
+        {state.error ? <AuthNotice title={copy.errorTitle}>{state.error}</AuthNotice> : null}
+
+        <Button type="submit" size="lg" loading={pending} className="w-full">
+          {pending ? copy.submitting : copy.submit}
+        </Button>
+      </form>
+    </AuthShell>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-dvh" aria-label="Chargement de l’inscription" role="status" />
+      }
+    >
+      <SignupForm />
+    </Suspense>
   );
 }

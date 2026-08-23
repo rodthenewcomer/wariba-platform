@@ -2,71 +2,85 @@
 
 import { Suspense, useActionState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { Alert, Button, Card, Input, Text } from '@wariba/ui';
+import { Button, Input } from '@wariba/ui';
+import { AuthFooterLink, AuthShell } from '../AuthShell';
+import { AuthNotice } from '../AuthNotice';
+import { PasswordField } from '../PasswordField';
+import { productCopy } from '../../../lib/product-copy';
 import { signInAction, type ActionResult } from '../actions';
 
+const copy = productCopy.auth.login;
 const initialState: ActionResult = {};
 
 function LoginForm() {
   const [state, formAction, pending] = useActionState(signInAction, initialState);
   const searchParams = useSearchParams();
+  /*
+   * Carried through the form rather than read again after submit: the value is
+   * validated server-side by `safeInternalPath`, and a hidden field keeps the
+   * intent attached to the submission instead of depending on the URL
+   * surviving a redirect. An unsafe value falls back to /hub there.
+   */
+  const next = searchParams.get('next') ?? searchParams.get('returnTo') ?? '';
+  const expired = searchParams.get('raison') === 'session-expiree';
 
   return (
-    <main>
-      <Card padding="comfortable" className="flex flex-col gap-6">
-        <div className="flex flex-col gap-1">
-          <Text as="h1" variant="heading-lg">
-            Connexion
-          </Text>
-          <Text variant="body-sm" color="secondary">
-            Accédez à votre compte WARIBA.
-          </Text>
-        </div>
+    <AuthShell
+      title={copy.title}
+      subtitle={copy.subtitle}
+      footer={
+        <AuthFooterLink prompt={copy.noAccount} href="/inscription" label={copy.createAccount} />
+      }
+    >
+      <form action={formAction} className="flex flex-col gap-5">
+        <input type="hidden" name="next" value={next} />
 
-        <form action={formAction} className="flex flex-col gap-4">
-          <input type="hidden" name="next" value={searchParams.get('next') ?? '/hub'} />
-          <Input label="Adresse email" type="email" name="email" autoComplete="email" required />
-          <Input
-            label="Mot de passe"
-            type="password"
+        {expired ? (
+          <AuthNotice tone="information" title={productCopy.auth.sessionExpired.title}>
+            {productCopy.auth.sessionExpired.body}
+          </AuthNotice>
+        ) : null}
+
+        <Input
+          label={copy.email}
+          type="email"
+          name="email"
+          autoComplete="email"
+          inputMode="email"
+          required
+        />
+
+        <div className="flex flex-col gap-2">
+          <PasswordField
+            label={copy.password}
             name="password"
             autoComplete="current-password"
             required
           />
-
-          {state.error && (
-            <Alert level="danger" title="Connexion impossible">
-              {state.error}
-            </Alert>
-          )}
-
-          <Button type="submit" size="lg" loading={pending} className="w-full">
-            Se connecter
-          </Button>
-        </form>
-
-        <div className="flex flex-col gap-2">
-          <Text variant="body-sm" color="secondary">
-            Pas encore de compte ?{' '}
-            <Link href="/inscription" className="underline">
-              Créer un compte
-            </Link>
-          </Text>
-          <Text variant="body-sm" color="secondary">
-            <Link href="/mot-de-passe-oublie" className="underline">
-              Mot de passe oublié ?
-            </Link>
-          </Text>
+          <div className="flex justify-end">
+            <AuthFooterLink href="/mot-de-passe-oublie" label={copy.forgot} />
+          </div>
         </div>
-      </Card>
-    </main>
+
+        {state.error ? (
+          /* One message for a wrong address and a wrong password alike — see
+             the note on `productCopy.auth.login.invalidCredentials`. */
+          <AuthNotice title={copy.errorTitle}>{state.error}</AuthNotice>
+        ) : null}
+
+        <Button type="submit" size="lg" loading={pending} className="w-full">
+          {pending ? copy.submitting : copy.submit}
+        </Button>
+      </form>
+    </AuthShell>
   );
 }
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-96" aria-label="Chargement de la connexion" />}>
+    <Suspense
+      fallback={<div className="min-h-dvh" aria-label="Chargement de la connexion" role="status" />}
+    >
       <LoginForm />
     </Suspense>
   );

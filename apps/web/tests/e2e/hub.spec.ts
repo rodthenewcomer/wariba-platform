@@ -28,20 +28,46 @@ test.describe('Trader Hub', { tag: ['@auth'] }, () => {
       expect(Date.now() - start).toBeLessThan(10000);
 
       await expect(page.getByText(/objectif de profit/i).first()).toBeVisible();
-      await expect(page.getByText(/DLL restante/)).toBeVisible();
-      await expect(page.getByRole('link', { name: 'Ouvrir WariX' })).toBeVisible();
+      /*
+       * "DLL restante" became "Perte quotidienne restante" in Phase 2 — the
+       * same authoritative figure, in French a trader does not have to expand
+       * an acronym to read. The assertion follows the label.
+       */
+      await expect(page.getByText(/Perte quotidienne restante/).first()).toBeVisible();
+      // Legitimately more than one: the hero's primary and the sticky header's
+      // convenience copy of it.
+      await expect(page.getByTestId('hub-next-action')).toBeVisible();
 
       await expect(page.getByText(/Activé le/)).toBeVisible();
       await expect(page.getByText(/Répartition après passage/)).toBeVisible();
       await expect(page.getByText('Positions ouvertes')).toBeVisible();
       await expect(page.getByText('Aucune position ouverte.')).toBeVisible();
 
-      // The balance chart is a canvas rendered by lightweight-charts inside the
-      // container div — assert it actually painted, not just that a wrapper exists.
-      const chartCanvas = page.locator('canvas').first();
-      await expect(chartCanvas).toBeVisible();
-      const canvasBox = await chartCanvas.boundingBox();
-      expect(canvasBox?.width).toBeGreaterThan(0);
+      /*
+       * The account evolution is a chart only when the read model says the
+       * series is worth drawing (Product OS 1.1 §4). This used to assert a
+       * canvas unconditionally, which is what kept a 220px auto-scaled flat
+       * line — axis reading 9 999,95 / 10 000,00 / 10 000,05 — on the
+       * dashboard of an account that had never traded.
+       *
+       * What is asserted now is the rule rather than one of its outcomes:
+       * exactly one of chart / stated-absence renders, never both, never
+       * neither, and a chart that does render has genuinely painted.
+       */
+      const drawn = await page.getByTestId('account-evolution').count();
+      const stated = await page.getByTestId('account-evolution-empty').count();
+      expect(drawn + stated).toBe(1);
+
+      if (drawn === 1) {
+        const chartCanvas = page.locator('canvas').first();
+        await expect(chartCanvas).toBeVisible();
+        const canvasBox = await chartCanvas.boundingBox();
+        expect(canvasBox?.width).toBeGreaterThan(0);
+      } else {
+        await expect(page.getByTestId('account-evolution-empty')).toContainText(
+          /Aucune session terminée pour le moment\.|Pas encore assez d’historique/,
+        );
+      }
 
       await page.screenshot({ path: 'test-results/visual/hub-active-1440.png', fullPage: true });
 
@@ -159,16 +185,25 @@ test.describe('Trader Hub', { tag: ['@auth'] }, () => {
         // soft-locked account already and pass while switching nothing.
         const primary = loadPrimaryFixture();
         await page.goto(`/hub?account=${primary.accountId}`);
-        const selector = page.getByRole('navigation', { name: 'Changer de compte' });
-        await expect(selector.getByRole('link')).toHaveCount(2);
+        /*
+         * The stacked list became a switcher control in Phase 2: with three
+         * accounts the old list pushed the hero below the fold, which is the
+         * opposite of what a switcher is for. It opens on click and still
+         * navigates with a plain anchor (UX-NAV-001).
+         */
+        const switcher = page.getByTestId('account-switcher');
+        await expect(switcher).toBeVisible();
         // The primary is active, so WariX is reachable from it — this is the
         // "before" half of the isolation assertion below.
-        await expect(page.getByRole('link', { name: 'Ouvrir WariX' })).toHaveCount(1);
+        await expect(page.getByTestId('hub-next-action')).toHaveAttribute('href', '/trade');
 
-        // Switch through the real control a trader uses. Accounts are
-        // targeted by id rather than by status label so the two can never be
-        // confused for one another.
-        const softLockedLink = selector.locator(`a[href="/hub?account=${secondary.accountId}"]`);
+        await switcher.click();
+        const menu = page.getByTestId('account-switcher-menu');
+        await expect(menu.getByRole('menuitem')).toHaveCount(2);
+
+        // Accounts are targeted by id rather than by status label so the two
+        // can never be confused for one another.
+        const softLockedLink = menu.locator(`a[href="/hub?account=${secondary.accountId}"]`);
         await expect(softLockedLink).toContainText('Blocage temporaire');
         await softLockedLink.click();
 
@@ -176,8 +211,16 @@ test.describe('Trader Hub', { tag: ['@auth'] }, () => {
         // Soft-locked account: its own status, its own risk, its own -160 PnL
         // — and none of the primary's.
         await expect(page.getByText('Blocage temporaire').first()).toBeVisible();
-        await expect(page.getByText('PnL du jour : -160 USD')).toBeVisible();
-        await expect(page.getByRole('link', { name: 'Ouvrir WariX' })).toHaveCount(0);
+        /*
+         * The figure lives in the hero's risk row since Phase 2 — the health
+         * panel stopped repeating three numbers the hero already carried. The
+         * fact asserted is unchanged: this account's P&L, not the primary's.
+         */
+        await expect(page.getByTestId('account-hero')).toContainText('-160 USD');
+        // A soft-locked account cannot be traded, so nothing routes into the
+        // terminal from it.
+        await expect(page.getByTestId('hub-next-action')).toHaveCount(0);
+        await expect(page.getByTestId('header-open-warix')).toHaveCount(0);
         await page.screenshot({
           path: 'test-results/visual/hub-soft-locked-1440.png',
           fullPage: true,
@@ -185,13 +228,16 @@ test.describe('Trader Hub', { tag: ['@auth'] }, () => {
 
         // ...and back again, through the switcher, to prove the switch is
         // not one-way and that account A's state returns intact.
-        const primaryLink = selector.locator(`a[href="/hub?account=${primary.accountId}"]`);
-        await expect(primaryLink).toContainText('Actif');
+        await page.getByTestId('account-switcher').click();
+        const primaryLink = page
+          .getByTestId('account-switcher-menu')
+          .locator(`a[href="/hub?account=${primary.accountId}"]`);
+        await expect(primaryLink).toContainText('Compte actif');
         await primaryLink.click();
 
         await expect(page).toHaveURL(new RegExp(`account=${primary.accountId}`));
-        await expect(page.getByRole('link', { name: 'Ouvrir WariX' })).toHaveCount(1);
-        await expect(page.getByText('PnL du jour : -160 USD')).toHaveCount(0);
+        await expect(page.getByTestId('hub-next-action')).toHaveAttribute('href', '/trade');
+        await expect(page.getByTestId('account-hero')).not.toContainText('-160 USD');
       },
     );
   });

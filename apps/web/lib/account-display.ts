@@ -1,4 +1,16 @@
-import type { AccountSummaryDTO } from '@wariba/application';
+/*
+ * The pure subpath, not the barrel.
+ *
+ * This module is imported by client components — the WariX header, the account
+ * switcher — and `@wariba/application`'s main entry re-exports read models that
+ * import `pg`. Reaching the labels through it put a Postgres driver in the
+ * browser bundle and broke the build on `Can't resolve 'fs'`.
+ */
+import {
+  ACCOUNT_STATUS_LABEL,
+  accountStatusLabel,
+  type AccountSummaryDTO,
+} from '@wariba/application/presentation';
 
 export type AccountProgramType = AccountSummaryDTO['programType'];
 export type AccountStatusVariant = 'neutral' | 'information' | 'success' | 'warning' | 'danger';
@@ -37,17 +49,15 @@ export function programPhaseLabel(programType: AccountProgramType): string {
  * Lightweight labels for the account list/selector — the raw 8-value DB
  * status, not the fuller risk-derived HubDisplayState (that would mean
  * running the risk engine for every account just to render the switcher).
+ *
+ * Re-exported rather than redeclared. The same eight strings were also needed
+ * by the recent-activity read model, which is on the far side of the package
+ * boundary and could not import them from here — so the canonical copy moved
+ * to `@wariba/application` and this stays the name the web app has always
+ * imported. A third literal copy is how the activity feed came to be the one
+ * surface still rendering `pending_activation` at a person.
  */
-export const ACCOUNT_STATUS_LABEL: Record<string, string> = {
-  pending_activation: 'Activation en attente',
-  active: 'Actif',
-  soft_locked: 'Blocage temporaire',
-  pass_pending: 'Passage en attente',
-  inactive: 'Inactif',
-  passed: 'Objectif validé',
-  breached: 'Limite maximale dépassée',
-  closed: 'Compte terminé',
-};
+export { ACCOUNT_STATUS_LABEL };
 
 export const ACCOUNT_STATUS_VARIANT: Record<string, AccountStatusVariant> = {
   pending_activation: 'neutral',
@@ -60,9 +70,7 @@ export const ACCOUNT_STATUS_VARIANT: Record<string, AccountStatusVariant> = {
   closed: 'neutral',
 };
 
-export function accountStatusLabel(status: string): string {
-  return ACCOUNT_STATUS_LABEL[status] ?? status;
-}
+export { accountStatusLabel };
 
 export function accountStatusVariant(status: string): AccountStatusVariant {
   return ACCOUNT_STATUS_VARIANT[status] ?? 'neutral';

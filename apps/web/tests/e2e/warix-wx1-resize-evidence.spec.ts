@@ -16,8 +16,8 @@ const CHART_MARKER = 'wx1-resize-closure-chart';
 
 async function signIn(page: Page, email: string, password: string): Promise<void> {
   await page.goto('/login');
-  await page.getByLabel('Adresse email').fill(email);
-  await page.getByLabel('Mot de passe').fill(password);
+  await page.getByLabel('Adresse e-mail').fill(email);
+  await page.getByLabel('Mot de passe', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Se connecter' }).click();
   await page.waitForURL(/\/hub(?:\?.*)?$/, { timeout: 30_000, waitUntil: 'commit' });
   await page.getByRole('link', { name: 'Ouvrir WariX' }).waitFor({ state: 'visible' });

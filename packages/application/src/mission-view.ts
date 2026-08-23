@@ -38,6 +38,22 @@ export interface AccountMissionView {
   conditions: AccountMissionCondition[];
   nextAction: AccountMissionNextAction | null;
   consistency: AccountConsistencyView | null;
+  /**
+   * The objective's raw figures.
+   *
+   * Added in Phase 2 so the equity curve can draw the profit target as a line
+   * on the balance axis. Reconstructing it by parsing "1 000 USD" out of the
+   * condition's display string would put a number the risk engine owns behind
+   * a locale-dependent regex.
+   */
+  amounts: {
+    /** Realised net profit so far. */
+    realizedNetProfit: string;
+    /** Profit required to pass. */
+    targetRequired: string;
+    /** Balance at which the objective is met: nominal + required. */
+    targetBalance: string;
+  };
 }
 
 export interface AccountMissionUnavailable {
@@ -205,9 +221,16 @@ export function projectAccountMissionView(inputs: AccountRiskEngineInputs): Acco
     }
   }
 
+  const targetBalance = new Decimal(inputs.nominalBalance).plus(result.target.required).toFixed(2);
+
   return {
     available: true,
     variant: 'evaluation',
+    amounts: {
+      realizedNetProfit: result.realizedNetProfit,
+      targetRequired: result.target.required,
+      targetBalance,
+    },
     state: toMissionState(hubState),
     title:
       hubState === 'passed'

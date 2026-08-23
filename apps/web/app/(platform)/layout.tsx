@@ -1,50 +1,26 @@
-'use client';
-
-import {
-  AccountsIcon,
-  HubIcon,
-  MobileBottomNav,
-  MoreIcon,
-  PayoutsIcon,
-  PlatformSidebar,
-  TradeIcon,
-} from '@wariba/ui';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { createSupabaseServerClient } from '../../lib/supabase/server';
+import { resolveHubIdentity } from '../../lib/hub-identity';
+import { HubShell } from './HubShell';
 
-const ITEMS = [
-  { href: '/hub', label: 'Hub', icon: <HubIcon size="sm" /> },
-  { href: '/trade', label: 'Trade', icon: <TradeIcon size="sm" /> },
-  { href: '/comptes', label: 'Comptes', icon: <AccountsIcon size="sm" /> },
-  { href: '/payouts', label: 'Payouts', icon: <PayoutsIcon size="sm" /> },
-] as const;
+/**
+ * Server layout for the Trader Hub.
+ *
+ * It exists as a server component only to read the signed-in identity once, so
+ * the shell can show who is signed in without shipping a profile fetch to the
+ * browser. Everything interactive — collapse state, the user menu, active
+ * navigation — belongs to `HubShell` on the client.
+ *
+ * The e-mail address is deliberately not passed down. It used to be, so the
+ * avatar could slice two characters out of it; `resolveHubIdentity` refuses to
+ * do that, and not handing the address to a client component means it cannot
+ * be reintroduced by accident.
+ */
+export default async function PlatformLayout({ children }: { children: ReactNode }) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-const MOBILE_ITEMS = [
-  ...ITEMS,
-  { href: '/plus', label: 'Plus', icon: <MoreIcon size="sm" /> },
-] as const;
-
-export default function PlatformLayout({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
-  return (
-    <div
-      data-wariba-section="platform"
-      className="flex min-h-dvh bg-[color:var(--wariba-background-canvas)]"
-    >
-      <PlatformSidebar LinkComponent={Link} currentPath={pathname} items={[...ITEMS]} />
-      {/*
-       * `min-w-0` is load-bearing, not cosmetic: a flex item defaults to
-       * `min-width: auto`, so <main> refuses to shrink below the intrinsic
-       * width of its widest descendant. At the 320px minimum supported
-       * width (UX Architecture §12.2) that pushed <main> to 324px and gave
-       * the whole document a horizontal scrollbar on first paint. With
-       * `min-w-0` the column tracks the viewport and any genuinely wide
-       * child (table, chart) scrolls inside its own container instead of
-       * dragging the page sideways.
-       */}
-      <main className="min-w-0 flex-1 px-4 pb-24 pt-6 sm:px-6 md:pb-6">{children}</main>
-      <MobileBottomNav LinkComponent={Link} currentPath={pathname} items={[...MOBILE_ITEMS]} />
-    </div>
-  );
+  return <HubShell identity={resolveHubIdentity(user?.user_metadata ?? null)}>{children}</HubShell>;
 }

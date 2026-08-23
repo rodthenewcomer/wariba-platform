@@ -2,15 +2,20 @@
   "name": "@wariba/application",
   "version": "0.0.0",
   "private": true,
-  "description": "Application layer — use-cases that orchestrate domain logic and infrastructure (packages/database, packages/adapters) behind DTOs. apps/web (presentation) depends on this instead of @wariba/database directly (AGENTS.md §7.1).",
+  "description": "Application layer \u2014 use-cases that orchestrate domain logic and infrastructure (packages/database, packages/adapters) behind DTOs. apps/web (presentation) depends on this instead of @wariba/database directly (AGENTS.md \u00a77.1).",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./presentation": "./src/presentation.ts"
+  },
   "scripts": {
     "lint": "eslint --config ../../eslint.config.mjs .",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run --exclude 'tests/*.integration.test.ts'",
-    "test:integration": "vitest run --testTimeout=15000 tests/*.integration.test.ts --no-file-parallelism"
+    "test:integration": "vitest run --testTimeout=15000 tests/*.integration.test.ts --no-file-parallelism",
+    "seed:phase25": "tsx scripts/seed-phase25-evidence.ts"
   },
   "dependencies": {
     "@wariba/adapters": "workspace:*",
@@ -21,7 +26,9 @@
     "decimal.js": "^10.4.3"
   },
   "devDependencies": {
+    "@wariba/test-utils": "workspace:*",
     "kysely": "^0.28.17",
+    "tsx": "^4.23.1",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   }

@@ -12,7 +12,9 @@
     "test:unit": "vitest run"
   },
   "dependencies": {
-    "@wariba/database": "workspace:*"
+    "@wariba/database": "workspace:*",
+    "@wariba/domain": "workspace:*",
+    "decimal.js": "^10.4.3"
   },
   "devDependencies": {
     "typescript": "^5.7.2",

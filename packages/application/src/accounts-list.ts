@@ -10,6 +10,17 @@ export interface AccountSummaryDTO {
   policyVersion: string;
   policyStatus: 'published' | 'retired';
   createdAt: string;
+  /**
+   * Whether identity verification has been recorded for this account.
+   *
+   * Sandbox-only and staff-set (see `trading_accounts.kyc_sandbox_verified`).
+   * Carried on the summary so the Hub can render the payout gate without a
+   * second query per account — the flag is a boolean the trader is entitled to
+   * see, never a document or an identity detail.
+   */
+  kycSandboxVerified: boolean;
+  /** Whether a payout destination has been recorded. Same sandbox caveat. */
+  payoutMethodConfigured: boolean;
 }
 
 export interface ListAccountsForUserParams {
@@ -53,6 +64,8 @@ export async function listAccountsForUser(
       'app.trading_accounts.currency',
       'app.trading_accounts.status',
       'app.trading_accounts.created_at',
+      'app.trading_accounts.kyc_sandbox_verified',
+      'app.trading_accounts.payout_method_sandbox_configured',
       'app.policy_versions.semantic_version as policyVersion',
       'app.policy_versions.status as policyStatus',
     ])
@@ -74,6 +87,8 @@ export async function listAccountsForUser(
       policyVersion: row.policyVersion,
       policyStatus: row.policyStatus,
       createdAt: row.created_at.toISOString(),
+      kycSandboxVerified: row.kyc_sandbox_verified,
+      payoutMethodConfigured: row.payout_method_sandbox_configured,
     };
   });
 

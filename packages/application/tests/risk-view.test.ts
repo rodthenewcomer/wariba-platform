@@ -92,3 +92,88 @@ describe('projectAccountRiskView — dailyLossRemainingFormatted', () => {
     expect(view.dailyLossRemainingFormatted).toBe('0 USD');
   });
 });
+
+/**
+ * Phase 2.5 §12 — the risk bars are driven by these ratios, and §12 requires
+ * they come from authoritative raw values rather than a parse of a display
+ * string. The numbers are therefore projected once, here, and asserted.
+ */
+describe('projectAccountRiskView — room ratios (§12)', () => {
+  const untouched = buildInputs({
+    reference: '10000.00',
+    floor: '9700.00',
+    used: '0.00',
+    softLockTriggered: false,
+  });
+
+  it('reports a full daily budget as 100 %', () => {
+    expect(projectAccountRiskView(untouched).room.dailyRemainingPercent).toBe(100);
+  });
+
+  it('reports a half-consumed daily budget as 50 %', () => {
+    const view = projectAccountRiskView(
+      buildInputs({
+        reference: '10000.00',
+        floor: '9700.00',
+        used: '150.00',
+        softLockTriggered: false,
+      }),
+    );
+    // budget = 10000 - 9700 = 300; remaining = 150; 150/300 = 50 %.
+    expect(view.room.dailyRemainingPercent).toBe(50);
+  });
+
+  it('clamps a fully consumed budget to 0 rather than going negative', () => {
+    const view = projectAccountRiskView(
+      buildInputs({
+        reference: '10000.00',
+        floor: '9700.00',
+        used: '450.00',
+        softLockTriggered: true,
+      }),
+    );
+    expect(view.room.dailyRemainingPercent).toBe(0);
+  });
+
+  it('names the binding constraint — the one that stops the trader first', () => {
+    // maximumLoss.remaining is 680 of a 800 budget (85 %); daily is 300/300.
+    expect(projectAccountRiskView(untouched).room.binding).toBe('maximum');
+  });
+
+  it('agrees with the formatted figures it sits beside', () => {
+    const view = projectAccountRiskView(untouched);
+    // A bar reading 100 % beside a label reading "0 USD restant" is the exact
+    // disagreement projecting the ratio once is meant to prevent.
+    expect(view.amounts.dailyLossRemaining).toBe('300.00');
+    expect(view.room.dailyRemainingPercent).toBe(100);
+  });
+});
+
+/**
+ * Phase 2.5 §13 — a countdown is only permitted because the boundary is real.
+ */
+describe('projectAccountRiskView — nextResetAt (§13)', () => {
+  const inputs = buildInputs({
+    reference: '10000.00',
+    floor: '9700.00',
+    used: '0.00',
+    softLockTriggered: false,
+  });
+
+  it('exposes the next UTC midnight as a machine-readable instant', () => {
+    const view = projectAccountRiskView(inputs, new Date('2026-08-23T14:31:58.000Z'));
+    expect(view.nextResetAt).toBe('2026-08-24T00:00:00.000Z');
+  });
+
+  it('keeps the human label consistent with the instant', () => {
+    const view = projectAccountRiskView(inputs, new Date('2026-08-23T14:31:58.000Z'));
+    expect(view.nextResetLabel).toBe('00:00 UTC');
+    expect(new Date(view.nextResetAt).getUTCHours()).toBe(0);
+  });
+
+  it('is a pure function of the instant it is given', () => {
+    const a = projectAccountRiskView(inputs, new Date('2026-08-23T10:00:00.000Z'));
+    const b = projectAccountRiskView(inputs, new Date('2026-08-23T10:00:00.000Z'));
+    expect(a.nextResetAt).toBe(b.nextResetAt);
+  });
+});

@@ -7,6 +7,8 @@ import { createUserProfile } from '@wariba/application';
 import { createSupabaseServerClient } from '../../lib/supabase/server';
 import { getDb } from '../../lib/db';
 import { safeInternalPath } from '../../lib/navigation';
+import { productCopy } from '../../lib/product-copy';
+import { resolveSupportedCountry } from '../../lib/supported-countries';
 
 const logger = createLogger({ service: 'web', module: 'auth.actions' });
 
@@ -30,12 +32,24 @@ export async function signUpAction(
   _prevState: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  /*
+   * The country is checked against the offered set here, not trusted from the
+   * form: a `<select>` constrains a browser and not an HTTP client. A code
+   * WARIBA does not offer fails the submission rather than being replaced by a
+   * default — silently substituting one is exactly the behaviour that made the
+   * old hidden `country=CI` a lie about where someone lives.
+   */
+  const country = resolveSupportedCountry(formData.get('country'));
+  if (country === null) {
+    return { error: productCopy.auth.signup.countryMissing };
+  }
+
   const parsed = signupSchema.safeParse({
     email: formData.get('email'),
     password: formData.get('password'),
     firstName: formData.get('firstName'),
     lastName: formData.get('lastName'),
-    country: formData.get('country'),
+    country,
     language: formData.get('language') ?? 'fr',
   });
 
@@ -80,7 +94,15 @@ export async function signUpAction(
   }
 
   logger.info('signup.completed', { userId: data.user.id });
-  redirect('/offres');
+  /*
+   * A visitor who chose an offer and was sent here to create an account should
+   * return to that offer, not to the catalogue they already left. `/offres`
+   * stays the fallback for someone who signed up without a purchase intent,
+   * and `safeInternalPath` rejects anything that is not an internal route —
+   * so an attacker-supplied `returnTo` cannot turn signup into an open
+   * redirect.
+   */
+  redirect(safeInternalPath(formData.get('returnTo'), '/offres'));
 }
 
 export async function signInAction(
@@ -92,13 +114,13 @@ export async function signInAction(
     password: formData.get('password'),
   });
   if (!parsed.success) {
-    return { error: 'Adresse email ou mot de passe invalide.' };
+    return { error: productCopy.auth.login.invalidCredentials };
   }
 
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) {
-    return { error: 'Adresse email ou mot de passe incorrect.' };
+    return { error: productCopy.auth.login.invalidCredentials };
   }
 
   redirect(safeInternalPath(formData.get('next')));
@@ -116,7 +138,7 @@ export async function requestPasswordResetAction(
 ): Promise<PasswordResetActionResult> {
   const parsed = passwordResetRequestSchema.safeParse({ email: formData.get('email') });
   if (!parsed.success) {
-    return { error: 'Adresse email invalide.' };
+    return { error: 'Adresse e-mail invalide.' };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -125,4 +147,87 @@ export async function requestPasswordResetAction(
   // (Security/QA Standard §7.4: "ne pas révéler si un email existe").
   await supabase.auth.resetPasswordForEmail(parsed.data.email);
   return { submitted: true };
+}
+
+export interface UpdatePasswordActionResult {
+  error?: string;
+  updated?: boolean;
+}
+
+/**
+ * Completes a password recovery.
+ *
+ * Uses the recovery session the provider established when the link was opened
+ * — deliberately not a second token mechanism of our own. `updateUser` fails
+ * when that session is absent or spent, which is what makes an expired or
+ * already-used link fail closed rather than silently succeed.
+ *
+ * The token never reaches a log: only the outcome is recorded.
+ */
+export async function updatePasswordAction(
+  _prevState: UpdatePasswordActionResult,
+  formData: FormData,
+): Promise<UpdatePasswordActionResult> {
+  const password = formData.get('password');
+  const confirmation = formData.get('passwordConfirmation');
+
+  if (typeof password !== 'string' || typeof confirmation !== 'string') {
+    return { error: productCopy.auth.resetPassword.errorTitle };
+  }
+  if (password !== confirmation) {
+    return { error: productCopy.auth.resetPassword.mismatch };
+  }
+
+  /*
+   * The strength rule comes from the signup schema rather than a second copy
+   * here. A recovery form that accepts a weaker password than registration is
+   * a downgrade path, and two rules in two files is how that happens by
+   * accident.
+   */
+  const parsed = signupSchema.shape.password.safeParse(password);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? productCopy.auth.signup.passwordHint };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.updateUser({ password: parsed.data });
+  if (error) {
+    logger.warn('password_update.failed', { code: error.code ?? 'unknown' });
+    return { error: productCopy.auth.resetPassword.invalidBody };
+  }
+
+  logger.info('password_update.completed');
+  return { updated: true };
+}
+
+export interface ResendVerificationResult {
+  error?: string;
+  sent?: boolean;
+}
+
+/**
+ * Re-sends the verification e-mail for the signed-in address.
+ *
+ * Takes the address from the session rather than from the form: accepting one
+ * from the client would turn this into an unauthenticated mail trigger for any
+ * address someone cares to type.
+ */
+export async function resendVerificationAction(
+  _prevState: ResendVerificationResult,
+): Promise<ResendVerificationResult> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user?.email) {
+    return { error: productCopy.auth.login.serverError };
+  }
+
+  const { error } = await supabase.auth.resend({ type: 'signup', email: user.email });
+  if (error) {
+    logger.warn('verification_resend.failed', { code: error.code ?? 'unknown' });
+    return { error: productCopy.auth.login.serverError };
+  }
+  return { sent: true };
 }

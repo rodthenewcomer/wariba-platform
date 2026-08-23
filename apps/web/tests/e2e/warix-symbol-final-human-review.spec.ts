@@ -9,8 +9,8 @@ const BASE_URL = process.env.APP_BASE_URL ?? 'http://localhost:3000';
 
 async function signIn(page: Page, email: string, password: string): Promise<void> {
   await page.goto('/login');
-  await page.getByLabel('Adresse email').fill(email);
-  await page.getByLabel('Mot de passe').fill(password);
+  await page.getByLabel('Adresse e-mail').fill(email);
+  await page.getByLabel('Mot de passe', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Se connecter' }).click();
   await page.waitForURL('**/hub', { timeout: 30_000 });
 }

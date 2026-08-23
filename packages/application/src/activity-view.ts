@@ -1,4 +1,5 @@
 import type { Db } from '@wariba/database';
+import { accountStatusLabel } from './account-status-labels';
 import { RISK_RULE_LABELS } from './risk-view';
 
 export type ActivityItemKind = 'state_transition' | 'risk_violation' | 'fill';
@@ -27,12 +28,24 @@ function formatUsd(amount: string): string {
   return `${Math.round(Number.parseFloat(amount)).toLocaleString('fr-FR')} USD`;
 }
 
+/**
+ * Every `reason` this platform writes to `app.account_state_transitions`.
+ *
+ * The set is closed and enumerable: `risk.ts` (the six risk transitions),
+ * `activation.ts`, `performance.ts` and `daily-finalization.ts` are the only
+ * writers. Two of them were missing here — `payment_confirmed` and
+ * `evaluation_passed` — so the two events that open a trader's very first
+ * account both surfaced as raw database identifiers in their activity feed.
+ * That is the one place the omission was guaranteed to be seen.
+ */
 const TRANSITION_REASON_LABEL: Record<string, string> = {
   daily_loss_limit_reached: 'Limite de perte quotidienne atteinte',
   daily_loss_limit_reset: 'Blocage temporaire levé',
   maximum_loss_breach: 'Perte maximale atteinte',
   evaluation_target_reached: 'Objectif de profit atteint',
   evaluation_pass_finalized: 'Passage validé',
+  payment_confirmed: 'Paiement confirmé',
+  evaluation_passed: 'Compte Performance activé',
 };
 
 const TRANSITION_SEVERITY: Record<string, ActivitySeverity> = {
@@ -41,6 +54,8 @@ const TRANSITION_SEVERITY: Record<string, ActivitySeverity> = {
   maximum_loss_breach: 'danger',
   evaluation_target_reached: 'success',
   evaluation_pass_finalized: 'success',
+  payment_confirmed: 'success',
+  evaluation_passed: 'success',
 };
 
 /**
@@ -103,7 +118,9 @@ export async function buildRecentActivityView(
       id: `transition-${row.id}`,
       kind: 'state_transition',
       label: TRANSITION_REASON_LABEL[row.reason] ?? row.reason,
-      detail: `${row.from_status ?? '—'} → ${row.to_status}`,
+      // Product vocabulary, not the storage enum: "Activation en attente →
+      // Actif", never "pending_activation → active".
+      detail: `${row.from_status ? accountStatusLabel(row.from_status) : '—'} → ${accountStatusLabel(row.to_status)}`,
       timestampLabel: formatTimestampLabel(row.occurred_at),
       occurredAt: row.occurred_at.toISOString(),
       severity: TRANSITION_SEVERITY[row.reason] ?? 'information',
