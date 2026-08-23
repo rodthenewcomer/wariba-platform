@@ -85,6 +85,30 @@ export async function createFixtureAccount(
   return { userId, email, accountId: account.id };
 }
 
+/**
+ * A signed-up trader who has not bought anything yet.
+ *
+ * The zero-account Hub is a real product state — someone who created an
+ * account, confirmed their email and signed in before choosing an evaluation —
+ * and it has its own surface (the Launchpad). Testing it by creating an
+ * account and then deleting the row does not work: `account_state_transitions`
+ * and the ledger both hold foreign keys to it, and the delete fails. This
+ * creates the user and stops there, which is also what actually happens in
+ * production.
+ */
+export async function createFixtureUserWithoutAccount(
+  label: string,
+): Promise<{ userId: string; email: string }> {
+  const email = `hub-e2e-${label}-${Date.now()}-${randomUUID().slice(0, 8)}@wariba-test.invalid`;
+  const userId = await createTestUser(email);
+  return { userId, email };
+}
+
+/** Teardown for `createFixtureUserWithoutAccount`. */
+export async function deleteFixtureUser(userId: string): Promise<void> {
+  await deleteTestUser(userId);
+}
+
 /** For a second account under the SAME user (e.g. testing the account switcher). */
 export async function attachFixtureAccountToUser(
   db: Db,

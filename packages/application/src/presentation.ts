@@ -49,3 +49,14 @@ export {
 } from './account-health';
 
 export type { AccountSummaryDTO } from './accounts-list';
+
+/*
+ * Type-only, and therefore safe here.
+ *
+ * `command-center.ts` imports `@wariba/database` and must never reach a client
+ * bundle — but `export type` is erased entirely at compile time, so this adds
+ * no runtime edge. It is the same arrangement `AccountSummaryDTO` above
+ * already relies on, and it lets the Hub's polling hook name the shape it
+ * receives instead of restating it.
+ */
+export type { AccountTelemetry } from './command-center';

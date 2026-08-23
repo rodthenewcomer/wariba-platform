@@ -29,6 +29,8 @@ export {
   createFixtureAccount,
   attachFixtureAccountToUser,
   deleteFixtureAccount,
+  createFixtureUserWithoutAccount,
+  deleteFixtureUser,
   type E2eFixtureAccount,
 } from './hub-account-fixture';
 export {

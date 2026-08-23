@@ -1,15 +1,8 @@
 import { redirect } from 'next/navigation';
 import { ActivityTimeline, ConsistencyMeter, OpenPositionsTable, Text } from '@wariba/ui';
 import {
-  buildAccountHubView,
-  buildAccountMissionView,
-  buildAccountPerformanceMissionView,
-  buildAccountRiskView,
-  buildOpenPositionsView,
-  buildPayoutLifecycle,
-  buildPerformanceAnalytics,
-  buildRecentActivityView,
-  deriveAccountHealth,
+  buildCommandCenterView,
+  buildOfferCatalog,
   deriveAccountLifecycle,
   listAccountsForUser,
 } from '@wariba/application';
@@ -19,19 +12,22 @@ import { formatNominal, programLabel, programPhaseLabel } from '../../../lib/acc
 import { productCopy } from '../../../lib/product-copy';
 import { trackEvent } from '../../../lib/analytics';
 import { ActionLink } from '../../../components/hub/Action';
-import { HubEmptyState } from '../../../components/hub/HubEmptyState';
 import { PerformanceSnapshot } from '../../../components/hub/PerformanceSnapshot';
 import { Surface, SurfaceTitle } from '../../../components/hub/Surface';
 import { Stagger, StaggerItem } from '../../../components/motion/primitives';
 import { HubHeaderSlot } from '../HubHeaderSlot';
 import { AccountEvolution } from './AccountEvolution';
-import { AccountHero, type HeroDetail, type HeroStat } from './AccountHero';
+import { AccountHero, type HeroDetail } from './AccountHero';
 import { AccountSwitcher } from './AccountSwitcher';
 import { toSwitcherAccounts } from './switcher-accounts';
+import { DailyPnlStrip } from './DailyPnlStrip';
 import { HealthPanel } from './HealthPanel';
 import { HubRiskDetail } from './HubRiskDetail';
+import { Launchpad } from './Launchpad';
 import { LifecycleBanner, shouldShowLifecycleBanner } from './LifecycleBanner';
+import { LiveTelemetry } from './LiveTelemetry';
 import { MissionChecklist } from './MissionChecklist';
+import { PayoutSummary } from './PayoutSummary';
 import { QuickActions } from './QuickActions';
 import { quickActionsFor } from './dashboard-actions';
 
@@ -45,27 +41,42 @@ const POLICY_STATUS_LABEL: Record<string, string> = {
   retired: 'Retirée',
 };
 
+function formatUsd(amount: string): string {
+  return `${Math.round(Number.parseFloat(amount)).toLocaleString('fr-FR')} USD`;
+}
+
 /**
  * The Trader Hub dashboard — the command centre.
  *
  * ## Composition follows product state, not a fixed template
  *
  * An evaluation account and a funded account are not the same product, so they
- * do not get the same page. The evaluation shows a mission checklist and a
- * profit objective; the funded account shows payout progress and a cycle. A
- * breached account shows neither, because neither is true of it any more.
- * `deriveAccountLifecycle` decides which, once, and everything below reads it.
+ * do not get the same page. The evaluation leads with a mission checklist and a
+ * profit objective; the funded account leads with payout progress and a cycle.
+ * A breached account leads with neither, because neither is true of it any
+ * more. `deriveAccountLifecycle` decides which, once, and everything below
+ * reads it.
  *
- * ## Progressive richness
+ * ## Truthful density, not filled space
  *
- * Sections appear when the data behind them exists. An account with no closed
- * session gets a sentence instead of an equity curve; an account with no
- * trades gets no KPI grid at all. The alternative — rendering every panel
- * always and filling the empty ones with zeros — is how a product ends up
- * claiming a 0 % win rate for someone who has never traded.
+ * §5's principle governs every section here. A fresh account has no trades, so
+ * it gets no KPI grid and no chart — but it does have a nominal, a balance, a
+ * target, a target distance, two risk budgets, a session state, a reset
+ * boundary and a next action, and all of those are real before the first
+ * trade. The page is dense because that list is long, not because empty panels
+ * were filled with zeros.
  *
- * Every figure is formatted by a read model. Nothing here computes a balance,
- * a remaining loss or a percentage.
+ * Where a module has genuinely nothing to say, it says so *inside its own
+ * frame* rather than vanishing and leaving the layout with a hole. There is a
+ * difference between pretending there is a chart and preserving the shape of
+ * the page while stating the chart has not started.
+ *
+ * ## Where the numbers come from
+ *
+ * One call. `buildCommandCenterView` composes the snapshot server-side and
+ * every figure in it describes the same account at the same instant. Nothing
+ * here computes a balance, a remaining loss, a percentage or a colour from a
+ * formatted string — the last of which this page used to do, and got wrong.
  */
 export default async function HubPage({
   searchParams,
@@ -81,19 +92,24 @@ export default async function HubPage({
   const db = getDb();
   const accounts = await listAccountsForUser(db, { userId: user.id });
 
+  /*
+   * No account yet — §22.
+   *
+   * This is the strongest acquisition surface inside the authenticated
+   * product, and it used to be one card. The Launchpad reads the real offer
+   * catalog and the real published policy.
+   */
   if (accounts.length === 0) {
-    return (
+    const catalog = await buildOfferCatalog(db).catch(() => null);
+    return catalog ? (
+      <Launchpad catalog={catalog} />
+    ) : (
       <div className="max-w-2xl">
-        <HubEmptyState
-          icon="accounts"
-          title="Vous n’avez pas encore de compte WARIBA."
-          description="Choisissez une évaluation pour activer votre premier compte simulé et commencer à trader dans WariX."
-          action={
-            <ActionLink href="/comptes/nouveau" icon="addAccount" data-testid="empty-add-account">
-              Choisir une évaluation
-            </ActionLink>
-          }
-        />
+        <Surface className="p-6">
+          <Text variant="body-sm" color="secondary">
+            Les offres ne sont pas consultables pour le moment. Réessayez dans un instant.
+          </Text>
+        </Surface>
       </div>
     );
   }
@@ -103,7 +119,6 @@ export default async function HubPage({
     accounts.find((candidate) => candidate.id === requestedAccountId) ??
     (accounts[0] as (typeof accounts)[number]);
 
-  const isPerformanceAccount = activeAccount.programType === 'WARIBA_PERFORMANCE';
   const now = new Date();
 
   /*
@@ -161,80 +176,24 @@ export default async function HubPage({
             activeAccount.nominalBalance,
             activeAccount.nominalCurrency,
           )}
-          balance={Number.parseFloat(activeAccount.nominalBalance)}
-          balanceFormatted={formatNominal(
-            activeAccount.nominalBalance,
-            activeAccount.nominalCurrency,
-          )}
           lifecycle={lifecycle}
-          stats={[]}
           details={baseDetails}
         />
       </div>
     );
   }
 
-  /*
-   * The mission is the only read model here that can legitimately have nothing
-   * to say. A Performance account whose cycle has not been opened yet has no
-   * cycle progress to report, and `evaluateCycleProgress` throws rather than
-   * inventing one — correct of it, and no reason to blank the whole dashboard.
-   * The account, its risk and its balance are all still true.
-   */
-  const [hubView, missionView, riskView, activity, openPositions, analytics] = await Promise.all([
-    buildAccountHubView(db, { accountId: activeAccount.id, now }),
-    (isPerformanceAccount
-      ? buildAccountPerformanceMissionView(db, { accountId: activeAccount.id })
-      : buildAccountMissionView(db, { accountId: activeAccount.id, now })
-    ).catch(
-      () =>
-        ({
-          available: false,
-          reason: 'La progression de ce compte n’est pas encore disponible.',
-        }) as const,
-    ),
-    buildAccountRiskView(db, { accountId: activeAccount.id, now }),
-    buildRecentActivityView(db, { accountId: activeAccount.id, limit: 12 }),
-    buildOpenPositionsView(db, { accountId: activeAccount.id }),
-    buildPerformanceAnalytics(db, { accountId: activeAccount.id }),
-  ]);
+  const command = await buildCommandCenterView(db, { account: activeAccount, now });
+  const { hub, risk, mission, health, performance, positions, activity, lifecycle, payout } =
+    command;
+  const isPerformanceAccount = activeAccount.programType === 'WARIBA_PERFORMANCE';
 
-  /*
-   * Payout state is only meaningful on a Performance account —
-   * `evaluatePayoutEligibility` is scoped to `WARIBA_PERFORMANCE` and throws
-   * for anything else.
-   */
-  const payout = isPerformanceAccount
-    ? await buildPayoutLifecycle(db, {
-        accountId: activeAccount.id,
-        kycVerified: activeAccount.kycSandboxVerified ?? false,
-      }).catch(() => null)
-    : null;
-
-  const lifecycle = deriveAccountLifecycle({
-    accountStatus: activeAccount.status,
-    programType: activeAccount.programType,
-    inAttentionZone: riskView.status === 'attention',
-    // The session is closed once today's snapshot has been finalised — which
-    // is what separates "objective reached, still trading" from "under review".
-    currentSessionFinalized: hubView.tradingDays[0]?.finalized ?? false,
-  });
-
-  const health = deriveAccountHealth({
-    dailyLossRemaining: riskView.amounts.dailyLossRemaining,
-    dailyLossBudget: riskView.amounts.dailyLossBudget,
-    maximumLossRemaining: riskView.amounts.maximumLossRemaining,
-    maximumLossBudget: riskView.amounts.maximumLossBudget,
-    hasViolation: riskView.violations.length > 0,
-    terminal: lifecycle.terminal,
-  });
-
-  trackEvent('hub_viewed', { accountId: activeAccount.id, state: hubView.state });
-  if (missionView.available) {
-    trackEvent('mission_viewed', { accountId: activeAccount.id, state: missionView.state });
+  trackEvent('hub_viewed', { accountId: activeAccount.id, state: hub.state });
+  if (mission.available) {
+    trackEvent('mission_viewed', { accountId: activeAccount.id, state: mission.state });
   }
 
-  const primaryViolation = riskView.violations[0];
+  const primaryViolation = risk.violations[0];
 
   /*
    * A tradable account always offers the terminal.
@@ -246,45 +205,14 @@ export default async function HubPage({
    * and a live account with no way into the workstation is a dead end on the
    * one screen that exists to route them.
    */
-  const missionAction = missionView.available ? missionView.nextAction : null;
+  const missionAction = mission.available ? mission.nextAction : null;
   const heroAction =
     missionAction ?? (lifecycle.tradable ? { label: copy.openWarix, href: '/trade' } : null);
-  const objectiveCondition = missionView.available ? missionView.conditions[0] : undefined;
-
-  const heroStats: HeroStat[] = [
-    {
-      label: copy.pnlToday,
-      value: hubView.pnlTodayFormatted,
-      signed: true,
-      numericValue: Number.parseFloat(hubView.pnlTodayFormatted.replace(/[^\d.-]/g, '')),
-    },
-    { label: 'Perte quotidienne restante', value: riskView.dailyLossRemainingFormatted },
-    { label: copy.maxLossRemaining, value: riskView.maximumLossRemainingFormatted },
-  ];
 
   const details: HeroDetail[] = [
-    ...(hubView.activatedAtLabel
-      ? [{ label: copy.activatedOn, value: hubView.activatedAtLabel }]
-      : []),
+    ...(hub.activatedAtLabel ? [{ label: copy.activatedOn, value: hub.activatedAtLabel }] : []),
     ...baseDetails,
     ...(isPerformanceAccount ? [] : [{ label: 'Répartition après passage', value: '85 % → 90 %' }]),
-  ];
-
-  const thresholds = [
-    {
-      value: Number.parseFloat(riskView.amounts.maximumLossFloor),
-      label: 'Perte max.',
-      tone: 'red' as const,
-    },
-    ...(missionView.available && missionView.variant === 'evaluation'
-      ? [
-          {
-            value: Number.parseFloat(missionView.amounts.targetBalance),
-            label: 'Objectif',
-            tone: 'emerald' as const,
-          },
-        ]
-      : []),
   ];
 
   return (
@@ -323,6 +251,9 @@ export default async function HubPage({
                   { label: 'Règle', value: primaryViolation.ruleLabel },
                   { label: 'Seuil', value: primaryViolation.thresholdFormatted },
                   { label: 'Observé', value: primaryViolation.observedFormatted },
+                  ...(activity[0]?.timestampLabel
+                    ? [{ label: 'Constaté', value: activity[0].timestampLabel }]
+                    : []),
                 ]
               : []
           }
@@ -344,18 +275,38 @@ export default async function HubPage({
               activeAccount.nominalBalance,
               activeAccount.nominalCurrency,
             )}
-            balance={Number.parseFloat(riskView.amounts.currentEquity)}
-            balanceFormatted={hubView.balanceFormatted}
             lifecycle={lifecycle}
-            stats={heroStats}
-            objective={
-              objectiveCondition && missionView.available
-                ? {
-                    label: objectiveCondition.label,
-                    detail: objectiveCondition.detail,
-                    percent: missionView.progressPercent,
-                  }
-                : null
+            resetAt={risk.nextResetAt}
+            telemetry={
+              <LiveTelemetry
+                accountId={activeAccount.id}
+                tested={command.hasMeaningfulActivity}
+                /*
+                 * A finished account has nothing left that can move. Polling it
+                 * would produce a "Actualisé il y a 2 s" label on figures that
+                 * are frozen by definition — technically true, and a claim of
+                 * activity where there is none.
+                 */
+                live={!lifecycle.terminal}
+                initial={{
+                  balance: Number.parseFloat(hub.amounts.balance),
+                  balanceFormatted: hub.balanceFormatted,
+                  balanceLabel: copy.balance,
+                  pnlToday: Number.parseFloat(hub.amounts.pnlToday),
+                  pnlTodayFormatted: hub.pnlTodayFormatted,
+                  pnlTodayLabel: copy.pnlToday,
+                  dailyRemainingFormatted: risk.dailyLossRemainingFormatted,
+                  dailyBudgetFormatted: formatUsd(risk.amounts.dailyLossBudget),
+                  dailyRemainingPercent: risk.room.dailyRemainingPercent,
+                  maximumRemainingFormatted: risk.maximumLossRemainingFormatted,
+                  maximumBudgetFormatted: formatUsd(risk.amounts.maximumLossBudget),
+                  maximumRemainingPercent: risk.room.maximumRemainingPercent,
+                  maximumLossFloorFormatted: formatUsd(risk.amounts.maximumLossFloor),
+                  binding: risk.room.binding,
+                  objectivePercent: mission.available ? mission.progressPercent : null,
+                  capturedAt: command.capturedAt,
+                }}
+              />
             }
             action={
               heroAction ? (
@@ -374,24 +325,38 @@ export default async function HubPage({
           />
         </StaggerItem>
 
+        {/*
+         * A funded account leads with its payout cycle — §10.3.
+         *
+         * Placed above the mission rather than below it because a Performance
+         * account's question is no longer "will I pass" but "how much can I
+         * take out and when". Rendering the same order as an evaluation would
+         * make the funded dashboard the evaluation card with a different badge.
+         */}
+        {payout?.cycle ? (
+          <StaggerItem>
+            <PayoutSummary payout={payout} accountId={activeAccount.id} />
+          </StaggerItem>
+        ) : null}
+
         <StaggerItem>
           <div className="grid gap-5 lg:grid-cols-3">
             <div className="flex flex-col gap-5 lg:col-span-2">
-              {missionView.available ? (
+              {mission.available ? (
                 <MissionChecklist
                   eyebrow={
-                    missionView.variant === 'performance'
-                      ? `Cycle n°${missionView.cycleNumber}`
+                    mission.variant === 'performance'
+                      ? `Cycle n°${mission.cycleNumber}`
                       : 'Mission évaluation'
                   }
-                  title={missionView.title}
-                  progressPercent={missionView.progressPercent}
-                  conditions={missionView.conditions}
+                  title={mission.title}
+                  progressPercent={mission.progressPercent}
+                  conditions={mission.conditions}
                   footer={
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      {missionView.variant === 'performance' && missionView.blockingSummary ? (
+                      {mission.variant === 'performance' && mission.blockingSummary ? (
                         <Text variant="body-sm" color="secondary">
-                          {missionView.blockingSummary}
+                          {mission.blockingSummary}
                         </Text>
                       ) : (
                         <span />
@@ -405,19 +370,19 @@ export default async function HubPage({
               ) : (
                 <Surface className="p-5 sm:p-6">
                   <Text variant="body-sm" color="secondary">
-                    {missionView.reason}
+                    {mission.reason}
                   </Text>
                 </Surface>
               )}
 
-              {missionView.available && missionView.consistency ? (
+              {mission.available && mission.consistency ? (
                 <ConsistencyMeter
-                  ratioPercent={missionView.consistency.ratioPercent}
-                  limitPercent={missionView.consistency.limitPercent}
-                  bestDayFormatted={missionView.consistency.bestDayFormatted}
-                  totalProfitFormatted={missionView.consistency.totalProfitFormatted}
-                  {...(missionView.consistency.requiredProfitFormatted
-                    ? { requiredProfitFormatted: missionView.consistency.requiredProfitFormatted }
+                  ratioPercent={mission.consistency.ratioPercent}
+                  limitPercent={mission.consistency.limitPercent}
+                  bestDayFormatted={mission.consistency.bestDayFormatted}
+                  totalProfitFormatted={mission.consistency.totalProfitFormatted}
+                  {...(mission.consistency.requiredProfitFormatted
+                    ? { requiredProfitFormatted: mission.consistency.requiredProfitFormatted }
                     : {})}
                 />
               ) : null}
@@ -426,12 +391,10 @@ export default async function HubPage({
             <HealthPanel
               health={health}
               rows={[
-                { label: 'Équité actuelle', value: riskView.currentEquityFormatted },
-                { label: 'Prochain reset', value: riskView.nextResetLabel },
-                {
-                  label: 'Journées clôturées',
-                  value: String(hubView.finalizedSessionCount),
-                },
+                { label: 'Équité actuelle', value: risk.currentEquityFormatted },
+                { label: 'Prochain reset', value: risk.nextResetLabel },
+                { label: 'Journées clôturées', value: String(hub.finalizedSessionCount) },
+                { label: 'Positions ouvertes', value: String(positions.length) },
               ]}
               {...(primaryViolation
                 ? {
@@ -439,7 +402,7 @@ export default async function HubPage({
                       <HubRiskDetail
                         triggerLabel="Voir le détail du risque"
                         violation={primaryViolation}
-                        timestampLabel={activity[0]?.timestampLabel ?? riskView.nextResetLabel}
+                        timestampLabel={activity[0]?.timestampLabel ?? risk.nextResetLabel}
                       />
                     ),
                   }
@@ -454,44 +417,66 @@ export default async function HubPage({
               lifecycle,
               accountId: activeAccount.id,
               payout,
-              kpis: analytics.kpis,
+              kpis: performance.kpis,
             })}
           />
         </StaggerItem>
 
+        {/*
+         * The curve and the sessions beside it.
+         *
+         * Two thirds / one third rather than full width: the daily bars answer
+         * "which days did this" and the curve answers "where has it gone", and
+         * they are read together. A trader who sees a dip in the curve looks
+         * immediately for the day that caused it.
+         */}
         <StaggerItem>
-          <AccountEvolution
-            points={hubView.balanceHistory}
-            finalizedSessionCount={hubView.finalizedSessionCount}
-            meaningful={hubView.balanceHistoryMeaningful}
-            thresholds={thresholds}
-            performanceHref={`/performance?account=${activeAccount.id}`}
-          />
+          <div className="grid gap-5 xl:grid-cols-3">
+            <div className="xl:col-span-2">
+              <AccountEvolution
+                points={hub.balanceHistory}
+                finalizedSessionCount={hub.finalizedSessionCount}
+                meaningful={hub.balanceHistoryMeaningful}
+                thresholds={command.thresholds}
+                performanceHref={`/performance?account=${activeAccount.id}`}
+              />
+            </div>
+            <DailyPnlStrip points={hub.dailyPnl} />
+          </div>
         </StaggerItem>
 
         {/* Only when there is a record to report. */}
-        {analytics.kpis.tradeCount > 0 ? (
+        {performance.kpis.tradeCount > 0 ? (
           <StaggerItem>
             <Surface className="flex flex-col gap-4 p-5 sm:p-6">
               <SurfaceTitle
                 action={
-                  <ActionLink href="/performance" variant="ghost" size="sm">
+                  <ActionLink
+                    href={`/performance?account=${activeAccount.id}`}
+                    variant="ghost"
+                    size="sm"
+                  >
                     Tout voir
                   </ActionLink>
                 }
               >
                 Performance
               </SurfaceTitle>
-              <PerformanceSnapshot kpis={analytics.kpis} variant="compact" />
+              <PerformanceSnapshot kpis={performance.kpis} variant="compact" />
             </Surface>
           </StaggerItem>
         ) : null}
 
         <StaggerItem>
-          <div className="grid gap-5 xl:grid-cols-2">
+          {/*
+           * `items-start`, so an empty positions panel does not stretch to the
+           * height of a twelve-row activity feed beside it. A 600px card
+           * containing one sentence reads as a loading failure.
+           */}
+          <div className="grid items-start gap-5 xl:grid-cols-2">
             <Surface className="flex flex-col gap-4 p-5 sm:p-6">
               <SurfaceTitle>Positions ouvertes</SurfaceTitle>
-              <OpenPositionsTable positions={openPositions} />
+              <OpenPositionsTable positions={positions} />
             </Surface>
 
             <Surface id="activity" className="flex scroll-mt-20 flex-col gap-4 p-5 sm:p-6">

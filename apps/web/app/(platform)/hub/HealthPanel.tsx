@@ -18,7 +18,15 @@ import { Surface, SurfaceTitle } from '../../../components/hub/Surface';
  * risk number the platform cannot stand behind.
  */
 
+/*
+ * `neutral` is indigo rather than emerald on purpose (§11).
+ *
+ * An untested account has a full ring, and painting that ring green reads as
+ * "you are doing well" to someone who has not yet done anything. Indigo is the
+ * Hub's informational accent: it says "here is the state" without grading it.
+ */
 const TONE_RING = {
+  neutral: 'indigo',
   success: 'emerald',
   attention: 'amber',
   danger: 'red',
@@ -58,13 +66,20 @@ export function HealthPanel({
         <div className="min-w-0">
           <p
             className="text-[length:var(--wariba-font-size-body-md)] font-semibold"
+            /*
+             * Exhaustive over the four tones. The `neutral` case has to be
+             * named: a chain that fell through to red painted "Risque intact"
+             * — a healthy, untested account — in the breach colour.
+             */
             style={{
               color:
                 health.tone === 'success'
                   ? 'var(--wariba-accent-emerald)'
                   : health.tone === 'attention'
                     ? 'var(--wariba-accent-amber)'
-                    : 'var(--wariba-accent-red)',
+                    : health.tone === 'danger'
+                      ? 'var(--wariba-accent-red)'
+                      : 'var(--wariba-text-primary)',
             }}
             data-testid="health-state"
           >

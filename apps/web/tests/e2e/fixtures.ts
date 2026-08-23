@@ -12,6 +12,11 @@ import {
   type E2eFixtureAccount,
   type LifecycleFixture,
   type LifecycleFixtureState,
+  seedTradingRecord,
+  deleteTradingRecord,
+  createFixtureUserWithoutAccount,
+  deleteFixtureUser,
+  type TradingRecordFixture,
 } from '@wariba/test-utils';
 
 export type TradeAccount = TradeAccountFixture;
@@ -22,7 +27,12 @@ export {
   attachFixtureAccountToUser,
   deleteFixtureAccount,
   E2E_TEST_PASSWORD,
+  seedTradingRecord,
+  deleteTradingRecord,
+  createFixtureUserWithoutAccount,
+  deleteFixtureUser,
   type E2eFixtureAccount,
+  type TradingRecordFixture,
 };
 
 /**
