@@ -40,8 +40,22 @@ export function PerformanceSnapshot({
   variant = 'full',
 }: {
   kpis: PerformanceKpis;
-  /** `compact` shows the five figures worth a dashboard slot. */
-  variant?: 'compact' | 'full';
+  /**
+   * Which figures to render.
+   *
+   * `compact` — the five worth a dashboard slot.
+   * `full`    — everything, for a desktop analytics page.
+   * `primary` / `secondary` — the split the mobile Performance page needs.
+   *
+   * ## Why the split exists
+   *
+   * Twelve tiles stacked two-across on a phone is ~940px of numbers before the
+   * first chart, and the page is called Performance. §5 of the 2.5.1 gate puts
+   * a hard budget on that distance, and the fix it names is this one: keep
+   * P&L, win rate, profit factor and trade count above the chart, move the
+   * rest below it. Nothing is hidden — the order changes.
+   */
+  variant?: 'compact' | 'full' | 'primary' | 'secondary';
 }) {
   const netPnlValue = Number.parseFloat(kpis.netPnl);
 
@@ -124,12 +138,46 @@ export function PerformanceSnapshot({
     },
   ];
 
-  const tiles = variant === 'compact' ? compactTiles : [...compactTiles, ...extraTiles];
+  /*
+   * The four a trader checks first: what the record is worth, how often it
+   * wins, what that is worth per unit of loss, and how much evidence sits
+   * behind those three. The trade count is promoted out of the P&L tile's
+   * hint here — above a chart it is a sample size, not a footnote.
+   */
+  const primaryTiles = [
+    compactTiles[0],
+    compactTiles[1],
+    compactTiles[2],
+    {
+      label: 'Trades clôturés',
+      value: kpis.tradeCount > 0 ? String(kpis.tradeCount) : null,
+      hint: kpis.tradingDays > 0 ? `sur ${kpis.tradingDays} journées` : null,
+    },
+  ].filter((tile): tile is NonNullable<typeof tile> => Boolean(tile));
+
+  const secondaryTiles = [compactTiles[3], compactTiles[4], ...extraTiles].filter(
+    (tile): tile is NonNullable<typeof tile> => Boolean(tile),
+  );
+
+  const tiles =
+    variant === 'compact'
+      ? compactTiles
+      : variant === 'primary'
+        ? primaryTiles
+        : variant === 'secondary'
+          ? secondaryTiles
+          : [...compactTiles, ...extraTiles];
 
   return (
     <div
       data-testid="performance-snapshot"
-      className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6"
+      className={
+        variant === 'primary'
+          ? // Two across on a phone, four on a laptop: the four sit on one row
+            // wherever there is room, and never become a column.
+            'grid grid-cols-2 gap-3 lg:grid-cols-4'
+          : 'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'
+      }
     >
       {tiles.map((tile) => (
         <KpiTile

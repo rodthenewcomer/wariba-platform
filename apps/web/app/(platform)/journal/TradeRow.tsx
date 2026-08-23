@@ -62,7 +62,17 @@ export function TradeRow({ entry }: { entry: JournalEntry }) {
               {entry.quantity} lot
             </span>
           </span>
-          <span className="truncate text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
+          {/*
+           * Wraps rather than truncates.
+           *
+           * `truncate` cut this line at "21 août 2026, 01:27…" on a 390px
+           * phone, which discarded the holding duration — the one figure on
+           * the summary line that says *how* the trade was taken rather than
+           * when. Losing it to an ellipsis makes a scalp and a four-hour swing
+           * look identical in the list. The line is two short facts; letting
+           * it use a second row costs less than hiding one of them.
+           */}
+          <span className="text-[length:var(--wariba-font-size-label-sm)] leading-snug text-[color:var(--wariba-text-tertiary)]">
             {entry.timestampLabel}
             {entry.durationLabel ? ` · ${entry.durationLabel}` : ''}
           </span>

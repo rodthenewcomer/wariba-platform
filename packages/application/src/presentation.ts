@@ -60,3 +60,6 @@ export type { AccountSummaryDTO } from './accounts-list';
  * receives instead of restating it.
  */
 export type { AccountTelemetry } from './command-center';
+
+/* Type-only, same reasoning as above — `activity-view` imports the database. */
+export type { ActivityItem } from './activity-view';

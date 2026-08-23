@@ -79,8 +79,17 @@ export function AccountHero({
 }: AccountHeroProps) {
   return (
     <Surface tone="accent" data-testid="account-hero" className="overflow-hidden">
-      <div className="flex flex-col gap-6 p-5 sm:p-6 lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-x-10">
-        <div className="flex min-w-0 flex-col gap-6 lg:col-start-1">
+      {/*
+       * Tighter vertical rhythm below `sm`.
+       *
+       * At 320×568 the first viewport has ~434px once the header and the
+       * bottom navigation are subtracted, and the decision has to fit inside
+       * it. Twenty-four-pixel gaps and twenty-pixel padding are right at
+       * 390 and cost more than they are worth at 320, where they pushed
+       * "Ouvrir WariX" behind the bottom bar.
+       */}
+      <div className="flex flex-col gap-4 p-4 sm:gap-6 sm:p-6 lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-x-10">
+        <div className="flex min-w-0 flex-col gap-4 sm:gap-6 lg:col-start-1">
           {/* 1 — identity, state, and how long today has left. */}
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">

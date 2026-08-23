@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { ActivityTimeline, ConsistencyMeter, OpenPositionsTable, Text } from '@wariba/ui';
+import { ConsistencyMeter, OpenPositionsTable, Text } from '@wariba/ui';
 import {
   buildCommandCenterView,
   buildOfferCatalog,
@@ -29,6 +29,7 @@ import { LiveTelemetry } from './LiveTelemetry';
 import { MissionChecklist } from './MissionChecklist';
 import { PayoutSummary } from './PayoutSummary';
 import { QuickActions } from './QuickActions';
+import { RecentActivity } from './RecentActivity';
 import { quickActionsFor } from './dashboard-actions';
 
 export const dynamic = 'force-dynamic';
@@ -548,7 +549,7 @@ export default async function HubPage({
 
             <Surface id="activity" className="flex scroll-mt-20 flex-col gap-4 p-5 sm:p-6">
               <SurfaceTitle>Activité récente</SurfaceTitle>
-              <ActivityTimeline items={activity} />
+              <RecentActivity items={activity} />
             </Surface>
           </div>
         </StaggerItem>

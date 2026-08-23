@@ -154,7 +154,10 @@ export function PayoutStatus({ payout }: { payout: PayoutLifecycleView }) {
 
       {/* The identity gate is stated even when it is not the blocker, so a
           trader knows it is coming rather than meeting it at the last step. */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[color:var(--warix-border-subtle)] pt-4">
+      <div
+        data-testid="payout-identity"
+        className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[color:var(--warix-border-subtle)] pt-4"
+      >
         <span className="flex items-center gap-2 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
           Vérification d’identité
           <StatusPill tone={payout.kyc.state === 'verified' ? 'success' : 'attention'} size="sm">

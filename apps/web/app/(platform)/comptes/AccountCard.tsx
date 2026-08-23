@@ -193,7 +193,13 @@ export function AccountCard({ item }: { item: AccountOverviewItem }) {
         </span>
         <div className="flex flex-wrap gap-2">
           {actions.map((action) => (
-            <ActionLink key={action.label} href={action.href} variant={action.variant} size="sm">
+            <ActionLink
+              key={action.label}
+              href={action.href}
+              variant={action.variant}
+              size="sm"
+              data-testid="account-card-action"
+            >
               {action.label}
             </ActionLink>
           ))}

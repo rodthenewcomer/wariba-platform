@@ -145,13 +145,21 @@ export default async function PerformancePage({
             />
           </StaggerItem>
 
+          {/*
+           * The four headline figures, then the chart, then the rest.
+           *
+           * A twelve-tile grid stacked two-across on a phone put the first
+           * chart ~940px down a page called Performance — the trader scrolled
+           * through a wall of numbers to reach the picture they came for. The
+           * order changes; nothing is removed.
+           */}
           <StaggerItem>
-            <PerformanceSnapshot kpis={analytics.kpis} />
+            <PerformanceSnapshot kpis={analytics.kpis} variant="primary" />
           </StaggerItem>
 
           {hubView && hubView.balanceHistoryMeaningful ? (
             <StaggerItem>
-              <Surface className="p-5 sm:p-6">
+              <Surface className="p-5 sm:p-6" data-testid="performance-primary-chart">
                 <SurfaceTitle>Évolution du solde</SurfaceTitle>
                 <div className="mt-4">
                   <DailyPnl
@@ -163,6 +171,11 @@ export default async function PerformancePage({
               </Surface>
             </StaggerItem>
           ) : null}
+
+          {/* The supporting figures, now below the chart they qualify. */}
+          <StaggerItem>
+            <PerformanceSnapshot kpis={analytics.kpis} variant="secondary" />
+          </StaggerItem>
 
           {/*
            * The day's results and the win/loss split, side by side. Both answer

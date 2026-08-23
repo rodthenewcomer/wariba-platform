@@ -46,7 +46,7 @@ export function ActivityTimeline({
   return (
     <ol className="flex flex-col gap-3">
       {items.map((item) => (
-        <li key={item.id} className="flex gap-3">
+        <li key={item.id} data-testid="activity-item" className="flex gap-3">
           <span
             aria-hidden="true"
             className={cx('mt-1.5 h-2 w-2 shrink-0 rounded-full', SEVERITY_DOT[item.severity])}

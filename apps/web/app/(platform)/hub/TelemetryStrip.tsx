@@ -71,7 +71,7 @@ export function TelemetryStrip({ balance, figures }: TelemetryStripProps) {
    */
   return (
     <dl
-      className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-[auto_repeat(4,minmax(0,1fr))]"
+      className="grid grid-cols-2 gap-x-6 gap-y-3 sm:gap-y-4 sm:grid-cols-3 lg:grid-cols-[auto_repeat(4,minmax(0,1fr))]"
       data-testid="telemetry-strip"
     >
       {/*
@@ -124,9 +124,15 @@ export function TelemetryStrip({ balance, figures }: TelemetryStripProps) {
              * (axe `definition-list`) and costs a screen reader the term /
              * description pairing that is the whole point of the element. The
              * hint qualifies the value, so it belongs to the value.
+             *
+             * Hidden below `sm`. Each hint is "N % du budget", and the risk
+             * meters directly beneath the phone's CTA state the same two
+             * percentages as bars. Two lines of duplicate text is not worth the
+             * vertical budget at 320, where it was part of what pushed the
+             * decision off the first viewport.
              */}
             {figure.hint ? (
-              <span className="mt-1 block text-[length:var(--wariba-font-size-label-sm)] font-normal text-[color:var(--wariba-text-tertiary)]">
+              <span className="mt-1 hidden text-[length:var(--wariba-font-size-label-sm)] font-normal text-[color:var(--wariba-text-tertiary)] sm:block">
                 {figure.hint}
               </span>
             ) : null}

@@ -33,10 +33,20 @@ export function SegmentedFilter({
   label: string;
 }) {
   return (
+    /*
+     * Wraps below `sm`, scrolls above it.
+     *
+     * Six account-state filters do not fit 320px, and horizontal scrolling cut
+     * the third label mid-word — "En vérificat" — with no fade or chevron to
+     * say more existed. A cleanly severed word reads as a broken layout, not as
+     * an affordance, and the 2.5.1 gate names it explicitly. Wrapping costs a
+     * row of height at the one width where height is cheaper than a truncated
+     * control, and every option stays a full, tappable word.
+     */
     <nav
       aria-label={label}
       data-testid="segmented-filter"
-      className="-mx-1 flex max-w-full gap-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="-mx-1 flex max-w-full flex-wrap gap-1 px-1 pb-1 sm:flex-nowrap sm:overflow-x-auto sm:[scrollbar-width:none] sm:[&::-webkit-scrollbar]:hidden"
     >
       {options.map((option) => {
         const selected = option.value === active;

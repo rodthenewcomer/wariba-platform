@@ -144,13 +144,17 @@ export function PayoutCenterPanel({
     [performanceProgress],
   );
 
-  if (!performanceProgress) {
-    return (
-      <Text variant="body-sm" color="secondary">
-        Aucun cycle Performance actif — un dossier WARIBA Review a peut-être déjà été ouvert.
-      </Text>
-    );
-  }
+  /*
+   * Nothing to add when there is no cycle.
+   *
+   * `PayoutStatus` directly above already states the lifecycle state, why a
+   * payout is unavailable, the identity gate and what happens next — inside a
+   * card. This used to restate the same fact in different words as unframed
+   * text underneath it, which reads as the page not knowing what it had just
+   * told you. The panel's job is the *request*, and there is no request to
+   * make until a cycle exists.
+   */
+  if (!performanceProgress) return null;
 
   const blockingReason = resolveBlockingReason(performanceProgress);
   const canSubmit = blockingReason === null && !pending;
