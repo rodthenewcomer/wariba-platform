@@ -52,3 +52,9 @@ export {
   type Db,
   type StaffRole,
 } from '@wariba/database';
+
+export {
+  seedTradingRecord,
+  deleteTradingRecord,
+  type TradingRecordFixture,
+} from './trading-record-fixture';

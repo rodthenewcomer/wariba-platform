@@ -197,10 +197,33 @@ export async function buildAccountHubView(
     },
   });
 
-  // Realized-only equity (see risk-engine-inputs.ts doc comment): today's
-  // daily reference equals start-of-day balance in this construction, so
-  // "PnL du jour" is simply how far the current balance has moved from it.
-  const pnlToday = new Decimal(inputs.currentBalance).minus(result.dailyLoss.reference).toFixed(2);
+  /*
+   * How far the balance has moved today — measured against start of day on the
+   * *same basis* as the balance itself.
+   *
+   * This used to subtract `result.dailyLoss.reference`, on the stated
+   * assumption that "today's daily reference equals start-of-day balance in
+   * this construction". That assumption is false whenever the account holds
+   * ineligible short-duration profit. `ensureTodaySnapshot` builds
+   * `daily_reference` from `programSodBalance` — the program-*eligible*
+   * basis — because the daily-loss rule is evaluated there. The account
+   * balance is not on that basis, so the subtraction was returning
+   * `balance − eligibleBalance`, which is exactly the ineligible profit.
+   *
+   * The visible symptom: an account that took a sub-minute winning trade on
+   * Wednesday and did not trade again reported "+36 USD" as Saturday's P&L,
+   * every day, forever. A figure labelled "aujourd'hui" that reports a trade
+   * from three days ago is worse than no figure.
+   *
+   * `sod_balance` is the account balance at the start of today, so the two
+   * sides of this subtraction now describe the same thing. `ensureTodaySnapshot`
+   * guarantees today's row exists and it is the newest, which is what the
+   * `[0]` indexes — the fallback keeps the figure at zero rather than throwing
+   * if that invariant ever changes.
+   */
+  const todaySnapshot = snapshotRows[0];
+  const startOfDayBalance = todaySnapshot?.sod_balance ?? inputs.currentBalance;
+  const pnlToday = new Decimal(inputs.currentBalance).minus(startOfDayBalance).toFixed(2);
 
   const activatedAtLabel = inputs.activatedAt
     ? inputs.activatedAt.toLocaleDateString('fr-FR', {
