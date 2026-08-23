@@ -1,0 +1,191 @@
+requirement_id,section,domain,requirement,status,severity,evidence,gap,recommended_phase
+POS-01.01,1 Autorité,Governance,"Hiérarchie des décisions respectée par le code",DONE,P1,"docs/00-decisions/DECISION_LOG.md; 321 LOCKED / 31 OPEN; code cite les IDs (UX-HUB-005, ENG-031)","",-
+POS-02.01,2 D1,Architecture,"Trader Hub et WariX sont deux shells visuels distincts",DONE,P0,"apps/web/app/(platform)/HubShell.tsx vs apps/web/app/(trade)/trade/workstation/WorkstationShell.tsx","",-
+POS-02.02,2 D2,Hub,"Dashboard est l'accueil du Trader Hub",DONE,P1,"apps/web/app/(platform)/hub/page.tsx; redirect post-login vers /hub","",-
+POS-02.03,2 D3,WariX,"WariX n'est jamais une surface commerciale",DONE,P1,"grep offres/checkout dans (trade) = 0 résultat","",-
+POS-02.04,2 D4,Auth,"Destination par défaut après login = /hub",DONE,P1,"apps/web/app/(auth)/actions.ts; waitForURL('**/hub') dans les E2E","",-
+POS-02.05,2 D5,Product,"WARIBA V1 reste simulé",DONE,P0,"productCopy 'Compte simulé'; AccountHero affiche la mention légale","",-
+POS-02.06,2 D6,Lifecycle,"Réussite n'est pas activation immédiate",DONE,P0,"state-machines.ts pass_pending -> passed; account-lifecycle.ts objective_reached/under_review","",-
+POS-02.07,2 D7,KYC,"KYC au premier payout financièrement éligible",PARTIAL,P0,"payout-lifecycle.ts eligible_kyc_required; kyc-state.ts","KYC_PROVIDER_INTEGRATED = false; aucun provider",3.5
+POS-02.08,2 D8,Risk,"Breach immuable",DONE,P0,"app.risk_violations; account_state_transitions; lifecycle.terminal","",-
+POS-02.09,2 D9,Hub,"Add Account est une action, pas une destination égale",DONE,P2,"hub-destinations.tsx emphasis: 'cta'","",-
+POS-02.10,2 D10,Risk,"Trading pendant payout = OPEN",INTENTIONALLY_DEFERRED,P2,"OPEN-RISK-001 dans §117; registre OPEN","",-
+POS-03.01,3 Vocabulaire,Product,"Vocabulaire produit canonique appliqué",DONE,P2,"apps/web/lib/product-copy.ts centralise la copie FR","",-
+POS-04.01,4 Programme,Product,"WARIBA ONE et Performance reflétés dans l'UI",DONE,P1,"account-display.ts programLabel; policy_versions par programme","",-
+POS-05.01,5 Architecture,Architecture,"Chaîne public->auth->commerce->hub->warix->lifecycle",PARTIAL,P0,"Toutes les étapes existent sauf review/payout externes","KYC + payout providers absents",3.5
+POS-06.01,6 Routes,Public,"Route /",DONE,P1,"apps/web/app/(public)/page.tsx","",-
+POS-06.02,6 Routes,Public,"Route /offres",DONE,P1,"apps/web/app/(public)/offres/page.tsx","",-
+POS-06.03,6 Routes,Public,"Route /programme",DONE,P1,"apps/web/app/(public)/programme/page.tsx","",-
+POS-06.04,6 Routes,Public,"Route /regles",MISSING,P1,"find apps/web/app -> aucune route /regles","Règles publiques accessibles seulement via /programme#regles",3.4
+POS-06.05,6 Routes,Public,"Route /warix",DONE,P1,"apps/web/app/(public)/warix/page.tsx + démo interactive","",-
+POS-06.06,6 Routes,Public,"Route /confiance",MISSING,P1,"aucune route /confiance","Page confiance/trust absente",3.4
+POS-06.07,6 Routes,Public,"Route /aide",UI_ONLY,P1,"apps/web/app/(public)/aide/HelpCenterClient.tsx (208 lignes)","Contenu embarqué dans un composant client; aucune table help_articles",3.1
+POS-06.08,6 Routes,Public,"Route /support",UI_ONLY,P0,"apps/web/app/(public)/support/page.tsx statique","Aucun système de tickets derrière",3.1
+POS-06.09,6 Routes,Public,"Route /status",MISSING,P1,"aucune route; OPS-010 LOCKED 'Status page avant public'","Exigence LOCKED non satisfaite; OPS-011 provider OPEN",3.4
+POS-06.10,6 Routes,Public,"Routes /legal/*",DONE,P1,"conditions, confidentialite, risques présentes","",-
+POS-06.11,6 Routes,Auth,"6 routes auth canoniques",DONE,P0,"login, inscription, verification-email, mot-de-passe-oublie, recuperation, session-expiree","",-
+POS-06.12,6 Routes,Commerce,"Routes checkout canoniques",DONE,P0,"checkout, checkout/success, checkout/echec, bienvenue","",-
+POS-06.13,6 Routes,Hub,"Route /hub",DONE,P0,"apps/web/app/(platform)/hub/page.tsx","",-
+POS-06.14,6 Routes,Hub,"Route /comptes",DONE,P1,"apps/web/app/(platform)/comptes/page.tsx","",-
+POS-06.15,6 Routes,Hub,"Route /comptes/{accountId}",MISSING,P1,"seules /comptes et /comptes/nouveau existent","Aucun détail de compte; Constitution §32 l'exige",3.3
+POS-06.16,6 Routes,Hub,"Route /performance",DONE,P1,"apps/web/app/(platform)/performance/page.tsx","",-
+POS-06.17,6 Routes,Hub,"Route /payouts",DONE,P0,"apps/web/app/(platform)/payouts/page.tsx","",-
+POS-06.18,6 Routes,Hub,"Route /facturation",DONE,P1,"apps/web/app/(platform)/facturation/page.tsx","",-
+POS-06.19,6 Routes,Hub,"Route /notifications",INTENTIONALLY_DEFERRED,P1,"ENG-031 LOCKED + UX-HUB-010 LOCKED défèrent explicitement","Conflit Constitution §43 vs décisions LOCKED - voir CONFLICT-01",-
+POS-06.20,6 Routes,Hub,"Route /profil",MISSING,P1,"aucune route /profil; §41 l'exige","Aucun deferral au Decision Log",3.3
+POS-06.21,6 Routes,Hub,"Route /parametres",PARTIAL,P1,"apps/web/app/(platform)/parametres/page.tsx (114 lignes)","2 des 8 domaines §42 (Langue, Sécurité); lecture seule",3.3
+POS-06.22,6 Routes,Hub,"Route /support authentifiée",MISSING,P0,"/support n'existe qu'en (public); la nav Hub y pointe","Le Hub renvoie vers une page publique statique",3.1
+POS-06.23,6 Routes,Hub,"Route /plus",DONE,P2,"apps/web/app/(platform)/plus/page.tsx","",-
+POS-06.24,6 Routes,WariX,"Route /trade?account=",DONE,P0,"apps/web/app/(trade)/trade/page.tsx searchParams account","",-
+POS-06.25,6 Routes,WariX,"Workspace sérialisable view=trading|performance|risk|settings|help",MISSING,P1,"page.tsx ne lit que { account?: string }","Aucun paramètre view; §57/§58 non atteignables par URL",3.2
+POS-06.26,6 Routes,WariX,"Invariant: changer de view ne remonte pas TradeChart",CANNOT_VERIFY,P1,"le paramètre view n'existe pas","Invariant non testable tant que POS-06.25 est MISSING",3.2
+POS-07.01,7 Vision,Design,"Identité visuelle premium non-template",DONE,P2,"globals.css ladder warix-*; tokens sémantiques 6 rôles","",-
+POS-08.01,8 Design,Design,"Materials et palette sémantique",DONE,P1,"globals.css --wariba-accent-{indigo,emerald,amber,red,cyan,copper} + wash/edge","",-
+POS-09.01,9 Typographie,Design,"Chiffres tabulaires pour la télémétrie",DONE,P1,"classe wariba-data; tabular-nums dans JournalTable/ResetCountdown","",-
+POS-10.01,10 Iconographie,Design,"Système d'icônes cohérent, taille optique min",DONE,P2,"components/hub/icons.tsx Phosphor 20-28px","",-
+POS-11.01,11 Assets,Design,"Actifs visuels site public / Hub / WariX / Aide",PARTIAL,P2,"AuthVisual, WariX demo","Pas de preuve produit forte en homepage (§8.1 Phase 3)",3.4
+POS-12.01,12 Instruments,Design,"Identité visuelle des instruments",PARTIAL,P3,"symbol_specs; MarketNavigator","Pas d'iconographie par instrument",3.4
+POS-13.01,13 Motion,Design,"Motion system + prefers-reduced-motion",DONE,P1,"components/motion/primitives.tsx useReducedMotion partout","",-
+POS-14.01,14 Site public,Public,"Site public complet et véridique",PARTIAL,P1,"9 routes publiques présentes","3 routes canoniques absentes (/regles /confiance /status)",3.4
+POS-15.01,15 Auth,Auth,"Auth blueprint desktop + mobile",DONE,P1,"apps/web/app/(auth)/* 6 routes + AuthVisual","",-
+POS-16.01,16 returnTo,Auth,"returnTo / next géré et sûr",DONE,P0,"redirect('/login?next=/hub') dans les pages protégées","",-
+POS-17.01,17 Offers,Commerce,"Offers experience",DONE,P1,"(public)/offres + buildOfferCatalog","",-
+POS-18.01,18 Checkout,Commerce,"Checkout experience",PARTIAL,P0,"checkout, sandbox-pay, success, echec, webhook idempotent","PSP externe absent (OPEN-PAYMENT-001)",3.5
+POS-19.01,19 Hub Shell,Hub,"Shell desktop expanded/collapsed",DONE,P1,"HubSidebar.tsx data-collapsed; --hub-sidebar-expanded/collapsed","",-
+POS-20.01,20 Hub Header,Hub,"Header Hub",DONE,P2,"HubHeaderSlot.tsx + HubUserMenu.tsx","",-
+POS-21.01,21 Dashboard,Hub,"Philosophie dashboard",DONE,P1,"hub/page.tsx buildCommandCenterView","",-
+POS-22.01,22 Dashboard,Hub,"Dashboard évaluation active",DONE,P0,"AccountHero + LiveTelemetry + RiskMeter + MissionChecklist","",-
+POS-23.01,23 Health,Hub,"Account Health Score",DONE,P1,"account-health.ts 5 états dont untested","",-
+POS-24.01,24 Dashboard,Hub,"Dashboard aucun compte",DONE,P1,"hub/Launchpad.tsx lit buildOfferCatalog","",-
+POS-25.01,25 Dashboard,Hub,"Dashboard paiement / activation",DONE,P1,"branche pending_activation dans hub/page.tsx","",-
+POS-26.01,26 Dashboard,Hub,"Dashboard soft lock",PARTIAL,P0,"lifecycle evaluation_locked; risk.status soft-lock","Pas de compte à rebours de reset ni de récupération auto explicite",3.3
+POS-27.01,27 Dashboard,Hub,"Dashboard pass_pending",DONE,P0,"account-lifecycle objective_reached + under_review (UX-HUB-005 LOCKED)","",-
+POS-28.01,28 Dashboard,Hub,"Dashboard passed / activation Performance",DONE,P1,"lifecycle passed + funded_preparing","",-
+POS-29.01,29 Dashboard,Hub,"Dashboard Performance active",DONE,P1,"PayoutSummary rendu au-dessus de la mission","",-
+POS-30.01,30 Dashboard,Hub,"Dashboard éligible / KYC",PARTIAL,P0,"payout.kyc rendu dans PayoutSummary","Provider KYC absent",3.5
+POS-31.01,31 Dashboard,Hub,"Dashboard breached",DONE,P0,"LifecycleBanner + terminal-risk-note; barres de risque supprimées","",-
+POS-32.01,32 Comptes,Hub,"Portefeuille de comptes + filtres",DONE,P1,"comptes/page.tsx SegmentedFilter + AccountCard","",-
+POS-32.02,32 Comptes,Hub,"Détail de compte",MISSING,P1,"aucune route /comptes/{accountId}","Voir POS-06.15",3.3
+POS-33.01,33 Add Account,Commerce,"Configurateur d'ajout de compte",DONE,P1,"comptes/nouveau/Configurator.tsx + sticky CTA mobile","",-
+POS-34.01,34 Performance,Performance,"Performance Hub analytique",DONE,P1,"performance-analytics.ts 15 KPI + performance/page.tsx","",-
+POS-34.02,34 Performance,Performance,"Equity historique authoritative",OBSOLETE,P0,"daily-finalization.ts:248 eod_equity = eodBalance","Non authoritative par conception documentée; aucune série inventée",-
+POS-35.01,35 Payouts,Payout,"Payout Center",DONE,P1,"payouts/page.tsx + PayoutStatus + payout-lifecycle.ts 12 états","",-
+POS-36.01,36 Checklist,Payout,"Payout readiness checklist",DONE,P1,"PayoutCenterPanel toConditions()","",-
+POS-37.01,37 KYC,KYC,"Surface KYC",UI_ONLY,P0,"verification-identite/page.tsx + kyc-state.ts","KYC_PROVIDER_INTEGRATED=false; seul kyc_sandbox_verified persiste",3.5
+POS-38.01,38 Re-KYC,KYC,"Re-KYC",MISSING,P2,"aucune logique de ré-vérification","",3.5
+POS-39.01,39 Payout UI,Payout,"États UI de payout",DONE,P1,"PayoutStatus data-payout-state; 12 états","",-
+POS-40.01,40 Facturation,Payments,"Facturation",DONE,P1,"facturation/page.tsx + billing-view.ts summary + provider","",-
+POS-41.01,41 Profil,Hub,"Profil trader",MISSING,P1,"aucune route /profil","Prénom/pays/langue/timezone/préférences absents",3.3
+POS-42.01,42 Paramètres,Hub,"8 domaines de paramètres",PARTIAL,P1,"parametres/page.tsx 114 lignes, lecture seule","Sessions, Fuseau, Notifications, Confidentialité, Appareils, Accessibilité absents",3.3
+POS-43.01,43 Notifications,Notifications,"Route /notifications + centre partagé Hub/WariX",INTENTIONALLY_DEFERRED,P1,"ENG-031 LOCKED: servi par recent_activity_view; UX-HUB-010 LOCKED","CONFLICT-01: la Constitution §43 est overridée par deux décisions LOCKED",-
+POS-43.02,43 Notifications,Notifications,"Centre de notifications WariX (alertes)",DONE,P1,"NotificationCenter.tsx + app.alert_notifications + UX-TRADING-009 LOCKED","",-
+POS-44.01,44 Support,Support,"Recherche + Help Center",UI_ONLY,P1,"HelpCenterClient.tsx recherche côté client","Aucune persistance d'articles",3.1
+POS-44.02,44 Support,Support,"Tickets",MISSING,P0,"aucune table dans schema.ts (42 tables)","UX-010 LOCKED 'Support et contestation intégrés au produit'",3.1
+POS-44.03,44 Support,Support,"Incidents visibles trader",MISSING,P1,"app.operations_incidents existe mais Control seulement","",3.4
+POS-44.04,44 Support,Disputes,"Contestations",MISSING,P0,"aucune table; UX-010 LOCKED","Le trader ne peut pas contester un breach",3.1
+POS-45.01,45 WariX,WariX,"Architecture 4 rails + dock",DONE,P0,"WorkstationShell.tsx; DrawingToolRail; ExecutionPanel; ChartBottomBar","",-
+POS-46.01,46 WariX,WariX,"Global Rail",DONE,P1,"workstation/ global rail + icônes","",-
+POS-47.01,47 WariX,WariX,"Drawing Rail",DONE,P1,"DrawingToolRail.tsx + chart-tool-catalog.tsx","",-
+POS-48.01,48 WariX,WariX,"Right Utility Rail",DONE,P1,"ExecutionPanel + PositionsTabPanel + right rail","",-
+POS-49.01,49 WariX,WariX,"Right drawer behavior",DONE,P2,"ToolFlyout.tsx + drawers","",-
+POS-50.01,50 WariX,WariX,"Markets Drawer",DONE,P1,"MarketNavigator.tsx + SymbolSearchModal.tsx","",-
+POS-51.01,51 WariX,WariX,"Trader Drawer",DONE,P1,"ExecutionPanel + ticket-draft.ts","",-
+POS-52.01,52 WariX,WariX,"Alerts ownership (user, pas compte)",DONE,P1,"TRADING-ALERT-003 LOCKED; app.price_alerts par user","",-
+POS-53.01,53 WariX,WariX,"Bottom Dock",DONE,P1,"ChartBottomBar.tsx + PositionsTabPanel","",-
+POS-54.01,54 WariX,WariX,"Header WariX",DONE,P1,"TradeHeaderPanel.tsx","",-
+POS-55.01,55 WariX,WariX,"Séparation Chart Prefs / Settings / Risk Center / Risk Calculator",PARTIAL,P1,"ChartSettingsModal + chart-preferences.ts + risk-status.ts","Risk Center et Risk Calculator non distincts",3.2
+POS-56.01,56 WariX,WariX,"WariX Settings blueprint",PARTIAL,P1,"ChartSettingsModal.tsx couvre l'affichage graphique","Réglages non-graphiques absents",3.2
+POS-57.01,57 WariX,WariX,"WariX Performance view",MISSING,P1,"aucun view=performance","",3.2
+POS-58.01,58 WariX,WariX,"WariX Risk view",PARTIAL,P1,"TradeRiskDetail.tsx + risk-status.ts existent","Pas de vue dédiée sérialisable",3.2
+POS-59.01,59 WariX,WariX,"Empty state sans compte",DONE,P1,"WariXGate.tsx","",-
+POS-60.01,60 WariX,WariX,"États WariX",DONE,P1,"market-display-state.ts + risk-status.ts","",-
+POS-61.01,61 WariX,WariX,"Fraîcheur des données / Prix obsolète",DONE,P0,"market-display-state.ts stale; ChartStatusLine","",-
+POS-62.01,62 Erreurs,UX,"Messages d'erreur premium",DONE,P1,"trade-copy.ts + trade-labels.ts codes de rejet FR","",-
+POS-63.01,63 Messages,i18n,"Messages français prioritaires",DONE,P1,"product-copy.ts; tests french-state-labels.test.ts","",-
+POS-64.01,64 i18n,i18n,"French-first i18n constitution",PARTIAL,P2,"Tout est FR en dur","Aucune infrastructure i18n; locale non stockée",3.3
+POS-65.01,65 Lifecycle,Lifecycle,"Machine d'états complète",DONE,P0,"state-machines.ts 8 statuts DB + account-lifecycle.ts 12 états UX","",-
+POS-66.01,66 Pass Review,Lifecycle,"Pass Review",BACKEND_ONLY,P0,"app.performance_review_cases + control/accounts","Pas de file Control dédiée Pass Review",3.3
+POS-67.01,67 Finalisation,Risk,"Finalisation de journée",DONE,P0,"daily-finalization.ts + services/worker","",-
+POS-68.01,68 Performance,Lifecycle,"Activation Performance",DONE,P0,"activation.ts activatePerformanceAccountInTransaction","",-
+POS-69.01,69 Eligibility,Payout,"Éligibilité Performance",DONE,P0,"performance.ts evaluatePayoutEligibility + performance_cycles","",-
+POS-70.01,70 Payout,Payout,"Demande de payout",DONE,P0,"payouts.ts + app.payout_requests","",-
+POS-71.01,71 Provider,Payout,"Provider payout",BLOCKED_EXTERNAL,P0,"adapters/payout-provider.ts abstraction seule","OPEN-PAYOUT-001 non tranché",3.5
+POS-72.01,72 Après payout 5,Payout,"WARIBA Review après 5 payouts",BACKEND_ONLY,P1,"PROD-004 LOCKED; performance_cycles","Pas de surface trader",3.3
+POS-73.01,73 Review,Lifecycle,"WARIBA Review",DOCUMENTATION_ONLY,P2,"Aucun code de programme Review","OPEN-PROGRAM-001",-
+POS-74.01,74 Control,Control,"Architecture WARIBA Control",DONE,P0,"19 routes (control)/ + staff RBAC","",-
+POS-75.01,75 Control,Control,"File Pass Review",MISSING,P1,"aucune page control/pass-review","",3.3
+POS-76.01,76 Control,Control,"File KYC",MISSING,P0,"aucune page control/kyc","",3.5
+POS-77.01,77 Control,Control,"File Payout",DONE,P0,"control/payouts + control/payouts/[payoutId] + actions.ts","",-
+POS-78.01,78 Control,Control,"Breach / Dispute Control",PARTIAL,P0,"control/integrity/[accountId] montre les preuves","Aucune file de contestation",3.1
+POS-79.01,79 Backend,Backend,"Modèle d'agrégats backend",DONE,P0,"packages/database 42 tables; agrégats par compte","",-
+POS-80.01,80 Permissions,Risk,"Permissions de trading",DONE,P0,"evaluateAccountRisk + assertEvaluationAccountTransition + lockAccount","",-
+POS-81.01,81 State machine,Lifecycle,"Machine d'états compte",DONE,P0,"state-machines.ts EVALUATION_ACCOUNT_TRANSITIONS","",-
+POS-82.01,82 KYC,KYC,"Agrégat KYC",PARTIAL,P0,"trading_accounts.kyc_sandbox_verified seulement","Pas d'agrégat dédié ni de documents",3.5
+POS-83.01,83 Audit,Security,"Registre d'audit",DONE,P0,"audit.audit_events + control/audit","",-
+POS-84.01,84 Événements,Backend,"Événements minimaux",DONE,P1,"app.outbox_events + realtime","",-
+POS-85.01,85 Anti-dup,Architecture,"Carte anti-duplication",DONE,P1,"ENG-029 LOCKED; risk-view seul propriétaire des chiffres","",-
+POS-86.01,86 États,UX,"Loading / Empty / Partial / Stale / Offline",DONE,P1,"loading.tsx x4; HubEmptyState; hors-ligne/page.tsx; stale telemetry","",-
+POS-87.01,87 Skeletons,UX,"Skeletons alignés sur la mise en page",DONE,P2,"hub/journal/performance loading.tsx reconstruits Phase 2.5.1","",-
+POS-88.01,88 Stale,UX,"État stale",DONE,P1,"LiveTelemetry FreshnessLabel + Réessayer","",-
+POS-89.01,89 Offline,WariX,"WariX offline",PARTIAL,P1,"hors-ligne/page.tsx + reconnexion realtime","Pas de re-sync forcé avant réactivation du trading",3.3
+POS-90.01,90 Mobile,Mobile,"Philosophie mobile",DONE,P1,"HubMobileNav 70px + preuves 320/375/390","",-
+POS-91.01,91 Mobile,Mobile,"Trader Hub mobile",DONE,P1,"Phase 2.5.1 gate: 0 overflow 320/375/390","",-
+POS-92.01,92 Mobile,Mobile,"Dashboard mobile",DONE,P0,"hub-mobile-320-final.png: 6/6 réponses en premier viewport","",-
+POS-93.01,93 Mobile,Mobile,"WariX mobile",DONE,P1,"MobileToolsSheet + mobile-action-rail + E2E @mobile","",-
+POS-94.01,94 Mobile,Mobile,"WariX mobile chart",DONE,P1,"chart context menu long press; E2E mobile","",-
+POS-95.01,95 Breakpoints,Mobile,"Breakpoints conceptuels",DONE,P2,"320/375/390/1366/1440 testés","",-
+POS-96.01,96 Accessibilité,Accessibility,"Accessibilité",DONE,P0,"axe wcag2a/2aa/21a/21aa: 0 critical 0 serious sur 4 routes mobiles","",-
+POS-97.01,97 Sécurité,Security,"Sécurité",PARTIAL,P0,"RLS migrations; staff RBAC; rate limits; webhook secret","Pas d'audit de sécurité formel; SEC-013/014 OPEN",3.6
+POS-98.01,98 PSP gate,Payments,"Gate PSP production",BLOCKED_EXTERNAL,P0,"payment-provider.ts + sandbox interne","OPEN-PAYMENT-001",3.5
+POS-99.01,99 Payout gate,Payout,"Gate payout réel",BLOCKED_EXTERNAL,P0,"payout-provider.ts abstraction","OPEN-PAYOUT-001; OPS-014 OPEN",3.5
+POS-100.01,100 Market data,Providers,"Gate droits d'affichage market data",BLOCKED_EXTERNAL,P0,"6 adapters; MARKET_DATA_PROVIDER enum","OPEN-DATA-001; DATA-011 BLOCKED BY CREDENTIAL",3.5
+POS-101.01,101 Analytics,Analytics,"Analytics produit",UI_ONLY,P1,"lib/analytics.ts trackEvent -> logs structurés seulement","Aucun provider; ARCH-025 OPEN; pas de funnel",3.4
+POS-102.01,102 Ops metrics,Observability,"Métriques ops",PARTIAL,P1,"realtime metrics.ts + health.ts + record-ci-metric","Pas d'agrégation; ARCH-026 OPEN",3.6
+POS-103.01,103 QA matrix,QA,"Matrice QA visuelle",DONE,P1,"docs/04-ux/evidence/* 3 jeux de preuves","",-
+POS-104.01,104 Evidence,QA,"Contrat de preuve par screenshot",DONE,P2,"phase2/phase25/phase251 evidence dirs","",-
+POS-105.01,105 Fast loop,QA,"Fast visual loop",DONE,P2,"scripts/visual-verify.mjs","",-
+POS-106.01,106 Release QA,QA,"Full release QA",DONE,P1,"pnpm test:certification chaîne 10 étapes","",-
+POS-107.01,107 E2E,QA,"E2E acquisition",PARTIAL,P1,"E2E auth","Pas d'E2E acquisition publique",3.4
+POS-108.01,108 E2E,QA,"E2E commerce",DONE,P1,"tests/e2e couvre checkout sandbox","",-
+POS-109.01,109 E2E,QA,"E2E évaluation",DONE,P0,"lifecycle fixture 12 états + phase25 spec","",-
+POS-110.01,110 E2E,QA,"E2E KYC",MISSING,P1,"aucun E2E KYC","",3.5
+POS-111.01,111 E2E,QA,"E2E payout",PARTIAL,P0,"payout fixture + @payout tag","Pas de bout-en-bout avec provider",3.5
+POS-112.01,112 E2E,QA,"E2E WariX",DONE,P0,"trade.spec.ts @trade (exécution dépend du marché ouvert)","",-
+POS-113.01,113 Visual,QA,"Critères visuels Hub",DONE,P1,"Phase 2.5.1 gate 13 tests","",-
+POS-114.01,114 Visual,QA,"Critères visuels WariX",DONE,P1,"warix-phase25-regression.spec.ts","",-
+POS-115.01,115 Visual,QA,"Critères visuels Auth",PARTIAL,P2,"captures Phase 2","Pas de gate dédié",3.4
+POS-116.01,116 Visual,QA,"Critères visuels Offers/Checkout",PARTIAL,P2,"capture comptes-nouveau","Checkout non capturé",3.4
+POS-117.01,117 Open,Governance,"Registre des décisions OPEN tenu",DONE,P1,"13 OPEN dans §117; 31 OPEN dans DECISION_LOG","",-
+POS-118.01,118 Phases,Governance,"Phases d'implémentation 0-8",DONE,P1,"Phases 0-8 livrées; Product OS 2/2.5/2.5.1 par-dessus","",-
+POS-119.01,119 Agents,Governance,"Constitution d'exécution agents",DONE,P2,"AGENTS.md + docs/06-engineering","",-
+POS-120.01,120 Design review,Design,"Questions de design review obligatoires",DONE,P2,"design-qa.md","",-
+POS-121.01,121 Self-audit,QA,"Product QA self-audit",DONE,P1,"docs/07-assurance","",-
+POS-122.01,122 DoD,Governance,"Definition of Done",DONE,P1,"AGENTS.md + gates CI","",-
+POS-123.01,123 Verdict,Governance,"Verdict master",PARTIAL,P1,"MASTER CANDIDATE v2.0","§150 conditions de LOCK non satisfaites",-
+POS-124.01,124 Cartes,Design,"Component grammar cartes",DONE,P1,"components/hub/Surface.tsx tones + KpiTile","",-
+POS-125.01,125 Controls,Design,"Buttons/toggles/controls",PARTIAL,P2,"Action.tsx variants/sizes","Aucun toggle dans le Hub (rien à basculer)",3.3
+POS-126.01,126 Forms,Design,"Forms premium",DONE,P1,"auth forms + Configurator","",-
+POS-127.01,127 Tables,Design,"Tables et données denses",DONE,P1,"JournalTable + OpenPositionsTable + control tables","",-
+POS-128.01,128 Overlays,Design,"Modal/Drawer/Popover/Sheet",DONE,P1,"BottomSheet.tsx + ChartModal + ToolFlyout","",-
+POS-129.01,129 Toasts,Design,"Toasts et feedback",PARTIAL,P1,"feedback d'exécution WariX","Rejet de breach persistant à renforcer (§7.2 Phase 3)",3.3
+POS-130.01,130 Delivery,Notifications,"Matrice de delivery des notifications",MISSING,P1,"aucune table de notifications (ENG-031)","Email/in-app non matricés",3.5
+POS-131.01,131 Guards,Security,"Route guards",DONE,P0,"getUser() + redirect dans chaque page protégée; middleware","",-
+POS-132.01,132 RBAC,Security,"Staff RBAC 6 rôles",DONE,P0,"app.staff_members + control-security.ts","",-
+POS-133.01,133 Idempotence,Backend,"Idempotence",DONE,P0,"idempotency_key sur trade_orders/purchase_orders; migration 20260804000004","",-
+POS-134.01,134 Concurrency,Backend,"Invariants de concurrence",DONE,P0,"lockAccount (13 usages) + position.version optimiste","",-
+POS-135.01,135 Externes,Backend,"Appels externes et reprise",PARTIAL,P1,"outbox_events + realtime leadership fencing","Pas de reprise provider externe (aucun provider)",3.5
+POS-136.01,136 Vérité,Architecture,"Sources de vérité",DONE,P0,"risk-view/mission-view/command-center; aucun calcul financier client","",-
+POS-137.01,137 Chart,WariX,"Constitution visuelle du graphique",DONE,P1,"chart-preferences.ts couvre grid/candles/crosshair/scale/time bar","",-
+POS-138.01,138 Toolbar,WariX,"Constitution toolbar",DONE,P1,"ChartToolbar.tsx + chart-tool-catalog.tsx","",-
+POS-139.01,139 Icons,WariX,"Sémantique icônes global rail",DONE,P2,"workstation icons","",-
+POS-140.01,140 Icons,WariX,"Sémantique icônes right rail",DONE,P2,"right rail icons","",-
+POS-141.01,141 Icons,WariX,"Sémantique icônes drawing rail",DONE,P2,"ChartToolIcon.tsx","",-
+POS-142.01,142 Multi-account,Hub,"Comportement multi-compte",DONE,P1,"AccountSwitcher + switcher-accounts.ts","",-
+POS-143.01,143 Performance,Performance,"Grammaire visuelle performance",DONE,P1,"PerformanceSnapshot primary/secondary + WinLossRing","",-
+POS-144.01,144 Motion,Design,"Chorégraphie lifecycle",PARTIAL,P2,"Stagger/AnimatedNumber/ProgressBar","Pas de chorégraphie dédiée par transition de lifecycle",3.3
+POS-145.01,145 Art direction,Design,"Brief art direction",DOCUMENTATION_ONLY,P3,"Aucun asset généré","",3.4
+POS-146.01,146 Help,Support,"Surfaces d'aide / éducation",UI_ONLY,P1,"HelpCenterClient + WariX help panel","Pas de persistance ni de versionnage",3.1
+POS-147.01,147 Privacy,Security,"Privacy & observabilité",PARTIAL,P1,"control-pii.ts + logs structurés","SEC-014 rétention OPEN",3.6
+POS-148.01,148 Empty,UX,"Bibliothèque d'empty states premium",DONE,P1,"HubEmptyState + DailyPnlStrip + AccountEvolution empty","",-
+POS-149.01,149 Review gate,Governance,"Gate de revue indépendante finale",PARTIAL,P1,"Phase 2.5.1 final gate exécuté","Pas de revue humaine indépendante enregistrée",-
+POS-150.01,150 Lock,Governance,"Conditions de lock du master",MISSING,P1,"MASTER CANDIDATE; 11 validations requises","Aucune validation Product/Risk/Finance/Compliance enregistrée",-
