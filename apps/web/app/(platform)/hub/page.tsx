@@ -1,85 +1,71 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import {
-  AccountSelector,
-  ActivityTimeline,
-  Alert,
-  buttonClassNames,
-  ConsistencyMeter,
-  EmptyState,
-  MissionProgress,
-  OpenPositionsTable,
-  Text,
-  TradingDaysList,
-} from '@wariba/ui';
+import { ActivityTimeline, ConsistencyMeter, OpenPositionsTable, Text } from '@wariba/ui';
 import {
   buildAccountHubView,
   buildAccountMissionView,
   buildAccountPerformanceMissionView,
   buildAccountRiskView,
   buildOpenPositionsView,
+  buildPayoutLifecycle,
+  buildPerformanceAnalytics,
   buildRecentActivityView,
+  deriveAccountHealth,
+  deriveAccountLifecycle,
   listAccountsForUser,
 } from '@wariba/application';
 import { createSupabaseServerClient } from '../../../lib/supabase/server';
 import { getDb } from '../../../lib/db';
-// Shared with WariX since W1 — one definition of the program name and the
-// account-status vocabulary, so the Hub selector and the workstation status
-// bar cannot label the same account differently.
-import {
-  accountStatusLabel,
-  accountStatusVariant,
-  formatNominal,
-  programLabel,
-  programPhaseLabel,
-} from '../../../lib/account-display';
+import { formatNominal, programLabel, programPhaseLabel } from '../../../lib/account-display';
 import { productCopy } from '../../../lib/product-copy';
 import { trackEvent } from '../../../lib/analytics';
-import { AccountSwitchLink } from './AccountSwitchLink';
+import { ActionLink } from '../../../components/hub/Action';
+import { HubEmptyState } from '../../../components/hub/HubEmptyState';
+import { PerformanceSnapshot } from '../../../components/hub/PerformanceSnapshot';
+import { Surface, SurfaceTitle } from '../../../components/hub/Surface';
+import { Stagger, StaggerItem } from '../../../components/motion/primitives';
+import { HubHeaderSlot } from '../HubHeaderSlot';
 import { AccountEvolution } from './AccountEvolution';
-import { AccountHero, type AccountHeroDetail } from './AccountHero';
-import { HubModule, HubModuleTitle } from './HubModule';
+import { AccountHero, type HeroDetail, type HeroStat } from './AccountHero';
+import { AccountSwitcher } from './AccountSwitcher';
+import { toSwitcherAccounts } from './switcher-accounts';
+import { HealthPanel } from './HealthPanel';
 import { HubRiskDetail } from './HubRiskDetail';
-import { RiskPanel } from './RiskPanel';
-import { TrackedClick } from './TrackedClick';
+import { LifecycleBanner, shouldShowLifecycleBanner } from './LifecycleBanner';
+import { MissionChecklist } from './MissionChecklist';
+import { QuickActions } from './QuickActions';
+import { quickActionsFor } from './dashboard-actions';
 
 export const dynamic = 'force-dynamic';
 
 const copy = productCopy.hub.dashboard;
 
-const POLICY_STATUS_LABEL = {
+const POLICY_STATUS_LABEL: Record<string, string> = {
   draft: 'Brouillon',
   published: 'Publiée',
   retired: 'Retirée',
-} as const;
-
-function accountSelectorHref(accountId: string): string {
-  return `/hub?account=${accountId}`;
-}
+};
 
 /**
- * The Trader Hub dashboard.
+ * The Trader Hub dashboard — the command centre.
  *
- * ## The hierarchy
+ * ## Composition follows product state, not a fixed template
  *
- * Account context, then state and the next safe action, then the mission, then
- * risk, then the account's evolution if there is one worth drawing, then what
- * happened recently, then help. That order is the whole redesign: the previous
- * build opened on a public account id and an empty chart and put the mission
- * — the only reason a trader is on this screen — below the fold.
+ * An evaluation account and a funded account are not the same product, so they
+ * do not get the same page. The evaluation shows a mission checklist and a
+ * profit objective; the funded account shows payout progress and a cycle. A
+ * breached account shows neither, because neither is true of it any more.
+ * `deriveAccountLifecycle` decides which, once, and everything below reads it.
  *
- * ## Composition
+ * ## Progressive richness
  *
- * Deliberately not an equal grid of cards. A dashboard of identical tiles
- * makes every fact look equally important, which is the same as making none of
- * them important. A full-width hero carries the account and the decision; a
- * 2/1 split gives the mission the room its four conditions need while risk
- * stays permanently in view beside it; everything after that is a full-width
- * band because it is reference material, not a decision.
+ * Sections appear when the data behind them exists. An account with no closed
+ * session gets a sentence instead of an equity curve; an account with no
+ * trades gets no KPI grid at all. The alternative — rendering every panel
+ * always and filling the empty ones with zeros — is how a product ends up
+ * claiming a 0 % win rate for someone who has never traded.
  *
- * Every figure on this page is formatted by a read model. Nothing here
- * computes a balance, a remaining loss or a percentage — a risk number a
- * browser derived is a risk number the platform cannot stand behind.
+ * Every figure is formatted by a read model. Nothing here computes a balance,
+ * a remaining loss or a percentage.
  */
 export default async function HubPage({
   searchParams,
@@ -97,14 +83,15 @@ export default async function HubPage({
 
   if (accounts.length === 0) {
     return (
-      <div className="max-w-3xl">
-        <EmptyState
-          title="Aucun compte WARIBA ONE"
-          description="Choisissez une évaluation pour activer votre premier compte simulé."
+      <div className="max-w-2xl">
+        <HubEmptyState
+          icon="accounts"
+          title="Vous n’avez pas encore de compte WARIBA."
+          description="Choisissez une évaluation pour activer votre premier compte simulé et commencer à trader dans WariX."
           action={
-            <Link href="/offres" className={buttonClassNames()}>
-              Voir les cinq offres
-            </Link>
+            <ActionLink href="/comptes/nouveau" icon="addAccount" data-testid="empty-add-account">
+              Choisir une évaluation
+            </ActionLink>
           }
         />
       </div>
@@ -116,59 +103,57 @@ export default async function HubPage({
     accounts.find((candidate) => candidate.id === requestedAccountId) ??
     (accounts[0] as (typeof accounts)[number]);
 
-  const selectorAccounts = accounts.map((account) => ({
-    id: account.id,
-    href: accountSelectorHref(account.id),
-    program:
-      account.programType === 'WARIBA_ONE'
-        ? ('WARIBA ONE' as const)
-        : ('WARIBA Performance' as const),
-    nominalFormatted: formatNominal(account.nominalBalance, account.nominalCurrency),
-    publicId: account.publicId,
-    statusLabel: accountStatusLabel(account.status),
-    statusVariant: accountStatusVariant(account.status),
-  }));
-
-  const selector = (
-    <AccountSelector
-      LinkComponent={AccountSwitchLink}
-      accounts={selectorAccounts}
-      activeAccountId={activeAccount.id}
-    />
-  );
-
-  const supportLink = (
-    <TrackedClick event="support_opened" context={{ accountId: activeAccount.id }}>
-      <Link href="/support" className={buttonClassNames({ variant: 'secondary' })}>
-        Contacter le support
-      </Link>
-    </TrackedClick>
-  );
-
   const isPerformanceAccount = activeAccount.programType === 'WARIBA_PERFORMANCE';
+  const now = new Date();
 
-  /**
-   * The account's references, at footnote weight.
-   *
-   * `publicId` is a database key. It belongs on the screen because support
-   * asks for it, and it belongs *here* rather than in the largest type on the
-   * page, which is where it used to be.
+  /*
+   * The switcher earns its place only when there is something to switch
+   * between. With one account it repeats the hero's first line and costs a
+   * phone 60px of its first viewport.
    */
-  const baseDetails: AccountHeroDetail[] = [
+  const switcher =
+    accounts.length > 1 ? (
+      <AccountSwitcher
+        accounts={toSwitcherAccounts(accounts)}
+        activeAccountId={activeAccount.id}
+        basePath="/hub"
+      />
+    ) : null;
+
+  const baseDetails: HeroDetail[] = [
     { label: copy.reference, value: activeAccount.publicId },
     {
       label: copy.rules,
       value: `${activeAccount.policyVersion} · ${
-        POLICY_STATUS_LABEL[activeAccount.policyStatus as keyof typeof POLICY_STATUS_LABEL] ??
-        activeAccount.policyStatus
+        POLICY_STATUS_LABEL[activeAccount.policyStatus] ?? activeAccount.policyStatus
       }`,
     },
   ];
 
-  if (activeAccount.status === 'pending_activation') {
+  /*
+   * A pending or dormant account has no risk engine state to read — calling
+   * the read models would throw. It gets the lifecycle banner and nothing
+   * else, which is also all there is to say about it.
+   */
+  if (
+    activeAccount.status === 'pending_activation' ||
+    activeAccount.status === 'inactive' ||
+    activeAccount.status === 'closed'
+  ) {
+    const lifecycle = deriveAccountLifecycle({
+      accountStatus: activeAccount.status,
+      programType: activeAccount.programType,
+    });
+
     return (
       <div className="flex flex-col gap-5">
-        {selector}
+        {switcher}
+        <LifecycleBanner
+          lifecycle={lifecycle}
+          {...(activeAccount.status === 'closed' || activeAccount.status === 'inactive'
+            ? { action: { label: 'Contacter le support', href: '/support' } }
+            : {})}
+        />
         <AccountHero
           program={programLabel(activeAccount.programType)}
           phase={programPhaseLabel(activeAccount.programType)}
@@ -176,72 +161,73 @@ export default async function HubPage({
             activeAccount.nominalBalance,
             activeAccount.nominalCurrency,
           )}
+          balance={Number.parseFloat(activeAccount.nominalBalance)}
           balanceFormatted={formatNominal(
             activeAccount.nominalBalance,
             activeAccount.nominalCurrency,
           )}
-          pnlTodayFormatted="—"
-          statusLabel="Activation en attente"
-          statusVariant="neutral"
+          lifecycle={lifecycle}
+          stats={[]}
           details={baseDetails}
         />
-        <div className="max-w-3xl">
-          <Alert level="information" title="Activation en cours">
-            Votre compte est en cours d’activation. Cette étape est automatique et se termine en
-            quelques instants après confirmation du paiement.
-          </Alert>
-        </div>
-        <div className="flex flex-wrap gap-3">{supportLink}</div>
       </div>
     );
   }
 
-  if (activeAccount.status === 'inactive' || activeAccount.status === 'closed') {
-    const dormant = activeAccount.status === 'inactive';
-    return (
-      <div className="flex flex-col gap-5">
-        {selector}
-        <AccountHero
-          program={programLabel(activeAccount.programType)}
-          phase={programPhaseLabel(activeAccount.programType)}
-          nominalFormatted={formatNominal(
-            activeAccount.nominalBalance,
-            activeAccount.nominalCurrency,
-          )}
-          balanceFormatted={formatNominal(
-            activeAccount.nominalBalance,
-            activeAccount.nominalCurrency,
-          )}
-          pnlTodayFormatted="—"
-          statusLabel={dormant ? 'Inactif' : 'Compte terminé'}
-          statusVariant="neutral"
-          details={baseDetails}
-        />
-        <div className="max-w-3xl">
-          <Alert
-            level={dormant ? 'warning' : 'information'}
-            title={dormant ? 'Compte inactif' : 'Compte terminé'}
-          >
-            {dormant
-              ? 'Aucune activité n’a été enregistrée depuis 30 jours. Contactez le support pour comprendre vos options.'
-              : 'Ce compte est fermé. Il reste consultable en lecture seule.'}
-          </Alert>
-        </div>
-        <div className="flex flex-wrap gap-3">{supportLink}</div>
-      </div>
-    );
-  }
-
-  const now = new Date();
-  const [hubView, missionView, riskView, activity, openPositions] = await Promise.all([
+  /*
+   * The mission is the only read model here that can legitimately have nothing
+   * to say. A Performance account whose cycle has not been opened yet has no
+   * cycle progress to report, and `evaluateCycleProgress` throws rather than
+   * inventing one — correct of it, and no reason to blank the whole dashboard.
+   * The account, its risk and its balance are all still true.
+   */
+  const [hubView, missionView, riskView, activity, openPositions, analytics] = await Promise.all([
     buildAccountHubView(db, { accountId: activeAccount.id, now }),
-    isPerformanceAccount
+    (isPerformanceAccount
       ? buildAccountPerformanceMissionView(db, { accountId: activeAccount.id })
-      : buildAccountMissionView(db, { accountId: activeAccount.id, now }),
+      : buildAccountMissionView(db, { accountId: activeAccount.id, now })
+    ).catch(
+      () =>
+        ({
+          available: false,
+          reason: 'La progression de ce compte n’est pas encore disponible.',
+        }) as const,
+    ),
     buildAccountRiskView(db, { accountId: activeAccount.id, now }),
-    buildRecentActivityView(db, { accountId: activeAccount.id, limit: 15 }),
+    buildRecentActivityView(db, { accountId: activeAccount.id, limit: 12 }),
     buildOpenPositionsView(db, { accountId: activeAccount.id }),
+    buildPerformanceAnalytics(db, { accountId: activeAccount.id }),
   ]);
+
+  /*
+   * Payout state is only meaningful on a Performance account —
+   * `evaluatePayoutEligibility` is scoped to `WARIBA_PERFORMANCE` and throws
+   * for anything else.
+   */
+  const payout = isPerformanceAccount
+    ? await buildPayoutLifecycle(db, {
+        accountId: activeAccount.id,
+        kycVerified: activeAccount.kycSandboxVerified ?? false,
+      }).catch(() => null)
+    : null;
+
+  const lifecycle = deriveAccountLifecycle({
+    accountStatus: activeAccount.status,
+    programType: activeAccount.programType,
+    inAttentionZone: riskView.status === 'attention',
+    // The session is closed once today's snapshot has been finalised — which
+    // is what separates "objective reached, still trading" from "under review".
+    currentSessionFinalized: hubView.tradingDays[0]?.finalized ?? false,
+  });
+
+  const health = deriveAccountHealth({
+    dailyLossRemaining: riskView.amounts.dailyLossRemaining,
+    dailyLossBudget: riskView.amounts.dailyLossBudget,
+    maximumLossRemaining: riskView.amounts.maximumLossRemaining,
+    maximumLossBudget: riskView.amounts.maximumLossBudget,
+    hasViolation: riskView.violations.length > 0,
+    terminal: lifecycle.terminal,
+  });
 
   trackEvent('hub_viewed', { accountId: activeAccount.id, state: hubView.state });
   if (missionView.available) {
@@ -251,33 +237,32 @@ export default async function HubPage({
   const primaryViolation = riskView.violations[0];
 
   /*
-   * The hero's objective is the mission's own first condition, not a second
-   * calculation of it. One number, one origin — the alternative is two places
-   * on the same screen that can disagree about how far along a trader is.
+   * A tradable account always offers the terminal.
+   *
+   * The mission's own `nextAction` is null in states where the *mission* needs
+   * nothing — `objective_reached` with no open position is the clearest case:
+   * there is no further condition to satisfy, so the mission has nothing to
+   * ask for. But the account is still live and the trader may still trade it,
+   * and a live account with no way into the workstation is a dead end on the
+   * one screen that exists to route them.
    */
+  const missionAction = missionView.available ? missionView.nextAction : null;
+  const heroAction =
+    missionAction ?? (lifecycle.tradable ? { label: copy.openWarix, href: '/trade' } : null);
   const objectiveCondition = missionView.available ? missionView.conditions[0] : undefined;
 
-  /*
-   * The next safe action, decided server-side from the account's state. For an
-   * active account that is "Ouvrir WariX" — which is exactly why WariX left
-   * the sidebar: opening the terminal belongs to an account that can be
-   * traded, not to a navigation list that is always there.
-   */
-  const nextAction = missionView.available ? missionView.nextAction : null;
+  const heroStats: HeroStat[] = [
+    {
+      label: copy.pnlToday,
+      value: hubView.pnlTodayFormatted,
+      signed: true,
+      numericValue: Number.parseFloat(hubView.pnlTodayFormatted.replace(/[^\d.-]/g, '')),
+    },
+    { label: 'Perte quotidienne restante', value: riskView.dailyLossRemainingFormatted },
+    { label: copy.maxLossRemaining, value: riskView.maximumLossRemainingFormatted },
+  ];
 
-  /*
-   * What the mission says under its conditions when it is not repeating the
-   * hero's button. Empty while there is an action to take — the conditions
-   * above have already said what is outstanding.
-   */
-  const missionSummary =
-    missionView.available && missionView.variant === 'performance' && missionView.blockingSummary
-      ? missionView.blockingSummary
-      : nextAction
-        ? null
-        : 'Rien de plus à faire pour l’instant.';
-
-  const details: AccountHeroDetail[] = [
+  const details: HeroDetail[] = [
     ...(hubView.activatedAtLabel
       ? [{ label: copy.activatedOn, value: hubView.activatedAtLabel }]
       : []),
@@ -285,188 +270,236 @@ export default async function HubPage({
     ...(isPerformanceAccount ? [] : [{ label: 'Répartition après passage', value: '85 % → 90 %' }]),
   ];
 
+  const thresholds = [
+    {
+      value: Number.parseFloat(riskView.amounts.maximumLossFloor),
+      label: 'Perte max.',
+      tone: 'red' as const,
+    },
+    ...(missionView.available && missionView.variant === 'evaluation'
+      ? [
+          {
+            value: Number.parseFloat(missionView.amounts.targetBalance),
+            label: 'Objectif',
+            tone: 'emerald' as const,
+          },
+        ]
+      : []),
+  ];
+
   return (
     <div className="flex flex-col gap-5">
-      {selector}
+      <HubHeaderSlot>
+        {/*
+         * The header's copy of the action is wrapped rather than
+         * class-toggled: `actionClassName` already sets `inline-flex`, and
+         * pairing that with `hidden` leaves which display wins to Tailwind's
+         * own class ordering — which is how this button survived at 320px and
+         * collided with the avatar beside it.
+         */}
+        {lifecycle.tradable ? (
+          <div className="hidden sm:block">
+            <ActionLink
+              href="/trade"
+              size="sm"
+              variant="secondary"
+              icon="warix"
+              data-testid="header-open-warix"
+            >
+              {copy.openWarix}
+            </ActionLink>
+          </div>
+        ) : null}
+      </HubHeaderSlot>
 
-      <AccountHero
-        program={programLabel(activeAccount.programType)}
-        phase={programPhaseLabel(activeAccount.programType)}
-        nominalFormatted={formatNominal(
-          activeAccount.nominalBalance,
-          activeAccount.nominalCurrency,
-        )}
-        balanceFormatted={hubView.balanceFormatted}
-        pnlTodayFormatted={hubView.pnlTodayFormatted}
-        statusLabel={hubView.statusLabel}
-        statusVariant={hubView.statusVariant}
-        objective={
-          objectiveCondition && missionView.available
+      {switcher}
+
+      {shouldShowLifecycleBanner(lifecycle) ? (
+        <LifecycleBanner
+          lifecycle={lifecycle}
+          evidence={
+            lifecycle.state === 'breached' && primaryViolation
+              ? [
+                  { label: 'Règle', value: primaryViolation.ruleLabel },
+                  { label: 'Seuil', value: primaryViolation.thresholdFormatted },
+                  { label: 'Observé', value: primaryViolation.observedFormatted },
+                ]
+              : []
+          }
+          {...(lifecycle.state === 'breached'
             ? {
-                label: objectiveCondition.label,
-                detail: objectiveCondition.detail,
-                percent: missionView.progressPercent,
-              }
-            : null
-        }
-        action={
-          nextAction ? (
-            <TrackedClick event="next_action_clicked" context={{ accountId: activeAccount.id }}>
-              <Link
-                href={nextAction.href}
-                data-testid="hub-next-action"
-                className={buttonClassNames({ size: 'lg', className: 'w-full' })}
-              >
-                {nextAction.label}
-              </Link>
-            </TrackedClick>
-          ) : null
-        }
-        details={details}
-      />
-
-      {hubView.readOnly ? (
-        <div className="max-w-3xl">
-          <Alert level="warning" title="Lecture seule">
-            Ce compte reste consultable mais aucune nouvelle action n’est possible.
-          </Alert>
-        </div>
-      ) : null}
-
-      {/* The mission gets two thirds because its four conditions each need a
-          label and a figure on one line; risk gets one third and stays in
-          view, which is the point of a permanent risk read. */}
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="flex flex-col gap-5 lg:col-span-2">
-          {missionView.available ? (
-            <MissionProgress
-              variant={missionView.variant}
-              state={missionView.state}
-              title={missionView.title}
-              progressPercent={missionView.progressPercent}
-              conditions={missionView.conditions}
-              /*
-               * Not a second "Ouvrir WariX".
-               *
-               * The hero already carries the next action at full width, and
-               * two identical primary buttons on one screen is a hierarchy
-               * that has stopped choosing. What belongs under a list of
-               * conditions is the text those conditions come from — which is
-               * also where the rule version went when it stopped being a
-               * standalone control on the dashboard.
-               */
-              nextAction={
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  {missionSummary ? (
-                    <Text variant="body-sm" color="secondary">
-                      {missionSummary}
-                    </Text>
-                  ) : (
-                    <span />
-                  )}
-                  <TrackedClick event="policy_opened" context={{ accountId: activeAccount.id }}>
-                    <Link
-                      href="/programme#regles"
-                      className={buttonClassNames({ variant: 'secondary', size: 'sm' })}
-                    >
-                      Voir les règles du programme
-                    </Link>
-                  </TrackedClick>
-                </div>
-              }
-            />
-          ) : (
-            <HubModule className="p-5 sm:p-6">
-              <Text variant="body-sm" color="secondary">
-                {missionView.reason}
-              </Text>
-            </HubModule>
-          )}
-
-          {missionView.available && missionView.consistency ? (
-            <ConsistencyMeter
-              ratioPercent={missionView.consistency.ratioPercent}
-              limitPercent={missionView.consistency.limitPercent}
-              bestDayFormatted={missionView.consistency.bestDayFormatted}
-              totalProfitFormatted={missionView.consistency.totalProfitFormatted}
-              {...(missionView.consistency.requiredProfitFormatted
-                ? { requiredProfitFormatted: missionView.consistency.requiredProfitFormatted }
-                : {})}
-            />
-          ) : null}
-        </div>
-
-        <RiskPanel
-          status={riskView.status}
-          dailyLossRemaining={riskView.dailyLossRemainingFormatted}
-          maximumLossRemaining={riskView.maximumLossRemainingFormatted}
-          nextResetLabel={riskView.nextResetLabel}
-          pnlTodayFormatted={hubView.pnlTodayFormatted}
-          {...(primaryViolation
-            ? {
-                detail: (
-                  <HubRiskDetail
-                    triggerLabel="Voir le détail du risque"
-                    violation={primaryViolation}
-                    timestampLabel={activity[0]?.timestampLabel ?? riskView.nextResetLabel}
-                  />
-                ),
+                action: { label: 'Acheter un nouveau compte', href: '/comptes/nouveau' },
+                secondaryAction: { label: 'Voir le détail', href: '#activity' },
               }
             : {})}
         />
-      </div>
-
-      <AccountEvolution
-        points={hubView.balanceHistory}
-        finalizedSessionCount={hubView.finalizedSessionCount}
-        meaningful={hubView.balanceHistoryMeaningful}
-      />
-
-      {missionView.available && missionView.variant === 'performance' ? (
-        <HubModule className="flex flex-col gap-4 p-5 sm:p-6">
-          <HubModuleTitle>Historique des payouts</HubModuleTitle>
-          {missionView.recentPayouts.length === 0 ? (
-            <Text variant="body-sm" color="secondary">
-              Aucune demande de payout pour l’instant.
-            </Text>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {missionView.recentPayouts.map((payout, index) => (
-                <li
-                  key={`${payout.cycleNumber}-${payout.dateLabel}-${index}`}
-                  className="flex items-center justify-between gap-3 text-[length:var(--wariba-font-size-body-sm)]"
-                >
-                  <span className="text-[color:var(--wariba-text-primary)]">
-                    Cycle n°{payout.cycleNumber} · {payout.statusLabel}
-                  </span>
-                  <span className="wariba-data text-[color:var(--wariba-text-secondary)]">
-                    {payout.amountFormatted ?? '—'} · {payout.dateLabel}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </HubModule>
       ) : null}
 
-      <div className="grid gap-5 xl:grid-cols-2">
-        <HubModule className="flex flex-col gap-4 p-5 sm:p-6">
-          <HubModuleTitle>Positions ouvertes</HubModuleTitle>
-          <OpenPositionsTable positions={openPositions} />
-        </HubModule>
+      <Stagger className="flex flex-col gap-5">
+        <StaggerItem>
+          <AccountHero
+            program={programLabel(activeAccount.programType)}
+            phase={programPhaseLabel(activeAccount.programType)}
+            nominalFormatted={formatNominal(
+              activeAccount.nominalBalance,
+              activeAccount.nominalCurrency,
+            )}
+            balance={Number.parseFloat(riskView.amounts.currentEquity)}
+            balanceFormatted={hubView.balanceFormatted}
+            lifecycle={lifecycle}
+            stats={heroStats}
+            objective={
+              objectiveCondition && missionView.available
+                ? {
+                    label: objectiveCondition.label,
+                    detail: objectiveCondition.detail,
+                    percent: missionView.progressPercent,
+                  }
+                : null
+            }
+            action={
+              heroAction ? (
+                <ActionLink
+                  href={heroAction.href}
+                  size="lg"
+                  icon={heroAction.label === copy.openWarix ? 'warix' : 'chevron'}
+                  className="w-full"
+                  data-testid="hub-next-action"
+                >
+                  {heroAction.label}
+                </ActionLink>
+              ) : null
+            }
+            details={details}
+          />
+        </StaggerItem>
 
-        <HubModule className="flex flex-col gap-4 p-5 sm:p-6">
-          <HubModuleTitle>Journées récentes</HubModuleTitle>
-          <TradingDaysList days={hubView.tradingDays} />
-        </HubModule>
-      </div>
+        <StaggerItem>
+          <div className="grid gap-5 lg:grid-cols-3">
+            <div className="flex flex-col gap-5 lg:col-span-2">
+              {missionView.available ? (
+                <MissionChecklist
+                  eyebrow={
+                    missionView.variant === 'performance'
+                      ? `Cycle n°${missionView.cycleNumber}`
+                      : 'Mission évaluation'
+                  }
+                  title={missionView.title}
+                  progressPercent={missionView.progressPercent}
+                  conditions={missionView.conditions}
+                  footer={
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      {missionView.variant === 'performance' && missionView.blockingSummary ? (
+                        <Text variant="body-sm" color="secondary">
+                          {missionView.blockingSummary}
+                        </Text>
+                      ) : (
+                        <span />
+                      )}
+                      <ActionLink href="/programme#regles" variant="secondary" size="sm">
+                        Voir les règles du programme
+                      </ActionLink>
+                    </div>
+                  }
+                />
+              ) : (
+                <Surface className="p-5 sm:p-6">
+                  <Text variant="body-sm" color="secondary">
+                    {missionView.reason}
+                  </Text>
+                </Surface>
+              )}
 
-      <HubModule id="activity" className="flex scroll-mt-20 flex-col gap-4 p-5 sm:p-6">
-        <HubModuleTitle>Activité récente</HubModuleTitle>
-        <ActivityTimeline items={activity} />
-      </HubModule>
+              {missionView.available && missionView.consistency ? (
+                <ConsistencyMeter
+                  ratioPercent={missionView.consistency.ratioPercent}
+                  limitPercent={missionView.consistency.limitPercent}
+                  bestDayFormatted={missionView.consistency.bestDayFormatted}
+                  totalProfitFormatted={missionView.consistency.totalProfitFormatted}
+                  {...(missionView.consistency.requiredProfitFormatted
+                    ? { requiredProfitFormatted: missionView.consistency.requiredProfitFormatted }
+                    : {})}
+                />
+              ) : null}
+            </div>
 
-      <div className="flex flex-wrap gap-3">{supportLink}</div>
+            <HealthPanel
+              health={health}
+              rows={[
+                { label: 'Équité actuelle', value: riskView.currentEquityFormatted },
+                { label: 'Prochain reset', value: riskView.nextResetLabel },
+                {
+                  label: 'Journées clôturées',
+                  value: String(hubView.finalizedSessionCount),
+                },
+              ]}
+              {...(primaryViolation
+                ? {
+                    detail: (
+                      <HubRiskDetail
+                        triggerLabel="Voir le détail du risque"
+                        violation={primaryViolation}
+                        timestampLabel={activity[0]?.timestampLabel ?? riskView.nextResetLabel}
+                      />
+                    ),
+                  }
+                : {})}
+            />
+          </div>
+        </StaggerItem>
+
+        <StaggerItem>
+          <QuickActions
+            actions={quickActionsFor({
+              lifecycle,
+              accountId: activeAccount.id,
+              payout,
+              kpis: analytics.kpis,
+            })}
+          />
+        </StaggerItem>
+
+        <StaggerItem>
+          <AccountEvolution
+            points={hubView.balanceHistory}
+            finalizedSessionCount={hubView.finalizedSessionCount}
+            meaningful={hubView.balanceHistoryMeaningful}
+            thresholds={thresholds}
+          />
+        </StaggerItem>
+
+        {/* Only when there is a record to report. */}
+        {analytics.kpis.tradeCount > 0 ? (
+          <StaggerItem>
+            <Surface className="flex flex-col gap-4 p-5 sm:p-6">
+              <SurfaceTitle
+                action={
+                  <ActionLink href="/performance" variant="ghost" size="sm">
+                    Tout voir
+                  </ActionLink>
+                }
+              >
+                Performance
+              </SurfaceTitle>
+              <PerformanceSnapshot kpis={analytics.kpis} variant="compact" />
+            </Surface>
+          </StaggerItem>
+        ) : null}
+
+        <StaggerItem>
+          <div className="grid gap-5 xl:grid-cols-2">
+            <Surface className="flex flex-col gap-4 p-5 sm:p-6">
+              <SurfaceTitle>Positions ouvertes</SurfaceTitle>
+              <OpenPositionsTable positions={openPositions} />
+            </Surface>
+
+            <Surface id="activity" className="flex scroll-mt-20 flex-col gap-4 p-5 sm:p-6">
+              <SurfaceTitle>Activité récente</SurfaceTitle>
+              <ActivityTimeline items={activity} />
+            </Surface>
+          </div>
+        </StaggerItem>
+      </Stagger>
     </div>
   );
 }

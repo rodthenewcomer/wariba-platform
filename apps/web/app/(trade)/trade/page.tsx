@@ -1,7 +1,9 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { buttonClassNames, EmptyState, Text } from '@wariba/ui';
-import { listAccountsForUser, type AccountSummaryDTO } from '@wariba/application';
+import {
+  deriveAccountLifecycle,
+  listAccountsForUser,
+  type AccountSummaryDTO,
+} from '@wariba/application';
 import { createSupabaseServerClient } from '../../../lib/supabase/server';
 import { getDb } from '../../../lib/db';
 import { loadWebConfig } from '../../../lib/config';
@@ -16,6 +18,7 @@ import {
 } from '../../../lib/account-display';
 import { resolveWorkstationAccount } from './account-selection';
 import { TradeClient } from './TradeClient';
+import { WariXGate } from './WariXGate';
 import type { WorkstationAccountOption } from './workstation/WorkstationAccountSwitcher';
 
 // Live trading state (account, positions, WS URL) — never statically
@@ -83,19 +86,21 @@ export default async function TradePage({
   const db = getDb();
   const accounts = await listAccountsForUser(db, { userId: user.id });
 
+  /*
+   * Phase 2 §19 — the workstation never opens empty.
+   *
+   * Every control would be inert and the chart would have nothing to price
+   * against, leaving the trader to work out whether the platform is broken.
+   * The gate says what is missing instead.
+   */
   if (accounts.length === 0) {
     return (
-      <div className="mx-auto max-w-lg px-6 py-16">
-        <EmptyState
-          title="Aucun compte de trading"
-          description="Choisissez une évaluation pour activer votre premier compte simulé."
-          action={
-            <Link href="/offres" className={buttonClassNames()}>
-              Voir les offres
-            </Link>
-          }
-        />
-      </div>
+      <WariXGate
+        title="Commencez avec un compte WARIBA"
+        description="Vous avez besoin d’un compte actif pour trader dans WariX."
+        primary={{ label: 'Acheter un compte', href: '/comptes/nouveau' }}
+        secondary={{ label: 'Voir les programmes', href: '/programme' }}
+      />
     );
   }
 
@@ -104,28 +109,34 @@ export default async function TradePage({
   if (!activeAccount) redirect('/hub');
 
   if (activeAccount.status !== 'active') {
-    // Program-accurate copy: the pre-W1 empty state asserted "compte WARIBA
-    // ONE actif" for every account context, which is wrong for a
-    // WARIBA_PERFORMANCE trader (W0 §3A.4).
+    /*
+     * Program-accurate copy: the pre-W1 empty state asserted "compte WARIBA
+     * ONE actif" for every account context, which is wrong for a
+     * WARIBA_PERFORMANCE trader (W0 §3A.4). Phase 2 keeps that accuracy and
+     * routes the trader by *why* the account cannot trade — a breach is a
+     * reason to buy a new account, a review is a reason to wait.
+     */
+    const lifecycle = deriveAccountLifecycle({
+      accountStatus: activeAccount.status,
+      programType: activeAccount.programType,
+    });
+
     return (
-      <div className="mx-auto flex max-w-lg flex-col gap-4 px-6 py-16">
-        <Text as="h1" variant="heading-lg">
-          Trading indisponible
-        </Text>
-        <Text variant="body-sm" color="secondary">
-          Votre compte {programLabel(activeAccount.programType)} {activeAccount.publicId} est «{' '}
-          {accountStatusLabel(activeAccount.status)} ». Le terminal n&apos;accepte d&apos;ordres que
-          sur un compte actif.
-        </Text>
-        <div className="flex flex-wrap gap-3">
-          <Link href="/hub" className={buttonClassNames({ variant: 'secondary' })}>
-            Retour au Hub
-          </Link>
-          <Link href="/offres" className={buttonClassNames()}>
-            Voir les offres
-          </Link>
-        </div>
-      </div>
+      <WariXGate
+        title="Trading indisponible"
+        description={lifecycle.description}
+        meta={`${programLabel(activeAccount.programType)} · ${activeAccount.publicId} · ${lifecycle.label}`}
+        primary={
+          lifecycle.state === 'breached'
+            ? { label: 'Acheter un nouveau compte', href: '/comptes/nouveau' }
+            : { label: 'Retour au tableau de bord', href: '/hub' }
+        }
+        secondary={
+          lifecycle.state === 'breached'
+            ? { label: 'Retour au tableau de bord', href: '/hub' }
+            : { label: 'Voir les programmes', href: '/programme' }
+        }
+      />
     );
   }
 

@@ -12,6 +12,8 @@ function account(overrides: Partial<AccountSummaryDTO> & { id: string }): Accoun
     policyVersion: '1.0.0',
     policyStatus: 'published',
     createdAt: '2026-01-01T00:00:00.000Z',
+    kycSandboxVerified: false,
+    payoutMethodConfigured: false,
     ...overrides,
   };
 }

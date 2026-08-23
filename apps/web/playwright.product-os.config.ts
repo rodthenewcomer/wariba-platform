@@ -5,7 +5,7 @@ const realtimeWsUrl = process.env.NEXT_PUBLIC_REALTIME_WS_URL ?? 'ws://127.0.0.1
 const realtimeHealthUrl = `${realtimeWsUrl.replace(/^ws(s?):/, 'http$1:').replace(/\/ws$/, '')}/health`;
 
 /**
- * WARIBA Product OS Phase 1 and 1.1 — auth, Hub shell and system states.
+ * WARIBA Product OS — auth, Hub, lifecycle and system states.
  *
  * A separate config from the main suite because these tests exist to produce
  * review evidence at real viewports as much as to assert behaviour, and they
@@ -13,7 +13,7 @@ const realtimeHealthUrl = `${realtimeWsUrl.replace(/^ws(s?):/, 'http$1:').replac
  */
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: /wariba-product-os-phase1.*\.spec\.ts/,
+  testMatch: /wariba-product-os-phase\d.*\.spec\.ts/,
   timeout: 420_000,
   expect: { timeout: 20_000 },
   fullyParallel: false,

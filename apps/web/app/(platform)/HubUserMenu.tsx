@@ -1,6 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { HubIcon } from '../../components/hub/icons';
 import { productCopy } from '../../lib/product-copy';
 import type { HubIdentity } from '../../lib/hub-identity';
 import { signOutAction } from '../(auth)/actions';
@@ -13,13 +15,13 @@ const copy = productCopy.hub.user;
  * The silhouette is the honest bottom rung: it says "we do not have a picture
  * of you" instead of inventing something that looks like we do.
  */
-function Avatar({ identity }: { identity: HubIdentity }) {
+function Avatar({ identity, size }: { identity: HubIdentity; size: number }) {
   if (identity.avatarUrl) {
     return (
       // Plain <img>: the host is whatever identity provider the account came
       // from, so it cannot be enumerated into next.config's remote patterns
-      // ahead of time. Sized and cropped here rather than trusting the source,
-      // and `no-referrer` so the provider is not told which page it loaded on.
+      // ahead of time. `no-referrer` so the provider is not told which page it
+      // loaded on.
       <img
         alt=""
         aria-hidden="true"
@@ -41,37 +43,45 @@ function Avatar({ identity }: { identity: HubIdentity }) {
     );
   }
 
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height="20"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="1.75"
-      viewBox="0 0 24 24"
-      width="20"
-    >
-      <circle cx="12" cy="9" r="3.4" />
-      <path d="M5.5 19.2a6.9 6.9 0 0 1 13 0" />
-    </svg>
-  );
+  return <HubIcon role="profile" size={size} />;
 }
 
 /**
- * The account menu.
+ * The account menu, at the foot of the sidebar.
  *
- * Compact on purpose. A 208px-wide popover holding one item made signing out
- * look like the beginning of a menu somebody forgot to finish; this states who
- * is signed in, then offers the single action that genuinely works.
+ * ## Where it lives
  *
- * Profil, Paramètres and Notifications are the canonical menu and they are
- * deliberately absent until their routes exist. A menu entry that 404s is
- * worse than a short menu — it is a broken promise in the surface a trader
- * opens when they want to leave.
+ * At the bottom of the navigation rather than in the header, which is where
+ * every product in this category puts it and where a trader reaches for it
+ * without thinking. The header is now carrying contextual actions per page,
+ * and identity competing with "Ouvrir WariX" for the same corner made both
+ * weaker.
+ *
+ * ## What is in it
+ *
+ * Profil, Paramètres and Se déconnecter. Paramètres and Profil now have real
+ * routes, so they are listed; Notifications still does not exist and is still
+ * absent. A menu entry that 404s is worse than a short menu — it is a broken
+ * promise in the surface a trader opens when they want to leave.
+ *
+ * The menu opens upward, because it is anchored to the bottom of the viewport.
  */
-export function HubUserMenu({ identity }: { identity: HubIdentity }) {
+export function HubUserMenu({
+  identity,
+  compact = false,
+  placement = 'up',
+  testId = 'hub-user-menu-trigger',
+}: {
+  identity: HubIdentity;
+  compact?: boolean;
+  placement?: 'up' | 'down';
+  /**
+   * The sidebar and the mobile header both mount one of these, at different
+   * breakpoints. They need distinct ids — two elements answering to the same
+   * test id is a strict-mode violation the moment anything looks one up.
+   */
+  testId?: string;
+}) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -105,27 +115,42 @@ export function HubUserMenu({ identity }: { identity: HubIdentity }) {
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label={copy.menu}
-        data-testid="hub-user-menu-trigger"
+        data-testid={testId}
         onClick={() => setOpen((current) => !current)}
-        className="flex h-9 items-center gap-2.5 rounded-full bg-[color:var(--warix-surface)] py-0 pl-0 pr-0 ring-1 ring-inset ring-[color:var(--warix-border-subtle)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:ring-[color:var(--warix-border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)] motion-reduce:transition-none sm:pr-3"
+        className={[
+          'flex items-center rounded-[10px] transition-colors',
+          'duration-[var(--wariba-component-workstation-motion-interaction)]',
+          'hover:bg-[color:var(--warix-surface-hover)]',
+          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+          'focus-visible:outline-[color:var(--wariba-border-focus)] motion-reduce:transition-none',
+          compact ? 'h-11 w-11 justify-center' : 'min-h-[44px] w-full gap-2.5 px-2',
+        ].join(' ')}
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[color:var(--warix-surface-raised)] text-[color:var(--wariba-text-primary)]">
-          <Avatar identity={identity} />
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[color:var(--warix-surface-raised)] text-[color:var(--wariba-text-primary)] ring-1 ring-inset ring-[color:var(--warix-border-subtle)]">
+          <Avatar identity={identity} size={compact ? 20 : 22} />
         </span>
-        {/* The name is shown when there is room for it — an avatar alone makes
-            people click to find out whose account they are in. */}
-        <span className="hidden max-w-[10rem] truncate text-[length:var(--wariba-font-size-label-md)] font-medium text-[color:var(--wariba-text-secondary)] sm:inline">
-          {name}
-        </span>
+        {compact ? null : (
+          <>
+            <span className="min-w-0 flex-1 truncate text-left text-[length:var(--wariba-font-size-label-md)] font-medium text-[color:var(--wariba-text-secondary)]">
+              {name}
+            </span>
+            <span aria-hidden="true" className="shrink-0 text-[color:var(--wariba-text-tertiary)]">
+              <HubIcon role="chevron" size={16} />
+            </span>
+          </>
+        )}
       </button>
 
       {open ? (
         <div
           role="menu"
           data-testid="hub-user-menu"
-          // One step above the header it drops out of, so it reads as a
-          // surface in front rather than a hole cut in the chrome.
-          className="wariba-reveal absolute right-0 top-[calc(100%+8px)] z-50 w-60 overflow-hidden rounded-[10px] border border-[color:var(--warix-border-strong)] bg-[color:var(--warix-surface)] shadow-[0_18px_44px_-14px_rgba(0,0,0,0.7)]"
+          className={[
+            'wariba-reveal absolute z-50 w-60 overflow-hidden rounded-[12px]',
+            'border border-[color:var(--warix-border-strong)] bg-[color:var(--warix-surface)]',
+            'shadow-[0_20px_48px_-16px_rgba(0,0,0,0.75)]',
+            placement === 'up' ? 'bottom-[calc(100%+8px)] left-0' : 'right-0 top-[calc(100%+8px)]',
+          ].join(' ')}
         >
           <div className="border-b border-[color:var(--warix-border-subtle)] px-3 py-2.5">
             <p className="truncate text-[length:var(--wariba-font-size-label-md)] font-semibold text-[color:var(--wariba-text-primary)]">
@@ -136,30 +161,37 @@ export function HubUserMenu({ identity }: { identity: HubIdentity }) {
             </p>
           </div>
 
-          <div className="p-1.5">
+          <div className="flex flex-col p-1.5">
+            {[
+              { href: '/parametres', label: copy.profile, icon: 'profile' as const },
+              { href: '/parametres', label: copy.settings, icon: 'settings' as const },
+            ].map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="flex min-h-[40px] items-center gap-2.5 rounded-[8px] px-2.5 text-[length:var(--wariba-font-size-label-md)] font-medium text-[color:var(--wariba-text-primary)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--warix-surface-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)] motion-reduce:transition-none"
+              >
+                <span className="text-[color:var(--wariba-text-secondary)]">
+                  <HubIcon role={item.icon} size={18} />
+                </span>
+                {item.label}
+              </Link>
+            ))}
+
+            <div aria-hidden="true" className="my-1.5 h-px bg-[color:var(--warix-border-subtle)]" />
+
             <form action={signOutAction}>
               <button
                 type="submit"
                 role="menuitem"
                 data-testid="hub-sign-out"
-                className="flex h-10 w-full items-center gap-2.5 rounded-[var(--warix-radius-well)] px-2.5 text-left text-[length:var(--wariba-font-size-label-md)] font-medium text-[color:var(--wariba-text-primary)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--warix-surface-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)] motion-reduce:transition-none"
+                className="flex min-h-[40px] w-full items-center gap-2.5 rounded-[8px] px-2.5 text-left text-[length:var(--wariba-font-size-label-md)] font-medium text-[color:var(--wariba-text-primary)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--warix-surface-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)] motion-reduce:transition-none"
               >
-                <svg
-                  aria-hidden="true"
-                  className="shrink-0 text-[color:var(--wariba-text-secondary)]"
-                  fill="none"
-                  height="17"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="1.75"
-                  viewBox="0 0 24 24"
-                  width="17"
-                >
-                  <path d="M14.5 4.5h3a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-3" />
-                  <path d="M10 15.5 13.5 12 10 8.5" />
-                  <path d="M13.5 12h-9" />
-                </svg>
+                <span className="text-[color:var(--wariba-text-secondary)]">
+                  <HubIcon role="signOut" size={18} />
+                </span>
                 {copy.signOut}
               </button>
             </form>

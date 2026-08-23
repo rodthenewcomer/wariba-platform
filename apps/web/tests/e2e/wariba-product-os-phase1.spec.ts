@@ -154,10 +154,29 @@ test.describe('@phase1 trader hub shell', () => {
     // separate product shell, opened contextually from the account that can be
     // traded, not a page of this one. It stays in the phone tab bar, which is
     // asserted in the 1.1 suite.
-    for (const absent of ['Performance', 'Facturation', 'Support', 'WariX']) {
+    /*
+     * Performance, Facturation and Support were absent in Phase 1 because they
+     * had no routes. Phase 2 built them, so they belong here now — the rule
+     * never changed, only what satisfies it.
+     *
+     * WariX stays out: it is a separate product shell opened contextually from
+     * a tradable account (UX-HUB-001). Récompenses and Notifications stay out
+     * because no achievements table and no notification centre exist.
+     */
+    for (const absent of ['WariX', 'Récompenses', 'Notifications']) {
       await expect(sidebar.getByText(absent, { exact: true })).toHaveCount(0);
     }
-    for (const present of ['Tableau de bord', 'Comptes', 'Payouts']) {
+    for (const present of [
+      'Tableau de bord',
+      'Comptes',
+      'Ajouter un compte',
+      'Performance',
+      'Journal',
+      'Payouts',
+      'Facturation',
+      'Support',
+      'Paramètres',
+    ]) {
       await expect(sidebar.getByText(present, { exact: true })).toHaveCount(1);
     }
   });

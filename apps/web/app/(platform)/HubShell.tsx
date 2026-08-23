@@ -2,8 +2,11 @@
 
 import { usePathname } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import type { HubIdentity } from '../../lib/hub-identity';
+import { EASE_ENTER, MOTION } from '../../components/motion/primitives';
 import { titleFor } from './hub-destinations';
+import { HUB_HEADER_SLOT_ID } from './HubHeaderSlot';
 import { HubMobileNav } from './HubMobileNav';
 import { HubSidebar } from './HubSidebar';
 import { HubUserMenu } from './HubUserMenu';
@@ -13,32 +16,29 @@ import { HubUserMenu } from './HubUserMenu';
  *
  * The Hub is not WariX and must not feel like it. The workstation is dense
  * because a trader is working inside it; the Hub is where they arrive, check
- * where they stand and decide what to do next, so it is calmer, more spacious
- * and structured around navigation rather than around a chart.
+ * where they stand and decide what to do next.
  *
- * ## The width problem this exists to fix
+ * ## Width
  *
- * The first build put the dashboard in a 768px column and centred it in
- * whatever space was left. At 1440 that produced a narrow ribbon of content
- * with hundreds of pixels of empty graphite on either side, and — worse —
- * collapsing the sidebar changed nothing a trader could see. A 164px saving
- * that lands entirely in the margin is not a saving, it is an animation.
+ * The column is fluid: it starts one 32px gutter after the sidebar and grows
+ * until it hits a 1240px reading limit. At 1366 and 1440 it never reaches that
+ * limit while the sidebar is open, which is why collapsing hands the width
+ * back to the dashboard instead of to the page background. `mx-auto` waits
+ * until `2xl`, where the content has outgrown a comfortable reading measure.
  *
- * So the column is fluid: it starts one 32px gutter after the sidebar and
- * grows until it hits a 1240px reading limit. At 1366 and 1440 it never
- * reaches that limit while the sidebar is open, which is precisely why
- * collapsing hands the width back to the dashboard instead of to the page
- * background.
+ * ## Header
  *
- * `mx-auto` waits until `2xl`. Below that, centring would re-introduce the
- * margin the collapse just recovered; above it, the content has grown past
- * what is comfortable to read and centring is the right answer.
+ * Title on the left, page-owned controls on the right through a portal slot.
+ * The identity block lives at the foot of the sidebar on desktop, and only
+ * appears in the header below `md` where there is no sidebar to hold it —
+ * one identity affordance at every width, never two competing for a corner.
  */
 
 const COLLAPSE_STORAGE_KEY = 'wariba.hub.sidebar.collapsed';
 
 export function HubShell({ children, identity }: { children: ReactNode; identity: HubIdentity }) {
   const pathname = usePathname();
+  const reduced = useReducedMotion();
   const [collapsed, setCollapsed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
@@ -77,29 +77,39 @@ export function HubShell({ children, identity }: { children: ReactNode; identity
       data-theme="dark"
       className="flex min-h-dvh bg-[color:var(--warix-shell)] text-[color:var(--wariba-text-primary)]"
     >
-      <HubSidebar pathname={pathname} collapsed={collapsed} hydrated={hydrated} onToggle={toggle} />
+      <HubSidebar
+        pathname={pathname}
+        collapsed={collapsed}
+        hydrated={hydrated}
+        onToggle={toggle}
+        identity={identity}
+      />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header
           data-testid="hub-header"
           style={{ height: 'var(--hub-header-height)' }}
-          className="sticky top-0 z-30 flex shrink-0 items-center justify-between gap-4 border-b border-[color:var(--warix-border-subtle)] bg-[color:color-mix(in_srgb,var(--warix-panel)_88%,transparent)] px-5 backdrop-blur-[10px] md:px-[var(--hub-gutter)]"
+          className="sticky top-0 z-30 flex shrink-0 items-center justify-between gap-4 border-b border-[color:var(--warix-border-subtle)] bg-[color:color-mix(in_srgb,var(--warix-panel)_86%,transparent)] px-5 backdrop-blur-[12px] md:px-[var(--hub-gutter)]"
         >
-          <h1 className="truncate text-[length:var(--wariba-font-size-heading-sm)] font-semibold tracking-[-0.01em]">
+          <h1 className="shrink-0 truncate text-[length:var(--wariba-font-size-heading-sm)] font-semibold tracking-[-0.01em]">
             {titleFor(pathname)}
           </h1>
-          {/* No notification control: the notification centre does not exist
-              yet, and a bell that opens nothing — or worse, wears a fabricated
-              count — is the first fake thing in a product that has none. */}
-          <HubUserMenu identity={identity} />
+
+          <div className="flex min-w-0 items-center gap-3">
+            {/* Page-owned controls land here. See HubHeaderSlot. */}
+            <div id={HUB_HEADER_SLOT_ID} className="flex min-w-0 items-center gap-2" />
+            {/* Below md there is no sidebar, so identity needs a home. */}
+            <div className="md:hidden">
+              <HubUserMenu
+                identity={identity}
+                compact
+                placement="down"
+                testId="hub-user-menu-trigger-mobile"
+              />
+            </div>
+          </div>
         </header>
 
-        {/*
-         * `min-w-0` keeps a wide child scrolling inside its own container
-         * instead of dragging the page sideways at 320px. The bottom padding
-         * on phones is exactly the tab bar's height, so the last row of the
-         * dashboard is reachable rather than hidden under it.
-         */}
         <main
           data-testid="hub-main"
           className="min-w-0 flex-1 px-5 pt-6 md:px-[var(--hub-gutter)]"
@@ -109,7 +119,24 @@ export function HubShell({ children, identity }: { children: ReactNode; identity
             data-testid="hub-content"
             className="w-full max-w-[var(--hub-content-max)] 2xl:mx-auto"
           >
-            {children}
+            {/*
+             * Page transition: a short fade and 6px of travel, keyed on the
+             * route. Long enough to read as a change of place, short enough
+             * that a trader navigating quickly never waits on it. Removed
+             * entirely under reduced motion rather than shortened.
+             */}
+            {reduced ? (
+              children
+            ) : (
+              <motion.div
+                key={pathname}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: MOTION.panel, ease: EASE_ENTER }}
+              >
+                {children}
+              </motion.div>
+            )}
           </div>
         </main>
       </div>

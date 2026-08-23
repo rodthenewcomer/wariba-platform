@@ -336,7 +336,12 @@ test.describe('@phase11 dashboard hierarchy', () => {
     // documents the loading state and calls it the user menu.
     await expect(page.getByTestId('account-hero')).toBeVisible();
 
-    const trigger = page.getByTestId('hub-user-menu-trigger');
+    /*
+     * The identity block moved to the foot of the sidebar in Phase 2, where
+     * every reference product puts it. The header keeps a compact one below
+     * `md`, under its own id — so this scopes to the desktop control.
+     */
+    const trigger = page.getByTestId('hub-sidebar').getByTestId('hub-user-menu-trigger');
     /*
      * The seeded account has no profile name, so the avatar must fall all the
      * way down to the silhouette. What it must never do is slice the e-mail
@@ -376,10 +381,14 @@ test.describe('@phase11 mobile navigation', () => {
       expect(navBox.height).toBeLessThanOrEqual(78);
     }
 
-    // Five items, WariX among them — the desktop sidebar drops it, the phone
-    // keeps it. Every one clears the 44px touch floor.
-    const items = nav.getByRole('link');
+    /*
+     * Five items, WariX among them — the desktop sidebar drops it, the phone
+     * keeps it. "Plus" is a button rather than a link since Phase 2: it opens
+     * a sheet instead of navigating away, so the trader keeps their place.
+     */
+    const items = nav.locator('a, button');
     await expect(items).toHaveCount(5);
+    await expect(nav.getByRole('link')).toHaveCount(4);
     for (let index = 0; index < 5; index += 1) {
       const box = await items.nth(index).boundingBox();
       expect(box).not.toBeNull();

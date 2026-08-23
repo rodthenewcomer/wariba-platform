@@ -1,79 +1,80 @@
 import Link from 'next/link';
 import { signOutAction } from '../../(auth)/actions';
 import { productCopy } from '../../../lib/product-copy';
-import { HubModule, HubModuleTitle } from '../hub/HubModule';
+import { HubIcon } from '../../../components/hub/icons';
+import { Surface } from '../../../components/hub/Surface';
+import { PageHeader } from '../../../components/hub/PageHeader';
+import { MOBILE_OVERFLOW } from '../hub-destinations';
 
 /**
- * The phone overflow menu.
+ * The overflow destinations, as a page.
  *
- * Everything a trader can reach that does not deserve one of the four tab
- * slots. Which, right now, means help, support and the published rules — and
- * not Profil or Notifications, which this page used to link to.
+ * The tab bar opens these in a sheet, which is the right interaction on a
+ * phone. This route exists so the same destinations are reachable by a direct
+ * link, by a shared URL, and in a session where the sheet's JavaScript has not
+ * loaded — a navigation that only exists inside a client component is a
+ * navigation that can disappear.
  *
- * Those two links went to routes that do not exist. A tab bar entry leading to
- * a menu leading to a 404 is worse than an absent feature: the trader spent
- * two taps to be told the product is broken, and the product knew.
+ * It reads the same `MOBILE_OVERFLOW` table the sheet does, so the two can
+ * never drift.
  */
-const SECTIONS = [
-  {
-    title: 'Comprendre',
-    links: [
-      { href: '/programme', label: 'Programme et règles' },
-      { href: '/aide', label: 'Aide' },
-      { href: '/support', label: 'Contacter le support' },
-    ],
-  },
-  {
-    title: 'Informations légales',
-    links: [
-      { href: '/legal/conditions', label: 'Conditions générales' },
-      { href: '/legal/confidentialite', label: 'Confidentialité' },
-      { href: '/legal/risques', label: 'Avertissement sur les risques' },
-    ],
-  },
-] as const;
-
 export default function PlusPage() {
   return (
     <div className="flex max-w-2xl flex-col gap-5">
-      {SECTIONS.map((section) => (
-        <HubModule key={section.title} className="flex flex-col gap-3 p-5 sm:p-6">
-          <HubModuleTitle>{section.title}</HubModuleTitle>
-          <div className="flex flex-col">
-            {section.links.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="-mx-2 flex min-h-[44px] items-center justify-between gap-3 rounded-[var(--warix-radius-well)] px-2 text-[length:var(--wariba-font-size-body-md)] text-[color:var(--wariba-text-primary)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:bg-[color:var(--warix-surface-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)] motion-reduce:transition-none"
+      <PageHeader description="Tout ce qui ne tient pas dans la barre du bas." />
+
+      {MOBILE_OVERFLOW.map((group, index) => (
+        <Surface key={group.title ?? `group-${index}`} className="flex flex-col gap-2 p-4">
+          {group.title ? (
+            <p className="px-1 pb-1 text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase tracking-[var(--wariba-letter-spacing-wide)] text-[color:var(--wariba-text-tertiary)]">
+              {group.title}
+            </p>
+          ) : null}
+          {group.destinations.map((destination) => (
+            <Link
+              key={destination.href}
+              href={destination.href}
+              className={[
+                'flex min-h-[52px] items-center gap-3 rounded-[10px] border px-3.5',
+                'transition-colors duration-[var(--wariba-component-workstation-motion-interaction)]',
+                'focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2',
+                'focus-visible:outline-[color:var(--wariba-border-focus)] motion-reduce:transition-none',
+                destination.emphasis === 'cta'
+                  ? 'border-[color:var(--wariba-accent-indigo-edge)] bg-[color:var(--wariba-accent-indigo-wash)]'
+                  : 'border-[color:var(--warix-border-subtle)] bg-[color:var(--warix-surface-raised)] hover:bg-[color:var(--warix-surface-hover)]',
+              ].join(' ')}
+            >
+              <span
+                aria-hidden="true"
+                className={
+                  destination.emphasis === 'cta'
+                    ? 'text-[color:var(--wariba-accent-indigo)]'
+                    : 'text-[color:var(--wariba-text-secondary)]'
+                }
               >
-                {link.label}
-                <svg
-                  aria-hidden="true"
-                  className="shrink-0 text-[color:var(--wariba-text-tertiary)]"
-                  fill="none"
-                  height="18"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="1.75"
-                  viewBox="0 0 24 24"
-                  width="18"
-                >
-                  <path d="m9.5 6 6 6-6 6" />
-                </svg>
-              </Link>
-            ))}
-          </div>
-        </HubModule>
+                <HubIcon
+                  role={destination.icon}
+                  size={24}
+                  active={destination.emphasis === 'cta'}
+                />
+              </span>
+              <span className="flex-1 text-[length:var(--wariba-font-size-label-md)] font-semibold text-[color:var(--wariba-text-primary)]">
+                {destination.label}
+              </span>
+              <span aria-hidden="true" className="text-[color:var(--wariba-text-tertiary)]">
+                <HubIcon role="chevron" size={16} />
+              </span>
+            </Link>
+          ))}
+        </Surface>
       ))}
 
-      {/* The desktop header carries this in the account menu; a phone has no
-          header menu, so the overflow page is where signing out lives. */}
       <form action={signOutAction}>
         <button
           type="submit"
-          className="flex min-h-[44px] w-full items-center justify-center rounded-[var(--wariba-component-input-radius)] border border-[color:var(--warix-border-subtle)] bg-[color:var(--warix-surface)] px-5 text-[length:var(--wariba-font-size-label-md)] font-semibold text-[color:var(--wariba-text-primary)] transition-colors duration-[var(--wariba-component-workstation-motion-interaction)] hover:border-[color:var(--warix-border-strong)] hover:bg-[color:var(--warix-surface-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)] motion-reduce:transition-none"
+          className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-[10px] border border-[color:var(--warix-border-strong)] bg-[color:var(--warix-surface-raised)] text-[length:var(--wariba-font-size-label-md)] font-semibold text-[color:var(--wariba-text-primary)] transition-colors hover:bg-[color:var(--warix-surface-hover)] motion-reduce:transition-none"
         >
+          <HubIcon role="signOut" size={18} />
           {productCopy.hub.user.signOut}
         </button>
       </form>

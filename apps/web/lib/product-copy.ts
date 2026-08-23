@@ -202,7 +202,8 @@ export const productCopy = {
       /** Concise, and still the legally required statement (Rulebook §43.3). */
       simulated: 'Compte simulé',
       today: 'Aujourd’hui',
-      pnlToday: 'PnL du jour',
+      maxLossRemaining: 'Perte maximale restante',
+      pnlToday: 'P&L du jour',
       balance: 'Solde',
       evolution: 'Évolution du compte',
       /*
@@ -240,6 +241,27 @@ export const productCopy = {
       more: 'Plus',
       collapse: 'Réduire la navigation',
       expand: 'Déployer la navigation',
+
+      // Phase 2 — the complete information architecture.
+      addAccount: 'Ajouter un compte',
+      performance: 'Performance',
+      journal: 'Journal',
+      billing: 'Facturation',
+      support: 'Support',
+      settings: 'Paramètres',
+      identityVerification: 'Vérification d’identité',
+
+      /*
+       * Group headings.
+       *
+       * Named for what a trader came to do, not for the systems behind them:
+       * "Analyse" rather than "Analytics", "Finances" rather than "Billing &
+       * Payouts". A heading that describes an internal boundary makes the
+       * person read the org chart instead of the product.
+       */
+      groupInsights: 'Analyse',
+      groupMoney: 'Finances',
+      groupAccount: 'Compte',
     },
     user: {
       menu: 'Menu du compte',

@@ -29,7 +29,13 @@ export default async function globalSetup(): Promise<void> {
     await page.getByLabel('Mot de passe', { exact: true }).fill(E2E_TEST_PASSWORD);
     await page.getByRole('button', { name: 'Se connecter' }).click();
     await page.waitForURL('**/hub');
-    await page.getByRole('link', { name: 'Ouvrir WariX' }).waitFor({ state: 'visible' });
+    /*
+     * A test id, not a label. "Ouvrir WariX" is the account's next action and
+     * legitimately appears in more than one place on the dashboard — the
+     * sticky header carries it as a convenience while scrolling — so matching
+     * by accessible name is a strict-mode violation waiting to happen.
+     */
+    await page.getByTestId('hub-next-action').waitFor({ state: 'visible' });
     await page.context().storageState({ path: STORAGE_STATE_FILE });
   } finally {
     await browser.close();

@@ -1,8 +1,16 @@
+/*
+ * The pure subpath, not the barrel.
+ *
+ * This module is imported by client components — the WariX header, the account
+ * switcher — and `@wariba/application`'s main entry re-exports read models that
+ * import `pg`. Reaching the labels through it put a Postgres driver in the
+ * browser bundle and broke the build on `Can't resolve 'fs'`.
+ */
 import {
   ACCOUNT_STATUS_LABEL,
   accountStatusLabel,
   type AccountSummaryDTO,
-} from '@wariba/application';
+} from '@wariba/application/presentation';
 
 export type AccountProgramType = AccountSummaryDTO['programType'];
 export type AccountStatusVariant = 'neutral' | 'information' | 'success' | 'warning' | 'danger';
