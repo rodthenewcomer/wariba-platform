@@ -87,19 +87,77 @@ if (!DATABASE_URL) {
   process.exit(2);
 }
 
-const client = new pg.Client({
-  connectionString: DATABASE_URL,
-  connectionTimeoutMillis: TIMEOUT_MS,
-  query_timeout: TIMEOUT_MS,
-  // Supabase terminates plaintext connections; the pooler certificate is not
-  // in the runner's trust store, and pinning it here would be a credential to
-  // rotate. Encrypted transport without chain verification is the documented
-  // Supabase client posture for this exact case.
-  ssl:
-    DATABASE_URL.includes('localhost') || DATABASE_URL.includes('127.0.0.1')
-      ? false
-      : { rejectUnauthorized: false },
-});
+/**
+ * Validate the DSN before handing it to `pg`.
+ *
+ * `new pg.Client()` throws a bare `TypeError: Invalid URL` on a malformed
+ * connection string, outside any try block, so the operator sees a stack trace
+ * through `pg-connection-string` and no indication of what to fix. GitHub then
+ * redacts the offending value as `*****REDACTED*****`, which removes the last
+ * clue.
+ *
+ * The overwhelmingly common cause is worth naming explicitly: Supabase's
+ * dashboard hands you a URI containing a literal `[YOUR-PASSWORD]`, and the
+ * square brackets alone make it an invalid URL — Node reads them as an IPv6
+ * literal. Pasting that string unedited into a secret is a two-second mistake
+ * that produces a completely opaque failure.
+ *
+ * Nothing here logs the value.
+ */
+function describeInvalidDsn(dsn) {
+  if (/\[YOUR-PASSWORD\]|\[YOUR_PASSWORD\]/i.test(dsn)) {
+    return 'The connection string still contains the literal [YOUR-PASSWORD] placeholder from the Supabase dashboard. Replace it with the real database password.';
+  }
+  if (/^["']|["']$/.test(dsn)) {
+    return 'The connection string is wrapped in quotes. Store the raw value, without surrounding quotes.';
+  }
+  if (dsn !== dsn.trim()) {
+    return 'The connection string has leading or trailing whitespace (often a trailing newline from a copy-paste).';
+  }
+  if (!/^postgres(ql)?:\/\//.test(dsn.trim())) {
+    return 'The value does not start with postgresql:// — this should be the pooled connection string from Project Settings → Database, not the project URL or an API key.';
+  }
+  try {
+    new URL(dsn.trim());
+  } catch {
+    return 'The connection string is not a parseable URL. Check for unescaped special characters in the password (@ : / ? # [ ] must be percent-encoded).';
+  }
+  return null;
+}
+
+const invalid = describeInvalidDsn(DATABASE_URL);
+if (invalid) {
+  log('error', 'keepalive.invalid_connection_string', {
+    detail: invalid,
+    hint: 'Project Settings → Database → Connection string → Transaction pooler (port 6543).',
+  });
+  process.exit(1);
+}
+
+const dsn = DATABASE_URL.trim();
+
+let client;
+try {
+  client = new pg.Client({
+    connectionString: dsn,
+    connectionTimeoutMillis: TIMEOUT_MS,
+    query_timeout: TIMEOUT_MS,
+    // Supabase terminates plaintext connections; the pooler certificate is not
+    // in the runner's trust store, and pinning it here would be a credential to
+    // rotate. Encrypted transport without chain verification is the documented
+    // Supabase client posture for this exact case.
+    ssl:
+      dsn.includes('localhost') || dsn.includes('127.0.0.1')
+        ? false
+        : { rejectUnauthorized: false },
+  });
+} catch (error) {
+  // Never interpolate the DSN into the message.
+  log('error', 'keepalive.client_construction_failed', {
+    errorCode: error instanceof Error ? error.message : String(error),
+  });
+  process.exit(1);
+}
 
 const started = Date.now();
 
@@ -161,5 +219,5 @@ try {
   });
   process.exit(1);
 } finally {
-  await client.end().catch(() => {});
+  await client?.end().catch(() => {});
 }
