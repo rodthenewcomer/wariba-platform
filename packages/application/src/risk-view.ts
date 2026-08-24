@@ -3,6 +3,7 @@ import type { Db } from '@wariba/database';
 import { computeDailyLossRemaining, isInAttentionZone } from '@wariba/domain';
 import { loadAccountRiskEngineInputs, type AccountRiskEngineInputs } from './risk-engine-inputs';
 import { nextResetAt } from './trading-day';
+import { traderLabel } from './account-status-labels';
 
 // Structurally identical to @wariba/ui's RiskRibbonStatus — application
 // layer stays UI-framework-agnostic, so the union is redeclared here rather
@@ -184,7 +185,7 @@ export function projectAccountRiskView(
     },
     violations: result.violations.map((violation): AccountRiskViolation => ({
       ruleCode: violation.ruleCode,
-      ruleLabel: RISK_RULE_LABELS[violation.ruleCode] ?? violation.ruleCode,
+      ruleLabel: traderLabel(RISK_RULE_LABELS, violation.ruleCode, 'Règle de risque'),
       thresholdFormatted: formatUsd(violation.thresholdValue),
       observedFormatted: formatUsd(violation.observedValue),
       consequence: violation.consequence,

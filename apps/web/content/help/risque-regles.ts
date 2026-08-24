@@ -41,7 +41,7 @@ export const RISQUE_ARTICLES: readonly HelpArticle[] = [
           ['Le compte est-il perdu ?', 'Non', 'Oui'],
         ],
       },
-      { kind: 'heading', text: 'Vos limites aujourd’hui' },
+      { kind: 'heading', text: 'Les limites en vigueur' },
       { kind: 'ruleTable', facts: ['dailyLossRate', 'maximumLossRate'] },
       {
         kind: 'callout',

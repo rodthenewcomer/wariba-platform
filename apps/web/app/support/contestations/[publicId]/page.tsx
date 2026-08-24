@@ -115,15 +115,25 @@ export default async function ContestationPage({
         <section className="flex flex-col gap-3" aria-label="Décision contestée">
           <SurfaceTitle>Décision contestée</SurfaceTitle>
           <Surface className="p-5 sm:p-6">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h3 className="text-[length:var(--wariba-font-size-body-md)] font-semibold text-[color:var(--wariba-text-primary)]">
-                {contestation.evidence.ruleLabel}
-              </h3>
-              <span className="wariba-data text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
-                {contestation.evidence.ruleCode}
-              </span>
-            </div>
-            <p className="mt-1 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
+            {/*
+             * `RISK_MAXIMUM_LOSS_BREACH` était affiché ici, à droite du titre.
+             * C'est la clé qui relie la ligne de violation à son libellé —
+             * utile à un opérateur, illisible pour la personne dont c'est le
+             * compte. WARIBA Control la garde ; cette page garde le nom de la
+             * règle et la phrase qui dit ce qui s'est passé.
+             */}
+            <h3 className="text-[length:var(--wariba-font-size-body-md)] font-semibold text-[color:var(--wariba-text-primary)]">
+              {contestation.evidence.ruleLabel}
+            </h3>
+            {contestation.evidence.narrative ? (
+              <p
+                className="mt-1.5 max-w-[64ch] text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-text-secondary)]"
+                data-testid="contestation-narrative"
+              >
+                {contestation.evidence.narrative}
+              </p>
+            ) : null}
+            <p className="mt-1.5 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
               Conséquence : {contestation.evidence.consequenceLabel}
             </p>
             {/*
@@ -206,15 +216,17 @@ export default async function ContestationPage({
       ) : null}
 
       {/*
-       * La référence technique, dite pour ce qu'elle sert.
+       * La référence, c'est CTS-01017.
        *
-       * « Référence technique : 8ada89ec-… » ne veut rien dire pour un trader.
-       * La phrase explique maintenant à quoi elle sert avant de l'afficher —
-       * c'est la seule raison pour laquelle elle est sur la page.
+       * Cette page affichait un UUID de corrélation sous la phrase « donnez-lui
+       * cette référence ». Un trader au téléphone lisant
+       * « babba39e-2efb-4a4f-b3a5-6f2bfa6bcd66 » se trompe, et l'opérateur n'en
+       * a pas besoin : la référence publique retrouve le dossier, et l'UUID est
+       * relié dans WARIBA Control. Il reste à l'audit, pas à l'écran.
        */}
       <p className="text-[length:var(--wariba-font-size-label-sm)] leading-relaxed text-[color:var(--wariba-text-tertiary)]">
-        Si vous contactez le support à propos de ce dossier, donnez-lui cette référence :{' '}
-        <span className="wariba-data select-all">{contestation.correlationId}</span>
+        Si vous contactez le support à propos de ce dossier, donnez-lui la référence{' '}
+        <span className="wariba-data select-all">{contestation.publicId}</span>.
       </p>
     </div>
   );

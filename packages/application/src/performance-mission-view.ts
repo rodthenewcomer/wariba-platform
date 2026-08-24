@@ -7,6 +7,7 @@ import {
   type PayoutRejectionCode,
 } from '@wariba/database';
 import type { AccountConsistencyView, AccountMissionNextAction } from './mission-view';
+import { traderLabel } from './account-status-labels';
 
 // Same seven values as @wariba/ui's MissionState — kept as a local literal
 // union (not imported from @wariba/ui) so this package doesn't take a
@@ -212,7 +213,7 @@ export async function buildAccountPerformanceMissionView(
     payoutEligible: eligibility.eligible,
     blockingSummary: eligibility.eligible ? null : REJECTION_LABEL[eligibility.rejectionCode],
     recentPayouts: payoutRequests.map((request) => ({
-      statusLabel: PAYOUT_STATUS_LABEL[request.status] ?? request.status,
+      statusLabel: traderLabel(PAYOUT_STATUS_LABEL, request.status, 'En cours'),
       cycleNumber: request.cycleNumber,
       amountFormatted: request.traderNetCash ? formatUsd(request.traderNetCash) : null,
       dateLabel: request.requestedAt.toLocaleDateString('fr-FR'),

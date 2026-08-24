@@ -76,7 +76,7 @@ export function TradeRiskDetail({
 
           <div>
             <Text variant="label-sm" color="tertiary" className="mb-1">
-              Perte quotidienne (DLL)
+              Perte quotidienne
             </Text>
             <div className="flex flex-col divide-y divide-[color:var(--wariba-border-subtle)]">
               {row('Référence du jour', `${risk.dailyLoss.reference} USD`)}

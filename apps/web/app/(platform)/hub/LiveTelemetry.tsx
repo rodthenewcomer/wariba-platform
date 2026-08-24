@@ -156,7 +156,7 @@ export function LiveTelemetry({
       ? []
       : [
           {
-            label: 'Risque jour restant',
+            label: 'Perte quotidienne restante',
             value: current.dailyLossRemainingFormatted,
             hint: `${current.dailyRemainingPercent} % du budget`,
           },

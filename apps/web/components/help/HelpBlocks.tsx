@@ -144,10 +144,29 @@ function ResponsiveTable({
             <p className="text-[length:var(--wariba-font-size-body-sm)] font-semibold text-[color:var(--wariba-color-bone-50)]">
               {row[0]}
             </p>
+            {/*
+             * Une seule colonne de valeur : l'en-tête n'est plus affiché.
+             *
+             * Un tableau « Statut / Ce que cela veut dire » devient dix cartes
+             * empilées, et « Ce que cela veut dire » se répétait dans chacune —
+             * dix fois la même phrase sur un écran de 390 px, pour dire ce que
+             * la mise en page dit déjà : titre en gras, explication dessous.
+             *
+             * L'en-tête reste dans le DOM en `sr-only` : un lecteur d'écran
+             * qui parcourt les `dt`/`dd` a besoin du nom du champ, là où l'œil
+             * s'en passe. À partir de deux colonnes de valeurs, les libellés
+             * redeviennent nécessaires et réapparaissent.
+             */}
             <dl className="mt-2 flex flex-col gap-1.5">
               {row.slice(1).map((cell, cellIndex) => (
                 <div key={cellIndex} className="flex flex-col gap-0.5">
-                  <dt className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-color-ink-300)]">
+                  <dt
+                    className={
+                      columns.length === 2
+                        ? 'sr-only'
+                        : 'text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-color-ink-300)]'
+                    }
+                  >
                     {columns[cellIndex + 1]}
                   </dt>
                   <dd className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-color-ink-100)]">
@@ -188,8 +207,19 @@ function RuleTable({
       data-testid="help-rule-table"
       className="rounded-[var(--wariba-radius-xl)] border border-[color:var(--wariba-color-cobalt-700)] bg-[color:var(--wariba-color-ink-900)] p-4 sm:p-5"
     >
+      {/*
+       * « Règles appliquées à votre compte » — sur une page publique.
+       *
+       * `buildHelpPolicyFacts` lit `loadPublished`, c'est-à-dire la version
+       * en vigueur du programme, sans aucun contexte de compte : /aide se
+       * rend pour un visiteur non connecté. Le libellé promettait donc au
+       * lecteur que ces chiffres étaient les siens, ce qu'aucune requête ne
+       * vérifiait. Un compte activé garde la version acceptée le jour de son
+       * activation, qui peut différer de celle-ci — c'est exactement la
+       * distinction que cette phrase effaçait.
+       */}
       <p className="text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase tracking-[var(--wariba-letter-spacing-wide)] text-[color:var(--wariba-color-cobalt-300)]">
-        {caption ?? 'Règles appliquées à votre compte'}
+        {caption ?? 'Règles WARIBA actuellement publiées'}
       </p>
       <dl className="mt-3 flex flex-col divide-y divide-[color:var(--wariba-color-ink-700)]">
         {resolved.map((fact) => (

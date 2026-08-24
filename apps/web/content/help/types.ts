@@ -286,9 +286,14 @@ export const HELP_CATEGORIES: readonly HelpCategory[] = [
 /**
  * Ce que l'article décrit, en une étiquette.
  *
- * Le mot compte plus que la couleur : « Blocage jusqu'au lendemain » et
+ * Le mot compte plus que la couleur : « Blocage jusqu'au prochain reset » et
  * « Compte terminé » sont la différence entre une mauvaise journée et une
- * évaluation finie. « Opérationnel » a été remplacé par « Bon à savoir » — le
+ * évaluation finie.
+ *
+ * « Jusqu'au lendemain » disait minuit local. Le reset tombe à 00:00 UTC
+ * (`nextResetAt`), ce qui n'est le lendemain que pour une partie des
+ * lecteurs — pour les autres c'est le milieu de l'après-midi ou la veille au
+ * soir. L'étiquette nomme donc l'instant que le produit connaît. « Opérationnel » a été remplacé par « Bon à savoir » — le
  * premier décrit une catégorie interne, le second dit au lecteur ce qu'il
  * tient entre les mains.
  */
@@ -296,7 +301,7 @@ export const HELP_SEVERITY_LABELS: Record<HelpSeverity, string> = {
   information: 'Information',
   pass_condition: 'Condition de réussite',
   payout_condition: 'Condition pour être payé',
-  soft_lock: 'Blocage jusqu’au lendemain',
+  soft_lock: 'Blocage jusqu’au prochain reset',
   hard_breach: 'Met fin au compte',
   operational: 'Bon à savoir',
 };

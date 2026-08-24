@@ -33,7 +33,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
     body: [
       {
         kind: 'paragraph',
-        text: 'Voici les règles WARIBA ONE en vigueur. Ce sont exactement celles appliquées à votre compte.',
+        text: 'Voici les règles WARIBA ONE actuellement publiées. Un compte déjà activé garde la version acceptée le jour de son activation : celle qui s’applique au vôtre est affichée dans votre espace WARIBA.',
       },
       {
         kind: 'ruleTable',
@@ -147,7 +147,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
     category: 'wariba-one',
     title: 'Comment fonctionne la perte quotidienne ?',
     summary:
-      'Une protection temporaire. Atteinte, elle vous empêche d’ouvrir de nouvelles positions jusqu’au lendemain. Votre compte n’est pas perdu.',
+      'Une protection temporaire. Atteinte, elle vous empêche d’ouvrir de nouvelles positions jusqu’au prochain reset. Votre compte n’est pas perdu.',
     status: 'publish',
     severity: 'soft_lock',
     audience: ['evaluation', 'performance'],
@@ -193,6 +193,11 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
           'l’heure exacte du prochain reset est affichée sur votre compte.',
         ],
       },
+      { kind: 'heading', text: 'Quand a lieu le reset' },
+      {
+        kind: 'paragraph',
+        text: 'Le reset a lieu à **00:00 UTC**, pas à minuit chez vous. Selon votre fuseau, votre journée de trading peut donc repartir en pleine après-midi ou la veille au soir. Le compte à rebours affiché dans votre espace WARIBA est celui qui fait foi.',
+      },
       {
         kind: 'callout',
         tone: 'information',
@@ -207,7 +212,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
     category: 'wariba-one',
     title: 'Comment fonctionne la perte maximale glissante ?',
     summary:
-      'Un plancher qui protège votre compte sur toute sa durée. Il remonte après une bonne journée, ne redescend jamais, et le franchir met fin au compte.',
+      'Un plancher recalculé à la clôture de chaque journée. Il monte si vous terminez plus haut que jamais, ne redescend pas, et le franchir met fin au compte.',
     status: 'publish',
     severity: 'hard_breach',
     audience: ['evaluation', 'performance'],
@@ -231,13 +236,13 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
     body: [
       {
         kind: 'paragraph',
-        text: 'La perte maximale protège votre compte sur toute sa durée. Elle vaut {{fact:maximumLossRate}} du montant nominal, et le plancher qu’elle fixe est **glissant** : il peut remonter après une journée terminée, jamais redescendre.',
+        text: 'La perte maximale protège votre compte sur toute sa durée. Elle retire {{fact:maximumLossRate}} du montant nominal, et le plancher qu’elle fixe est **glissant** : il peut monter à la fin d’une journée, jamais redescendre.',
       },
       {
         kind: 'callout',
         tone: 'information',
         title: 'Ce que veut dire « EOD »',
-        text: 'EOD signifie « fin de journée ». Votre plancher n’est pas recalculé à chaque instant : il est réévalué une fois la journée terminée, à partir de votre meilleure clôture.',
+        text: 'EOD signifie « fin de journée ». Votre plancher n’est pas recalculé à chaque instant : il est réévalué une seule fois par jour, à la clôture, à partir de votre plus haut solde de fin de journée depuis l’ouverture du compte. Un pic en cours de séance ne compte pas — seul le solde au moment de la clôture est retenu.',
       },
       {
         kind: 'example',
@@ -245,14 +250,15 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
         lines: [
           'au départ, votre plancher est à 9 000 ;',
           'vous terminez une journée à 10 500 : votre plancher monte à 9 500 ;',
-          'la journée suivante finit plus bas : votre plancher reste à 9 500.',
+          'la journée suivante finit plus bas : votre plancher reste à 9 500 ;',
+          'vous terminez plus tard à 11 200 : votre plancher s’arrête à 10 000, votre montant de départ.',
         ],
         conclusion:
           'Le plancher qui s’applique à votre compte est affiché dans votre espace WARIBA. Ne le recalculez pas à partir de cet exemple.',
       },
       {
         kind: 'paragraph',
-        text: 'Une fois que votre plancher atteint votre montant de départ, il s’y arrête : il ne monte pas au-delà.',
+        text: 'Le montant retiré ne change jamais : c’est toujours {{fact:maximumLossRate}} du nominal de départ, pas un pourcentage de votre solde du moment. Et le plancher s’arrête à votre montant de départ — une fois qu’il l’atteint, il ne monte pas au-delà, quel que soit votre profit.',
       },
       {
         kind: 'callout',

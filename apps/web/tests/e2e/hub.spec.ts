@@ -29,20 +29,17 @@ test.describe('Trader Hub', { tag: ['@auth'] }, () => {
 
       await expect(page.getByText(/objectif de profit/i).first()).toBeVisible();
       /*
-       * The daily-loss budget, under the two labels the Hub actually renders:
-       * « Risque jour restant » in the telemetry strip and « Perte
-       * quotidienne » on the risk meter beneath it.
+       * The daily-loss budget, under the one label the Hub now renders.
        *
        * This asserted « Perte quotidienne restante » until Phase 3.2 found it
-       * red. That string exists in exactly one file — `comptes/AccountCard.tsx`
-       * — and renders on `/comptes`, never on `/hub`: the assertion and the
-       * label had drifted apart, so the test was failing rather than
-       * protecting anything. Two labels are asserted rather than one because
-       * the figure genuinely appears twice, and a trader who sees neither has
-       * lost the number this test exists to guard.
+       * red, then « Risque jour restant » — the telemetry strip's own name for
+       * the same figure. The strip, the risk meter, the account card and WariX
+       * had four names between them, one of which was the acronym « DLL ».
+       * They now all read « Perte quotidienne restante », which is the name
+       * the Help Center gives the rule, so one assertion covers the figure
+       * wherever it appears.
        */
-      await expect(page.getByText('Risque jour restant').first()).toBeVisible();
-      await expect(page.getByText(/Perte quotidienne/).first()).toBeVisible();
+      await expect(page.getByText(/Perte quotidienne restante/).first()).toBeVisible();
       // Legitimately more than one: the hero's primary and the sticky header's
       // convenience copy of it.
       await expect(page.getByTestId('hub-next-action')).toBeVisible();

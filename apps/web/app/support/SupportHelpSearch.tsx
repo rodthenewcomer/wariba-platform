@@ -46,7 +46,7 @@ export function SupportHelpSearch() {
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Ex. Maximum Loss, payout, FCFA…"
+          placeholder="Ex. perte maximale, payout, FCFA…"
           data-testid="support-help-search"
           className="min-h-12 w-full rounded-[10px] border border-[color:var(--warix-border-subtle)] bg-[color:var(--warix-surface-raised)] pl-11 pr-3.5 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-primary)] placeholder:text-[color:var(--wariba-text-tertiary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]"
         />

@@ -70,7 +70,11 @@ export async function seedBreachEvidence(
       account_id: account.id,
       from_status: 'active',
       to_status: 'breached',
-      reason: 'maximum_loss_breached',
+      // La valeur que `risk.ts` écrit réellement pour active->breached. La
+      // fixture disait `maximum_loss_breached` — un mot que la production
+      // n'écrit jamais — et le fil d'activité, faute de traduction, imprimait
+      // l'identifiant tel quel dans les captures de preuve.
+      reason: 'maximum_loss_breach',
       occurred_at: now,
     })
     .returning('id')

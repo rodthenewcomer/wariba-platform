@@ -254,7 +254,7 @@ export {
   type BuildAccountPerformanceMissionViewParams,
 } from './performance-mission-view';
 
-export { ACCOUNT_STATUS_LABEL, accountStatusLabel } from './account-status-labels';
+export { ACCOUNT_STATUS_LABEL, accountStatusLabel, traderLabel } from './account-status-labels';
 
 /* Product OS Phase 2 — the account's life, payouts, identity, and the record. */
 export {

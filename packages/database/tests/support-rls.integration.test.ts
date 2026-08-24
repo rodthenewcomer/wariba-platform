@@ -110,7 +110,7 @@ describeIfDb('support and contestations — row level security (real database)',
         account_id: accountA,
         from_status: 'active',
         to_status: 'breached',
-        reason: 'maximum_loss_breached',
+        reason: 'maximum_loss_breach',
       })
       .returning('id')
       .executeTakeFirstOrThrow();

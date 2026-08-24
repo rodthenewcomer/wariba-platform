@@ -161,7 +161,7 @@ export async function buildHelpPolicyFacts(db: Db): Promise<HelpPolicyFacts> {
       label: 'Perte quotidienne',
       value: percent(one.daily_loss_rate),
       explanation:
-        'Atteinte, elle suspend vos nouvelles positions jusqu’au lendemain. Votre compte n’est pas perdu.',
+        'Atteinte, elle suspend vos nouvelles positions jusqu’au prochain reset, à 00:00 UTC. Votre compte n’est pas perdu.',
       program: 'WARIBA_ONE',
     },
     maximumLossRate: {

@@ -10,6 +10,7 @@ import {
   type Db,
   type SupportTicketCategory,
 } from '@wariba/database';
+import { traderLabel } from './account-status-labels';
 import { RISK_RULE_LABELS } from './risk-view';
 import { CONSEQUENCE_LABELS, formatSupportTimestamp } from './support-view';
 
@@ -135,7 +136,9 @@ export async function submitContestation(
     accountId: params.accountId,
   });
   const target = decisions.find((decision) => decision.riskViolationId === params.targetId);
-  const ruleLabel = target ? (RISK_RULE_LABELS[target.ruleCode] ?? target.ruleCode) : undefined;
+  const ruleLabel = target
+    ? traderLabel(RISK_RULE_LABELS, target.ruleCode, 'Règle de risque')
+    : undefined;
 
   const opened = await openContestation(db, {
     userId: params.userId,
@@ -198,9 +201,13 @@ export async function listContestableDecisionOptions(
   return decisions.map((decision) => ({
     targetId: decision.riskViolationId,
     targetType: targetTypeFor(decision),
-    ruleLabel: RISK_RULE_LABELS[decision.ruleCode] ?? decision.ruleCode,
+    ruleLabel: traderLabel(RISK_RULE_LABELS, decision.ruleCode, 'Règle de risque'),
     ruleCode: decision.ruleCode,
-    consequenceLabel: CONSEQUENCE_LABELS[decision.consequence] ?? decision.consequence,
+    consequenceLabel: traderLabel(
+      CONSEQUENCE_LABELS,
+      decision.consequence,
+      'Restriction appliquée',
+    ),
     occurredAtLabel: formatSupportTimestamp(decision.occurredAt),
     thresholdFormatted: formatUsd(decision.thresholdValue),
     observedFormatted: formatUsd(decision.observedValue),

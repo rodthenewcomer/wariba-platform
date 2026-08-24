@@ -13,7 +13,7 @@ import {
   type SupportTicketCategory,
   type SupportTicketStatus,
 } from '@wariba/database';
-import { accountStatusLabel } from './account-status-labels';
+import { accountStatusLabel, traderLabel } from './account-status-labels';
 import { RISK_RULE_LABELS } from './risk-view';
 
 /**
@@ -56,13 +56,19 @@ export const SUPPORT_CATEGORY_LABELS: Record<SupportTicketCategory, string> = {
   technical: 'Technique',
 };
 
-/** Short form for a dense list column, where the sentence does not fit. */
+/**
+ * Short form for a dense list column, where the sentence does not fit.
+ *
+ * « Breach » s'affichait sur la page Support d'un trader, à côté de la
+ * référence de sa contestation : le mot du domaine, en anglais, pour dire
+ * qu'un compte est terminé. Court ne veut pas dire non traduit.
+ */
 export const SUPPORT_CATEGORY_SHORT: Record<SupportTicketCategory, string> = {
   general: 'Général',
   account: 'Compte',
   trading: 'Trading',
   risk: 'Risque',
-  breach: 'Breach',
+  breach: 'Compte terminé',
   performance: 'Performance',
   payout: 'Payout',
   billing: 'Facturation',
@@ -137,7 +143,7 @@ export const CONTESTATION_STATUS_NEXT_ACTION: Record<ContestationStatus, string>
   open: 'Votre contestation a bien été enregistrée.',
   under_review: 'L’équipe examine la décision et les éléments de votre dossier.',
   needs_information: 'Nous avons besoin d’une information de votre part pour continuer.',
-  upheld: 'Après examen, la décision d’origine est maintenue. Le motif est indiqué ci-dessous.',
+  upheld: 'Après examen, la décision d’origine ne change pas. Le motif est indiqué ci-dessous.',
   overturned: 'Après examen, la décision d’origine a été revue. Le motif est indiqué ci-dessous.',
   closed: 'L’examen de cette contestation est terminé.',
 };
@@ -176,7 +182,7 @@ export const CONTESTATION_TARGET_LABELS: Record<ContestationTargetType, string> 
 /** Ce que la décision a changé pour le compte, dans les mots du trader. */
 export const CONSEQUENCE_LABELS: Record<string, string> = {
   hard_breach: 'Compte terminé',
-  soft_lock: 'Blocage jusqu’au lendemain',
+  soft_lock: 'Blocage jusqu’au prochain reset',
   entry_lock: 'Nouvelles positions bloquées',
   blocks_pass: 'Passage bloqué',
   none: 'Aucune conséquence',
@@ -386,6 +392,14 @@ export interface ContestationEvidenceView {
   ruleLabel: string;
   ruleCode: string;
   consequenceLabel: string;
+  /**
+   * Ce qui a déclenché l'évaluation, en toutes lettres. Lu depuis
+   * `trigger_event_type` et non déduit de l'absence d'un ordre — c'est la
+   * contradiction que WARIBA Control affichait.
+   */
+  triggerLabel: string;
+  /** Une phrase pour le trader. Absente de la projection opérateur. */
+  narrative?: string;
   rows: readonly EvidenceRow[];
   orderRows: readonly EvidenceRow[];
   fills: readonly {
@@ -413,6 +427,105 @@ function formatUsd(amount: string | null): string {
  * decision is owed the whole calculation, not a sentence summarising it — and
  * the operator reads exactly the same rows.
  */
+/**
+ * Le nom d'un programme, dit comme on le prononce.
+ *
+ * `WARIBA_ONE` est une valeur de colonne. Un trader qui lit « Version de
+ * policy : WARIBA_ONE 1.1.1 » lit deux fois la base de données dans la même
+ * ligne — une fois le libellé, une fois la valeur.
+ */
+const PROGRAM_DISPLAY_NAMES: Record<string, string> = {
+  WARIBA_ONE: 'WARIBA ONE',
+  WARIBA_PERFORMANCE: 'WARIBA Performance',
+};
+
+export function programDisplayName(program: string): string {
+  return PROGRAM_DISPLAY_NAMES[program] ?? program.replace(/_/g, ' ');
+}
+
+/**
+ * Ce qui s'est passé, en une phrase.
+ *
+ * La table dit les chiffres ; elle ne dit pas l'histoire. Cette phrase la
+ * dit : quelle règle, ce qui l'a fait constater, et ce que le compte est
+ * devenu. Elle est construite à partir des mêmes champs que la table —
+ * aucune formulation ne dépend d'une hypothèse sur ce qui a déclenché la
+ * vérification, ce qui est précisément l'erreur que WARIBA Control faisait.
+ */
+export function decisionNarrative(evidence: ContestedDecisionEvidence): string {
+  const rule = traderLabel(RISK_RULE_LABELS, evidence.violation.ruleCode, 'de risque');
+  const trigger = TRIGGER_EVENT_NARRATIVE[evidence.violation.triggerEventType];
+  const consequence =
+    CONSEQUENCE_NARRATIVE[evidence.violation.consequence] ??
+    CONSEQUENCE_LABELS[evidence.violation.consequence] ??
+    evidence.violation.consequence;
+
+  const opening = trigger
+    ? `${trigger}, WARIBA a constaté que la règle « ${rule} » était atteinte sur votre compte.`
+    : `WARIBA a constaté que la règle « ${rule} » était atteinte sur votre compte.`;
+
+  return `${opening} ${consequence}`;
+}
+
+/**
+ * Le déclencheur, tourné pour entrer dans une phrase.
+ *
+ * `TRIGGER_EVENT_LABELS` répond à « quoi » dans une case de tableau ;
+ * celui-ci répond à « quand » dans une phrase. Les deux lisent la même
+ * colonne, donc les deux surfaces ne peuvent pas se contredire.
+ */
+const TRIGGER_EVENT_NARRATIVE: Record<string, string> = {
+  trade_order: 'Au moment d’un ordre que vous avez passé',
+  daily_finalization: 'À la clôture de la journée',
+  manual_review: 'Lors d’une vérification manuelle',
+};
+
+const CONSEQUENCE_NARRATIVE: Record<string, string> = {
+  hard_breach: 'Le compte a été terminé.',
+  soft_lock: 'Les nouvelles positions ont été bloquées jusqu’au prochain reset.',
+  entry_lock: 'L’ouverture de nouvelles positions a été bloquée.',
+  blocks_pass: 'Le passage a été bloqué.',
+  none: 'Aucune restriction n’a été appliquée au compte.',
+};
+
+/**
+ * Les mêmes faits, pour la personne dont c'est le compte.
+ *
+ * La projection complète existe pour un opérateur qui instruit un dossier :
+ * elle porte la version du moteur de calcul, le nom de l'événement qui a
+ * déclenché l'évaluation et la transition d'état brute. Aucun des trois ne
+ * dit quoi que ce soit à un trader — et deux d'entre eux ressemblent
+ * suffisamment à des preuves pour qu'il essaie de les comprendre.
+ *
+ * Ce qui reste est ce sur quoi la décision repose vraiment : le compte, le
+ * seuil, la valeur observée, l'instant, et la version des règles attachée au
+ * compte. La phrase de `decisionNarrative` porte le reste, et le lien
+ * « Comprendre cette règle » porte l'explication.
+ *
+ * Rien n'est masqué à l'audit : `projectContestationEvidence` reste la
+ * projection de WARIBA Control et lit exactement les mêmes lignes.
+ */
+export function projectTraderContestationEvidence(
+  evidence: ContestedDecisionEvidence,
+): ContestationEvidenceView {
+  const full = projectContestationEvidence(evidence);
+  const HIDDEN = new Set(['Version de calcul', 'Événement déclencheur', 'Transition du compte']);
+
+  const rows = full.rows
+    .filter((row) => !HIDDEN.has(row.label))
+    .map((row) =>
+      row.label === 'Version de policy'
+        ? {
+            ...row,
+            label: 'Version des règles',
+            value: `${programDisplayName(evidence.policy.program)} ${evidence.policy.semanticVersion}`,
+          }
+        : row,
+    );
+
+  return { ...full, rows, narrative: decisionNarrative(evidence) };
+}
+
 export function projectContestationEvidence(
   evidence: ContestedDecisionEvidence,
 ): ContestationEvidenceView {
@@ -499,10 +612,17 @@ export function projectContestationEvidence(
     : [];
 
   return {
-    ruleLabel: RISK_RULE_LABELS[evidence.violation.ruleCode] ?? evidence.violation.ruleCode,
+    // Le libellé ne retombe pas sur le code : `projectTraderContestationEvidence`
+    // le donne à lire. `ruleCode` reste sur la projection pour WARIBA Control,
+    // qui l'affiche à côté du titre.
+    ruleLabel: traderLabel(RISK_RULE_LABELS, evidence.violation.ruleCode, 'Règle de risque'),
     ruleCode: evidence.violation.ruleCode,
-    consequenceLabel:
-      CONSEQUENCE_LABELS[evidence.violation.consequence] ?? evidence.violation.consequence,
+    triggerLabel: triggerEventLabel(evidence.violation.triggerEventType),
+    consequenceLabel: traderLabel(
+      CONSEQUENCE_LABELS,
+      evidence.violation.consequence,
+      'Restriction appliquée',
+    ),
     rows,
     orderRows,
     fills: (evidence.order?.fills ?? []).map((fill) => ({
@@ -532,7 +652,6 @@ export interface ContestationView {
   decisionReason: string | null;
   openedAtLabel: string;
   resolvedAtLabel: string | null;
-  correlationId: string;
   evidence: ContestationEvidenceView | null;
 }
 
@@ -566,8 +685,7 @@ export function projectContestationView(detail: ContestationDetail): Contestatio
     decisionReason: detail.decisionReason,
     openedAtLabel: formatSupportTimestamp(detail.openedAt),
     resolvedAtLabel: detail.resolvedAt ? formatSupportTimestamp(detail.resolvedAt) : null,
-    correlationId: detail.correlationId,
-    evidence: detail.evidence ? projectContestationEvidence(detail.evidence) : null,
+    evidence: detail.evidence ? projectTraderContestationEvidence(detail.evidence) : null,
   };
 }
 

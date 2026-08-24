@@ -287,7 +287,7 @@ export const COMMENCER_ARTICLES: readonly HelpArticle[] = [
           ['WARIBA Performance', 'Compte simulé obtenu après une réussite validée.'],
           [
             'Blocage quotidien (soft lock)',
-            'Vous ne pouvez plus ouvrir de position jusqu’au lendemain, parce que votre perte quotidienne est atteinte.',
+            'Vous ne pouvez plus ouvrir de position jusqu’au prochain reset, parce que votre perte quotidienne est atteinte.',
           ],
           [
             'Limite maximale dépassée',

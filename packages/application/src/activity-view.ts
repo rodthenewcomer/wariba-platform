@@ -48,6 +48,44 @@ const TRANSITION_REASON_LABEL: Record<string, string> = {
   evaluation_passed: 'Compte Performance activé',
 };
 
+/**
+ * Ce que l'événement a changé, en une phrase.
+ *
+ * Le fil affichait « Actif → Limite maximale dépassée » : une transition
+ * d'automate, avec sa flèche, lue par la personne dont c'est le compte. Les
+ * deux états sont pourtant déjà connus — l'un est le passé, l'autre est ce
+ * que le tableau de bord affiche partout ailleurs. Ce qui manquait, c'est la
+ * raison.
+ */
+const TRANSITION_DETAIL: Record<string, string> = {
+  daily_loss_limit_reached:
+    'Votre perte du jour a atteint la limite. Aucune nouvelle position jusqu’au prochain reset.',
+  daily_loss_limit_reset:
+    'Le reset quotidien a eu lieu. Vous pouvez de nouveau ouvrir des positions.',
+  maximum_loss_breach:
+    // « équité » et non « equity » : la tuile juste au-dessus dans le même
+    // écran dit « Équité actuelle ». Le centre d'aide enseigne le mot trader
+    // et le glose ; une ligne d'alerte n'a pas la place de le faire.
+    'Votre équité est passée sous le plancher de perte maximale. Le compte est terminé.',
+  evaluation_target_reached:
+    'Vous avez atteint l’objectif de profit. Les autres conditions restent à vérifier.',
+  evaluation_pass_finalized: 'Toutes les conditions sont remplies. L’évaluation est réussie.',
+  payment_confirmed: 'Votre paiement est confirmé et le compte est ouvert.',
+  evaluation_passed: 'Votre compte WARIBA Performance est ouvert.',
+};
+
+/**
+ * Le repli, qui ne dit jamais le nom de la colonne.
+ *
+ * `?? row.reason` imprimait `maximum_loss_breached` dans le fil d'activité
+ * d'un trader — un identifiant de base de données, en snake_case, sur le
+ * tableau de bord. Un libellé non traduit est un défaut de cette table ; ce
+ * n'est pas au lecteur de le porter. La phrase générique dit ce qui est vrai
+ * dans tous les cas — le compte a changé d'état — et la ligne brute reste
+ * dans l'audit, où quelqu'un la cherchera.
+ */
+const TRANSITION_FALLBACK_LABEL = 'Changement d’état du compte';
+
 const TRANSITION_SEVERITY: Record<string, ActivitySeverity> = {
   daily_loss_limit_reached: 'warning',
   daily_loss_limit_reset: 'information',
@@ -117,10 +155,10 @@ export async function buildRecentActivityView(
     ...transitions.map((row): ActivityItem => ({
       id: `transition-${row.id}`,
       kind: 'state_transition',
-      label: TRANSITION_REASON_LABEL[row.reason] ?? row.reason,
-      // Product vocabulary, not the storage enum: "Activation en attente →
-      // Actif", never "pending_activation → active".
-      detail: `${row.from_status ? accountStatusLabel(row.from_status) : '—'} → ${accountStatusLabel(row.to_status)}`,
+      label: TRANSITION_REASON_LABEL[row.reason] ?? TRANSITION_FALLBACK_LABEL,
+      detail:
+        TRANSITION_DETAIL[row.reason] ??
+        `Votre compte est maintenant « ${accountStatusLabel(row.to_status)} ».`,
       timestampLabel: formatTimestampLabel(row.occurred_at),
       occurredAt: row.occurred_at.toISOString(),
       severity: TRANSITION_SEVERITY[row.reason] ?? 'information',
@@ -128,7 +166,10 @@ export async function buildRecentActivityView(
     ...violations.map((row): ActivityItem => ({
       id: `violation-${row.id}`,
       kind: 'risk_violation',
-      label: RISK_RULE_LABELS[row.rule_code] ?? row.rule_code,
+      // Même règle que pour les transitions : `RISK_MAXIMUM_LOSS_BREACH` ne
+      // s'affiche pas dans un fil d'activité. Le repli nomme ce qui est vrai
+      // sans nommer la colonne.
+      label: RISK_RULE_LABELS[row.rule_code] ?? 'Règle de risque atteinte',
       ...(row.threshold_value && row.observed_value
         ? {
             detail: `Seuil ${formatUsd(row.threshold_value)} · observé ${formatUsd(row.observed_value)}`,

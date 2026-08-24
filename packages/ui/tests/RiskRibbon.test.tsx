@@ -14,7 +14,9 @@ describe('RiskRibbon', () => {
       />,
     );
     expect(screen.getByText('Blocage temporaire')).toBeInTheDocument();
-    expect(screen.getByText(/DLL restante/)).toBeInTheDocument();
+    // « DLL » était l'acronyme interne de la perte quotidienne. Le ruban
+    // portait un nom que le centre d'aide n'emploie nulle part.
+    expect(screen.getByText(/Perte quotidienne restante/)).toBeInTheDocument();
     expect(screen.getByText('0 USD')).toBeInTheDocument();
   });
 

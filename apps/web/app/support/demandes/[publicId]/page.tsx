@@ -207,7 +207,10 @@ export default async function SupportTicketPage({
         </Surface>
       )}
 
-      <p className="text-[length:var(--wariba-font-size-label-sm)] leading-relaxed text-[color:var(--wariba-text-tertiary)]">
+      <p
+        data-testid="ticket-footer-reference"
+        className="text-[length:var(--wariba-font-size-label-sm)] leading-relaxed text-[color:var(--wariba-text-tertiary)]"
+      >
         Si vous nous appelez à propos de cette demande, donnez la référence{' '}
         <span className="wariba-data select-all">{ticket.publicId}</span>.
       </p>

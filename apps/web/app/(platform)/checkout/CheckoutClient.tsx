@@ -84,19 +84,19 @@ export function CheckoutClient({ context }: CheckoutClientProps) {
             Règles essentielles
           </Text>
           <ul className="grid list-disc gap-2 pl-5 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)] sm:grid-cols-2">
-            <li>Objectif net réalisé : 10 %</li>
-            <li>Perte quotidienne : 3 % avec soft lock</li>
-            <li>Perte maximale : 10 % EOD trailing</li>
-            <li>Best Day Rule : 50 %, jamais une violation</li>
-            <li>Aucun minimum de jours</li>
-            <li>Aucune journée qualifiée en Evaluation</li>
+            <li>Objectif de profit réalisé : 10 %</li>
+            <li>Perte quotidienne : 3 %, blocage jusqu’au prochain reset</li>
+            <li>Perte maximale : 10 %, plancher recalculé en fin de journée</li>
+            <li>Meilleur Jour : 50 %, ne termine jamais le compte</li>
+            <li>Aucun nombre minimum de jours</li>
+            <li>Aucune journée qualifiée exigée pendant l’évaluation</li>
           </ul>
         </div>
 
         <Checkbox
           checked={accepted}
           onChange={(event) => setAccepted(event.target.checked)}
-          label={`J'accepte la divulgation de compte simulé liée à la policy WARIBA ONE ${context.policyVersion}.`}
+          label={`J'accepte la divulgation de compte simulé liée aux règles WARIBA ONE ${context.policyVersion}.`}
           helperText="Cette acceptation est versionnée, horodatée et conservée comme preuve."
         />
 

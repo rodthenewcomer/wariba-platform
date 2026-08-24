@@ -104,7 +104,7 @@ const EVIDENCE = {
   transition: {
     fromStatus: 'active',
     toStatus: 'breached',
-    reason: 'maximum_loss_breached',
+    reason: 'maximum_loss_breach',
     occurredAt: new Date('2026-08-23T10:15:00.000Z'),
   },
   snapshot: {

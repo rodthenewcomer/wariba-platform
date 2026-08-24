@@ -93,7 +93,7 @@ export function RiskPanel({
       <dl className="flex flex-col gap-3">
         {[
           { term: 'PnL du jour', value: pnlTodayFormatted },
-          { term: 'DLL restante', value: dailyLossRemaining },
+          { term: 'Perte quotidienne restante', value: dailyLossRemaining },
           { term: 'Perte max. restante', value: maximumLossRemaining },
           { term: 'Prochain reset', value: nextResetLabel },
         ].map((row) => (

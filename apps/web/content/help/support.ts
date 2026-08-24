@@ -300,7 +300,7 @@ export const SUPPORT_ARTICLES: readonly HelpArticle[] = [
           ],
           [
             'Décision maintenue',
-            'Après examen, la décision d’origine est confirmée. Le motif est écrit dans votre dossier.',
+            'Après examen, la décision d’origine ne change pas. Le motif est écrit dans votre dossier.',
           ],
           ['Clôturée', 'L’examen de cette contestation est terminé.'],
         ],

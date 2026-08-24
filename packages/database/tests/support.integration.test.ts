@@ -118,7 +118,7 @@ describeIfDb('support tickets and contestations (real database)', () => {
         account_id: accountId,
         from_status: 'active',
         to_status: 'breached',
-        reason: 'maximum_loss_breached',
+        reason: 'maximum_loss_breach',
       })
       .returning('id')
       .executeTakeFirstOrThrow();

@@ -130,9 +130,22 @@ export default async function ControlContestationPage({
                 rows={contestation.evidence.orderRows}
               />
             ) : (
-              <Text variant="body-sm" color="secondary">
-                Aucun ordre déclencheur : la décision provient d’une finalisation de journée.
-              </Text>
+              <>
+                {/*
+                 * Cette phrase affirmait « la décision provient d'une
+                 * finalisation de journée » chaque fois qu'aucun ordre n'était
+                 * rattaché. C'était une déduction, pas une lecture : le même
+                 * dossier portait `trigger_event_type = manual_review`, et la
+                 * vue trader affichait « Une vérification manuelle » à côté.
+                 * Deux surfaces, deux histoires, une seule ligne en base.
+                 *
+                 * Elle lit maintenant le déclencheur enregistré.
+                 */}
+                <Text variant="body-sm" color="secondary">
+                  Aucun ordre déclencheur. Évaluation lancée par&nbsp;:{' '}
+                  {contestation.evidence.triggerLabel}.
+                </Text>
+              </>
             )}
           </div>
           {contestation.evidence.fills.length > 0 ? (
