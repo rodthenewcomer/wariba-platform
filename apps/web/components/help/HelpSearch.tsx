@@ -53,14 +53,14 @@ export function HelpSearch({ autoFocus = false }: { autoFocus?: boolean }) {
                 Aucune réponse ne correspond.
               </p>
               <p className="mt-2 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-color-ink-300)]">
-                Essayez un autre terme, ou{' '}
+                Essayez un autre mot, ou{' '}
                 <Link
                   href="/support"
                   className="font-semibold text-[color:var(--wariba-color-cobalt-300)] underline underline-offset-2"
                 >
-                  ouvrez une demande
+                  posez votre question
                 </Link>{' '}
-                — un opérateur WARIBA vous répondra.
+                — l’équipe WARIBA vous répond.
               </p>
             </div>
           ) : (

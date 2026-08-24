@@ -40,6 +40,22 @@ export const dynamic = 'force-dynamic';
  */
 const CONTESTABLE_SEVERITIES = new Set(['hard_breach', 'soft_lock']);
 
+/**
+ * « 2026-08-24 » → « 24 août 2026 ».
+ *
+ * Construit en UTC à partir de la date seule : sans le suffixe `T00:00:00Z`,
+ * un serveur à l'ouest de Greenwich rendrait la veille et le navigateur du
+ * lecteur le lendemain — la même page afficherait deux dates.
+ */
+function formatReviewDate(isoDate: string): string {
+  return new Date(`${isoDate}T00:00:00.000Z`).toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
 export function generateStaticParams() {
   return publishedArticles().map((article) => ({
     category: article.category,
@@ -115,7 +131,7 @@ export default async function HelpArticlePage({
             <RuleSeverityBadge severity={article.severity} />
             <AppliesToBadge audience={article.audience} />
           </div>
-          <PolicySourceBadge sources={article.sourceOfTruth} policyVersion={policyVersion} />
+          <PolicySourceBadge policyVersion={policyVersion} />
         </header>
 
         <HelpBlocks blocks={article.body} policyFacts={facts} />
@@ -124,8 +140,14 @@ export default async function HelpArticlePage({
 
         <HelpSupportCta contestable={CONTESTABLE_SEVERITIES.has(article.severity)} />
 
+        {/*
+         * « Dernière relecture : 2026-08-24 » était une date de base de
+         * données lue par un humain. Le format français va au lecteur ; le
+         * `dateTime` de `<time>` garde la valeur machine pour tout le reste.
+         */}
         <p className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-color-ink-300)]">
-          Dernière relecture : {article.lastReviewedAt}
+          Mis à jour le{' '}
+          <time dateTime={article.lastReviewedAt}>{formatReviewDate(article.lastReviewedAt)}</time>
         </p>
       </article>
     </section>

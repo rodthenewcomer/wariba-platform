@@ -152,7 +152,8 @@ export async function buildHelpPolicyFacts(db: Db): Promise<HelpPolicyFacts> {
       key: 'profitTargetRate',
       label: 'Objectif de profit',
       value: percent(one.profit_target_rate),
-      explanation: 'Profit net réalisé à atteindre. Le PnL latent ne compte jamais.',
+      explanation:
+        'Le profit à atteindre, une fois vos positions clôturées. Un gain encore ouvert ne compte pas.',
       program: 'WARIBA_ONE',
     },
     dailyLossRate: {
@@ -160,7 +161,7 @@ export async function buildHelpPolicyFacts(db: Db): Promise<HelpPolicyFacts> {
       label: 'Perte quotidienne',
       value: percent(one.daily_loss_rate),
       explanation:
-        'Atteinte, elle met le compte en blocage temporaire. Le compte n’est pas terminé.',
+        'Atteinte, elle suspend vos nouvelles positions jusqu’au lendemain. Votre compte n’est pas perdu.',
       program: 'WARIBA_ONE',
     },
     maximumLossRate: {
@@ -168,7 +169,7 @@ export async function buildHelpPolicyFacts(db: Db): Promise<HelpPolicyFacts> {
       label: 'Perte maximale',
       value: percent(one.maximum_loss_rate),
       explanation:
-        'Plancher glissant, recalculé après chaque journée finalisée. L’atteindre termine le compte.',
+        'Le plancher de protection de votre compte. Il remonte après une bonne journée, jamais l’inverse, et le franchir met fin au compte.',
       program: 'WARIBA_ONE',
     },
     bestDayMaxRatio: {
@@ -176,14 +177,14 @@ export async function buildHelpPolicyFacts(db: Db): Promise<HelpPolicyFacts> {
       label: 'Règle du Meilleur Jour',
       value: percent(one.best_day_max_ratio),
       explanation:
-        'Part maximale du profit total qu’une seule journée peut représenter. Jamais un breach.',
+        'La part maximale que votre meilleure journée peut représenter dans votre profit total. Un dépassement ne fait jamais perdre le compte.',
       program: 'WARIBA_ONE',
     },
     minimumTradingDays: {
       key: 'minimumTradingDays',
       label: 'Jours de trading minimum',
       value: count(one.minimum_trading_days, 'jour', 'jours'),
-      explanation: 'Nombre de journées exigées avant de pouvoir valider l’évaluation.',
+      explanation: 'Le nombre de journées à trader avant de pouvoir valider votre évaluation.',
       program: 'WARIBA_ONE',
     },
     activationFee: {
@@ -196,15 +197,15 @@ export async function buildHelpPolicyFacts(db: Db): Promise<HelpPolicyFacts> {
             ? 'Aucun'
             : one.activation_fee,
       explanation:
-        'Montant dû après une réussite validée, avant l’ouverture du compte Performance.',
+        'Ce que vous payez après une réussite validée, avant l’ouverture de votre compte Performance.',
       program: 'WARIBA_ONE',
     },
     shortDurationSeconds: {
       key: 'shortDurationSeconds',
-      label: 'Durée minimale d’un profit éligible',
+      label: 'Durée minimale d’un gain compté',
       value: seconds(one.minimum_profit_eligible_duration_ms),
       explanation:
-        'En dessous de cette durée, un profit peut contribuer pour zéro au programme. Les pertes restent comptées.',
+        'En dessous de cette durée, un gain peut ne rien apporter à votre objectif. Une perte, elle, compte toujours.',
       program: 'WARIBA_ONE',
     },
     permanentBufferRate: {
@@ -212,43 +213,43 @@ export async function buildHelpPolicyFacts(db: Db): Promise<HelpPolicyFacts> {
       label: 'Buffer permanent',
       value: percent(perf.permanent_buffer_rate),
       explanation:
-        'Construit une fois, jamais retirable. Seul l’excédent au-dessus peut devenir éligible.',
+        'Vous le constituez une seule fois et il reste sur le compte. Seul ce que vous gagnez au-dessus peut être demandé.',
       program: 'WARIBA_PERFORMANCE',
     },
     performanceDayThresholdRate: {
       key: 'performanceDayThresholdRate',
-      label: 'Seuil d’une Performance Day',
+      label: 'Seuil d’une journée comptée',
       value: percent(perf.performance_day_threshold_rate),
-      explanation: 'Profit net réalisé qu’une journée doit atteindre pour compter dans le cycle.',
+      explanation: 'Le gain qu’une journée doit atteindre pour être comptée dans votre cycle.',
       program: 'WARIBA_PERFORMANCE',
     },
     performanceDaysRequired: {
       key: 'performanceDaysRequired',
-      label: 'Performance Days par payout',
+      label: 'Journées comptées par demande',
       value: count(perf.performance_days_required_per_payout, 'journée', 'journées'),
       explanation:
-        'Nouvelles journées exigées par cycle. Une journée déjà consommée ne se réutilise pas.',
+        'Le nombre de journées comptées exigé avant chaque demande. Une journée déjà utilisée ne resert pas.',
       program: 'WARIBA_PERFORMANCE',
     },
     traderSplitDefault: {
       key: 'traderSplitDefault',
-      label: 'Part trader (payouts 1 à 4)',
+      label: 'Votre part (premières demandes)',
       value: percent(perf.trader_split_rate_default),
-      explanation: 'Part du payout revenant au trader sur les cycles ordinaires.',
+      explanation: 'Ce qui vous revient sur les premières demandes.',
       program: 'WARIBA_PERFORMANCE',
     },
     traderSplitFinalCycle: {
       key: 'traderSplitFinalCycle',
-      label: 'Part trader (dernier payout)',
+      label: 'Votre part (dernière demande)',
       value: percent(perf.trader_split_rate_final_cycle),
-      explanation: 'Part du payout revenant au trader sur le dernier cycle avant Review.',
+      explanation: 'Ce qui vous revient sur la dernière demande du cycle.',
       program: 'WARIBA_PERFORMANCE',
     },
     maxPayoutCyclesBeforeReview: {
       key: 'maxPayoutCyclesBeforeReview',
-      label: 'Cycles avant WARIBA Review',
+      label: 'Demandes payées avant WARIBA Review',
       value: count(perf.max_payout_cycles_before_review, 'cycle', 'cycles'),
-      explanation: 'Nombre de payouts payés après lequel le dossier Review s’ouvre.',
+      explanation: 'Le nombre de demandes payées après lequel votre dossier WARIBA Review s’ouvre.',
       program: 'WARIBA_PERFORMANCE',
     },
     overnightAllowed: {
@@ -256,35 +257,36 @@ export async function buildHelpPolicyFacts(db: Db): Promise<HelpPolicyFacts> {
       label: 'Position pendant la nuit',
       value: permission(one.overnight_allowed, 'Autorisée', 'Interdite'),
       explanation:
-        'Autorisée ne veut pas dire sans risque : les limites continuent de s’appliquer.',
+        'Autorisée ne veut pas dire sans risque : vos limites continuent de s’appliquer pendant la nuit.',
       program: 'WARIBA_ONE',
     },
     weekendAllowed: {
       key: 'weekendAllowed',
       label: 'Position pendant le week-end',
       value: permission(one.weekend_allowed, 'Autorisée', 'Interdite'),
-      explanation: 'L’heure de coupure exacte dépend de l’instrument et est publiée avec lui.',
+      explanation: 'L’heure de fermeture exacte dépend de l’instrument et s’affiche avec lui.',
       program: 'WARIBA_ONE',
     },
     newsAllowed: {
       key: 'newsAllowed',
       label: 'Trading pendant les annonces',
       value: permission(one.news_allowed, 'Autorisé', 'Interdit'),
-      explanation: 'Les autres règles continuent de s’appliquer et le slippage peut augmenter.',
+      explanation:
+        'Vos autres limites continuent de s’appliquer, et l’écart entre le prix visé et le prix obtenu peut augmenter.',
       program: 'WARIBA_ONE',
     },
     evaluationPolicyVersion: {
       key: 'evaluationPolicyVersion',
-      label: 'Policy WARIBA ONE',
+      label: 'Règles WARIBA ONE',
       value: evaluation ? `${evaluation.version}` : null,
-      explanation: 'Version publiée dont ces valeurs proviennent.',
+      explanation: 'La version des règles appliquée à votre compte.',
       program: 'WARIBA_ONE',
     },
     performancePolicyVersion: {
       key: 'performancePolicyVersion',
-      label: 'Policy WARIBA Performance',
+      label: 'Règles WARIBA Performance',
       value: performance ? `${performance.version}` : null,
-      explanation: 'Version publiée dont ces valeurs proviennent.',
+      explanation: 'La version des règles appliquée à votre compte.',
       program: 'WARIBA_PERFORMANCE',
     },
   };

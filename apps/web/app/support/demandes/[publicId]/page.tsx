@@ -197,7 +197,7 @@ export default async function SupportTicketPage({
       ) : (
         <Surface tone="raised" className="p-5">
           <p className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
-            Cette demande est clôturée. Ouvrez une nouvelle demande si le sujet se représente.
+            Cette demande est terminée. Ouvrez-en une nouvelle si le sujet revient.
           </p>
           <div className="mt-3">
             <ActionLink href="/support/nouveau" variant="secondary" size="sm">
@@ -207,8 +207,9 @@ export default async function SupportTicketPage({
         </Surface>
       )}
 
-      <p className="wariba-data text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
-        Référence technique : {ticket.correlationId}
+      <p className="text-[length:var(--wariba-font-size-label-sm)] leading-relaxed text-[color:var(--wariba-text-tertiary)]">
+        Si vous nous appelez à propos de cette demande, donnez la référence{' '}
+        <span className="wariba-data select-all">{ticket.publicId}</span>.
       </p>
     </div>
   );

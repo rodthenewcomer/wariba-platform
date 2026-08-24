@@ -161,7 +161,8 @@ describe('projectContestationEvidence', () => {
     // talking to a person, which is what account-status-labels.ts exists to
     // stop; the same applies to the trigger.
     expect(byLabel.get('Transition du compte')).toBe('Actif → Limite maximale dépassée');
-    expect(byLabel.get('Événement déclencheur')).toBe('Ordre de trading');
+    // Dit au trader ce qui s'est passé, pas le nom de la valeur en base.
+    expect(byLabel.get('Événement déclencheur')).toBe('Un ordre que vous avez passé');
     expect(byLabel.get('Journée')).toBe('2026-08-23');
   });
 

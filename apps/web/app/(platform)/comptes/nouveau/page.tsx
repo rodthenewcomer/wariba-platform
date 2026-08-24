@@ -45,7 +45,7 @@ export default async function NewAccountPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader description="Choisissez la taille de votre compte. Les règles affichées sont celles que le moteur de risque appliquera — elles sont lues depuis la version publiée, jamais recopiées." />
+      <PageHeader description="Choisissez la taille de votre compte. Les règles affichées ici sont exactement celles qui s’appliqueront à ce compte." />
       <Configurator
         offers={catalog.offers}
         policyVersion={catalog.policyVersion}

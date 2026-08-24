@@ -189,7 +189,7 @@ function RuleTable({
       className="rounded-[var(--wariba-radius-xl)] border border-[color:var(--wariba-color-cobalt-700)] bg-[color:var(--wariba-color-ink-900)] p-4 sm:p-5"
     >
       <p className="text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase tracking-[var(--wariba-letter-spacing-wide)] text-[color:var(--wariba-color-cobalt-300)]">
-        {caption ?? 'Valeurs de la policy publiée'}
+        {caption ?? 'Règles appliquées à votre compte'}
       </p>
       <dl className="mt-3 flex flex-col divide-y divide-[color:var(--wariba-color-ink-700)]">
         {resolved.map((fact) => (
@@ -340,8 +340,8 @@ export function HelpBlocks({
                     who lands mid-article must not take an illustration for a
                     limit their own account is measured against. */}
                 <p className="mt-3 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-color-ink-300)]">
-                  Chiffres illustratifs. Les valeurs de votre compte sont celles affichées dans le
-                  Hub.
+                  Chiffres donnés à titre d’exemple. Les montants de votre compte sont ceux affichés
+                  dans votre espace WARIBA.
                 </p>
               </div>
             );

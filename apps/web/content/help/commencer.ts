@@ -12,7 +12,7 @@ export const COMMENCER_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-001',
     slug: 'bienvenue-dans-wariba',
     category: 'commencer',
-    title: 'Bienvenue dans WARIBA',
+    title: 'Qu’est-ce que WARIBA ?',
     summary:
       'WARIBA évalue la discipline, l’exécution et la gestion du risque dans un environnement entièrement simulé.',
     status: 'publish',
@@ -45,7 +45,7 @@ export const COMMENCER_ARTICLES: readonly HelpArticle[] = [
         kind: 'callout',
         tone: 'information',
         title: 'Avant votre premier trade',
-        text: 'Lisez « Les règles essentielles avant votre premier trade ». La policy versionnée attachée à votre compte reste toujours la référence, y compris face à cet article.',
+        text: 'Lisez « Les règles essentielles avant votre premier trade ». Les règles attachées à votre compte font toujours foi, y compris face à cet article.',
       },
     ],
   },
@@ -68,7 +68,7 @@ export const COMMENCER_ARTICLES: readonly HelpArticle[] = [
         kind: 'paragraph',
         text: 'La taille affichée sur une évaluation WARIBA est un **nominal simulé**. Elle sert de base aux calculs du programme : objectif, limites de risque et autres seuils.',
       },
-      { kind: 'heading', text: 'Ce que ce montant n’est pas' },
+      { kind: 'heading', text: 'Ce n’est pas' },
       {
         kind: 'list',
         items: [
@@ -103,10 +103,14 @@ export const COMMENCER_ARTICLES: readonly HelpArticle[] = [
     related: ['objectif-atteint', 'compte-performance', 'apres-cinquieme-payout'],
     lastReviewedAt: '2026-08-24',
     body: [
+      {
+        kind: 'paragraph',
+        text: 'Le parcours WARIBA compte quatre étapes. Aucune ne s’enchaîne automatiquement : chacune se termine par une vérification.',
+      },
       { kind: 'heading', text: '1. WARIBA ONE' },
       {
         kind: 'paragraph',
-        text: 'Vous tradez une évaluation simulée selon la policy attachée au compte.',
+        text: 'Vous tradez une évaluation simulée selon les règles attachées à votre compte.',
       },
       { kind: 'heading', text: '2. Réussite en vérification' },
       {
@@ -151,18 +155,18 @@ export const COMMENCER_ARTICLES: readonly HelpArticle[] = [
       },
       {
         kind: 'paragraph',
-        text: 'La page Offres lit le catalogue publié et affiche, pour chaque taille : le nominal simulé, le prix, l’objectif, la perte quotidienne, la perte maximale et la règle du Meilleur Jour, exprimés dans la devise du produit.',
+        text: 'La page Offres affiche, pour chaque taille : le montant nominal, le prix, l’objectif, la perte quotidienne, la perte maximale et la règle du Meilleur Jour.',
       },
       {
         kind: 'callout',
         tone: 'information',
         title: 'Aucun prix n’est écrit dans cet article',
-        text: 'Les prix et les tailles proviennent du catalogue publié. Un article d’aide qui les recopierait continuerait de les afficher le jour où ils changent.',
+        text: 'Les prix et les tailles viennent directement de l’offre en cours. Un article d’aide qui les recopierait finirait par afficher d’anciens montants.',
       },
       { kind: 'heading', text: 'Les règles en vigueur aujourd’hui' },
       {
         kind: 'ruleTable',
-        caption: 'Lues depuis la policy WARIBA ONE publiée',
+        caption: 'Lues dans les règles WARIBA ONE en vigueur',
         facts: [
           'profitTargetRate',
           'dailyLossRate',
@@ -179,7 +183,7 @@ export const COMMENCER_ARTICLES: readonly HelpArticle[] = [
     category: 'commencer',
     title: 'Comment acheter et activer une évaluation ?',
     summary:
-      'Cinq étapes, et une règle qui compte plus que les autres : seul le serveur confirme un paiement.',
+      'Cinq étapes, et une règle qui compte plus que les autres : seul WARIBA confirme un paiement.',
     status: 'publish',
     severity: 'operational',
     audience: ['tous'],
@@ -196,14 +200,14 @@ export const COMMENCER_ARTICLES: readonly HelpArticle[] = [
           'Vérifiez le nominal simulé, le prix et les règles principales.',
           'Acceptez les conditions nécessaires.',
           'Lancez le paiement.',
-          'Attendez la confirmation serveur.',
+          'Attendez la confirmation de WARIBA.',
         ],
       },
       {
         kind: 'callout',
         tone: 'danger',
         title: 'Ne payez jamais deux fois',
-        text: 'Le retour de votre navigateur depuis un prestataire de paiement ne confirme rien. WARIBA considère le paiement comme confirmé uniquement après validation serveur. Si la confirmation est en attente, consultez le statut de la commande ou contactez le support avec votre référence.',
+        text: 'Le retour de votre navigateur depuis un prestataire de paiement ne confirme rien. Un paiement n’est confirmé que lorsque WARIBA l’a vérifié auprès du prestataire. Si la confirmation est en attente, consultez le statut de la commande ou contactez le support avec votre référence.',
       },
     ],
   },
@@ -211,9 +215,9 @@ export const COMMENCER_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-006',
     slug: 'solde-et-equity',
     category: 'commencer',
-    title: 'Quelle différence entre solde et equity ?',
+    title: 'Quelle différence entre mon solde et mon equity ?',
     summary:
-      'Le solde est ce qui est réalisé. L’equity tient compte des positions ouvertes. Les règles de risque n’utilisent pas toujours le même.',
+      'Le solde, c’est ce que vous avez encaissé. L’equity y ajoute vos positions encore ouvertes. Vos limites ne surveillent pas toujours le même des deux.',
     status: 'publish',
     severity: 'information',
     audience: ['tous'],
@@ -228,11 +232,11 @@ export const COMMENCER_ARTICLES: readonly HelpArticle[] = [
         rows: [
           [
             'Solde (balance)',
-            'Valeur comptable réalisée du compte après les opérations clôturées et les écritures autorisées.',
+            'Ce que vous avez réellement encaissé, une fois vos positions fermées.',
           ],
           [
             'Equity',
-            'Valeur du compte en tenant compte du solde et du résultat latent des positions ouvertes, selon les frais et ajustements applicables.',
+            'Votre solde, plus les gains ou pertes de vos positions encore ouvertes, frais compris.',
           ],
         ],
       },
@@ -244,11 +248,11 @@ export const COMMENCER_ARTICLES: readonly HelpArticle[] = [
         kind: 'callout',
         tone: 'attention',
         title: 'La conséquence pratique',
-        text: 'Les règles de risque peuvent surveiller l’equity. L’objectif de profit WARIBA ONE, lui, exige du profit réalisé : un profit latent ne valide pas l’évaluation.',
+        text: 'Les règles de risque peuvent surveiller l’equity. Votre objectif WARIBA ONE, lui, ne compte que le profit réalisé : un gain sur une position encore ouverte ne valide pas l’évaluation.',
       },
       {
         kind: 'paragraph',
-        text: 'Les valeurs visibles dans le Hub et dans WariX proviennent des données serveur autoritatives.',
+        text: 'Les montants affichés dans votre espace WARIBA et dans WariX sont ceux de votre compte.',
       },
     ],
   },
@@ -256,7 +260,7 @@ export const COMMENCER_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-007',
     slug: 'glossaire',
     category: 'commencer',
-    title: 'Glossaire WARIBA',
+    title: 'Le vocabulaire WARIBA, expliqué simplement',
     summary: 'Les termes du produit, dans les mots que WARIBA utilise réellement.',
     status: 'publish',
     severity: 'information',
@@ -283,11 +287,11 @@ export const COMMENCER_ARTICLES: readonly HelpArticle[] = [
           ['WARIBA Performance', 'Compte simulé obtenu après une réussite validée.'],
           [
             'Blocage quotidien (soft lock)',
-            'Restriction temporaire des nouvelles expositions après atteinte de la perte quotidienne.',
+            'Vous ne pouvez plus ouvrir de position jusqu’au lendemain, parce que votre perte quotidienne est atteinte.',
           ],
           [
-            'Limite maximale dépassée (breach)',
-            'État terminal du compte après violation de la perte maximale.',
+            'Limite maximale dépassée',
+            'Votre compte est terminé parce que la perte maximale a été franchie.',
           ],
           [
             'Règle du Meilleur Jour',
@@ -300,7 +304,10 @@ export const COMMENCER_ARTICLES: readonly HelpArticle[] = [
             'WARIBA Review',
             'Étape après le dernier payout du cycle. Aucun compte live n’est garanti.',
           ],
-          ['Correlation ID', 'Référence technique reliant les événements d’une même opération.'],
+          [
+            'Référence technique',
+            'Le code affiché avec une erreur. Il permet à l’équipe de retrouver ce qui s’est passé.',
+          ],
         ],
       },
     ],

@@ -82,8 +82,9 @@ export default async function HelpPage() {
                 {pinned.summary}
               </span>
               {facts.evaluationPolicyVersion ? (
-                <span className="wariba-data text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-color-ink-300)]">
-                  Policy WARIBA ONE {facts.evaluationPolicyVersion}
+                <span className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-color-ink-300)]">
+                  Règles WARIBA ONE — version{' '}
+                  <span className="wariba-data">{facts.evaluationPolicyVersion}</span>
                 </span>
               ) : null}
             </Link>
@@ -122,12 +123,12 @@ export default async function HelpPage() {
               Vous ne trouvez pas votre réponse ?
             </h2>
             <p className="mt-2 max-w-[60ch] text-[color:var(--wariba-color-ink-600)]">
-              Le support prend le relais pour tout ce qui touche à votre compte, à une commande ou à
-              une preuve. Votre demande est suivie sous une référence.
+              Pour tout ce qui touche à votre compte, à une commande ou à une décision, l’équipe
+              WARIBA prend le relais. Votre demande est suivie sous une référence.
             </p>
           </div>
           <Link href="/support" className={buttonClassNames({ size: 'lg' })}>
-            Ouvrir une demande
+            Poser une question
           </Link>
         </div>
       </section>

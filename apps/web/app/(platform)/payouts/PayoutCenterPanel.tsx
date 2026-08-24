@@ -80,7 +80,7 @@ function resolveBlockingReason(progress: PerformanceProgressDTO): string | null 
     return `Il manque des Performance Days pour ce cycle (${progress.performanceDaysCompleted} / ${progress.performanceDaysRequired}).`;
   }
   if (!progress.consistencyCompliant) {
-    return 'La meilleure journée dépasse 50 % du profit positif total — répartissez le profit sur d’autres journées.';
+    return 'Votre meilleure journée pèse trop lourd dans le total de vos journées gagnantes — répartissez vos gains sur d’autres journées.';
   }
   if (progress.openPositionBlocking) {
     return 'Une position est ouverte — fermez-la avant de demander un payout.';
@@ -89,10 +89,10 @@ function resolveBlockingReason(progress: PerformanceProgressDTO): string | null 
     return 'Un ordre en attente est actif — annulez-le avant de demander un payout.';
   }
   if (!progress.kycVerified) {
-    return 'Vérification d’identité sandbox non complétée.';
+    return 'Votre identité n’est pas encore vérifiée.';
   }
   if (!progress.payoutMethodConfigured) {
-    return 'Aucune méthode de payout sandbox configurée.';
+    return 'Aucune méthode de paiement enregistrée.';
   }
   return null;
 }
@@ -112,11 +112,11 @@ function toConditions(progress: PerformanceProgressDTO): MissionCondition[] {
       met: progress.performanceDaysCompleted >= progress.performanceDaysRequired,
     },
     {
-      label: 'Consistance',
+      label: 'Meilleur Jour',
       detail:
         progress.consistencyRatio === null
-          ? 'Aucune journée positive pour l’instant'
-          : `${toPercent(progress.consistencyRatio)} % (limite 50 %)`,
+          ? 'Aucune journée gagnante pour l’instant'
+          : `Votre meilleure journée pèse ${toPercent(progress.consistencyRatio)} % de vos journées gagnantes`,
       met: progress.consistencyCompliant,
     },
   ];
@@ -204,12 +204,10 @@ export function PayoutCenterPanel({
       />
 
       {!performanceProgress.kycVerified || !performanceProgress.payoutMethodConfigured ? (
-        <Alert level="warning" title="Configuration sandbox requise">
-          {!performanceProgress.kycVerified
-            ? 'Vérification d’identité sandbox non complétée. '
-            : ''}
+        <Alert level="warning" title="Il reste une étape avant de demander un payout">
+          {!performanceProgress.kycVerified ? 'Votre identité n’est pas encore vérifiée. ' : ''}
           {!performanceProgress.payoutMethodConfigured
-            ? 'Aucune méthode de payout sandbox configurée.'
+            ? 'Aucune méthode de paiement enregistrée.'
             : ''}
         </Alert>
       ) : null}

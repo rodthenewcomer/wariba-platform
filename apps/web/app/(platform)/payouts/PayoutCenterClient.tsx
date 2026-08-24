@@ -37,10 +37,10 @@ export function PayoutCenterClient({ accountId, wsUrl }: PayoutCenterClientProps
       {!session.connectionOk && (
         <Alert
           level="information"
-          title={session.isResyncing ? 'Resynchronisation en cours' : 'Connexion au serveur'}
+          title={session.isResyncing ? 'Mise à jour en cours' : 'Connexion en cours'}
         >
-          Les montants et l&apos;état du cycle proviennent du serveur. Ils s&apos;affichent dès que
-          la connexion est établie.
+          Les montants et l&apos;état de votre cycle s&apos;affichent dès que la connexion est
+          établie.
         </Alert>
       )}
 

@@ -252,3 +252,54 @@ describe('registry counts', () => {
     );
   });
 });
+
+/**
+ * §17 — la recherche doit comprendre ce qu'un trader francophone tape
+ * réellement, y compris l'anglais professionnel qu'il utilise tous les jours.
+ *
+ * Les alias alimentent l'index sans jamais s'afficher : un article n'a pas à
+ * porter dix synonymes à l'écran pour être trouvable.
+ */
+describe('help search vocabulary', () => {
+  const EXPECTED: readonly [string, string][] = [
+    ['daily loss', 'perte-quotidienne'],
+    ['daily drawdown', 'perte-quotidienne'],
+    ['perte journaliere', 'perte-quotidienne'],
+    ['max loss', 'perte-maximale-eod'],
+    ['drawdown', 'perte-maximale-eod'],
+    ['retrait', 'eligibilite-payout'],
+    ['withdraw', 'eligibilite-payout'],
+    ['best day', 'meilleur-jour'],
+    ['stop loss', 'stop-loss-take-profit'],
+    ['take profit', 'stop-loss-take-profit'],
+    ['buy limit', 'ordres-en-attente'],
+    ['sell stop', 'ordres-en-attente'],
+    ['kyc', 'pourquoi-verification-identite'],
+    ['scalping', 'profit-court-terme'],
+  ];
+
+  it('finds the right article for the words traders actually type', () => {
+    for (const [term, slug] of EXPECTED) {
+      const results = searchHelpArticles(term, 5);
+      expect(results.length, `"${term}" returns nothing`).toBeGreaterThan(0);
+      expect(
+        results.map((r) => r.article.slug),
+        `"${term}" should reach ${slug}`,
+      ).toContain(slug);
+    }
+  });
+
+  it('keeps English trader vocabulary out of the visible copy', () => {
+    // Buy / Sell / Stop Loss / Take Profit / WariX / payout are legitimate and
+    // stay. What must not surface is an alias like "withdraw" or "drawdown"
+    // pasted into a title just to be findable.
+    for (const article of publishedArticles()) {
+      for (const banned of ['withdraw', 'drawdown', 'daily loss', 'max loss']) {
+        expect(
+          article.title.toLocaleLowerCase('fr'),
+          `${article.id} puts a search alias in its title`,
+        ).not.toContain(banned);
+      }
+    }
+  });
+});

@@ -33,11 +33,11 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
     body: [
       {
         kind: 'paragraph',
-        text: 'Voici les règles WARIBA ONE en vigueur. Elles sont lues depuis la policy publiée — la même que le moteur de risque applique à votre compte.',
+        text: 'Voici les règles WARIBA ONE en vigueur. Ce sont exactement celles appliquées à votre compte.',
       },
       {
         kind: 'ruleTable',
-        caption: 'Policy WARIBA ONE publiée',
+        caption: 'Règles WARIBA ONE en vigueur',
         facts: [
           'profitTargetRate',
           'dailyLossRate',
@@ -55,7 +55,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
         caption: 'La distinction qui coûte le plus cher quand elle est mal comprise',
         columns: ['Ce qui se passe', 'Règle', 'Effet'],
         rows: [
-          ['Bloque aujourd’hui', 'Perte quotidienne', 'Blocage temporaire jusqu’au reset serveur.'],
+          ['Bloque votre journée', 'Perte quotidienne', 'Vous reprenez au prochain reset.'],
           [
             'Termine le compte',
             'Perte maximale',
@@ -64,7 +64,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
           [
             'Bloque seulement la réussite',
             'Règle du Meilleur Jour',
-            'Vous continuez à trader jusqu’à satisfaire la condition.',
+            'Vous continuez à trader jusqu’à ce que la répartition passe.',
           ],
         ],
       },
@@ -72,11 +72,11 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
       {
         kind: 'list',
         items: [
-          'Perte quotidienne ≠ perte maximale.',
-          'Règle du Meilleur Jour ≠ breach.',
-          'Atteindre l’objectif ≠ activation immédiate du compte Performance.',
+          'La perte quotidienne arrête votre journée. La perte maximale met fin au compte.',
+          'Règle du Meilleur Jour ≠ compte perdu.',
+          'Atteindre l’objectif ne crée pas immédiatement votre compte Performance.',
           'Les positions et ordres bloquants doivent être résolus avant la validation finale.',
-          'Le serveur décide toujours si une action de trading est autorisée.',
+          'C’est toujours WARIBA qui décide si une action de trading est autorisée.',
         ],
       },
       {
@@ -91,14 +91,23 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-011',
     slug: 'objectif-de-profit',
     category: 'wariba-one',
-    title: 'Comment fonctionne l’objectif de profit ?',
+    title: 'Comment atteindre mon objectif de profit ?',
     summary:
-      'L’objectif se mesure en profit net réalisé. Un profit latent ne valide rien, et l’atteindre ne crée pas immédiatement un compte Performance.',
+      'L’objectif se mesure en profit net réalisé. Un gain sur une position encore ouverte ne compte pas, et atteindre l’objectif ne crée pas immédiatement votre compte Performance.',
     status: 'publish',
     severity: 'pass_condition',
     audience: ['evaluation'],
     sourceOfTruth: ['published_account_policy'],
-    searchAliases: ['objectif', 'target', 'profit target', '10%', 'reussir'],
+    searchAliases: [
+      'objectif',
+      'target',
+      'profit target',
+      '10%',
+      'reussir',
+      'passer',
+      'valider',
+      '10',
+    ],
     related: ['solde-et-equity', 'objectif-atteint', 'profit-court-terme'],
     lastReviewedAt: '2026-08-24',
     body: [
@@ -111,7 +120,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
         title: 'Illustration sur un nominal de 10 000 USD',
         lines: [
           'objectif pédagogique : 1 000 USD de profit net réalisé ;',
-          'un profit latent de 1 200 USD sur une position ouverte : ne compte pas ;',
+          'un gain de 1 200 USD sur une position encore ouverte : ne compte pas ;',
           'ce même profit une fois la position clôturée : compte, sous réserve des règles d’éligibilité.',
         ],
         conclusion:
@@ -119,9 +128,9 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
       },
       {
         kind: 'paragraph',
-        text: 'Le moteur vérifie les résultats réalisés **et** toutes les autres conditions applicables. Lorsque l’objectif est atteint, le compte passe en « Réussite en vérification » puis attend la finalisation de journée et les contrôles.',
+        text: 'WARIBA vérifie vos gains réalisés **et** toutes les autres conditions. Lorsque l’objectif est atteint, le compte passe en « Réussite en vérification » puis attend la finalisation de journée et les contrôles.',
       },
-      { kind: 'heading', text: 'Ce qui ne se passe pas' },
+      { kind: 'heading', text: 'En revanche' },
       {
         kind: 'list',
         items: [
@@ -138,18 +147,30 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
     category: 'wariba-one',
     title: 'Comment fonctionne la perte quotidienne ?',
     summary:
-      'Une protection temporaire. Atteinte, elle bloque les nouvelles expositions jusqu’au reset — elle ne termine pas le compte.',
+      'Une protection temporaire. Atteinte, elle vous empêche d’ouvrir de nouvelles positions jusqu’au lendemain. Votre compte n’est pas perdu.',
     status: 'publish',
     severity: 'soft_lock',
     audience: ['evaluation', 'performance'],
     sourceOfTruth: ['published_account_policy', 'risk engine'],
-    searchAliases: ['dll', 'daily loss', 'perte journaliere', 'bloque', 'soft lock', '3%'],
+    searchAliases: [
+      'dll',
+      'daily loss',
+      'perte journaliere',
+      'bloque',
+      'soft lock',
+      '3%',
+      'daily drawdown',
+      'perte du jour',
+      'limite jour',
+      'drawdown journalier',
+      'stop journalier',
+    ],
     related: ['dll-vs-perte-maximale', 'reset-limites-quotidiennes', 'permissions-de-trading'],
     lastReviewedAt: '2026-08-24',
     body: [
       {
         kind: 'paragraph',
-        text: 'La perte quotidienne est une protection temporaire. Le montant de référence correspond à {{fact:dailyLossRate}} du nominal simulé, selon la policy attachée au compte.',
+        text: 'La perte quotidienne est une protection temporaire. Le montant de référence correspond à {{fact:dailyLossRate}} du nominal simulé, selon les règles attachées à votre compte.',
       },
       {
         kind: 'example',
@@ -160,23 +181,23 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
       },
       {
         kind: 'paragraph',
-        text: 'Le moteur serveur suit la limite autoritative de la journée, y compris l’equity lorsque la règle l’exige. Si le seuil est atteint, le compte passe en **blocage quotidien**.',
+        text: 'WARIBA suit votre limite du jour en continu, positions ouvertes comprises lorsque la règle le prévoit. Si le seuil est atteint, le compte passe en **blocage quotidien**.',
       },
       { kind: 'heading', text: 'Conséquence' },
       {
         kind: 'list',
         items: [
-          'les nouvelles expositions sont refusées ;',
-          'réduire ou fermer une position peut rester autorisé si les permissions serveur le permettent ;',
+          'vous ne pouvez plus ouvrir de nouvelle position ;',
+          'réduire ou fermer une position reste souvent possible ;',
           'annuler un ordre en attente peut rester autorisé ;',
-          'l’instant exact du prochain reset vient du serveur.',
+          'l’heure exacte du prochain reset est affichée sur votre compte.',
         ],
       },
       {
         kind: 'callout',
         tone: 'information',
         title: 'Ce n’est pas un échec définitif',
-        text: 'Un blocage quotidien n’est pas un breach. Le compte peut redevenir actif au reset prévu si aucune autre règle terminale n’a été violée.',
+        text: 'Un blocage quotidien ne met pas fin à votre compte. Vous pourrez de nouveau trader au prochain reset, si aucune autre limite n’a été dépassée entre-temps.',
       },
     ],
   },
@@ -184,41 +205,64 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-013',
     slug: 'perte-maximale-eod',
     category: 'wariba-one',
-    title: 'Comment fonctionne la perte maximale EOD trailing ?',
+    title: 'Comment fonctionne la perte maximale glissante ?',
     summary:
-      'Le plancher qui protège le compte sur toute sa durée. Il monte après une journée finalisée, ne redescend jamais, et le franchir termine le compte.',
+      'Un plancher qui protège votre compte sur toute sa durée. Il remonte après une bonne journée, ne redescend jamais, et le franchir met fin au compte.',
     status: 'publish',
     severity: 'hard_breach',
     audience: ['evaluation', 'performance'],
     sourceOfTruth: ['published_account_policy', 'risk engine'],
-    searchAliases: ['mll', 'max loss', 'drawdown', 'trailing', 'eod', 'plancher', 'breach', '10%'],
+    searchAliases: [
+      'mll',
+      'max loss',
+      'drawdown',
+      'trailing',
+      'eod',
+      'plancher',
+      'breach',
+      '10%',
+      'maximum loss',
+      'perte max',
+      'compte perdu',
+      'compte termine',
+    ],
     related: ['trailing-eod', 'lire-preuve-breach', 'limite-maximale-depassee'],
     lastReviewedAt: '2026-08-24',
     body: [
       {
         kind: 'paragraph',
-        text: 'La perte maximale protège le compte sur toute sa durée. Elle vaut actuellement {{fact:maximumLossRate}} du nominal et son plancher est **trailing EOD**.',
+        text: 'La perte maximale protège votre compte sur toute sa durée. Elle vaut {{fact:maximumLossRate}} du montant nominal, et le plancher qu’elle fixe est **glissant** : il peut remonter après une journée terminée, jamais redescendre.',
+      },
+      {
+        kind: 'callout',
+        tone: 'information',
+        title: 'Ce que veut dire « EOD »',
+        text: 'EOD signifie « fin de journée ». Votre plancher n’est pas recalculé à chaque instant : il est réévalué une fois la journée terminée, à partir de votre meilleure clôture.',
       },
       {
         kind: 'example',
-        title: 'Illustration sur un nominal de 10 000 USD',
+        title: 'Sur un compte de 10 000 USD',
         lines: [
-          'référence de départ 10 000 → plancher 9 000 ;',
-          'un plus haut EOD de 10 500 peut faire monter le plancher à 9 500 ;',
-          'une journée suivante clôturant plus bas ne fait pas redescendre le plancher acquis.',
+          'au départ, votre plancher est à 9 000 ;',
+          'vous terminez une journée à 10 500 : votre plancher monte à 9 500 ;',
+          'la journée suivante finit plus bas : votre plancher reste à 9 500.',
         ],
         conclusion:
-          'Le plancher réellement applicable à votre compte est publié par le serveur. L’interface ne le reconstruit jamais à partir d’un exemple.',
+          'Le plancher qui s’applique à votre compte est affiché dans votre espace WARIBA. Ne le recalculez pas à partir de cet exemple.',
+      },
+      {
+        kind: 'paragraph',
+        text: 'Une fois que votre plancher atteint votre montant de départ, il s’y arrête : il ne monte pas au-delà.',
       },
       {
         kind: 'callout',
         tone: 'danger',
         title: 'Conséquence',
-        text: 'Si l’equity franchit le plancher applicable, le compte devient « Limite maximale dépassée ». C’est terminal pour cet identifiant de compte.',
+        text: 'Si votre equity — solde plus positions ouvertes — passe sous ce plancher, le compte est terminé. C’est définitif pour ce compte.',
       },
       {
         kind: 'paragraph',
-        text: 'Le compte reste consultable avec la règle, le seuil, la valeur observée, l’heure, la version de policy et la preuve.',
+        text: 'Le compte reste consultable. Vous y retrouvez la règle concernée, le seuil, la valeur atteinte, l’heure exacte et les éléments sur lesquels la décision s’appuie.',
       },
     ],
   },
@@ -228,34 +272,42 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
     category: 'wariba-one',
     title: 'Comment fonctionne la règle du Meilleur Jour ?',
     summary:
-      'Elle mesure la concentration de vos profits. Un dépassement bloque la réussite — il ne termine jamais le compte.',
+      'Elle vérifie que vos gains ne viennent pas tous d’une seule journée. Un dépassement retarde votre réussite — il ne fait jamais perdre le compte.',
     status: 'publish',
     severity: 'pass_condition',
     audience: ['evaluation', 'performance'],
     sourceOfTruth: ['published_account_policy'],
-    searchAliases: ['best day', 'meilleur jour', 'consistance', 'consistency', '50%'],
+    searchAliases: [
+      'best day',
+      'meilleur jour',
+      'consistance',
+      'consistency',
+      '50%',
+      'concentration',
+      'repartition',
+    ],
     related: ['objectif-de-profit', 'meilleur-jour-performance', 'regles-essentielles'],
     lastReviewedAt: '2026-08-24',
     body: [
       {
         kind: 'paragraph',
-        text: 'La règle du Meilleur Jour mesure la concentration de vos profits positifs. Votre meilleur jour éligible ne doit pas représenter plus de {{fact:bestDayMaxRatio}} du total de vos journées positives éligibles.',
+        text: 'La règle du Meilleur Jour vérifie que vos gains ne viennent pas tous d’une seule journée. Votre meilleure journée ne doit pas représenter plus de {{fact:bestDayMaxRatio}} de l’ensemble de vos journées gagnantes.',
       },
       {
         kind: 'formula',
-        expression: 'ratio = meilleur jour positif ÷ total des journées positives',
-        caption: 'Les deux termes sont calculés par le moteur sur les journées éligibles.',
+        expression: 'part = votre meilleure journée ÷ total de vos journées gagnantes',
+        caption: 'Les deux montants ne comptent que vos journées gagnantes.',
       },
       {
         kind: 'example',
         title: 'Illustration',
         lines: [
           'meilleur jour : 500 USD ;',
-          'total des jours positifs : 800 USD ;',
-          'ratio : 62,5 %.',
+          'total de vos journées gagnantes : 800 USD ;',
+          'votre meilleure journée pèse 62,5 % du total.',
         ],
         conclusion:
-          'La condition n’est pas satisfaite. Si le meilleur jour reste 500 USD, le total doit atteindre 1 000 USD — il manque 200 USD de profits répartis sur d’autres journées.',
+          'C’est trop concentré. Si votre meilleure journée reste à 500 USD, il vous faut atteindre 1 000 USD au total — soit 200 USD de gains sur d’autres journées.',
       },
       {
         kind: 'callout',
@@ -269,25 +321,34 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-015',
     slug: 'profit-court-terme',
     category: 'wariba-one',
-    title: 'Pourquoi un profit peut-il être non éligible ?',
+    title: 'Pourquoi certains gains ne comptent-ils pas pour mon objectif ?',
     summary:
       'Un trade profitable trop court peut contribuer pour zéro au profit du programme. Les pertes, elles, sont toujours comptées.',
     status: 'publish',
     severity: 'pass_condition',
     audience: ['evaluation', 'performance'],
     sourceOfTruth: ['published_account_policy', 'domain code'],
-    searchAliases: ['60 secondes', 'scalping', 'eligible', 'ineligible', 'duree', 'court'],
+    searchAliases: [
+      '60 secondes',
+      'scalping',
+      'eligible',
+      'ineligible',
+      'duree',
+      'court',
+      'profit non compte',
+      'gain non compte',
+    ],
     related: ['objectif-de-profit', 'profit-eligible', 'solde-et-equity'],
     lastReviewedAt: '2026-08-24',
     body: [
       {
         kind: 'paragraph',
-        text: 'La policy publiée prévoit une durée minimale de {{fact:shortDurationSeconds}} pour qu’un résultat profitable contribue au résultat programme éligible.',
+        text: 'Les règles en vigueur prévoient une durée minimale de {{fact:shortDurationSeconds}} pour qu’un résultat profitable contribue au résultat programme éligible.',
       },
-      { kind: 'heading', text: 'Ce que cela signifie concrètement' },
+      { kind: 'heading', text: 'Concrètement' },
       {
         kind: 'paragraph',
-        text: 'Un trade peut être réellement clôturé avec un P&L positif, apparaître dans le Journal, et pourtant contribuer pour zéro au calcul du profit éligible si sa durée est inférieure au seuil.',
+        text: 'Un trade peut être fermé avec un gain, apparaître dans votre Journal, et pourtant ne rien apporter à votre objectif si sa durée est trop courte.',
       },
       {
         kind: 'callout',
@@ -297,7 +358,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
       },
       {
         kind: 'paragraph',
-        text: 'WARIBA affiche séparément le résultat économique du trade, sa contribution au programme, et la raison d’une éventuelle inéligibilité. Cette règle ne doit jamais être cachée derrière un simple chiffre de P&L.',
+        text: 'WARIBA affiche donc séparément le gain du trade, ce qu’il apporte à votre objectif, et pourquoi il n’apporte rien le cas échéant. Vous n’avez jamais à le deviner.',
       },
     ],
   },
@@ -307,7 +368,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
     category: 'wariba-one',
     title: 'Y a-t-il un nombre minimum de jours ?',
     summary:
-      'WARIBA ONE n’impose aucune attente artificielle. Cela ne rend pas la validation instantanée pour autant.',
+      'WARIBA ONE n’impose aucune attente artificielle. Cela ne veut pas dire que la validation est immédiate.',
     status: 'publish',
     severity: 'pass_condition',
     audience: ['evaluation'],
@@ -318,12 +379,12 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
     body: [
       {
         kind: 'ruleTable',
-        caption: 'Policy WARIBA ONE publiée',
+        caption: 'Règles WARIBA ONE en vigueur',
         facts: ['minimumTradingDays'],
       },
       {
         kind: 'paragraph',
-        text: 'Il n’y a donc aucune attente imposée pour son propre compte. Toutes les autres conditions restent applicables : profit réalisé, règles de risque, règle du Meilleur Jour, absence de breach et workflow de revue.',
+        text: 'Il n’y a donc aucune attente imposée pour son propre compte. Toutes les autres conditions restent à remplir : profit réalisé, limites de risque, règle du Meilleur Jour, aucun dépassement, et la vérification finale.',
       },
       {
         kind: 'callout',
@@ -337,7 +398,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-017',
     slug: 'duree-et-inactivite',
     category: 'wariba-one',
-    title: 'Combien de temps ai-je, et que se passe-t-il si je ne trade pas ?',
+    title: 'Ai-je une limite de temps pour réussir mon évaluation ?',
     summary:
       'WARIBA ONE n’a pas de limite de temps fixe pour atteindre l’objectif. Un compte peut néanmoins devenir inactif.',
     status: 'publish',
@@ -354,13 +415,13 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
       },
       {
         kind: 'paragraph',
-        text: 'Un compte peut passer à l’état **inactif**. Cet état est distinct de « limite maximale dépassée » : il n’est pas un breach, et l’interface affiche le statut exact ainsi que les actions autorisées.',
+        text: 'Un compte peut passer à l’état **inactif**. Ce n’est pas la même chose qu’une limite maximale dépassée : votre compte n’est pas perdu, et l’écran indique ce que vous pouvez encore faire.',
       },
       {
         kind: 'callout',
         tone: 'attention',
         title: 'Aucun compte à rebours n’est publié ici',
-        text: 'La policy publiée ne porte pas aujourd’hui de paramètre d’inactivité, et cet article n’en invente pas un. Le statut réel de votre compte, et lui seul, fait foi. Si votre compte affiche « Inactif », ouvrez une demande pour connaître vos options.',
+        text: 'Les règles en vigueur ne fixent aujourd’hui aucun délai d’inactivité, et cet article n’en invente pas un. Le statut réel de votre compte, et lui seul, fait foi. Si votre compte affiche « Inactif », ouvrez une demande pour connaître vos options.',
       },
     ],
   },
@@ -369,7 +430,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
     slug: 'position-pendant-la-nuit',
     category: 'wariba-one',
     title: 'Puis-je garder une position pendant la nuit ?',
-    summary: 'La décision produit en vigueur est lue depuis la policy publiée.',
+    summary: 'La décision produit en vigueur est celle qui s’applique aujourd’hui à votre compte.',
     status: 'dynamic',
     severity: 'information',
     audience: ['evaluation', 'performance'],
@@ -378,7 +439,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
     related: ['position-pendant-le-week-end', 'frais-de-trading'],
     lastReviewedAt: '2026-08-24',
     body: [
-      { kind: 'ruleTable', caption: 'Policy publiée', facts: ['overnightAllowed'] },
+      { kind: 'ruleTable', caption: 'Règles en vigueur', facts: ['overnightAllowed'] },
       {
         kind: 'paragraph',
         text: 'Une position conservée pendant la nuit reste soumise à la perte quotidienne, à la perte maximale, aux spreads, aux swaps lorsqu’ils existent, aux gaps et interruptions de marché, et aux permissions du compte.',
@@ -387,7 +448,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
         kind: 'callout',
         tone: 'attention',
         title: '« Autorisée » ne veut pas dire « sans risque »',
-        text: 'Un gap à l’ouverture peut franchir un plancher pendant que vous dormez. La règle autorise l’exposition ; elle ne la protège pas.',
+        text: 'Un écart de prix à l’ouverture peut franchir votre plancher pendant que vous dormez. La règle vous autorise à garder la position ; elle ne la protège pas.',
       },
     ],
   },
@@ -396,7 +457,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
     slug: 'position-pendant-le-week-end',
     category: 'wariba-one',
     title: 'Puis-je garder une position pendant le week-end ?',
-    summary: 'La décision produit en vigueur est lue depuis la policy publiée.',
+    summary: 'La décision produit en vigueur est celle qui s’applique aujourd’hui à votre compte.',
     status: 'dynamic',
     severity: 'information',
     audience: ['evaluation', 'performance'],
@@ -405,7 +466,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
     related: ['position-pendant-la-nuit', 'instruments-et-exposition'],
     lastReviewedAt: '2026-08-24',
     body: [
-      { kind: 'ruleTable', caption: 'Policy publiée', facts: ['weekendAllowed'] },
+      { kind: 'ruleTable', caption: 'Règles en vigueur', facts: ['weekendAllowed'] },
       {
         kind: 'paragraph',
         text: 'L’heure de coupure dépend de l’instrument. Consultez toujours l’heure affichée pour l’instrument concerné et le fuseau associé plutôt qu’une heure générique.',
@@ -423,7 +484,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
     slug: 'trading-pendant-les-annonces',
     category: 'wariba-one',
     title: 'Puis-je trader pendant les annonces économiques ?',
-    summary: 'La décision produit en vigueur est lue depuis la policy publiée.',
+    summary: 'La décision produit en vigueur est celle qui s’applique aujourd’hui à votre compte.',
     status: 'dynamic',
     severity: 'information',
     audience: ['evaluation'],
@@ -432,7 +493,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
     related: ['frais-de-trading', 'ordre-refuse'],
     lastReviewedAt: '2026-08-24',
     body: [
-      { kind: 'ruleTable', caption: 'Policy WARIBA ONE publiée', facts: ['newsAllowed'] },
+      { kind: 'ruleTable', caption: 'Règles WARIBA ONE en vigueur', facts: ['newsAllowed'] },
       {
         kind: 'paragraph',
         text: 'Les autres règles de risque continuent de s’appliquer et le slippage peut augmenter fortement autour d’une annonce.',
@@ -441,7 +502,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
         kind: 'callout',
         tone: 'information',
         title: 'Aucune fenêtre d’interdiction Performance n’est publiée',
-        text: 'WARIBA ne publiera de fenêtre d’interdiction que lorsque la policy et une source de calendrier fiable seront verrouillées ensemble. Aucune sanction rétroactive ne sera construite à partir d’une information qui n’était pas visible au trader.',
+        text: 'WARIBA n’annoncera de fenêtre d’interdiction que lorsque la règle et un calendrier économique fiable seront arrêtés ensemble. Aucune sanction rétroactive ne sera construite à partir d’une information qui n’était pas visible au trader.',
       },
     ],
   },
@@ -473,21 +534,21 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
       {
         kind: 'list',
         items: [
-          'aucune nouvelle exposition n’est autorisée ;',
+          'vous ne pouvez plus ouvrir de nouvelle position ;',
           'WariX passe en lecture seule pour les actions concernées ;',
           'le Hub affiche « Réussite en vérification » ;',
-          'le serveur fournit l’instant à partir duquel la revue est éligible.',
+          'WARIBA affiche à partir de quand la vérification peut commencer.',
         ],
       },
       {
         kind: 'paragraph',
-        text: 'La revue vérifie la journée finalisée, les règles, l’intégrité des données, les ordres et tout breach éventuel. Un cas ambigu peut passer en revue humaine. Une approbation crée un compte Performance exactement une fois.',
+        text: 'La vérification porte sur la journée terminée, vos règles, vos ordres et un éventuel dépassement de limite. Un cas ambigu est examiné par une personne. Une fois approuvé, votre compte Performance est créé une seule fois.',
       },
       {
         kind: 'callout',
         tone: 'attention',
         title: 'Les règles ne se désactivent pas',
-        text: 'C’est le malentendu le plus coûteux du produit : tant que la session est ouverte, un compte qui vient d’atteindre l’objectif peut encore être breaché.',
+        text: 'C’est le malentendu le plus coûteux du produit : tant que la journée n’est pas terminée, un compte qui vient d’atteindre l’objectif peut encore dépasser une limite.',
       },
     ],
   },
@@ -495,20 +556,28 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-022',
     slug: 'limite-maximale-depassee',
     category: 'wariba-one',
-    title: 'Que se passe-t-il si ma limite maximale est dépassée ?',
+    title: 'Que se passe-t-il si ma perte maximale est dépassée ?',
     summary:
-      'Le compte devient terminal. Vous conservez l’accès à la preuve complète et pouvez ouvrir une contestation.',
+      'Votre compte est terminé. Vous gardez accès à tout ce qui explique la décision, et vous pouvez la contester.',
     status: 'publish',
     severity: 'hard_breach',
     audience: ['evaluation', 'performance'],
     sourceOfTruth: ['risk engine', 'domain code'],
-    searchAliases: ['breach', 'echec', 'compte termine', 'perdu', 'fail'],
+    searchAliases: [
+      'breach',
+      'echec',
+      'compte termine',
+      'perdu',
+      'fail',
+      'compte bloque',
+      'compte ferme',
+    ],
     related: ['perte-maximale-eod', 'lire-preuve-breach', 'ouvrir-une-contestation'],
     lastReviewedAt: '2026-08-24',
     body: [
       {
         kind: 'paragraph',
-        text: 'Lorsque la perte maximale autoritative est dépassée, le compte devient terminal. Il ne redevient pas actif.',
+        text: 'Lorsque votre perte maximale est dépassée, le compte est terminé. Il ne redevient pas actif.',
       },
       { kind: 'heading', text: 'Ce que vous pouvez consulter' },
       {
@@ -518,7 +587,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
           'le seuil ;',
           'la valeur observée ;',
           'l’heure ;',
-          'la version de policy ;',
+          'la version des règles ;',
           'la preuve et les références disponibles.',
         ],
       },
@@ -534,7 +603,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-023',
     slug: 'reset-ou-recommencer',
     category: 'wariba-one',
-    title: 'Puis-je reset ou recommencer une évaluation ?',
+    title: 'Puis-je recommencer une évaluation échouée ?',
     summary:
       'La politique commerciale de reset reste ouverte ; rien n’est publié tant qu’elle ne l’est pas.',
     status: 'draft_policy',

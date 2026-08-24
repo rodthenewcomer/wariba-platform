@@ -13,7 +13,7 @@ import { expect, test } from '@playwright/test';
  * `/aide` is public, so none of this signs in. That is itself part of what is
  * being verified: help must be readable before anyone has an account.
  */
-const OUT = '../../docs/04-ux/evidence/wariba-help-center';
+const OUT = '../../docs/04-ux/evidence/wariba-help-editorial-closure';
 
 const SIZES = {
   desktop: { width: 1440, height: 900 },
@@ -46,7 +46,9 @@ test.describe('@help Centre d’aide', () => {
     await expect(page.getByTestId('help-search-input')).toBeVisible();
     await expect(page.getByTestId('help-pinned')).toBeVisible();
     await expect(page.getByTestId('help-category-card').first()).toBeVisible();
-    await shoot(page, 'aide-home-desktop');
+    // §13 — a human version line, not « Policy WARIBA ONE 1.1.1 ».
+    await expect(page.getByTestId('help-pinned')).toContainText('Règles WARIBA ONE — version');
+    await shoot(page, 'aide-home-1440');
 
     // --- Search ranks the article about the subject first -------------------
     await page.getByTestId('help-search-input').fill('perte maximale');
@@ -70,15 +72,35 @@ test.describe('@help Centre d’aide', () => {
     await expect(body).not.toContainText('{{fact:');
     await expect(body).toContainText('%');
 
-    // The severity is written, not merely coloured.
-    await expect(page.getByTestId('help-severity')).toHaveText('Compte terminé');
-    await expect(page.getByTestId('help-source-of-truth')).toContainText('policy publiée');
+    // The severity is written, not merely coloured — and in the words a
+    // trader uses, not the ones the schema uses.
+    await expect(page.getByTestId('help-severity')).toHaveText('Met fin au compte');
+    await expect(page.getByTestId('help-source-of-truth')).toContainText('Règles en vigueur');
+    await expect(page.getByTestId('help-source-of-truth')).not.toContainText('policy');
+    await expect(page.getByTestId('help-source-of-truth')).not.toContainText('domain code');
 
     // An example is labelled as an example, every time.
-    await expect(page.getByTestId('help-example').first()).toContainText('Chiffres illustratifs');
+    await expect(page.getByTestId('help-example').first()).toContainText(
+      'Chiffres donnés à titre d’exemple',
+    );
+
+    // §11 — no implementation provenance reaches the page.
+    const articleText = (await page.locator('article').innerText()).toLocaleLowerCase('fr');
+    for (const leak of ['source de vérité', 'domain code', 'côté serveur', 'autoritatif']) {
+      expect(articleText, `« ${leak} » visible sur un article public`).not.toContain(leak);
+    }
+
+    /*
+     * §14 — a French date, not a database one.
+     *
+     * The month is matched with an explicit accented class rather than `\w`:
+     * without the unicode flag, `\w` does not match the « û » in « août », and
+     * the assertion would pass eleven months a year.
+     */
+    await expect(page.getByText(/Mis à jour le \d{1,2} [a-zéûà]+ 2026/)).toBeVisible();
 
     await expect(page.getByTestId('help-related')).toBeVisible();
-    await shoot(page, 'aide-article-desktop');
+    await shoot(page, 'aide-perte-maximale-desktop');
   });
 
   test('a rule table reads the published policy and marks what is unpublished', async ({
@@ -109,6 +131,30 @@ test.describe('@help Centre d’aide', () => {
     // The daily-loss and maximum-loss rates come from the seeded policy.
     await expect(ruleTable.locator('[data-fact="dailyLossRate"]')).toHaveText('3 %');
     await expect(ruleTable.locator('[data-fact="maximumLossRate"]')).toHaveText('10 %');
+  });
+
+  test('les statuts de demande et de contestation se lisent en français', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.setViewportSize(SIZES.desktop);
+    await page.goto('/aide/support/statuts-ticket-contestation');
+
+    // §7 / §8 — la première personne du pluriel, pas un état système.
+    /*
+     * `.first()` because the table renders twice — as a `<table>` above `sm`
+     * and as stacked key/value cards below it. Both are in the DOM; CSS picks
+     * one. That is the responsive contract working, not a duplicate.
+     */
+    await expect(page.getByText('Nous avons bien reçu votre demande.').first()).toBeVisible();
+    await expect(page.getByText('L’équipe WARIBA analyse votre demande.').first()).toBeVisible();
+    await expect(
+      page.getByText('Votre contestation a bien été enregistrée.').first(),
+    ).toBeVisible();
+
+    // §8 — rien ne laisse entendre qu'un compte terminé peut rouvrir.
+    const body = (await page.locator('article').innerText()).toLocaleLowerCase('fr');
+    expect(body).not.toContain('sera rétabli');
+    expect(body).not.toContain('sera annulé');
+    await shoot(page, 'aide-statuts-desktop');
   });
 
   test('a category lists its articles and offers the way out', async ({ page }) => {
@@ -160,7 +206,15 @@ test.describe('@help Centre d’aide', () => {
 
     await page.goto('/aide/risque-regles/dll-vs-perte-maximale');
     expect(await noHorizontalOverflow(page)).toBe(true);
-    await shoot(page, 'aide-article-390');
+    await shoot(page, 'aide-comparaison-risque-390');
+
+    await page.goto('/aide/wariba-one/perte-maximale-eod');
+    expect(await noHorizontalOverflow(page)).toBe(true);
+    await shoot(page, 'aide-perte-maximale-390');
+
+    await page.goto('/aide/support/statuts-ticket-contestation');
+    expect(await noHorizontalOverflow(page)).toBe(true);
+    await shoot(page, 'aide-statuts-390');
 
     /*
      * The comparison table becomes key/value cards below `sm`.
@@ -181,6 +235,6 @@ test.describe('@help Centre d’aide', () => {
       await page.waitForTimeout(150);
       expect(await noHorizontalOverflow(page), `${path} overflows at 320`).toBe(true);
     }
-    await shoot(page, 'aide-320');
+    await shoot(page, 'aide-statuts-320');
   });
 });

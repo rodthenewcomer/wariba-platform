@@ -224,37 +224,41 @@ export const HELP_CATEGORIES: readonly HelpCategory[] = [
   {
     id: 'commencer',
     title: 'Commencer',
-    description: 'Ce qu’est WARIBA, le parcours, et ce qu’il faut savoir avant d’acheter.',
+    description:
+      'Ce qu’est WARIBA, comment se déroule le parcours, et ce qu’il faut savoir avant d’acheter.',
   },
   {
     id: 'wariba-one',
     title: 'WARIBA ONE',
-    description: 'Les règles de l’évaluation : objectif, limites, consistance, réussite.',
+    description: 'Votre objectif, vos limites de perte, et ce qui décide de la réussite.',
   },
   {
     id: 'risque-regles',
     title: 'Risque & règles',
-    description: 'Comment le risque est calculé, décidé et prouvé.',
+    description:
+      'Comment vos limites sont calculées, et comment lire une décision qui vous concerne.',
   },
   {
     id: 'warix',
     title: 'Trading & WariX',
-    description: 'Le terminal : ordres, protections, positions, déconnexion.',
+    description:
+      'Passer un ordre, poser un Stop Loss, gérer vos positions, et que faire en cas de coupure.',
   },
   {
     id: 'performance',
     title: 'WARIBA Performance',
-    description: 'Le compte qui suit une évaluation validée, et ses propres conditions.',
+    description: 'Le compte qui suit une évaluation réussie, et ce qu’il demande de plus.',
   },
   {
     id: 'payouts',
     title: 'Payouts',
-    description: 'Éligibilité, demande, revue, paiement.',
+    description:
+      'Quand vous pouvez demander un payout, comment le demander, et ce qui se passe ensuite.',
   },
   {
     id: 'paiements',
     title: 'Paiements & facturation',
-    description: 'Confirmation de paiement, commandes, reçus.',
+    description: 'Confirmation de votre paiement, suivi de commande, reçus.',
   },
   {
     id: 'identite',
@@ -264,28 +268,37 @@ export const HELP_CATEGORIES: readonly HelpCategory[] = [
   {
     id: 'compte-securite',
     title: 'Compte & sécurité',
-    description: 'Connexion, session, accès et protection de vos données.',
+    description: 'Connexion, mot de passe, accès à votre compte et protection de vos données.',
   },
   {
     id: 'technique',
     title: 'Technique & incidents',
-    description: 'Données de marché, maintenance, références techniques.',
+    description:
+      'Prix indisponibles, incidents, et quoi faire quand quelque chose ne s’affiche pas.',
   },
   {
     id: 'support',
     title: 'Support & contestations',
-    description: 'Ouvrir une demande, suivre un dossier, contester une décision.',
+    description: 'Ouvrir une demande, suivre votre dossier, contester une décision.',
   },
 ];
 
-/** French labels for the severity badge. Colour is never the only carrier. */
+/**
+ * Ce que l'article décrit, en une étiquette.
+ *
+ * Le mot compte plus que la couleur : « Blocage jusqu'au lendemain » et
+ * « Compte terminé » sont la différence entre une mauvaise journée et une
+ * évaluation finie. « Opérationnel » a été remplacé par « Bon à savoir » — le
+ * premier décrit une catégorie interne, le second dit au lecteur ce qu'il
+ * tient entre les mains.
+ */
 export const HELP_SEVERITY_LABELS: Record<HelpSeverity, string> = {
   information: 'Information',
   pass_condition: 'Condition de réussite',
-  payout_condition: 'Condition de payout',
-  soft_lock: 'Blocage temporaire',
-  hard_breach: 'Compte terminé',
-  operational: 'Opérationnel',
+  payout_condition: 'Condition pour être payé',
+  soft_lock: 'Blocage jusqu’au lendemain',
+  hard_breach: 'Met fin au compte',
+  operational: 'Bon à savoir',
 };
 
 export const HELP_AUDIENCE_LABELS: Record<HelpAudience, string> = {

@@ -79,18 +79,24 @@ export const SUPPORT_STATUS_LABELS: Record<SupportTicketStatus, string> = {
 };
 
 /**
- * What the trader should do next, per status.
+ * Où en est la demande, dit à la personne qui attend.
  *
- * A status word says where a request stands; it does not say whose turn it is.
- * `waiting_for_user` in particular is useless without this — a trader reads
- * "En attente" and waits, which is the exact opposite of what is being asked.
+ * Un mot de statut dit où en est un dossier ; il ne dit pas à qui de jouer.
+ * « En attente » est le cas qui compte le plus : sans cette phrase, un trader
+ * lit « en attente » et attend, alors que c'est précisément l'inverse qu'on
+ * lui demande.
+ *
+ * Écrit à la première personne du pluriel — « nous avons reçu », « nous avons
+ * besoin ». Une demande de support est une conversation entre deux personnes,
+ * pas un état système décrit à la troisième personne.
  */
 export const SUPPORT_STATUS_NEXT_ACTION: Record<SupportTicketStatus, string> = {
-  open: 'Reçue. Un opérateur WARIBA la prendra en charge.',
-  waiting_for_user: 'WARIBA attend une précision de votre part.',
-  under_review: 'Un opérateur WARIBA examine votre demande.',
-  resolved: 'Une réponse a été apportée. Répondez si le sujet n’est pas clos.',
-  closed: 'Cette demande est clôturée. Ouvrez-en une nouvelle si nécessaire.',
+  open: 'Nous avons bien reçu votre demande. Un membre de l’équipe va la prendre en charge.',
+  waiting_for_user: 'Nous avons besoin d’une précision de votre part pour continuer.',
+  under_review: 'L’équipe WARIBA analyse votre demande.',
+  resolved:
+    'Une réponse vous a été apportée. Si ce n’est pas réglé pour vous, répondez ici : la demande repart.',
+  closed: 'Cette demande est terminée. Vous pouvez en ouvrir une nouvelle si besoin.',
 };
 
 /**
@@ -120,6 +126,22 @@ export const CONTESTATION_STATUS_LABELS: Record<ContestationStatus, string> = {
   closed: 'Clôturée',
 };
 
+/**
+ * La même chose pour une contestation.
+ *
+ * Rien ici ne laisse entendre qu'un compte terminé peut être rouvert : WARIBA
+ * ne réécrit pas un historique financier, et le dire à demi-mot serait pire
+ * que ne rien dire.
+ */
+export const CONTESTATION_STATUS_NEXT_ACTION: Record<ContestationStatus, string> = {
+  open: 'Votre contestation a bien été enregistrée.',
+  under_review: 'L’équipe examine la décision et les éléments de votre dossier.',
+  needs_information: 'Nous avons besoin d’une information de votre part pour continuer.',
+  upheld: 'Après examen, la décision d’origine est maintenue. Le motif est indiqué ci-dessous.',
+  overturned: 'Après examen, la décision d’origine a été revue. Le motif est indiqué ci-dessous.',
+  closed: 'L’examen de cette contestation est terminé.',
+};
+
 export const CONTESTATION_STATUS_TONE: Record<ContestationStatus, SupportTone> = {
   open: 'neutral',
   under_review: 'progress',
@@ -141,7 +163,7 @@ export const CONTESTATION_REASON_LABELS: Record<ContestationReasonCategory, stri
   rule_misapplied: 'La règle n’a pas été appliquée correctement',
   market_data_disputed: 'Je conteste les prix retenus',
   execution_error: 'Une exécution est en cause',
-  evidence_incomplete: 'Les preuves me paraissent incomplètes',
+  evidence_incomplete: 'Les éléments fournis me paraissent incomplets',
   other: 'Autre motif',
 };
 
@@ -151,29 +173,30 @@ export const CONTESTATION_TARGET_LABELS: Record<ContestationTargetType, string> 
   payout_decision: 'Décision de payout',
 };
 
-/** How a contested decision restricted the account, in a trader's words. */
+/** Ce que la décision a changé pour le compte, dans les mots du trader. */
 export const CONSEQUENCE_LABELS: Record<string, string> = {
   hard_breach: 'Compte terminé',
-  soft_lock: 'Blocage temporaire',
-  entry_lock: 'Blocage des entrées',
+  soft_lock: 'Blocage jusqu’au lendemain',
+  entry_lock: 'Nouvelles positions bloquées',
   blocks_pass: 'Passage bloqué',
   none: 'Aucune conséquence',
 };
 
 /**
- * What set the risk engine running, in the product's language.
+ * Ce qui a déclenché la vérification, dans la langue du produit.
  *
- * `trade_order` / `daily_finalization` / `manual_review` are database enum
- * values, and a contestation page that prints one is the schema talking
- * directly to a person — the same layering gap `account-status-labels.ts`
- * exists to close. The fallback is the raw value on purpose: an unmapped
- * trigger is a schema change nobody propagated, and an identifier on screen is
- * unmistakable in a way an invented French phrase would not be.
+ * `trade_order` / `daily_finalization` / `manual_review` sont des valeurs de
+ * base de données. Une page de contestation qui en imprime une, c'est le
+ * schéma qui parle directement à une personne — le même défaut de couche que
+ * `account-status-labels.ts` existe pour fermer. Le repli affiche la valeur
+ * brute volontairement : un déclencheur non traduit est un changement de
+ * schéma que personne n'a propagé, et un identifiant à l'écran se remarque là
+ * où une jolie phrase française inventée passerait inaperçue.
  */
 export const TRIGGER_EVENT_LABELS: Record<string, string> = {
-  trade_order: 'Ordre de trading',
-  daily_finalization: 'Finalisation de journée',
-  manual_review: 'Examen manuel',
+  trade_order: 'Un ordre que vous avez passé',
+  daily_finalization: 'La clôture de la journée',
+  manual_review: 'Une vérification manuelle',
 };
 
 export function triggerEventLabel(value: string): string {
@@ -499,6 +522,8 @@ export interface ContestationView {
   accountPublicId: string | null;
   targetLabel: string;
   statusLabel: string;
+  /** Où en est le dossier, dit à la personne qui attend. */
+  nextAction: string;
   tone: SupportTone;
   status: ContestationStatus;
   reasonLabel: string;
@@ -532,6 +557,7 @@ export function projectContestationView(detail: ContestationDetail): Contestatio
     accountPublicId: detail.accountPublicId,
     targetLabel: CONTESTATION_TARGET_LABELS[detail.targetType],
     statusLabel: CONTESTATION_STATUS_LABELS[detail.status],
+    nextAction: CONTESTATION_STATUS_NEXT_ACTION[detail.status],
     tone: CONTESTATION_STATUS_TONE[detail.status],
     status: detail.status,
     reasonLabel: CONTESTATION_REASON_LABELS[detail.reasonCategory],

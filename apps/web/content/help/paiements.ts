@@ -6,9 +6,9 @@ export const PAIEMENTS_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-080',
     slug: 'confirmation-paiement',
     category: 'paiements',
-    title: 'Comment WARIBA confirme un paiement',
+    title: 'Comment savoir si mon paiement est bien passé ?',
     summary:
-      'Une redirection ne prouve rien. Le statut est décidé côté serveur, à partir du webhook et de la réconciliation.',
+      'Être renvoyé vers WARIBA ne prouve rien. C’est la vérification auprès du prestataire qui décide.',
     status: 'publish',
     severity: 'operational',
     audience: ['tous'],
@@ -19,7 +19,7 @@ export const PAIEMENTS_ARTICLES: readonly HelpArticle[] = [
     body: [
       {
         kind: 'paragraph',
-        text: 'Une redirection vers WARIBA après paiement ne prouve pas à elle seule que la transaction est confirmée. Le statut est décidé côté serveur, à partir du webhook sécurisé et de la réconciliation du prestataire.',
+        text: 'Être renvoyé vers WARIBA après un paiement ne prouve pas que la transaction a abouti. WARIBA attend la confirmation de votre prestataire de paiement avant de valider quoi que ce soit.',
       },
       {
         kind: 'table',
@@ -44,7 +44,7 @@ export const PAIEMENTS_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-081',
     slug: 'moyens-de-paiement',
     category: 'paiements',
-    title: 'Quels moyens de paiement sont acceptés ?',
+    title: 'Quels moyens de paiement puis-je utiliser ?',
     summary: 'Généré depuis la configuration du prestataire réellement contracté.',
     status: 'draft_provider',
     blockedBy: 'Aucun PSP contracté — OPEN-PAYMENT-001',
@@ -139,9 +139,9 @@ export const PAIEMENTS_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-084',
     slug: 'eviter-double-paiement',
     category: 'paiements',
-    title: 'Comment éviter un double paiement',
+    title: 'Comment éviter de payer deux fois ?',
     summary:
-      'Vérifiez le statut avant de recommencer. Un webhook répété ne crée jamais deux comptes.',
+      'Vérifiez le statut de votre commande avant de recommencer. Un paiement confirmé deux fois ne crée jamais deux comptes.',
     status: 'publish',
     severity: 'operational',
     audience: ['tous'],
@@ -152,7 +152,7 @@ export const PAIEMENTS_ARTICLES: readonly HelpArticle[] = [
     body: [
       {
         kind: 'paragraph',
-        text: 'Chaque commande possède une référence, et WARIBA utilise des mécanismes d’idempotence : la répétition d’un webhook valide ne crée pas deux comptes.',
+        text: 'Chaque commande porte une référence, et WARIBA la reconnaît : même si la confirmation de votre paiement arrive deux fois, un seul compte est créé.',
       },
       {
         kind: 'list',
@@ -169,7 +169,7 @@ export const PAIEMENTS_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-085',
     slug: 'recus-et-facturation',
     category: 'paiements',
-    title: 'Reçus et historique de facturation',
+    title: 'Où trouver mes reçus et mon historique d’achat ?',
     summary: 'La page Facturation affiche uniquement les éléments réellement disponibles.',
     status: 'dynamic',
     severity: 'information',
@@ -190,7 +190,7 @@ export const PAIEMENTS_ARTICLES: readonly HelpArticle[] = [
           'statut ;',
           'date ;',
           'référence ;',
-          'reçu lorsque sa génération est implémentée.',
+          'reçu, lorsqu’il est disponible.',
         ],
       },
       {
@@ -205,7 +205,7 @@ export const PAIEMENTS_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-086',
     slug: 'remboursements',
     category: 'paiements',
-    title: 'Remboursements',
+    title: 'Puis-je être remboursé ?',
     summary: 'La politique définitive de remboursement n’est pas verrouillée.',
     status: 'draft_policy',
     blockedBy: 'Politique de remboursement — OPEN',

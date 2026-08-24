@@ -6,7 +6,7 @@ export const COMPTE_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-100',
     slug: 'session-expiree',
     category: 'compte-securite',
-    title: 'Connexion et session expirée',
+    title: 'Que faire si ma session a expiré ?',
     summary:
       'Une session expirée n’autorise aucune opération en arrière-plan. La destination demandée est conservée quand c’est sûr.',
     status: 'publish',
@@ -33,7 +33,7 @@ export const COMPTE_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-101',
     slug: 'email-et-mot-de-passe',
     category: 'compte-securite',
-    title: 'Vérification e-mail et récupération du mot de passe',
+    title: 'Comment vérifier mon adresse ou récupérer mon mot de passe ?',
     summary: 'Utilisez les écrans officiels. Ne communiquez jamais un jeton de récupération.',
     status: 'publish',
     severity: 'operational',
@@ -77,7 +77,7 @@ export const COMPTE_ARTICLES: readonly HelpArticle[] = [
     body: [
       {
         kind: 'paragraph',
-        text: 'WARIBA ne publie pas un nombre inventé. La page Offres désactivera une nouvelle activation uniquement lorsque le serveur retournera une règle réelle.',
+        text: 'WARIBA ne publie pas un nombre inventé. Une nouvelle activation ne sera désactivée sur la page Offres que le jour où une règle réelle existera.',
       },
     ],
   },
@@ -85,9 +85,9 @@ export const COMPTE_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-103',
     slug: 'acces-compte-autre-trader',
     category: 'compte-securite',
-    title: 'Pourquoi je ne peux pas ouvrir le compte d’un autre trader',
+    title: 'Puis-je ouvrir le compte d’un autre trader ?',
     summary:
-      'Un identifiant dans une URL n’accorde aucun accès. La propriété est vérifiée côté serveur et par RLS.',
+      'Un identifiant dans une URL n’accorde aucun accès. WARIBA vérifie à qui appartient chaque compte avant de l’ouvrir.',
     status: 'publish',
     severity: 'operational',
     audience: ['tous'],
@@ -98,7 +98,7 @@ export const COMPTE_ARTICLES: readonly HelpArticle[] = [
     body: [
       {
         kind: 'paragraph',
-        text: 'Un identifiant présent dans une URL n’accorde aucun accès. WARIBA vérifie la propriété côté serveur et au niveau de la base de données.',
+        text: 'Un identifiant présent dans une URL n’accorde aucun accès. WARIBA vérifie à qui appartient la ressource avant de l’afficher, et cette vérification ne peut pas être contournée depuis le navigateur.',
       },
       {
         kind: 'callout',
@@ -112,7 +112,7 @@ export const COMPTE_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-104',
     slug: 'voyage-appareil-vpn',
     category: 'compte-securite',
-    title: 'Voyage, appareil, VPN et VPS',
+    title: 'Puis-je trader en voyage, ou depuis un VPN ?',
     summary: 'Aucune sanction ne sera publiée avant une politique d’intégrité précise.',
     status: 'draft_policy',
     blockedBy: 'Politique VPN/VPS/géolocalisation — non publiée',
@@ -125,7 +125,7 @@ export const COMPTE_ARTICLES: readonly HelpArticle[] = [
     body: [
       {
         kind: 'paragraph',
-        text: 'Principe éditorial retenu : un VPN seul ne sera jamais présenté comme une preuve automatique de fraude. Toute action d’intégrité devra s’appuyer sur une policy publiée et des faits audités.',
+        text: 'Principe éditorial retenu : un VPN seul ne sera jamais présenté comme une preuve automatique de fraude. Toute décision devra s’appuyer sur une règle écrite et sur des faits vérifiables.',
       },
     ],
   },
@@ -133,7 +133,7 @@ export const COMPTE_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-105',
     slug: 'fermer-un-compte',
     category: 'compte-securite',
-    title: 'Fermer ou désactiver un compte utilisateur',
+    title: 'Comment fermer mon compte ?',
     summary: 'Les procédures de suppression et de rétention doivent être finalisées avec Legal.',
     status: 'draft_policy',
     blockedBy: 'Politique de rétention/suppression — Privacy & Legal',
@@ -146,7 +146,7 @@ export const COMPTE_ARTICLES: readonly HelpArticle[] = [
     body: [
       {
         kind: 'paragraph',
-        text: 'Quatre notions différentes ne doivent pas être confondues : la fermeture du profil utilisateur, un compte de trading clôturé, un compte inactif, et un compte terminé après breach.',
+        text: 'Quatre notions différentes ne doivent pas être confondues : la fermeture du profil utilisateur, un compte de trading clôturé, un compte inactif, et un compte terminé après un dépassement de limite.',
       },
       {
         kind: 'paragraph',

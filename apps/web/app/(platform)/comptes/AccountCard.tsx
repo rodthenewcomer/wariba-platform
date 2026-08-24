@@ -128,7 +128,7 @@ export function AccountCard({ item }: { item: AccountOverviewItem }) {
             {[
               { label: 'Solde', value: detail.balanceFormatted },
               ...(detail.consistencyLabel
-                ? [{ label: 'Consistance', value: detail.consistencyLabel }]
+                ? [{ label: 'Meilleur Jour', value: detail.consistencyLabel }]
                 : []),
               ...(detail.tradingDays === null
                 ? []

@@ -14,7 +14,7 @@ export const TECHNIQUE_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-110',
     slug: 'donnees-indisponibles',
     category: 'technique',
-    title: 'Données de marché indisponibles ou retardées',
+    title: 'Pourquoi les prix ne s’affichent-ils plus ?',
     summary: 'Un historique consultable ne veut pas dire qu’un prix est assez frais pour exécuter.',
     status: 'publish',
     severity: 'operational',
@@ -26,7 +26,7 @@ export const TECHNIQUE_ARTICLES: readonly HelpArticle[] = [
     body: [
       {
         kind: 'paragraph',
-        text: 'Si WARIBA détecte que les données sont trop anciennes, l’interface le dit et refuse l’ouverture d’une nouvelle exposition plutôt que d’exécuter contre un prix périmé.',
+        text: 'Si les prix ne sont plus assez récents, WARIBA vous le dit et refuse d’ouvrir une position plutôt que de vous exécuter à un prix dépassé.',
       },
       {
         kind: 'paragraph',
@@ -38,7 +38,7 @@ export const TECHNIQUE_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-111',
     slug: 'maintenance-et-status',
     category: 'technique',
-    title: 'Maintenance et incidents',
+    title: 'Comment savoir si WARIBA rencontre un incident ?',
     summary:
       'Ce qu’un incident affiche aujourd’hui, et pourquoi aucune page d’état publique n’est encore publiée.',
     status: 'publish',
@@ -55,7 +55,7 @@ export const TECHNIQUE_ARTICLES: readonly HelpArticle[] = [
         title: 'Aucune page d’état publique pour le moment',
         text: 'WARIBA n’a pas encore publié de page /status. Tant qu’elle n’existe pas, cet article ne vous y envoie pas : un incident se lit dans le produit lui-même, et une demande de support reste le canal fiable.',
       },
-      { kind: 'heading', text: 'Ce qu’une page d’état publiera, quand elle existera' },
+      { kind: 'heading', text: 'Ce qu’une page d’état affichera, le jour où elle existera' },
       {
         kind: 'list',
         items: [
@@ -77,7 +77,7 @@ export const TECHNIQUE_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-112',
     slug: 'correlation-id',
     category: 'technique',
-    title: 'Que signifie un correlation ID ?',
+    title: 'À quoi sert la référence technique affichée avec une erreur ?',
     summary:
       'Une référence technique qui relie les événements d’une opération, sans exposer vos données.',
     status: 'publish',
@@ -90,7 +90,7 @@ export const TECHNIQUE_ARTICLES: readonly HelpArticle[] = [
     body: [
       {
         kind: 'paragraph',
-        text: 'Un correlation ID permet à WARIBA de relier plusieurs événements d’une même opération sans vous demander de fournir des données sensibles.',
+        text: 'Cette référence permet à WARIBA de retrouver tout ce qui s’est passé pendant une opération, sans vous demander la moindre donnée sensible.',
       },
       {
         kind: 'paragraph',
@@ -108,7 +108,7 @@ export const TECHNIQUE_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-113',
     slug: 'activation-retardee',
     category: 'technique',
-    title: 'Paiement confirmé mais activation retardée',
+    title: 'J’ai payé mais mon compte n’est pas ouvert : que faire ?',
     summary:
       'La commande et le paiement sont conservés. On ne vous demandera jamais de payer deux fois.',
     status: 'publish',
@@ -123,7 +123,7 @@ export const TECHNIQUE_ARTICLES: readonly HelpArticle[] = [
         kind: 'paragraph',
         text: 'Si le paiement est confirmé mais que l’activation rencontre un incident, WARIBA conserve la commande et le paiement. Le système ne vous demandera pas de payer une seconde fois.',
       },
-      { kind: 'heading', text: 'Ce que l’écran affiche' },
+      { kind: 'heading', text: 'Ce que vous voyez à l’écran' },
       {
         kind: 'list',
         items: ['le statut ;', 'la dernière mise à jour ;', 'la référence.'],
@@ -140,7 +140,7 @@ export const TECHNIQUE_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-114',
     slug: 'probleme-affichage',
     category: 'technique',
-    title: 'Problème d’affichage mobile ou navigateur',
+    title: 'L’affichage est cassé sur mon téléphone : que faire ?',
     summary:
       'Quatre vérifications avant d’ouvrir une demande — et ce qu’il ne faut jamais partager.',
     status: 'publish',
@@ -158,7 +158,7 @@ export const TECHNIQUE_ARTICLES: readonly HelpArticle[] = [
           'Vérifiez que votre navigateur est à jour.',
           'Rechargez la page sans répéter une opération financière.',
           'Notez le navigateur, l’appareil et l’heure.',
-          'Conservez le correlation ID s’il existe.',
+          'Notez la référence technique si l’écran en affiche une.',
         ],
       },
       {

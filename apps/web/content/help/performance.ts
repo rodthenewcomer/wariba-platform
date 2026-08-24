@@ -8,21 +8,25 @@ export const PERFORMANCE_ARTICLES: readonly HelpArticle[] = [
     category: 'performance',
     title: 'Qu’est-ce qu’un compte WARIBA Performance ?',
     summary:
-      'L’étape qui suit une évaluation validée. Simulée elle aussi, avec sa propre policy et ses propres conditions.',
+      'L’étape qui suit une évaluation validée. Simulée elle aussi, avec ses propres règles et ses propres conditions.',
     status: 'publish',
     severity: 'information',
     audience: ['performance'],
     sourceOfTruth: ['published_account_policy', 'Decision Log'],
-    searchAliases: ['performance', 'funded', 'finance', 'apres reussite'],
+    searchAliases: ['performance', 'funded', 'finance', 'apres reussite', 'compte finance'],
     related: ['buffer-permanent', 'parcours-one-performance-review', 'capital-simule'],
     lastReviewedAt: '2026-08-24',
     body: [
-      { kind: 'heading', text: 'Ce qu’il est' },
+      {
+        kind: 'paragraph',
+        text: 'WARIBA Performance est le compte qui suit une évaluation réussie. Il reste simulé, avec ses propres règles et ses propres conditions de paiement.',
+      },
+      { kind: 'heading', text: 'En résumé' },
       {
         kind: 'list',
         items: [
           'simulé en V1 ;',
-          'doté de sa propre policy ;',
+          'doté de ses propres règles ;',
           'ouvert au nominal prévu ;',
           'soumis à ses propres conditions de risque et de payout.',
         ],
@@ -35,7 +39,7 @@ export const PERFORMANCE_ARTICLES: readonly HelpArticle[] = [
       },
       {
         kind: 'ruleTable',
-        caption: 'Policy WARIBA Performance publiée',
+        caption: 'Règles WARIBA Performance en vigueur',
         facts: ['performancePolicyVersion'],
       },
     ],
@@ -46,18 +50,18 @@ export const PERFORMANCE_ARTICLES: readonly HelpArticle[] = [
     category: 'performance',
     title: 'Comment fonctionne le buffer permanent ?',
     summary:
-      'Construit une fois, jamais retirable. Seul l’excédent réalisé au-dessus peut devenir éligible au payout.',
+      'Vous le constituez une seule fois et il reste sur le compte. Seul ce que vous gagnez au-dessus peut être demandé.',
     status: 'publish',
     severity: 'payout_condition',
     audience: ['performance'],
     sourceOfTruth: ['published_account_policy'],
-    searchAliases: ['buffer', 'reserve', 'permanent', 'coussin', '10%'],
+    searchAliases: ['buffer', 'reserve', 'permanent', 'coussin', '10%', '10'],
     related: ['profit-eligible', 'eligibilite-payout', 'compte-performance'],
     lastReviewedAt: '2026-08-24',
     body: [
       {
         kind: 'ruleTable',
-        caption: 'Policy WARIBA Performance publiée',
+        caption: 'Règles WARIBA Performance en vigueur',
         facts: ['permanentBufferRate'],
       },
       {
@@ -72,7 +76,7 @@ export const PERFORMANCE_ARTICLES: readonly HelpArticle[] = [
           'les premiers profits servent à le construire ;',
           'seul l’excédent réalisé au-dessus peut entrer dans le calcul d’éligibilité.',
         ],
-        conclusion: 'Le montant réellement éligible est toujours calculé par le moteur.',
+        conclusion: 'Le montant réellement disponible est toujours calculé par WARIBA.',
       },
     ],
   },
@@ -80,9 +84,9 @@ export const PERFORMANCE_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-062',
     slug: 'profit-eligible',
     category: 'performance',
-    title: 'Qu’est-ce que le profit éligible ?',
+    title: 'Quel montant puis-je réellement demander ?',
     summary:
-      'Pas « balance moins nominal ». Le moteur tient compte du buffer, de l’éligibilité des trades, des pertes et des holds.',
+      'Ce n’est pas simplement « solde actuel moins montant de départ ». WARIBA tient compte du buffer, des gains comptés, des pertes et des blocages éventuels.',
     status: 'publish',
     severity: 'payout_condition',
     audience: ['performance'],
@@ -95,16 +99,16 @@ export const PERFORMANCE_ARTICLES: readonly HelpArticle[] = [
         kind: 'paragraph',
         text: 'Le profit éligible n’est pas simplement « balance actuelle moins nominal ».',
       },
-      { kind: 'heading', text: 'Ce que le moteur prend en compte' },
+      { kind: 'heading', text: 'Ce qui entre dans le calcul' },
       {
         kind: 'list',
         items: [
           'le buffer permanent ;',
           'le profit réalisé ;',
-          'la policy du cycle ;',
+          'les règles du cycle ;',
           'les trades éligibles ;',
           'les pertes ;',
-          'les holds éventuels ;',
+          'les blocages éventuels ;',
           'les autres conditions de payout.',
         ],
       },
@@ -127,13 +131,20 @@ export const PERFORMANCE_ARTICLES: readonly HelpArticle[] = [
     severity: 'payout_condition',
     audience: ['performance'],
     sourceOfTruth: ['published_account_policy'],
-    searchAliases: ['performance days', 'journees', 'cycle', '5 jours', 'qualified days'],
+    searchAliases: [
+      'performance days',
+      'journees',
+      'cycle',
+      '5 jours',
+      'qualified days',
+      'jours comptes',
+    ],
     related: ['eligibilite-payout', 'meilleur-jour-performance', 'demander-un-payout'],
     lastReviewedAt: '2026-08-24',
     body: [
       {
         kind: 'ruleTable',
-        caption: 'Policy WARIBA Performance publiée',
+        caption: 'Règles WARIBA Performance en vigueur',
         facts: ['performanceDaysRequired', 'performanceDayThresholdRate'],
       },
       {
@@ -147,7 +158,7 @@ export const PERFORMANCE_ARTICLES: readonly HelpArticle[] = [
           '100K → 500 USD.',
         ],
         conclusion:
-          'Ces montants illustrent un seuil de 0,50 % du nominal. Le vôtre est calculé sur votre propre nominal et sur la policy en vigueur.',
+          'Ces montants illustrent un seuil de 0,50 % du nominal. Le vôtre est calculé sur votre propre nominal et sur les règles en vigueur.',
       },
       {
         kind: 'callout',
@@ -161,9 +172,9 @@ export const PERFORMANCE_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-064',
     slug: 'meilleur-jour-performance',
     category: 'performance',
-    title: 'La règle du Meilleur Jour sur un cycle Performance',
+    title: 'Comment la règle du Meilleur Jour s’applique-t-elle sur un compte Performance ?',
     summary:
-      'Même principe que sur l’évaluation, appliqué au cycle. Un dépassement bloque l’éligibilité, jamais le compte.',
+      'Même principe que sur l’évaluation, appliqué à chaque cycle. Un dépassement retarde votre demande, il ne fait jamais perdre le compte.',
     status: 'publish',
     severity: 'payout_condition',
     audience: ['performance'],
@@ -174,14 +185,14 @@ export const PERFORMANCE_ARTICLES: readonly HelpArticle[] = [
     body: [
       {
         kind: 'paragraph',
-        text: 'Le meilleur jour positif du cycle ne doit pas représenter plus de la part publiée du total positif éligible du cycle pour satisfaire la condition de payout.',
+        text: 'Comme sur l’évaluation, votre meilleure journée du cycle ne doit pas représenter plus que la part indiquée de l’ensemble de vos journées gagnantes.',
       },
-      { kind: 'ruleTable', caption: 'Policy publiée', facts: ['bestDayMaxRatio'] },
+      { kind: 'ruleTable', caption: 'Règles en vigueur', facts: ['bestDayMaxRatio'] },
       {
         kind: 'callout',
         tone: 'information',
-        title: 'Ce n’est pas un breach',
-        text: 'Un dépassement signifie que la distribution des profits doit s’améliorer avant l’éligibilité. Le compte continue.',
+        title: 'Votre compte n’est pas perdu',
+        text: 'Un dépassement veut dire que vos gains sont trop concentrés sur une journée. Vous continuez à trader jusqu’à ce que la répartition passe.',
       },
     ],
   },
@@ -189,8 +200,9 @@ export const PERFORMANCE_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-065',
     slug: 'split-des-payouts',
     category: 'performance',
-    title: 'Comment fonctionne le split des payouts ?',
-    summary: 'La part trader est publiée dans la policy et change sur le dernier cycle.',
+    title: 'Quelle part du payout me revient ?',
+    summary:
+      'Votre part est fixée par les règles, et elle augmente sur le dernier cycle de payout.',
     status: 'publish',
     severity: 'payout_condition',
     audience: ['performance'],
@@ -201,18 +213,18 @@ export const PERFORMANCE_ARTICLES: readonly HelpArticle[] = [
     body: [
       {
         kind: 'ruleTable',
-        caption: 'Policy WARIBA Performance publiée',
+        caption: 'Règles WARIBA Performance en vigueur',
         facts: ['traderSplitDefault', 'traderSplitFinalCycle'],
       },
       {
         kind: 'paragraph',
-        text: 'Le split s’applique au calcul autoritatif du payout approuvé, avec les autres conditions et plafonds publiés.',
+        text: 'Le partage s’applique au montant approuvé, une fois les autres conditions et le plafond pris en compte.',
       },
       {
         kind: 'callout',
         tone: 'attention',
         title: 'Une estimation n’est pas un montant payé',
-        text: 'Le payout possède ensuite ses propres états de revue et de traitement. Le montant affiché avant la demande est une projection.',
+        text: 'Une demande passe ensuite par un examen puis un virement, avec son propre statut à chaque étape. Le montant affiché avant la demande est une estimation.',
       },
     ],
   },
@@ -220,7 +232,7 @@ export const PERFORMANCE_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-066',
     slug: 'apres-cinquieme-payout',
     category: 'performance',
-    title: 'Que se passe-t-il après le dernier payout du cycle ?',
+    title: 'Que se passe-t-il après ma dernière demande de payout ?',
     summary:
       'Le cycle se ferme et un dossier WARIBA Review s’ouvre. Aucune allocation n’est garantie.',
     status: 'publish',
@@ -233,7 +245,7 @@ export const PERFORMANCE_ARTICLES: readonly HelpArticle[] = [
     body: [
       {
         kind: 'ruleTable',
-        caption: 'Policy WARIBA Performance publiée',
+        caption: 'Règles WARIBA Performance en vigueur',
         facts: ['maxPayoutCyclesBeforeReview'],
       },
       {
@@ -248,7 +260,7 @@ export const PERFORMANCE_ARTICLES: readonly HelpArticle[] = [
         kind: 'callout',
         tone: 'attention',
         title: 'Aucune garantie d’allocation réelle',
-        text: 'WARIBA Review détermine la prochaine étape disponible selon la policy et les décisions futures. Cette étape ne garantit pas une allocation de capital réel.',
+        text: 'WARIBA Review détermine la prochaine étape disponible selon les règles en vigueur et les décisions à venir. Cette étape ne garantit pas une allocation de capital réel.',
       },
     ],
   },

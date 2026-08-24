@@ -67,7 +67,7 @@ export function PublicSupportIntro() {
                 ],
                 [
                   'Compte ou commande',
-                  'Connectez-vous pour ouvrir une demande suivie, rattachée au compte, à la policy et à la commande concernés.',
+                  'Connectez-vous pour ouvrir une demande suivie, rattachée au compte, aux règles et à la commande concernés.',
                   '/login?next=/support',
                   'Ouvrir une demande',
                 ],

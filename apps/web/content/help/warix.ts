@@ -12,8 +12,9 @@ export const WARIX_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-050',
     slug: 'decouvrir-warix',
     category: 'warix',
-    title: 'Découvrir WariX',
-    summary: 'Le terminal de trading WARIBA : ce qu’il fait, et ce qui reste au Trader Hub.',
+    title: 'À quoi sert WariX ?',
+    summary:
+      'Le terminal de trading WARIBA : ce qu’on y fait, et ce qui reste dans votre espace WARIBA.',
     status: 'publish',
     severity: 'information',
     audience: ['tous'],
@@ -22,7 +23,11 @@ export const WARIX_ARTICLES: readonly HelpArticle[] = [
     related: ['placer-un-ordre', 'ordres-positions-executions', 'warix-deconnexion'],
     lastReviewedAt: '2026-08-24',
     body: [
-      { kind: 'heading', text: 'Ce que WariX sert à faire' },
+      {
+        kind: 'paragraph',
+        text: 'WariX est le terminal de trading WARIBA. C’est là que vous suivez le marché, passez vos ordres et gérez vos positions.',
+      },
+      { kind: 'heading', text: 'À quoi sert WariX' },
       {
         kind: 'list',
         items: [
@@ -30,7 +35,7 @@ export const WARIX_ARTICLES: readonly HelpArticle[] = [
           'lire le graphique ;',
           'placer et gérer les ordres supportés ;',
           'suivre positions, ordres et exécutions ;',
-          'afficher le risque autoritatif ;',
+          'suivre votre risque en temps réel ;',
           'utiliser les indicateurs et outils disponibles.',
         ],
       },
@@ -46,13 +51,22 @@ export const WARIX_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-051',
     slug: 'placer-un-ordre',
     category: 'warix',
-    title: 'Comment placer un ordre',
+    title: 'Comment passer un ordre ?',
     summary: 'Six étapes — et le rappel que le navigateur ne fournit jamais le prix d’exécution.',
     status: 'dynamic',
     severity: 'operational',
     audience: ['evaluation', 'performance'],
     sourceOfTruth: ['domain code', 'symbol specifications'],
-    searchAliases: ['ordre', 'acheter', 'vendre', 'market', 'passer un ordre'],
+    searchAliases: [
+      'ordre',
+      'acheter',
+      'vendre',
+      'market',
+      'passer un ordre',
+      'buy',
+      'sell',
+      'position',
+    ],
     related: ['ordre-refuse', 'stop-loss-take-profit', 'ordres-en-attente'],
     lastReviewedAt: '2026-08-24',
     body: [
@@ -60,7 +74,7 @@ export const WARIX_ARTICLES: readonly HelpArticle[] = [
         kind: 'list',
         ordered: true,
         items: [
-          'Sélectionnez un compte tradable.',
+          'Choisissez un compte sur lequel vous pouvez trader.',
           'Choisissez l’instrument.',
           'Vérifiez le type d’ordre disponible.',
           'Saisissez la quantité.',
@@ -72,7 +86,7 @@ export const WARIX_ARTICLES: readonly HelpArticle[] = [
         kind: 'callout',
         tone: 'attention',
         title: 'Le prix affiché n’est pas une garantie',
-        text: 'Le serveur valide le compte, le marché, le prix et le risque, puis retourne le résultat. Si un ordre est refusé, lisez le code de raison plutôt que de renvoyer immédiatement la même commande.',
+        text: 'WARIBA vérifie votre compte, le marché, le prix et votre risque, puis vous renvoie le résultat. Si un ordre est refusé, lisez le motif affiché plutôt que de le renvoyer aussitôt.',
       },
     ],
   },
@@ -80,14 +94,22 @@ export const WARIX_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-052',
     slug: 'stop-loss-take-profit',
     category: 'warix',
-    title: 'Stop Loss et Take Profit',
+    title: 'Comment fonctionnent le Stop Loss et le Take Profit ?',
     summary:
-      'Des protections attachées à une position, déclenchées côté serveur. Un dessin sur le graphique n’en est jamais une.',
+      'Des protections attachées à une position, déclenchées par WARIBA. Un trait dessiné sur le graphique n’en est jamais une.',
     status: 'publish',
     severity: 'operational',
     audience: ['evaluation', 'performance'],
     sourceOfTruth: ['domain code'],
-    searchAliases: ['sl', 'tp', 'stop loss', 'take profit', 'protection'],
+    searchAliases: [
+      'sl',
+      'tp',
+      'stop loss',
+      'take profit',
+      'protection',
+      'stop',
+      'limite de perte',
+    ],
     related: ['placer-un-ordre', 'indicateurs-et-dessins', 'frais-de-trading'],
     lastReviewedAt: '2026-08-24',
     body: [
@@ -97,7 +119,7 @@ export const WARIX_ARTICLES: readonly HelpArticle[] = [
       },
       {
         kind: 'paragraph',
-        text: 'WARIBA traite les déclenchements côté serveur. Le prix affiché sur le graphique ne constitue pas une garantie d’exécution exacte : le spread et le slippage du modèle peuvent s’appliquer.',
+        text: 'C’est WARIBA qui déclenche vos protections. Le prix affiché sur le graphique ne constitue pas une garantie d’exécution exacte : le spread et le slippage du modèle peuvent s’appliquer.',
       },
       {
         kind: 'callout',
@@ -111,7 +133,7 @@ export const WARIX_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-053',
     slug: 'reduire-cloturer-close-all',
     category: 'warix',
-    title: 'Réduire, clôturer et Close All',
+    title: 'Comment réduire ou fermer une position ?',
     summary:
       'Trois actions sérialisées et auditées, disponibles même dans certains états où ouvrir ne l’est plus.',
     status: 'publish',
@@ -128,7 +150,7 @@ export const WARIX_ARTICLES: readonly HelpArticle[] = [
         rows: [
           ['Réduire', 'Diminue l’exposition existante.'],
           ['Clôturer', 'Ferme une position.'],
-          ['Close All', 'Demande la fermeture des positions concernées via le flux serveur.'],
+          ['Close All', 'Demande la fermeture de toutes vos positions ouvertes en une fois.'],
         ],
       },
       {
@@ -147,13 +169,24 @@ export const WARIX_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-054',
     slug: 'ordres-en-attente',
     category: 'warix',
-    title: 'Ordres en attente : disponibilité et comportement',
-    summary: 'Quatre types supportés, une seule durée de validité, et un déclenchement serveur.',
+    title: 'Quels ordres en attente puis-je placer, et comment se déclenchent-ils ?',
+    summary:
+      'Quatre types disponibles, une seule durée de validité, et un déclenchement au prix réel.',
     status: 'dynamic',
     severity: 'operational',
     audience: ['evaluation', 'performance'],
     sourceOfTruth: ['Decision Log', 'domain code'],
-    searchAliases: ['limit', 'stop', 'pending', 'ordre en attente', 'gtc'],
+    searchAliases: [
+      'limit',
+      'stop',
+      'pending',
+      'ordre en attente',
+      'gtc',
+      'buy limit',
+      'sell limit',
+      'buy stop',
+      'sell stop',
+    ],
     related: ['placer-un-ordre', 'ordre-refuse', 'permissions-de-trading'],
     lastReviewedAt: '2026-08-24',
     body: [
@@ -171,13 +204,10 @@ export const WARIX_ARTICLES: readonly HelpArticle[] = [
           ],
           [
             'Déclenchement',
-            'Sur un prix réel du serveur, jamais sur un prix affiché par le navigateur.',
+            'Sur un prix réel du marché, jamais sur le prix affiché dans votre navigateur.',
           ],
           ['Protections', 'Un Stop Loss et un Take Profit peuvent être attachés dès la création.'],
-          [
-            'Annulation',
-            'Possible tant que l’ordre n’est pas déclenché, selon les permissions serveur.',
-          ],
+          ['Annulation', 'Possible tant que l’ordre n’est pas déclenché.'],
         ],
       },
       {
@@ -192,7 +222,7 @@ export const WARIX_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-055',
     slug: 'indicateurs-et-dessins',
     category: 'warix',
-    title: 'Indicateurs et dessins',
+    title: 'À quoi servent les indicateurs et les dessins sur le graphique ?',
     summary:
       'Des outils d’analyse visuelle. Ils n’ont aucune autorité sur le prix, le risque ou l’état du compte.',
     status: 'dynamic',
@@ -203,6 +233,10 @@ export const WARIX_ARTICLES: readonly HelpArticle[] = [
     related: ['stop-loss-take-profit', 'graphique-et-execution'],
     lastReviewedAt: '2026-08-24',
     body: [
+      {
+        kind: 'paragraph',
+        text: 'Les indicateurs et les dessins vous aident à lire le graphique. Ils ne changent rien à votre compte.',
+      },
       { kind: 'heading', text: 'Ce sur quoi ils n’ont aucune autorité' },
       {
         kind: 'list',
@@ -216,7 +250,7 @@ export const WARIX_ARTICLES: readonly HelpArticle[] = [
       },
       {
         kind: 'paragraph',
-        text: 'Les indicateurs disponibles dans cette version sont les moyennes mobiles EMA et SMA. D’autres pourront être ajoutés ; ils apparaîtront lorsqu’ils seront réellement implémentés.',
+        text: 'Cette version propose deux moyennes mobiles : EMA et SMA. D’autres indicateurs pourront s’ajouter ; ils apparaîtront le jour où ils fonctionneront réellement.',
       },
       {
         kind: 'callout',
@@ -232,7 +266,7 @@ export const WARIX_ARTICLES: readonly HelpArticle[] = [
     category: 'warix',
     title: 'Que faire si WariX se déconnecte ?',
     summary:
-      'Le terminal suspend ce qui augmente le risque, resynchronise, puis réactive. Ne multipliez pas les ordres pour « vérifier ».',
+      'WariX suspend ce qui augmente le risque, se remet à jour, puis réactive. Surtout, ne renvoyez pas le même ordre pour « vérifier ».',
     status: 'publish',
     severity: 'operational',
     audience: ['evaluation', 'performance'],
@@ -248,7 +282,7 @@ export const WARIX_ARTICLES: readonly HelpArticle[] = [
           'WariX affiche l’état de connexion.',
           'Les actions augmentant le risque sont suspendues.',
           'Le système tente une reconnexion.',
-          'Un instantané autoritatif est récupéré.',
+          'WariX redemande l’état réel de votre compte.',
           'Les événements manqués sont réconciliés lorsque le transport le permet.',
           'Les actions sont réactivées seulement après resynchronisation.',
         ],
@@ -265,7 +299,7 @@ export const WARIX_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-057',
     slug: 'ordres-positions-executions',
     category: 'warix',
-    title: 'Où voir mes ordres, exécutions et positions ?',
+    title: 'Où retrouver mes ordres, mes exécutions et mes positions ?',
     summary: 'La session vit dans le dock de WariX ; l’historique vit dans le Journal du Hub.',
     status: 'publish',
     severity: 'information',
@@ -287,7 +321,7 @@ export const WARIX_ARTICLES: readonly HelpArticle[] = [
         kind: 'callout',
         tone: 'information',
         title: 'Une seule source',
-        text: 'Il n’existe pas deux systèmes indépendants calculant vos positions. Le dock et le Journal lisent les mêmes enregistrements serveur.',
+        text: 'Il n’existe pas deux comptages différents de vos positions : le dock et le Journal lisent les mêmes données.',
       },
     ],
   },

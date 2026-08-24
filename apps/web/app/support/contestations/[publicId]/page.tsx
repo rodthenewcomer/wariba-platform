@@ -94,9 +94,15 @@ export default async function ContestationPage({
         <p className="mt-1.5 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
           {contestation.reasonLabel}
         </p>
-        <p className="mt-3 max-w-[62ch] text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-text-secondary)]">
-          Ouverte le {contestation.openedAtLabel}. L’examen d’une contestation ne modifie jamais
-          l’historique du compte : les preuves enregistrées restent inchangées.
+        <p
+          className="mt-3 max-w-[62ch] text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-text-secondary)]"
+          data-testid="contestation-next-action"
+        >
+          {contestation.nextAction}
+        </p>
+        <p className="mt-2 max-w-[62ch] text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-text-secondary)]">
+          Ouverte le {contestation.openedAtLabel}. Un examen ne réécrit jamais ce qui s’est passé
+          sur votre compte : les éléments enregistrés restent tels quels.
         </p>
         <div className="mt-4">
           <ActionLink href={contestation.ticketHref} variant="secondary" size="sm">
@@ -199,8 +205,16 @@ export default async function ContestationPage({
         </section>
       ) : null}
 
-      <p className="wariba-data text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
-        Référence technique : {contestation.correlationId}
+      {/*
+       * La référence technique, dite pour ce qu'elle sert.
+       *
+       * « Référence technique : 8ada89ec-… » ne veut rien dire pour un trader.
+       * La phrase explique maintenant à quoi elle sert avant de l'afficher —
+       * c'est la seule raison pour laquelle elle est sur la page.
+       */}
+      <p className="text-[length:var(--wariba-font-size-label-sm)] leading-relaxed text-[color:var(--wariba-text-tertiary)]">
+        Si vous contactez le support à propos de ce dossier, donnez-lui cette référence :{' '}
+        <span className="wariba-data select-all">{contestation.correlationId}</span>
       </p>
     </div>
   );

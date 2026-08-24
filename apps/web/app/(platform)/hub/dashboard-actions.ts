@@ -90,7 +90,7 @@ export function quickActionsFor(params: {
     label: 'Voir les règles',
     href: '/aide/wariba-one/regles-essentielles',
     icon: 'shield',
-    hint: 'Objectif, pertes, consistance',
+    hint: 'Objectif, pertes, Meilleur Jour',
   });
 
   if (lifecycle.terminal || lifecycle.state === 'breached') {

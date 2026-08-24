@@ -12,14 +12,14 @@ export const IDENTITE_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-090',
     slug: 'pourquoi-verification-identite',
     category: 'identite',
-    title: 'Pourquoi WARIBA demande une vérification d’identité',
+    title: 'Pourquoi WARIBA vérifie-t-il mon identité ?',
     summary:
       'Elle protège les payouts, l’intégrité du programme et les obligations de conformité — et reste séparée du trading.',
     status: 'publish',
     severity: 'operational',
     audience: ['performance'],
     sourceOfTruth: ['Decision Log', 'Product OS Master Constitution'],
-    searchAliases: ['kyc', 'identite', 'verification', 'papiers', 'conformite'],
+    searchAliases: ['kyc', 'identite', 'verification', 'papiers', 'conformite', 'piece identite'],
     related: ['quand-kyc-demande', 'etats-kyc', 'kyc-et-compte-de-trading'],
     lastReviewedAt: '2026-08-24',
     body: [
@@ -50,7 +50,15 @@ export const IDENTITE_ARTICLES: readonly HelpArticle[] = [
     severity: 'operational',
     audience: ['performance'],
     sourceOfTruth: ['Decision Log', 'domain code'],
-    searchAliases: ['quand kyc', 'avant achat', 'moment', 'declenchement'],
+    searchAliases: [
+      'quand kyc',
+      'avant achat',
+      'moment',
+      'declenchement',
+      'kyc',
+      'quand',
+      'verification identite',
+    ],
     related: ['eligible-vs-pret', 'pourquoi-verification-identite', 'etats-kyc'],
     lastReviewedAt: '2026-08-24',
     body: [
@@ -61,7 +69,7 @@ export const IDENTITE_ARTICLES: readonly HelpArticle[] = [
       },
       {
         kind: 'paragraph',
-        text: 'Une obligation juridique, un prestataire, un pays ou la Conformité peuvent exiger une vérification plus tôt. Une telle exception est documentée par policy.',
+        text: 'Une obligation juridique, un prestataire, un pays ou la Conformité peuvent exiger une vérification plus tôt. Une telle exception est écrite dans les règles.',
       },
       {
         kind: 'callout',
@@ -81,7 +89,7 @@ export const IDENTITE_ARTICLES: readonly HelpArticle[] = [
     severity: 'information',
     audience: ['performance'],
     sourceOfTruth: ['domain code'],
-    searchAliases: ['etat kyc', 'statut kyc', 'action requise', 'en cours'],
+    searchAliases: ['etat kyc', 'statut kyc', 'action requise', 'en cours', 'kyc', 'verification'],
     related: ['kyc-refuse', 'quand-kyc-demande', 'kyc-et-compte-de-trading'],
     lastReviewedAt: '2026-08-24',
     body: [
@@ -137,7 +145,7 @@ export const IDENTITE_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-094',
     slug: 'kyc-refuse',
     category: 'identite',
-    title: 'Vérification refusée, action requise, nouvelle vérification',
+    title: 'Ma vérification d’identité a échoué : que faire ?',
     summary: 'Un dossier peut demander une correction sans être définitivement refusé.',
     status: 'publish',
     severity: 'operational',
@@ -175,7 +183,7 @@ export const IDENTITE_ARTICLES: readonly HelpArticle[] = [
     id: 'HLP-095',
     slug: 'kyc-et-compte-de-trading',
     category: 'identite',
-    title: 'Pourquoi une vérification échouée ne fait pas échouer un compte de trading',
+    title: 'Une vérification d’identité refusée peut-elle me faire perdre mon compte ?',
     summary:
       'Deux domaines séparés. Un échec d’identité bloque une étape de payout, pas votre compte.',
     status: 'publish',
@@ -194,7 +202,7 @@ export const IDENTITE_ARTICLES: readonly HelpArticle[] = [
         kind: 'callout',
         tone: 'information',
         title: 'Le statut du compte suit une règle de trading',
-        text: 'Le statut de votre compte reflète toujours une règle de trading ou de cycle de vie autoritative, jamais un raccourci Conformité.',
+        text: 'Le statut de votre compte suit toujours une règle de trading, jamais une décision de conformité.',
       },
     ],
   },

@@ -70,26 +70,25 @@ export function AppliesToBadge({ audience }: { audience: HelpArticle['audience']
 }
 
 /**
- * Where the article's authority comes from.
+ * Quelle version des règles cet article décrit.
  *
- * Rendered on every article, because « la policy publiée gagne » is only a
- * real guarantee if a reader can see what this page is subordinate to.
+ * Cette ligne disait : « Source de vérité : domain code · policy publiée 1.1.1 ».
+ * C'était l'architecture qui parlait au client. Un trader n'a besoin que d'une
+ * chose ici — savoir que les règles écrites dans son propre compte priment sur
+ * une page d'aide, et laquelle il lit.
+ *
+ * `sources` n'est plus affiché du tout : « domain code », « risk engine » et
+ * « published_account_policy » sont des repères internes. Ils restent dans le
+ * registre pour l'audit, hors de l'écran.
  */
-export function PolicySourceBadge({
-  sources,
-  policyVersion,
-}: {
-  sources: readonly string[];
-  policyVersion: string | null;
-}) {
+export function PolicySourceBadge({ policyVersion }: { policyVersion: string | null }) {
   return (
     <p
       data-testid="help-source-of-truth"
       className="text-[length:var(--wariba-font-size-label-sm)] leading-relaxed text-[color:var(--wariba-color-ink-300)]"
     >
-      Source de vérité : {sources.join(' · ')}
-      {policyVersion ? ` · policy publiée ${policyVersion}` : ''}. En cas de divergence, la policy
-      attachée à votre compte l’emporte sur cet article.
+      {policyVersion ? `Règles en vigueur — version ${policyVersion}. ` : ''}
+      Les règles attachées à votre compte font toujours foi, même si cette page dit autre chose.
     </p>
   );
 }
@@ -135,9 +134,9 @@ export function HelpArticleRow({ article }: { article: HelpArticle }) {
 export function RelatedArticles({ articles }: { articles: readonly HelpArticle[] }) {
   if (articles.length === 0) return null;
   return (
-    <section aria-label="Articles liés" data-testid="help-related">
+    <section aria-label="À lire ensuite" data-testid="help-related">
       <h2 className="text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase tracking-[var(--wariba-letter-spacing-wide)] text-[color:var(--wariba-color-ink-300)]">
-        Articles liés
+        À lire ensuite
       </h2>
       <ul className="mt-3 flex flex-col">
         {articles.map((article) => (
@@ -166,15 +165,15 @@ export function HelpSupportCta({ contestable = false }: { contestable?: boolean 
       className="rounded-[var(--wariba-radius-xl)] border border-[color:var(--wariba-color-ink-700)] bg-[color:var(--wariba-color-ink-900)] p-5 sm:p-6"
     >
       <h2 className="text-[length:var(--wariba-font-size-heading-sm)] font-semibold text-[color:var(--wariba-color-bone-50)]">
-        Cette page n’a pas répondu à votre question ?
+        Vous n’avez pas trouvé votre réponse ?
       </h2>
       <p className="mt-2 max-w-[64ch] text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-color-ink-200)]">
-        Connectez-vous pour ouvrir une demande rattachée à votre compte. Elle est suivie sous une
-        référence et un opérateur y répond dans le même fil.
+        Connectez-vous pour poser votre question. Elle est rattachée à votre compte, suivie sous une
+        référence, et l’équipe WARIBA vous répond au même endroit.
       </p>
       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
         <Link href="/support" className={buttonClassNames({ size: 'md' })}>
-          Ouvrir une demande
+          Poser une question
         </Link>
         {contestable ? (
           <Link
