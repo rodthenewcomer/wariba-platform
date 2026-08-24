@@ -282,7 +282,7 @@ export function ExecutionActions({
                 {copy.accessible} {orderKind === 'market' ? copy.quoteLabel : 'au seuil'}
                 {price ? ` ${price}` : ''}
                 {sideUnavailable
-                  ? '. Ce seuil n’est pas valide de ce côté au prix actuel ; le serveur reste juge.'
+                  ? '. Ce seuil n’est pas valide de ce côté au prix actuel ; seul le prix d’exécution fera foi.'
                   : ''}
               </span>
 
@@ -310,10 +310,10 @@ export function ExecutionActions({
        * complete sentence available as the accessible title.
        */}
       <p
-        title="Compte simulé. L’exécution est faite par le serveur uniquement — aucun prix affiché dans le navigateur n’est jamais autoritaire."
+        title="Compte simulé. Le prix affiché ici est indicatif : seul le prix auquel WARIBA exécute votre ordre fait foi."
         className="text-[length:var(--wariba-component-workstation-type-meta)] leading-tight text-[color:var(--wariba-component-workstation-text-tertiary)]"
       >
-        Compte simulé · exécution serveur — aucun prix client n&apos;est autoritaire.
+        Compte simulé · seul le prix d’exécution fait foi.
         {orderKind !== 'market' ? ' Ordres en attente GTC.' : ''}
       </p>
     </div>

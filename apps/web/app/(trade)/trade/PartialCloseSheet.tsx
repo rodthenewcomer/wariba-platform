@@ -341,7 +341,7 @@ export function PartialCloseSheet({
           <WariXInlineStatus
             tone="warning"
             title="Portion profitable détenue moins de 60 secondes"
-            description="Le profit apparaîtra dans votre solde, mais ne comptera pas pour votre évaluation, votre réserve, vos Jours de Performance, votre consistance ou votre retrait."
+            description="Le profit apparaîtra dans votre solde, mais ne comptera pas pour votre évaluation, votre réserve, vos Jours de Performance, la règle du Meilleur Jour ou votre retrait."
           />
         )}
 

@@ -7,6 +7,7 @@ import {
 } from '@wariba/database';
 import { assertPurchaseOrderTransition, isSizeCommerciallyAvailableInZone } from '@wariba/domain';
 import type { ProductCode } from '@wariba/validation';
+import { formatPolicyRate, HELP_FACT_UNPUBLISHED } from './help-policy-facts';
 
 export interface ProductDTO {
   code: string;
@@ -17,9 +18,27 @@ export interface ProductDTO {
   priceCurrency: string;
 }
 
+/** Une règle telle qu'elle s'affiche sur l'écran d'acceptation. */
+export interface CheckoutRuleDTO {
+  label: string;
+  /** Formaté depuis la policy publiée, ou « non publié » si elle l'omet. */
+  value: string;
+}
+
 export interface CheckoutContextDTO {
   offer: ProductDTO;
   policyVersion: string;
+  /**
+   * Les règles que le trader accepte, lues depuis la version publiée.
+   *
+   * Cet écran listait « Objectif net réalisé : 10 % », « Perte quotidienne :
+   * 3 % », « Perte maximale : 10 % », « Best Day Rule : 50 % » en dur dans le
+   * composant. C'est le pire endroit de tout le produit pour une valeur
+   * recopiée : la case cochée juste en dessous est un consentement versionné
+   * et horodaté, conservé comme preuve. Le jour où la policy change, la preuve
+   * dit une chose et l'écran en disait une autre.
+   */
+  rules: readonly CheckoutRuleDTO[];
 }
 
 // Mirrors RULESET.json commercial_offers.feature_flags. Flag evaluation is a
@@ -115,14 +134,63 @@ export async function getCheckoutContext(
     listActiveProducts(db),
     db
       .selectFrom('app.policy_versions')
-      .select('semantic_version')
+      .select(['semantic_version', 'parameters_json'])
       .where('program', '=', 'WARIBA_ONE')
       .where('status', '=', 'published')
       .orderBy('effective_from', 'desc')
       .executeTakeFirst(),
   ]);
   const offer = offers.find((candidate) => candidate.code === productCode);
-  return offer && policy ? { offer, policyVersion: policy.semantic_version } : undefined;
+  if (!offer || !policy) return undefined;
+  return {
+    offer,
+    policyVersion: policy.semantic_version,
+    rules: checkoutRules(policy.parameters_json),
+  };
+}
+
+/**
+ * Les règles WARIBA ONE, dans l'ordre où un trader se les pose.
+ *
+ * Une valeur que la policy publiée ne porte pas rend « non publié » plutôt
+ * qu'un chiffre plausible — la même règle que `buildHelpPolicyFacts`
+ * applique. Un écran d'acceptation qui invente une limite serait la pire
+ * version de ce défaut.
+ */
+function checkoutRules(parameters: unknown): readonly CheckoutRuleDTO[] {
+  const one = (parameters ?? {}) as {
+    profit_target_rate?: string;
+    daily_loss_rate?: string;
+    maximum_loss_rate?: string;
+    best_day_max_ratio?: string;
+    minimum_trading_days?: number;
+  };
+  const rate = (value: string | undefined) => formatPolicyRate(value) ?? HELP_FACT_UNPUBLISHED;
+
+  return [
+    { label: 'Objectif de profit réalisé', value: rate(one.profit_target_rate) },
+    {
+      label: 'Perte quotidienne',
+      value: `${rate(one.daily_loss_rate)} — blocage jusqu’au prochain reset`,
+    },
+    {
+      label: 'Perte maximale',
+      value: `${rate(one.maximum_loss_rate)} — plancher recalculé en fin de journée`,
+    },
+    {
+      label: 'Meilleur Jour',
+      value: `${rate(one.best_day_max_ratio)} — ne termine jamais le compte`,
+    },
+    {
+      label: 'Nombre minimum de jours',
+      value:
+        one.minimum_trading_days === undefined
+          ? HELP_FACT_UNPUBLISHED
+          : one.minimum_trading_days === 0
+            ? 'Aucun'
+            : `${one.minimum_trading_days.toLocaleString('fr-FR')} jours`,
+    },
+  ];
 }
 
 export interface PurchaseOrderDTO {

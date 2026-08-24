@@ -314,10 +314,11 @@ describe('ExecutionActions', () => {
     );
     expect(screen.queryByTestId('execution-side-unavailable-sell')).not.toBeInTheDocument();
 
-    // The description keeps the full explanation, including that the server
-    // is still the authority.
+    // The description keeps the full explanation, including which price
+    // actually decides. « le serveur reste juge » said the same thing about
+    // the machine rather than about the trade.
     const description = document.getElementById(buy.getAttribute('aria-describedby') as string);
-    expect(description?.textContent).toContain('le serveur reste juge');
+    expect(description?.textContent).toContain('seul le prix d’exécution fera foi');
   });
 
   it('notes a side the current market cannot create, without blocking it', async () => {
@@ -344,9 +345,9 @@ describe('ExecutionActions', () => {
     // Visual closure §4 — the disclosure is compacted, not dropped: the short
     // form stays on screen and the full sentence is the accessible title.
     const { rerender } = render(<ExecutionActions {...baseProps} />);
-    expect(screen.getByText(/exécution serveur/)).toBeInTheDocument();
-    expect(screen.getByText(/exécution serveur/).getAttribute('title')).toMatch(
-      /aucun prix affiché dans le navigateur n’est jamais autoritaire/,
+    expect(screen.getByText(/seul le prix d’exécution fait foi/)).toBeInTheDocument();
+    expect(screen.getByText(/seul le prix d’exécution fait foi/).getAttribute('title')).toMatch(
+      /seul le prix auquel WARIBA exécute votre ordre fait foi/,
     );
     expect(screen.queryByText(/GTC/)).not.toBeInTheDocument();
 

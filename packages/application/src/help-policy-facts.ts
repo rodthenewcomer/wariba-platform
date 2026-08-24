@@ -88,6 +88,17 @@ interface PolicyParameters {
   news_allowed?: boolean;
 }
 
+/**
+ * Un taux de policy, formaté pour l'affichage.
+ *
+ * Exporté parce que l'écran de checkout en a besoin exactement comme le
+ * centre d'aide : le trader accepte les règles à ce moment-là, et les quatre
+ * pourcentages qui y figuraient étaient tapés en dur dans un composant React.
+ */
+export function formatPolicyRate(rate: string | undefined | null): string | null {
+  return percent(rate);
+}
+
 function percent(rate: string | undefined | null): string | null {
   if (!rate) return null;
   const parsed = new Decimal(rate).times(100).toDecimalPlaces(2).toNumber();

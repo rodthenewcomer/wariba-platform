@@ -68,7 +68,7 @@ export function CheckoutClient({ context }: CheckoutClientProps) {
           </div>
           <div>
             <Text variant="label-sm" color="tertiary">
-              Policy WARIBA ONE
+              Règles WARIBA ONE
             </Text>
             <Text variant="heading-sm">Version {context.policyVersion}</Text>
           </div>
@@ -83,12 +83,21 @@ export function CheckoutClient({ context }: CheckoutClientProps) {
           <Text as="h2" variant="heading-sm" className="mb-3">
             Règles essentielles
           </Text>
+          {/*
+           * Lues depuis la policy publiée, pas tapées ici.
+           *
+           * La case cochée quelques lignes plus bas enregistre un
+           * consentement versionné et horodaté, conservé comme preuve. Les
+           * quatre pourcentages de cette liste étaient en dur : le jour d'un
+           * changement de policy, la preuve et l'écran auraient dit deux
+           * choses différentes, et c'est l'écran que la personne aurait lu.
+           */}
           <ul className="grid list-disc gap-2 pl-5 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)] sm:grid-cols-2">
-            <li>Objectif de profit réalisé : 10 %</li>
-            <li>Perte quotidienne : 3 %, blocage jusqu’au prochain reset</li>
-            <li>Perte maximale : 10 %, plancher recalculé en fin de journée</li>
-            <li>Meilleur Jour : 50 %, ne termine jamais le compte</li>
-            <li>Aucun nombre minimum de jours</li>
+            {context.rules.map((rule) => (
+              <li key={rule.label}>
+                {rule.label} : {rule.value}
+              </li>
+            ))}
             <li>Aucune journée qualifiée exigée pendant l’évaluation</li>
           </ul>
         </div>
