@@ -1,0 +1,238 @@
+import type { HelpArticle } from './types';
+
+/** Payouts — eligibility, request, review, payment. */
+export const PAYOUTS_ARTICLES: readonly HelpArticle[] = [
+  {
+    id: 'HLP-070',
+    slug: 'eligibilite-payout',
+    category: 'payouts',
+    title: 'Comment fonctionne l’éligibilité au payout ?',
+    summary:
+      'Le Hub montre chaque condition séparément, recalculée sur des données fraîches à chaque affichage.',
+    status: 'publish',
+    severity: 'payout_condition',
+    audience: ['performance'],
+    sourceOfTruth: ['published_account_policy', 'domain code'],
+    searchAliases: ['eligibilite', 'payout', 'retrait', 'conditions', 'quand'],
+    related: ['eligible-vs-pret', 'demander-un-payout', 'profit-eligible'],
+    lastReviewedAt: '2026-08-24',
+    body: [
+      {
+        kind: 'paragraph',
+        text: 'WARIBA vérifie le cycle Performance à partir des données autoritatives et affiche chaque condition séparément.',
+      },
+      { kind: 'heading', text: 'Ce que le Hub peut afficher' },
+      {
+        kind: 'list',
+        items: [
+          'buffer permanent ;',
+          'profit éligible ;',
+          'Performance Days ;',
+          'règle du Meilleur Jour ;',
+          'positions ou ordres bloquants ;',
+          'vérification d’identité ;',
+          'méthode de payout ;',
+          'hold d’intégrité ;',
+          'plafond et split lorsqu’ils sont publiés.',
+        ],
+      },
+      {
+        kind: 'callout',
+        tone: 'attention',
+        title: 'Un ancien écran ne garantit rien',
+        text: 'L’éligibilité est recalculée sur des données fraîches. Une page ouverte depuis une heure n’est pas la preuve qu’une demande est encore possible.',
+      },
+    ],
+  },
+  {
+    id: 'HLP-071',
+    slug: 'eligible-vs-pret',
+    category: 'payouts',
+    title: 'Conditions financières remplies ou demande possible : quelle différence ?',
+    summary:
+      'Les conditions économiques du cycle et les portes opérationnelles sont deux étapes distinctes.',
+    status: 'publish',
+    severity: 'payout_condition',
+    audience: ['performance'],
+    sourceOfTruth: ['domain code', 'Decision Log'],
+    searchAliases: ['financially eligible', 'ready to request', 'pret', 'kyc requis'],
+    related: ['eligibilite-payout', 'quand-kyc-demande', 'demander-un-payout'],
+    lastReviewedAt: '2026-08-24',
+    body: [
+      {
+        kind: 'table',
+        columns: ['Étape', 'Ce qu’elle signifie'],
+        rows: [
+          [
+            'Conditions financières remplies',
+            'Les conditions économiques et de trading du cycle sont satisfaites.',
+          ],
+          [
+            'Demande possible',
+            'Les autres portes le sont aussi : identité, méthode de payout, absence de hold, données fraîches.',
+          ],
+        ],
+      },
+      {
+        kind: 'callout',
+        tone: 'information',
+        title: 'Le moment où l’identité devient nécessaire',
+        text: 'C’est à la première atteinte des conditions financières que la vérification d’identité peut devenir requise. Aucune demande de payout n’est créée automatiquement à ce moment.',
+      },
+    ],
+  },
+  {
+    id: 'HLP-072',
+    slug: 'demander-un-payout',
+    category: 'payouts',
+    title: 'Comment demander un payout ?',
+    summary: 'Quatre étapes. La création fige un instantané et empêche une seconde demande active.',
+    status: 'publish',
+    severity: 'operational',
+    audience: ['performance'],
+    sourceOfTruth: ['domain code'],
+    searchAliases: ['demander', 'retrait', 'withdraw', 'payout request'],
+    related: ['eligibilite-payout', 'statuts-payout', 'split-des-payouts'],
+    lastReviewedAt: '2026-08-24',
+    body: [
+      {
+        kind: 'list',
+        ordered: true,
+        items: [
+          'Ouvrez la page Payouts.',
+          'Vérifiez le calcul.',
+          'Vérifiez le montant, le split et les conditions.',
+          'Confirmez la demande.',
+        ],
+      },
+      {
+        kind: 'paragraph',
+        text: 'La création fige un instantané d’éligibilité et empêche une seconde demande active équivalente. La demande passe ensuite en revue.',
+      },
+      {
+        kind: 'callout',
+        tone: 'attention',
+        title: 'Une demande créée n’est pas un paiement',
+        text: 'Voir « Les statuts d’un payout » pour la différence entre approuvé et payé.',
+      },
+    ],
+  },
+  {
+    id: 'HLP-073',
+    slug: 'statuts-payout',
+    category: 'payouts',
+    title: 'Les statuts d’un payout',
+    summary:
+      'En revue, approuvé, en traitement, payé. WARIBA n’affiche jamais « payé » parce qu’une demande a été approuvée.',
+    status: 'publish',
+    severity: 'information',
+    audience: ['performance'],
+    sourceOfTruth: ['domain code'],
+    searchAliases: ['statut', 'pending review', 'approved', 'processing', 'paid'],
+    related: ['demander-un-payout', 'payout-echoue'],
+    lastReviewedAt: '2026-08-24',
+    body: [
+      {
+        kind: 'table',
+        columns: ['Statut', 'Ce qu’il signifie'],
+        rows: [
+          ['En revue', 'WARIBA vérifie la demande.'],
+          ['Approuvé', 'La décision est positive. Aucun paiement n’est encore confirmé.'],
+          ['En traitement', 'Le transfert a été soumis ou est en cours chez le prestataire.'],
+          ['Payé', 'Le paiement a été confirmé et réconcilié.'],
+        ],
+      },
+      {
+        kind: 'callout',
+        tone: 'attention',
+        title: 'Approuvé ≠ payé',
+        text: 'Ces deux états sont séparés précisément parce que le transfert peut encore échouer après l’approbation.',
+      },
+    ],
+  },
+  {
+    id: 'HLP-074',
+    slug: 'payout-echoue',
+    category: 'payouts',
+    title: 'Que se passe-t-il si un payout échoue ou revient ?',
+    summary:
+      'La demande originale, le statut prestataire et la raison sont conservés. Un nouvel essai n’envoie jamais deux fois.',
+    status: 'publish',
+    severity: 'operational',
+    audience: ['performance'],
+    sourceOfTruth: ['domain code'],
+    searchAliases: ['echec payout', 'failed', 'returned', 'rejete', 'retour'],
+    related: ['statuts-payout', 'contacter-le-support'],
+    lastReviewedAt: '2026-08-24',
+    body: [
+      { kind: 'heading', text: 'Ce que WARIBA conserve' },
+      {
+        kind: 'list',
+        items: [
+          'la demande originale ;',
+          'le statut prestataire ;',
+          'la référence ;',
+          'la raison structurée ;',
+          'l’audit.',
+        ],
+      },
+      {
+        kind: 'callout',
+        tone: 'information',
+        title: 'Aucun double transfert',
+        text: 'Un nouvel essai autorisé utilise la même logique d’idempotence. L’interface indique si une action de votre part est nécessaire ou si WARIBA poursuit la réconciliation.',
+      },
+    ],
+  },
+  {
+    id: 'HLP-075',
+    slug: 'trader-pendant-un-payout',
+    category: 'payouts',
+    title: 'Peut-on continuer à trader pendant un payout ?',
+    summary:
+      'La politique de gel n’est pas verrouillée ; rien n’est affirmé tant qu’elle ne l’est pas.',
+    status: 'draft_policy',
+    blockedBy: 'PAYOUT_TRADING_FREEZE_POLICY — OPEN',
+    severity: 'operational',
+    audience: ['performance'],
+    sourceOfTruth: ['Decision Log'],
+    searchAliases: ['trader pendant payout', 'gel', 'freeze', 'bloque payout'],
+    related: ['demander-un-payout', 'statuts-payout'],
+    lastReviewedAt: '2026-08-24',
+    body: [
+      {
+        kind: 'paragraph',
+        text: 'La politique de gel du trading pendant une demande de payout est ouverte. WARIBA ne publiera donc aujourd’hui ni « vous pouvez continuer normalement », ni « tout trading est bloqué », ni une version intermédiaire.',
+      },
+      {
+        kind: 'paragraph',
+        text: 'Lorsque la décision sera verrouillée, cet article décrira exactement les permissions pendant une demande, leur début, leur fin, et le comportement des positions et ordres déjà ouverts.',
+      },
+    ],
+  },
+  {
+    id: 'HLP-076',
+    slug: 'taux-de-change-et-frais',
+    category: 'payouts',
+    title: 'Taux de change, frais et devise de réception',
+    summary: 'Publié lorsque le rail de paiement et le barème seront contractés.',
+    status: 'draft_provider',
+    blockedBy: 'Aucun prestataire de payout contracté — OPEN-PAYOUT-001',
+    severity: 'operational',
+    audience: ['performance'],
+    sourceOfTruth: ['Decision Log'],
+    searchAliases: ['change', 'fx', 'devise', 'frais payout', 'mobile money'],
+    related: ['statuts-payout'],
+    lastReviewedAt: '2026-08-24',
+    body: [
+      {
+        kind: 'paragraph',
+        text: 'Les calculs du programme sont libellés en USD simulés, tandis qu’un payout réel futur pourra utiliser une devise locale ou un rail Mobile Money.',
+      },
+      {
+        kind: 'paragraph',
+        text: 'Avant publication, WARIBA doit verrouiller le fournisseur de taux, l’instant du fixing, sa durée de validité, l’arrondi, les frais, la marge de change éventuelle et le reçu affiché. Aucun frais ne sera déduit sans barème public et acceptation appropriée.',
+      },
+    ],
+  },
+];

@@ -436,6 +436,16 @@ export {
   type SetComplianceFlagsParams,
 } from './control-payouts-actions';
 
+// Help Center — policy-bound facts (content master §11.3).
+export {
+  buildHelpPolicyFacts,
+  resolveHelpFacts,
+  HELP_FACT_UNPUBLISHED,
+  type HelpFact,
+  type HelpFactKey,
+  type HelpPolicyFacts,
+} from './help-policy-facts';
+
 // Phase 3.2 — Support + Contestations (UX-010 LOCKED).
 export {
   SUPPORT_CATEGORIES,

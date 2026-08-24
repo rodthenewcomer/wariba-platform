@@ -1,5 +1,18 @@
 # WARIBA — Route Parity vs Product OS Master Constitution
 
+> ## Enregistrement daté — ne décrit plus l'état courant
+>
+> Ce document mesure le code **à sa date**. Trois tranches ont été livrées
+> depuis : Phase 3.1A (déployabilité), Phase 3.2 (Support + Contestations) et
+> le Centre d'aide. Six exigences ont changé d'état et la couverture est passée
+> de 77,1 % à 80,4 %.
+>
+> **Pour l'état courant et le séquencement restant, voir
+> `WARIBA_ROAD_TO_BETA_2026-08-24.md`.**
+>
+> Il est conservé tel quel : un audit réécrit après coup n'est plus un audit.
+
+
 **AUDIT_SHA** `42983815fde5fbc83375083f6880e10dbb2d5b9a` (code identical to `main` @ `8c06117`)
 **Canonical source** Constitution §6 · **Method** `find apps/web/app -name page.tsx`
 

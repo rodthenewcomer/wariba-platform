@@ -397,6 +397,10 @@ Révision:
 | UX-SUPPORT-001 | `LOCKED` | Phase 3.2 — `/support` est **une seule route canonique** servant deux publics : la Constitution la liste à la fois dans les routes publiques et dans celles du Trader Hub (§6), et Next.js ne résout qu'une page par chemin. La route vit hors des groupes `(public)` et `(platform)` ; son layout choisit la coque selon la session (`PublicChrome` pour un visiteur, `HubShell` pour un trader connecté). Le sous-arbre `/support/` est protégé par le middleware ; `/support` lui-même reste public. | Résout la contradiction sans dupliquer le système de tickets et supprime le seul `PLACEBO_STATUS_UI` de l'audit : l'entrée Support du Hub ne pointe plus vers une page marketing. |
 | UX-SUPPORT-002 | `LOCKED` | Phase 3.2 — **aucune réversion de breach n'est offerte**. `evaluation_account` ne prévoit aucune transition sortante depuis `breached` (`@wariba/domain/state-machines.ts`), donc aucune commande corrective autorisée n'existe. Les issues qu'un opérateur peut enregistrer sont `upheld` et `requires_escalation` ; `overturned` figure dans la contrainte de colonne pour une future transition corrective et est **refusée** par la couche commande. Une contestation n'écrit jamais dans `app.trading_accounts`, `app.risk_violations`, `app.account_daily_snapshots`, `app.account_state_transitions` ni `app.trading_ledger_entries`. | Fail closed. Enregistrer une issue que la plateforme ne peut pas exécuter dirait à un trader que son compte a été rétabli alors qu'il ne l'est pas. Toute correction administrative future devra arriver comme une transition explicite et auditée, jamais comme un UPDATE sur la preuve d'origine. |
 | UX-SUPPORT-003 | `LOCKED` | Phase 3.2 — `app.ticket_messages` est **append-only en base**, pas par convention : un trigger refuse tout `UPDATE`, et refuse un `DELETE` tant que la demande parente existe (une suppression en cascade depuis la demande reste permise). | Trader et opérateur atteignent la table par la même connexion de service ; une vérification en code applicatif ne protège rien qu'un bug applicatif ne puisse défaire. « Le staff ne peut pas réécrire silencieusement un message trader » devient une garantie de base de données. |
+| UX-HELP-001 | `LOCKED` | Le contenu du Centre d'aide vit dans un **registre typé du repository** (`apps/web/content/help`), validé par Zod, avec slug unique, liens connexes résolus et index de recherche construit au build. Aucune table `help_articles`, aucun CMS pour la bêta. | `HELP_ARTICLE_DATABASE = deferred`. La bêta n'était pas bloquée par l'impossibilité d'éditer l'aide sans déploiement, mais par son absence. Le registre apporte tout ce qu'une table aurait apporté sauf l'édition tardive. `POS-146.01` reste `PARTIAL` tant que la persistance manque. |
+| UX-HELP-002 | `LOCKED` | **Aucune valeur de règle vivante n'est écrite en prose** dans un article. Les articles interpolent `{{fact:…}}` ou portent un bloc `ruleTable` ; les deux lisent `app.policy_versions` pour la version en vigueur. Un paramètre absent de la policy publiée s'affiche « non publié », jamais une valeur plausible. Les exemples pédagogiques peuvent porter des chiffres et sont étiquetés comme illustrations à chaque rendu. | Évite qu'un pourcentage vive dans quatre composants et diverge le jour où la policy change. Vérifié par un test qui parcourt le corpus publié et refuse toute occurrence de `%` hors bloc lié à la policy. |
+| UX-HELP-003 | `LOCKED` | Un article dont la décision est encore ouverte est **rédigé, conservé dans le registre et jamais servi** (`draft_policy` / `draft_provider`), et doit nommer la décision qui le débloque. Aucun placeholder « bientôt disponible » dans la navigation. | Un article que personne n'a écrit est une absence qu'aucun test ne voit ; un article écrit et retenu est une décision auditable. Dix articles sont dans cet état ; l'E2E vérifie qu'ils renvoient 404. |
+
 
 ---
 
@@ -731,6 +735,20 @@ trading manuel ni à la règle d'éligibilité de profit à 60 secondes (TRD-033
 ---
 
 # 26. Historique des versions
+
+## v1.28 — 2026-08-24
+
+Centre d'aide WARIBA — 87 articles rédigés, 77 servis, couvrant l'intégralité du
+catalogue défini par le Content Master. Registre typé validé au build, recherche
+classée et insensible aux accents partagée entre `/aide` public et le Support
+authentifié, mapping reason code → article sur les 8 codes de règle du moteur de
+risque, et liaison des valeurs de règle à `app.policy_versions`. Trois décisions
+nouvelles : `UX-HELP-001` (contenu dans le repository), `UX-HELP-002` (aucune
+valeur de règle en dur) et `UX-HELP-003` (brouillons rédigés mais retenus).
+Trois réconciliations faites contre le code plutôt que contre la spécification :
+aucune règle d'inactivité chiffrée (absente de la policy publiée), deux
+indicateurs WariX et non sept, et aucune redirection vers `/status` tant que la
+page n'existe pas.
 
 ## v1.27 — 2026-08-23
 

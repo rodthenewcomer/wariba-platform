@@ -1,5 +1,18 @@
 # WARIBA — Phase 3 Source Audit
 
+> ## Enregistrement daté — ne décrit plus l'état courant
+>
+> Ce document mesure le code **à sa date**. Trois tranches ont été livrées
+> depuis : Phase 3.1A (déployabilité), Phase 3.2 (Support + Contestations) et
+> le Centre d'aide. Six exigences ont changé d'état et la couverture est passée
+> de 77,1 % à 80,4 %.
+>
+> **Pour l'état courant et le séquencement restant, voir
+> `WARIBA_ROAD_TO_BETA_2026-08-24.md`.**
+>
+> Il est conservé tel quel : un audit réécrit après coup n'est plus un audit.
+
+
 **Baseline:** `main` @ `8c061176ecdd521740af06c98c7b74930687133c`
 **Branch:** `feat/wariba-phase-3-private-beta-completion`
 **Method:** source inspection only. No screenshot, no memory of prior phases, and

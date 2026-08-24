@@ -3,12 +3,18 @@
 **Baseline:** `main` @ `8c061176ecdd521740af06c98c7b74930687133c`
 **Companion:** `WARIBA_PHASE_3_SOURCE_AUDIT.md` (26-area source audit)
 **Superseded by:** `WARIBA_PRODUCT_OS_MASTER_IMPLEMENTATION_AUDIT_2026-08-23.md`
+**Sequencing superseded by:** `WARIBA_ROAD_TO_BETA_2026-08-24.md` (2026-08-24)
 
-> ## Reconciliation — 2026-08-23
+> ## Reconciliation — 2026-08-24
 >
-> The 190-requirement Product OS Master audit is now the Phase 3 source of
-> truth. This contract is retained because its *findings* were confirmed, but
-> its **sequencing is superseded** by §12 below.
+> The 190-requirement Product OS Master audit is the Phase 3 source of truth
+> for *findings*; this contract is retained because those findings were
+> confirmed. Its **sequencing is superseded twice over**: first by §12 below,
+> and now by `WARIBA_ROAD_TO_BETA_2026-08-24.md`, which reflects three
+> delivered slices (3.1A, 3.2 and the Help Center) that §12 predates.
+>
+> Two of the gaps this contract names — the absent support system and the
+> absent contestation workflow — are closed.
 >
 > **What the Master audit confirmed.** Every gap this contract identified is
 > real and appears in the matrix. Nothing here was over-claimed.

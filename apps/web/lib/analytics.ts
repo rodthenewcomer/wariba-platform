@@ -7,7 +7,18 @@ export type HubAnalyticsEvent =
   | 'risk_detail_opened'
   | 'policy_opened'
   | 'next_action_clicked'
-  | 'support_opened';
+  | 'support_opened'
+  /*
+   * Help Center — content master §14.
+   *
+   * Non-financial and deliberately coarse: which article was opened and from
+   * where, never the raw search string. A query a trader types while their
+   * account is failing can carry an account reference or a name, and this sink
+   * is a structured log with no retention policy attached to it yet.
+   */
+  | 'help_article_viewed'
+  | 'help_search_no_result'
+  | 'help_support_cta';
 
 // console.info works identically server- and client-side in Next.js (both
 // land in captured logs) — no Node-only sink, so this is safe to import

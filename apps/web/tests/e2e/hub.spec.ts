@@ -29,19 +29,35 @@ test.describe('Trader Hub', { tag: ['@auth'] }, () => {
 
       await expect(page.getByText(/objectif de profit/i).first()).toBeVisible();
       /*
-       * "DLL restante" became "Perte quotidienne restante" in Phase 2 — the
-       * same authoritative figure, in French a trader does not have to expand
-       * an acronym to read. The assertion follows the label.
+       * The daily-loss budget, under the two labels the Hub actually renders:
+       * « Risque jour restant » in the telemetry strip and « Perte
+       * quotidienne » on the risk meter beneath it.
+       *
+       * This asserted « Perte quotidienne restante » until Phase 3.2 found it
+       * red. That string exists in exactly one file — `comptes/AccountCard.tsx`
+       * — and renders on `/comptes`, never on `/hub`: the assertion and the
+       * label had drifted apart, so the test was failing rather than
+       * protecting anything. Two labels are asserted rather than one because
+       * the figure genuinely appears twice, and a trader who sees neither has
+       * lost the number this test exists to guard.
        */
-      await expect(page.getByText(/Perte quotidienne restante/).first()).toBeVisible();
+      await expect(page.getByText('Risque jour restant').first()).toBeVisible();
+      await expect(page.getByText(/Perte quotidienne/).first()).toBeVisible();
       // Legitimately more than one: the hero's primary and the sticky header's
       // convenience copy of it.
       await expect(page.getByTestId('hub-next-action')).toBeVisible();
 
       await expect(page.getByText(/Activé le/)).toBeVisible();
       await expect(page.getByText(/Répartition après passage/)).toBeVisible();
-      await expect(page.getByText('Positions ouvertes')).toBeVisible();
-      await expect(page.getByText('Aucune position ouverte.')).toBeVisible();
+      /*
+       * Twice on purpose: the health panel counts open positions, and the
+       * module below lists them. `.first()` because asserting the *heading*
+       * specifically would pass while the panel silently stopped rendering,
+       * and what this line guards is that the dashboard talks about positions
+       * at all.
+       */
+      await expect(page.getByText('Positions ouvertes').first()).toBeVisible();
+      await expect(page.getByText('Aucune position ouverte.').first()).toBeVisible();
 
       /*
        * The account evolution is a chart only when the read model says the

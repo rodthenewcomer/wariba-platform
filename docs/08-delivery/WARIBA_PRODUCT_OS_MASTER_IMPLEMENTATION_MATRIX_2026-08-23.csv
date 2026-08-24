@@ -19,7 +19,7 @@ POS-06.03,6 Routes,Public,"Route /programme",DONE,P1,"apps/web/app/(public)/prog
 POS-06.04,6 Routes,Public,"Route /regles",MISSING,P1,"find apps/web/app -> aucune route /regles","Règles publiques accessibles seulement via /programme#regles",3.4
 POS-06.05,6 Routes,Public,"Route /warix",DONE,P1,"apps/web/app/(public)/warix/page.tsx + démo interactive","",-
 POS-06.06,6 Routes,Public,"Route /confiance",MISSING,P1,"aucune route /confiance","Page confiance/trust absente",3.4
-POS-06.07,6 Routes,Public,"Route /aide",UI_ONLY,P1,"apps/web/app/(public)/aide/HelpCenterClient.tsx (208 lignes)","Contenu embarqué dans un composant client; aucune table help_articles",3.1
+POS-06.07,6 Routes,Public,"Route /aide",DONE,P1,"Centre d'aide réel : registre typé (apps/web/content/help), recherche classée, pages catégorie et article, valeurs liées à la policy publiée","",-
 POS-06.08,6 Routes,Public,"Route /support",DONE,P0,"apps/web/app/support/page.tsx + layout.tsx : une route, deux publics (shell choisi selon la session)","",-
 POS-06.09,6 Routes,Public,"Route /status",MISSING,P1,"aucune route; OPS-010 LOCKED 'Status page avant public'","Exigence LOCKED non satisfaite; OPS-011 provider OPEN",3.4
 POS-06.10,6 Routes,Public,"Routes /legal/*",DONE,P1,"conditions, confidentialite, risques présentes","",-
@@ -79,7 +79,7 @@ POS-41.01,41 Profil,Hub,"Profil trader",MISSING,P1,"aucune route /profil","Prén
 POS-42.01,42 Paramètres,Hub,"8 domaines de paramètres",PARTIAL,P1,"parametres/page.tsx 114 lignes, lecture seule","Sessions, Fuseau, Notifications, Confidentialité, Appareils, Accessibilité absents",3.3
 POS-43.01,43 Notifications,Notifications,"Route /notifications + centre partagé Hub/WariX",INTENTIONALLY_DEFERRED,P1,"ENG-031 LOCKED: servi par recent_activity_view; UX-HUB-010 LOCKED","CONFLICT-01: la Constitution §43 est overridée par deux décisions LOCKED",-
 POS-43.02,43 Notifications,Notifications,"Centre de notifications WariX (alertes)",DONE,P1,"NotificationCenter.tsx + app.alert_notifications + UX-TRADING-009 LOCKED","",-
-POS-44.01,44 Support,Support,"Recherche + Help Center",PARTIAL,P1,"apps/web/lib/help-articles.ts partagé par /aide et la recherche Support authentifiée","Aucune table help_articles, aucun versionnage (HELP_ARTICLE_DATABASE = deferred)",3.6
+POS-44.01,44 Support,Support,"Recherche + Help Center",DONE,P1,"searchHelpArticles partagé par /aide et le Support authentifié ; index au build, insensible aux accents, alias et acronymes","",-
 POS-44.02,44 Support,Support,"Tickets",DONE,P0,"app.support_tickets + app.ticket_messages (append-only par trigger); RLS propriétaire; file Control /control/support","",-
 POS-44.03,44 Support,Support,"Incidents visibles trader",MISSING,P1,"app.operations_incidents existe mais Control seulement","",3.4
 POS-44.04,44 Support,Disputes,"Contestations",DONE,P0,"app.contestations; preuves liées par identifiants; /support/contestations/**; file Control /control/contestations","",-
@@ -184,7 +184,7 @@ POS-142.01,142 Multi-account,Hub,"Comportement multi-compte",DONE,P1,"AccountSwi
 POS-143.01,143 Performance,Performance,"Grammaire visuelle performance",DONE,P1,"PerformanceSnapshot primary/secondary + WinLossRing","",-
 POS-144.01,144 Motion,Design,"Chorégraphie lifecycle",PARTIAL,P2,"Stagger/AnimatedNumber/ProgressBar","Pas de chorégraphie dédiée par transition de lifecycle",3.3
 POS-145.01,145 Art direction,Design,"Brief art direction",DOCUMENTATION_ONLY,P3,"Aucun asset généré","",3.4
-POS-146.01,146 Help,Support,"Surfaces d'aide / éducation",UI_ONLY,P1,"HelpCenterClient + WariX help panel","Pas de persistance ni de versionnage",3.1
+POS-146.01,146 Help,Support,"Surfaces d'aide / éducation",PARTIAL,P1,"47 articles publiés + 9 retenus, liés aux reason codes ; valeurs de règle lues depuis policy_versions","Aucune table help_articles, aucun versionnage d'article (HELP_ARTICLE_DATABASE = deferred)",3.6
 POS-147.01,147 Privacy,Security,"Privacy & observabilité",PARTIAL,P1,"control-pii.ts + logs structurés","SEC-014 rétention OPEN",3.6
 POS-148.01,148 Empty,UX,"Bibliothèque d'empty states premium",DONE,P1,"HubEmptyState + DailyPnlStrip + AccountEvolution empty","",-
 POS-149.01,149 Review gate,Governance,"Gate de revue indépendante finale",PARTIAL,P1,"Phase 2.5.1 final gate exécuté","Pas de revue humaine indépendante enregistrée",-

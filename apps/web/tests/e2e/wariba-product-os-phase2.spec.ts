@@ -350,7 +350,25 @@ test.describe('@phase2 no fabricated data', () => {
     await withLifecycle('no_account', async (fixture) => {
       await page.setViewportSize(SIZES.desktop);
       await signIn(page, fixture);
-      await expect(page.getByTestId('hub-empty-state')).toBeVisible();
+
+      /*
+       * The gate is the Launchpad, not an empty state.
+       *
+       * This asserted `hub-empty-state` — the single card the no-account Hub
+       * used to render before Phase 2.5 replaced it with the Launchpad, and
+       * the assertion never followed. It had been failing rather than
+       * protecting anything.
+       *
+       * What the test is *for* still holds and is now checked properly: a
+       * trader with no account gets a real gate reading the published
+       * catalogue, and a route into buying one — never an empty dashboard.
+       */
+      await expect(page.getByTestId('launchpad-primary')).toBeVisible();
+      await expect(page.getByTestId('launchpad-primary')).toHaveAttribute(
+        'href',
+        '/comptes/nouveau',
+      );
+      await expect(page.getByText('Commencez votre première évaluation')).toBeVisible();
       await shoot(page, '34-no-account-hub');
 
       await page.goto('/trade');

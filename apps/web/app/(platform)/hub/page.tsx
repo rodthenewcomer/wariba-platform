@@ -432,7 +432,11 @@ export default async function HubPage({
                       ) : (
                         <span />
                       )}
-                      <ActionLink href="/programme#regles" variant="secondary" size="sm">
+                      <ActionLink
+                        href="/aide/wariba-one/regles-essentielles"
+                        variant="secondary"
+                        size="sm"
+                      >
                         Voir les règles du programme
                       </ActionLink>
                     </div>
@@ -455,7 +459,11 @@ export default async function HubPage({
                     Votre progression réapparaîtra ici dès qu’un cycle sera ouvert sur ce compte.
                   </Text>
                   <div className="pt-1">
-                    <ActionLink href="/programme#regles" variant="secondary" size="sm">
+                    <ActionLink
+                      href="/aide/wariba-one/regles-essentielles"
+                      variant="secondary"
+                      size="sm"
+                    >
                       Voir les règles du programme
                     </ActionLink>
                   </div>

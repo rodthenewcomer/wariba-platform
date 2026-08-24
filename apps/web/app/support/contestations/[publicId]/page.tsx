@@ -7,6 +7,7 @@ import { HubEmptyState } from '../../../../components/hub/HubEmptyState';
 import { Surface, SurfaceTitle } from '../../../../components/hub/Surface';
 import { StatusPill, type PillTone } from '../../../../components/hub/StatusPill';
 import { EvidenceFillsTable, EvidenceTable } from '../../../../components/support/EvidenceTable';
+import { helpLinkForReasonCode } from '../../../../lib/help-links';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,6 +72,8 @@ export default async function ContestationPage({
     );
   }
 
+  const ruleHelp = helpLinkForReasonCode(contestation.evidence?.ruleCode);
+
   return (
     <div className="flex max-w-3xl flex-col gap-5">
       <Surface className="p-5 sm:p-6">
@@ -117,6 +120,26 @@ export default async function ContestationPage({
             <p className="mt-1 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
               Conséquence : {contestation.evidence.consequenceLabel}
             </p>
+            {/*
+             * The rule, explained — §12's reason-code mapping.
+             *
+             * A trader reading the evidence of a decision they disagree with is
+             * the single most useful moment to offer the article that explains
+             * how the rule is calculated. The link resolves from the rule code,
+             * so it cannot drift from the article that owns the subject.
+             */}
+            {ruleHelp ? (
+              <div className="mt-3">
+                <ActionLink
+                  href={ruleHelp.href}
+                  variant="secondary"
+                  size="sm"
+                  data-testid="contestation-rule-help"
+                >
+                  Comprendre cette règle
+                </ActionLink>
+              </div>
+            ) : null}
             <div className="mt-4">
               <EvidenceTable rows={contestation.evidence.rows} testId="contestation-evidence" />
             </div>

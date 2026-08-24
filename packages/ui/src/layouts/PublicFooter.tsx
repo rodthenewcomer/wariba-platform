@@ -18,7 +18,10 @@ const COLUMNS = [
     links: [
       { href: '/aide', label: 'Centre d’aide' },
       { href: '/support', label: 'Support' },
-      { href: '/programme#regles', label: 'Règles essentielles' },
+      // The canonical article, not the marketing summary of it. Two
+      // destinations carrying the same name is how a rule ends up with two
+      // descriptions — see UX-HELP-002.
+      { href: '/aide/wariba-one/regles-essentielles', label: 'Règles essentielles' },
     ],
   },
   {

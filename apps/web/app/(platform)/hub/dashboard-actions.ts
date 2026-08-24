@@ -77,9 +77,18 @@ export function quickActionsFor(params: {
     });
   }
 
+  /*
+   * The canonical rules article, not the marketing page.
+   *
+   * This pointed at `/programme#regles` — a public marketing surface with the
+   * rule values typed into it as strings. A signed-in trader asking to see
+   * their rules now gets the Help Center article, which reads the *published
+   * policy* and carries the severity of each rule in words. Same reasoning as
+   * the Support link that used to land on a brochure.
+   */
   actions.push({
     label: 'Voir les règles',
-    href: '/programme#regles',
+    href: '/aide/wariba-one/regles-essentielles',
     icon: 'shield',
     hint: 'Objectif, pertes, consistance',
   });

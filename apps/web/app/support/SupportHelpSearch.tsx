@@ -1,9 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { HubIcon } from '../../components/hub/icons';
 import { Surface } from '../../components/hub/Surface';
-import { searchHelpArticles } from '../../lib/help-articles';
+import { helpArticleHref, searchHelpArticles } from '../../content/help';
 
 /**
  * Search the help before opening a request.
@@ -20,10 +21,9 @@ import { searchHelpArticles } from '../../lib/help-articles';
 export function SupportHelpSearch() {
   const [query, setQuery] = useState('');
   const trimmed = query.trim();
-  const results = useMemo(
-    () => (trimmed.length < 2 ? [] : searchHelpArticles(trimmed).slice(0, 6)),
-    [trimmed],
-  );
+  // The same ranked index `/aide` uses. A trader who finds an answer in the
+  // public Help Center must find it here too, at the same rank.
+  const results = useMemo(() => searchHelpArticles(trimmed, 6), [trimmed]);
   const searching = trimmed.length >= 2;
 
   return (
@@ -61,22 +61,36 @@ export function SupportHelpSearch() {
             </p>
           ) : (
             <ul className="flex flex-col divide-y divide-[color:var(--warix-border-subtle)]">
-              {results.map((article) => (
-                <li key={article.question}>
-                  <details className="group py-3">
-                    <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-text-primary)]">
-                      <span className="flex-1">{article.question}</span>
-                      <span
-                        aria-hidden="true"
-                        className="shrink-0 text-[color:var(--wariba-text-tertiary)] transition-transform group-open:rotate-90 motion-reduce:transition-none"
-                      >
-                        <HubIcon role="chevron" size={16} />
+              {results.map(({ article }) => (
+                <li key={article.slug}>
+                  {/*
+                   * Links out to the article rather than expanding it inline.
+                   * A rule article carries live policy values, a severity badge
+                   * and its source of truth; a summary pasted into an accordion
+                   * would be the second version of a rule this slice exists to
+                   * prevent.
+                   */}
+                  <Link
+                    href={helpArticleHref(article)}
+                    data-testid="support-help-result"
+                    data-slug={article.slug}
+                    className="flex min-h-14 items-center gap-3 py-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-border-focus)]"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-text-primary)]">
+                        {article.title}
                       </span>
-                    </summary>
-                    <p className="mt-2 max-w-[64ch] text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-text-secondary)]">
-                      {article.answer}
-                    </p>
-                  </details>
+                      <span className="mt-0.5 block text-[length:var(--wariba-font-size-label-sm)] leading-relaxed text-[color:var(--wariba-text-secondary)]">
+                        {article.summary}
+                      </span>
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className="shrink-0 text-[color:var(--wariba-text-tertiary)]"
+                    >
+                      <HubIcon role="chevron" size={16} />
+                    </span>
+                  </Link>
                 </li>
               ))}
             </ul>
