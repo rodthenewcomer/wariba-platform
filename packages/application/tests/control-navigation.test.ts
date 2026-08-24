@@ -32,6 +32,13 @@ const EXPECTED_READERS: Record<ControlAreaId, readonly StaffRole[]> = {
   trading: ['support', 'admin', 'super_admin'],
   risk: ['risk', 'admin', 'super_admin'],
   payouts: ['support', 'finance', 'admin', 'super_admin'],
+  // Phase 3.2. Support answers tickets; risk and compliance decide disputes.
+  // The two are listed separately here because the whole point of splitting
+  // them is that a support operator can read a contestation without being
+  // able to decide one, and a risk reviewer can decide one without inheriting
+  // the ticket queue.
+  support: ['support', 'admin', 'super_admin'],
+  contestations: ['support', 'risk', 'compliance', 'admin', 'super_admin'],
   'market-operations': ['risk', 'admin', 'super_admin'],
   incidents: ['risk', 'finance', 'admin', 'super_admin'],
   treasury: ['finance', 'admin', 'super_admin'],
@@ -43,7 +50,7 @@ const EXPECTED_READERS: Record<ControlAreaId, readonly StaffRole[]> = {
 };
 
 describe('Control area read authorization', () => {
-  it('declares exactly the fourteen Prompt 09 operating areas', () => {
+  it('declares exactly the sixteen operating areas Control owns', () => {
     expect(CONTROL_AREAS.map((area) => area.id).sort()).toEqual(
       Object.keys(EXPECTED_READERS).sort(),
     );
@@ -82,10 +89,17 @@ describe('Control area read authorization', () => {
   it('gives no role a write authority through an area declaration', () => {
     // Area declarations gate reading only. Anything that mutates state must
     // demand its own permission at the point of the mutation, so no `read`
-    // may ever name a `.modify` / `.approve` / `.place` style authority.
+    // may ever name a `.modify` / `.approve` / `.place` / `.reply` style
+    // authority.
+    //
+    // Two read suffixes exist: Prompt 09's areas use `.view`, and Phase 3.2's
+    // support/contestation permissions use `.read` (the vocabulary UX-010 and
+    // the Phase 3.2 brief name). Both are read authorities; the assertion
+    // widened rather than the permissions being renamed, because the invariant
+    // under test is "no write authority gates an area", not the suffix.
     for (const area of CONTROL_AREAS) {
       if (area.read === null) continue;
-      expect(area.read).toMatch(/\.view$/);
+      expect(area.read).toMatch(/\.(view|read)$/);
     }
   });
 

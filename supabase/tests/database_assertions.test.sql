@@ -1,6 +1,6 @@
 begin;
 
-select plan(18);
+select plan(24);
 
 select has_schema('app', 'app schema exists');
 select has_table('app', 'trading_accounts', 'trading accounts table exists');
@@ -68,6 +68,32 @@ select results_eq(
   $$select count(*)::bigint from app.actuarial_scenario_assumptions where is_active$$,
   array[5::bigint],
   'four defaults plus editable custom actuarial scenario are seeded'
+);
+
+-- Phase 3.2 — support and contestations (UX-010 LOCKED).
+select has_table('app', 'support_tickets', 'support tickets table exists');
+select has_table('app', 'ticket_messages', 'support conversation table exists');
+select has_table('app', 'contestations', 'contestations table exists');
+select is(
+  (select relrowsecurity from pg_class where oid = 'app.contestations'::regclass),
+  true,
+  'contestations have RLS enabled'
+);
+-- One live contestation per contested decision, enforced by a partial unique
+-- index rather than by an application check that a retry could race past.
+select has_index(
+  'app',
+  'contestations',
+  'contestations_one_live_per_target',
+  'a decision can carry only one live contestation'
+);
+-- The append-only guarantee is a trigger, not a convention: trader and
+-- operator both reach this table through the same privileged connection.
+select has_trigger(
+  'app',
+  'ticket_messages',
+  'ticket_messages_append_only',
+  'support messages cannot be edited or removed from a live conversation'
 );
 
 select * from finish();

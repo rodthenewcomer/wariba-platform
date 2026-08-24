@@ -16,6 +16,26 @@ export interface ConsumeStaffActionRateLimitParams {
   now?: Date;
 }
 
+/**
+ * The same fixed-window counter, for an actor who is not staff.
+ *
+ * Phase 3.2 needs a limit on trader ticket and message creation, and the
+ * counter this table already implements is exactly the right one — a second
+ * table with identical columns would give the platform two answers to "how
+ * many times has this actor done this today". The alias exists so a trader
+ * path never reads as though it were consuming a *staff* budget; both write
+ * the same rows, keyed by actor, so the two can never interfere.
+ *
+ * The error type is shared deliberately: a caller catching
+ * `StaffActionRateLimitExceededError` catches both.
+ */
+export async function consumeActorActionRateLimit(
+  db: DbExecutor,
+  params: ConsumeStaffActionRateLimitParams,
+): Promise<void> {
+  return consumeStaffActionRateLimit(db, params);
+}
+
 export async function consumeStaffActionRateLimit(
   db: DbExecutor,
   params: ConsumeStaffActionRateLimitParams,

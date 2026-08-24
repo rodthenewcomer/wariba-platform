@@ -258,10 +258,29 @@ export default async function HubPage({
                 ]
               : []
           }
+          /*
+           * Phase 3.2 — the breached account finally has a recourse.
+           *
+           * Until now a trader whose account was terminated could read the
+           * evidence and buy another one. §8 adds the third path the Product OS
+           * Master always required: contest the decision. It is the secondary
+           * action rather than the primary because buying again is what most
+           * traders do and contesting is what some need — but it is on the
+           * banner itself, not buried in Support, because the banner is where
+           * the trader is standing when they disagree.
+           *
+           * The link carries the account and nothing else. Which decisions are
+           * contestable is resolved server-side from the account's own recorded
+           * violations; the URL cannot nominate one.
+           */
           {...(lifecycle.state === 'breached'
             ? {
                 action: { label: 'Acheter un nouveau compte', href: '/comptes/nouveau' },
-                secondaryAction: { label: 'Voir le détail', href: '#activity' },
+                secondaryAction: {
+                  label: 'Ouvrir une contestation',
+                  href: `/support/contestations/nouvelle?account=${activeAccount.id}`,
+                },
+                tertiaryAction: { label: 'Voir le détail', href: '#activity' },
               }
             : {})}
         />
@@ -471,6 +490,7 @@ export default async function HubPage({
                         triggerLabel="Voir le détail du risque"
                         violation={primaryViolation}
                         timestampLabel={activity[0]?.timestampLabel ?? risk.nextResetLabel}
+                        accountId={activeAccount.id}
                       />
                     ),
                   }

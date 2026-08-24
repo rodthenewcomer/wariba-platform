@@ -12,6 +12,17 @@ const PROTECTED_PREFIXES = [
   '/control',
   '/checkout',
   '/bienvenue',
+  /*
+   * `/support/` with the trailing slash, and the slash is load-bearing.
+   *
+   * `/support` itself is a canonical *public* route (Constitution §6) and
+   * stays reachable to a visitor — its layout serves the marketing explainer
+   * to anyone without a session. Everything below it is a trader's own record:
+   * a request, a thread, a contestation. Writing `/support` here would have
+   * sent an anonymous visitor to /login from a page the Constitution says is
+   * public; writing `/support/` protects exactly the sub-tree.
+   */
+  '/support/',
 ];
 
 /**

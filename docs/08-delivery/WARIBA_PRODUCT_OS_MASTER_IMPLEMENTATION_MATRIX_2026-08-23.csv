@@ -20,7 +20,7 @@ POS-06.04,6 Routes,Public,"Route /regles",MISSING,P1,"find apps/web/app -> aucun
 POS-06.05,6 Routes,Public,"Route /warix",DONE,P1,"apps/web/app/(public)/warix/page.tsx + démo interactive","",-
 POS-06.06,6 Routes,Public,"Route /confiance",MISSING,P1,"aucune route /confiance","Page confiance/trust absente",3.4
 POS-06.07,6 Routes,Public,"Route /aide",UI_ONLY,P1,"apps/web/app/(public)/aide/HelpCenterClient.tsx (208 lignes)","Contenu embarqué dans un composant client; aucune table help_articles",3.1
-POS-06.08,6 Routes,Public,"Route /support",UI_ONLY,P0,"apps/web/app/(public)/support/page.tsx statique","Aucun système de tickets derrière",3.1
+POS-06.08,6 Routes,Public,"Route /support",DONE,P0,"apps/web/app/support/page.tsx + layout.tsx : une route, deux publics (shell choisi selon la session)","",-
 POS-06.09,6 Routes,Public,"Route /status",MISSING,P1,"aucune route; OPS-010 LOCKED 'Status page avant public'","Exigence LOCKED non satisfaite; OPS-011 provider OPEN",3.4
 POS-06.10,6 Routes,Public,"Routes /legal/*",DONE,P1,"conditions, confidentialite, risques présentes","",-
 POS-06.11,6 Routes,Auth,"6 routes auth canoniques",DONE,P0,"login, inscription, verification-email, mot-de-passe-oublie, recuperation, session-expiree","",-
@@ -34,7 +34,7 @@ POS-06.18,6 Routes,Hub,"Route /facturation",DONE,P1,"apps/web/app/(platform)/fac
 POS-06.19,6 Routes,Hub,"Route /notifications",INTENTIONALLY_DEFERRED,P1,"ENG-031 LOCKED + UX-HUB-010 LOCKED défèrent explicitement","Conflit Constitution §43 vs décisions LOCKED - voir CONFLICT-01",-
 POS-06.20,6 Routes,Hub,"Route /profil",MISSING,P1,"aucune route /profil; §41 l'exige","Aucun deferral au Decision Log",3.3
 POS-06.21,6 Routes,Hub,"Route /parametres",PARTIAL,P1,"apps/web/app/(platform)/parametres/page.tsx (114 lignes)","2 des 8 domaines §42 (Langue, Sécurité); lecture seule",3.3
-POS-06.22,6 Routes,Hub,"Route /support authentifiée",MISSING,P0,"/support n'existe qu'en (public); la nav Hub y pointe","Le Hub renvoie vers une page publique statique",3.1
+POS-06.22,6 Routes,Hub,"Route /support authentifiée",DONE,P0,"apps/web/app/support/** dans HubShell : accueil, /nouveau, /demandes/{ref}, /contestations/{ref}","",-
 POS-06.23,6 Routes,Hub,"Route /plus",DONE,P2,"apps/web/app/(platform)/plus/page.tsx","",-
 POS-06.24,6 Routes,WariX,"Route /trade?account=",DONE,P0,"apps/web/app/(trade)/trade/page.tsx searchParams account","",-
 POS-06.25,6 Routes,WariX,"Workspace sérialisable view=trading|performance|risk|settings|help",MISSING,P1,"page.tsx ne lit que { account?: string }","Aucun paramètre view; §57/§58 non atteignables par URL",3.2
@@ -79,10 +79,10 @@ POS-41.01,41 Profil,Hub,"Profil trader",MISSING,P1,"aucune route /profil","Prén
 POS-42.01,42 Paramètres,Hub,"8 domaines de paramètres",PARTIAL,P1,"parametres/page.tsx 114 lignes, lecture seule","Sessions, Fuseau, Notifications, Confidentialité, Appareils, Accessibilité absents",3.3
 POS-43.01,43 Notifications,Notifications,"Route /notifications + centre partagé Hub/WariX",INTENTIONALLY_DEFERRED,P1,"ENG-031 LOCKED: servi par recent_activity_view; UX-HUB-010 LOCKED","CONFLICT-01: la Constitution §43 est overridée par deux décisions LOCKED",-
 POS-43.02,43 Notifications,Notifications,"Centre de notifications WariX (alertes)",DONE,P1,"NotificationCenter.tsx + app.alert_notifications + UX-TRADING-009 LOCKED","",-
-POS-44.01,44 Support,Support,"Recherche + Help Center",UI_ONLY,P1,"HelpCenterClient.tsx recherche côté client","Aucune persistance d'articles",3.1
-POS-44.02,44 Support,Support,"Tickets",MISSING,P0,"aucune table dans schema.ts (42 tables)","UX-010 LOCKED 'Support et contestation intégrés au produit'",3.1
+POS-44.01,44 Support,Support,"Recherche + Help Center",PARTIAL,P1,"apps/web/lib/help-articles.ts partagé par /aide et la recherche Support authentifiée","Aucune table help_articles, aucun versionnage (HELP_ARTICLE_DATABASE = deferred)",3.6
+POS-44.02,44 Support,Support,"Tickets",DONE,P0,"app.support_tickets + app.ticket_messages (append-only par trigger); RLS propriétaire; file Control /control/support","",-
 POS-44.03,44 Support,Support,"Incidents visibles trader",MISSING,P1,"app.operations_incidents existe mais Control seulement","",3.4
-POS-44.04,44 Support,Disputes,"Contestations",MISSING,P0,"aucune table; UX-010 LOCKED","Le trader ne peut pas contester un breach",3.1
+POS-44.04,44 Support,Disputes,"Contestations",DONE,P0,"app.contestations; preuves liées par identifiants; /support/contestations/**; file Control /control/contestations","",-
 POS-45.01,45 WariX,WariX,"Architecture 4 rails + dock",DONE,P0,"WorkstationShell.tsx; DrawingToolRail; ExecutionPanel; ChartBottomBar","",-
 POS-46.01,46 WariX,WariX,"Global Rail",DONE,P1,"workstation/ global rail + icônes","",-
 POS-47.01,47 WariX,WariX,"Drawing Rail",DONE,P1,"DrawingToolRail.tsx + chart-tool-catalog.tsx","",-
@@ -116,7 +116,7 @@ POS-74.01,74 Control,Control,"Architecture WARIBA Control",DONE,P0,"19 routes (c
 POS-75.01,75 Control,Control,"File Pass Review",MISSING,P1,"aucune page control/pass-review","",3.3
 POS-76.01,76 Control,Control,"File KYC",MISSING,P0,"aucune page control/kyc","",3.5
 POS-77.01,77 Control,Control,"File Payout",DONE,P0,"control/payouts + control/payouts/[payoutId] + actions.ts","",-
-POS-78.01,78 Control,Control,"Breach / Dispute Control",PARTIAL,P0,"control/integrity/[accountId] montre les preuves","Aucune file de contestation",3.1
+POS-78.01,78 Control,Control,"Breach / Dispute Control",DONE,P0,"control/contestations/[publicId] : règle, seuil, valeur observée, policy, transition, ordre, fills, correlation ID","",-
 POS-79.01,79 Backend,Backend,"Modèle d'agrégats backend",DONE,P0,"packages/database 42 tables; agrégats par compte","",-
 POS-80.01,80 Permissions,Risk,"Permissions de trading",DONE,P0,"evaluateAccountRisk + assertEvaluationAccountTransition + lockAccount","",-
 POS-81.01,81 State machine,Lifecycle,"Machine d'états compte",DONE,P0,"state-machines.ts EVALUATION_ACCOUNT_TRANSITIONS","",-

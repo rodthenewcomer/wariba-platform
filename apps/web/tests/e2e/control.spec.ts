@@ -288,6 +288,13 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     await expect(nav.getByRole('link', { name: 'Audit' })).toHaveCount(0);
     await expect(nav.getByRole('link', { name: 'Treasury' })).toHaveCount(0);
     await expect(nav.getByRole('link', { name: 'Team Access' })).toHaveCount(0);
+
+    // Phase 3.2 — support holds `support.read` and `dispute.read`, so both new
+    // areas are advertised. Reading a contestation is first-line work;
+    // deciding one is not, and that split is enforced at the actions rather
+    // than by hiding the queue.
+    await expect(nav.getByRole('link', { name: 'Support' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Contestations' })).toBeVisible();
   });
 
   test('the audit trail is read-only — no mutating control is offered @control', async ({
@@ -1198,6 +1205,12 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
       '/control/trading',
       '/control/integrity',
       '/control/payouts',
+      // Phase 3.2 — the two areas Support + Contestations added. Listed here
+      // for the same reason the rest are: the property this test asserts is
+      // about the whole navigation, and an area missing from the list is an
+      // area the property silently stops covering.
+      '/control/support',
+      '/control/contestations',
       '/control/market-operations',
       '/control/incidents',
       '/control/treasury',

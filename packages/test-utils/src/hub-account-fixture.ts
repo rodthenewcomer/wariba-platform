@@ -123,6 +123,23 @@ export async function attachFixtureAccountToUser(
 }
 
 export async function deleteFixtureAccount(db: Db, fixture: E2eFixtureAccount): Promise<void> {
+  /*
+   * Phase 3.2 rows first.
+   *
+   * A support ticket references the user and, when the request is about an
+   * account, that account. Both foreign keys are NO ACTION, so a ticket left
+   * behind fails the account delete rather than being swept with it — the same
+   * reasoning the position/pending-order sweep below already follows.
+   * `app.ticket_messages` is deliberately not named: deleting the ticket
+   * cascades to it, which is the one delete its append-only trigger permits.
+   */
+  await db.deleteFrom('app.contestations').where('user_id', '=', fixture.userId).execute();
+  await db.deleteFrom('app.support_tickets').where('user_id', '=', fixture.userId).execute();
+  await db
+    .deleteFrom('app.staff_action_rate_limits')
+    .where('actor_id', '=', fixture.userId)
+    .execute();
+
   const positions = await db
     .selectFrom('app.positions')
     .select('id')

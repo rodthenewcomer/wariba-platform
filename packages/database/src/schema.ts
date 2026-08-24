@@ -757,6 +757,103 @@ export interface TreasuryReserveEntriesTable {
   created_at: GeneratedTimestamp;
 }
 
+// Phase 3.2 — UX-010. See supabase/migrations/20260823120000_support_and_disputes.sql
+// for why a contestation is a separate entity rather than a ticket category.
+export type SupportTicketCategory =
+  | 'general'
+  | 'account'
+  | 'trading'
+  | 'risk'
+  | 'breach'
+  | 'performance'
+  | 'payout'
+  | 'billing'
+  | 'identity'
+  | 'technical';
+
+export type SupportTicketStatus =
+  'open' | 'waiting_for_user' | 'under_review' | 'resolved' | 'closed';
+
+export type SupportTicketPriority = 'low' | 'normal' | 'high' | 'urgent';
+
+export interface SupportTicketsTable {
+  id: Generated<string>;
+  public_id: Generated<string>;
+  user_id: string;
+  account_id: string | null;
+  category: SupportTicketCategory;
+  subject: string;
+  status: Generated<SupportTicketStatus>;
+  /** Operator-set only — no trader surface and no grant can reach it. */
+  priority: Generated<SupportTicketPriority>;
+  assigned_staff_id: string | null;
+  correlation_id: string;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+  resolved_at: Timestamp | null;
+  closed_at: Timestamp | null;
+}
+
+export type TicketMessageActorType = 'trader' | 'staff' | 'system';
+
+/**
+ * Append-only at the database, not by convention — a trigger refuses every
+ * UPDATE and refuses a DELETE while the parent ticket still exists. There is
+ * deliberately no update helper anywhere in this package.
+ */
+export interface TicketMessagesTable {
+  id: Generated<string>;
+  ticket_id: string;
+  actor_type: TicketMessageActorType;
+  actor_user_id: string | null;
+  actor_staff_id: string | null;
+  body: string;
+  created_at: GeneratedTimestamp;
+  correlation_id: string;
+}
+
+export type ContestationTargetType = 'account_breach' | 'risk_decision' | 'payout_decision';
+
+export type ContestationStatus =
+  'open' | 'under_review' | 'needs_information' | 'upheld' | 'overturned' | 'closed';
+
+export type ContestationReasonCategory =
+  'rule_misapplied' | 'market_data_disputed' | 'execution_error' | 'evidence_incomplete' | 'other';
+
+/**
+ * `overturned` is present because the column's check constraint carries it for
+ * a future corrective transition. It is unreachable in this build: the
+ * evaluation-account state machine gives `breached` no outbound transition, so
+ * no authorized corrective command exists and `recordContestationDecision`
+ * refuses it. See DEC-3.2-02 in the Phase 3.2 implementation note.
+ */
+export type ContestationDecision = 'upheld' | 'overturned' | 'requires_escalation';
+
+export interface ContestationsTable {
+  id: Generated<string>;
+  public_id: Generated<string>;
+  user_id: string;
+  ticket_id: string;
+  account_id: string | null;
+  target_type: ContestationTargetType;
+  target_id: string;
+  status: Generated<ContestationStatus>;
+  reason_category: ContestationReasonCategory;
+  /** The trader's account of events. Never evidence — labelled as a statement everywhere it renders. */
+  trader_statement: string;
+  decision: ContestationDecision | null;
+  decision_reason: string | null;
+  /** Identifiers only. Every figure is read live from the authoritative row. */
+  evidence_ref: Generated<unknown>;
+  opened_at: GeneratedTimestamp;
+  reviewed_at: Timestamp | null;
+  resolved_at: Timestamp | null;
+  reviewed_by: string | null;
+  correlation_id: string;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
 export interface Database {
   'app.user_profiles': UserProfilesTable;
   'app.user_consents': UserConsentsTable;
@@ -798,6 +895,9 @@ export interface Database {
   'app.market_data_sources': MarketDataSourcesTable;
   'app.market_bars': MarketBarsTable;
   'app.market_bar_coverage': MarketBarCoverageTable;
+  'app.support_tickets': SupportTicketsTable;
+  'app.ticket_messages': TicketMessagesTable;
+  'app.contestations': ContestationsTable;
   'audit.audit_events': AuditEventsTable;
   'auth.users': AuthUsersTable;
 }

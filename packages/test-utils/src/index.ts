@@ -56,6 +56,12 @@ export {
 } from '@wariba/database';
 
 export {
+  seedBreachEvidence,
+  deleteSupportFixture,
+  type SeededBreachEvidence,
+} from './support-fixture';
+
+export {
   seedTradingRecord,
   deleteTradingRecord,
   type TradingRecordFixture,

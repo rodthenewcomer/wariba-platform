@@ -26,6 +26,8 @@ export type ControlAreaId =
   | 'trading'
   | 'risk'
   | 'payouts'
+  | 'support'
+  | 'contestations'
   | 'market-operations'
   | 'incidents'
   | 'treasury'
@@ -55,6 +57,17 @@ export const CONTROL_AREAS: readonly ControlArea[] = [
   { id: 'trading', href: '/control/trading', label: 'Trading', read: 'account.view' },
   { id: 'risk', href: '/control/integrity', label: 'Risk & Integrity', read: 'risk.view' },
   { id: 'payouts', href: '/control/payouts', label: 'Payouts', read: 'payout.view' },
+  // Phase 3.2. Two areas rather than one: answering a question and deciding a
+  // dispute over a recorded breach are different jobs with different
+  // authorities, and a single "Support" menu entry would have put a risk
+  // reviewer's queue behind a support operator's permission.
+  { id: 'support', href: '/control/support', label: 'Support', read: 'support.read' },
+  {
+    id: 'contestations',
+    href: '/control/contestations',
+    label: 'Contestations',
+    read: 'dispute.read',
+  },
   {
     id: 'market-operations',
     href: '/control/market-operations',

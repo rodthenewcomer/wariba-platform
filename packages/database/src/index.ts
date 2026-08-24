@@ -45,6 +45,15 @@ export type {
   MarketBarVolumeSemantics,
   MarketBarSessionState,
   MarketBarHistoryProvenance,
+  RiskViolationRuleCode,
+  SupportTicketCategory,
+  SupportTicketStatus,
+  SupportTicketPriority,
+  TicketMessageActorType,
+  ContestationTargetType,
+  ContestationStatus,
+  ContestationReasonCategory,
+  ContestationDecision,
 } from './schema';
 export {
   getStaffRole,
@@ -62,9 +71,71 @@ export {
 } from './owner-bootstrap';
 export {
   consumeStaffActionRateLimit,
+  consumeActorActionRateLimit,
   StaffActionRateLimitExceededError,
   type ConsumeStaffActionRateLimitParams,
 } from './staff-action-rate-limit';
+
+// Phase 3.2 — support and contestations (UX-010 LOCKED).
+export {
+  listSupportTicketsForUser,
+  loadSupportTicketForUser,
+  createSupportTicket,
+  appendTraderMessage,
+  traderCanReply,
+  SupportOwnershipError,
+  SupportTicketStateError,
+  type SupportTicketListRow,
+  type SupportTicketThread,
+  type SupportThreadMessage,
+  type CreateSupportTicketParams,
+  type CreatedSupportTicket,
+  type AppendTraderMessageParams,
+} from './support-tickets';
+export {
+  loadContestedDecisionEvidence,
+  listContestableDecisions,
+  type ContestedDecisionEvidence,
+  type ContestedOrderEvidence,
+  type ContestableDecision,
+  type ContestationEvidenceRef,
+} from './contestation-evidence';
+export {
+  openContestation,
+  listContestationsForUser,
+  loadContestationForUser,
+  LIVE_CONTESTATION_STATUSES,
+  DuplicateContestationError,
+  ContestationTargetError,
+  type OpenContestationParams,
+  type OpenedContestation,
+  type ContestationListRow,
+  type ContestationDetail,
+} from './contestations';
+export {
+  loadControlSupportQueue,
+  loadControlSupportTicket,
+  assignSupportTicketInTransaction,
+  appendStaffMessageInTransaction,
+  setSupportTicketResolutionInTransaction,
+  type ControlSupportFilters,
+  type ControlSupportQueueRow,
+  type ControlSupportQueuePage,
+  type ControlSupportTicketDetail,
+  type TicketBeforeAfter,
+} from './control-support';
+export {
+  loadControlContestationQueue,
+  loadControlContestation,
+  setContestationReviewStateInTransaction,
+  recordContestationDecisionInTransaction,
+  ContestationStateError,
+  type ControlContestationFilters,
+  type ControlContestationQueueRow,
+  type ControlContestationQueuePage,
+  type ControlContestationDetail,
+  type ContestationBeforeAfter,
+} from './control-contestations';
 export { recordStaffAuditEvent, type RecordStaffAuditEventParams } from './audit';
 export {
   searchControlOrders,

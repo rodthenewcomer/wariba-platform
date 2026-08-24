@@ -2,7 +2,15 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Badge, buttonClassNames, Text } from '@wariba/ui';
 
-export default function SupportPage() {
+/**
+ * What `/support` says to someone who is not signed in.
+ *
+ * Unchanged from the page it was extracted from, with one honest correction:
+ * it used to send a trader with an account problem to `/login` and stop there.
+ * There is now a real support system behind that door, so the copy says so —
+ * and the second card's action names it rather than describing a login.
+ */
+export function PublicSupportIntro() {
   return (
     <>
       <section className="bg-[color:var(--wariba-color-ink-950)]">
@@ -13,8 +21,9 @@ export default function SupportPage() {
               Une question claire mérite une réponse traçable.
             </h1>
             <p className="mt-6 text-[length:var(--wariba-font-size-body-lg)] text-[color:var(--wariba-color-ink-200)]">
-              Commencez par le centre d’aide. Pour un cas lié à un compte, connectez-vous afin que
-              la demande puisse être rattachée aux bonnes preuves sans exposer d’information privée.
+              Commencez par le centre d’aide. Pour un cas lié à un compte, connectez-vous : votre
+              demande est alors rattachée aux preuves du compte concerné, suivie sous une référence,
+              et vous pouvez contester une décision enregistrée sans exposer d’information privée.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link href="/aide" className={buttonClassNames({ size: 'lg' })}>
@@ -58,9 +67,9 @@ export default function SupportPage() {
                 ],
                 [
                   'Compte ou commande',
-                  'Connectez-vous pour conserver le contexte du compte, de la policy et de la commande.',
-                  '/login',
-                  'Se connecter',
+                  'Connectez-vous pour ouvrir une demande suivie, rattachée au compte, à la policy et à la commande concernés.',
+                  '/login?next=/support',
+                  'Ouvrir une demande',
                 ],
                 [
                   'Risque ou confidentialité',

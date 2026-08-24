@@ -7,7 +7,7 @@ language: "fr-FR"
 brand: "WARIBA"
 domain: "wariba.app"
 owner: "WARIBA Leadership, Product, Risk, Engineering & Operations"
-last_updated: "2026-08-22"
+last_updated: "2026-08-23"
 ---
 
 # WARIBA Decision Log v1.0
@@ -394,6 +394,9 @@ Révision:
 | UX-TRADING-007 | `LOCKED` | Toutes les mutations de trading restent server-authoritative et idempotentes, y compris la réduction de risque mise en file pendant une donnée de marché obsolète (`app.position_reduction_queue`), exécutée une seule fois sur le premier prix à jour. | Réduire l’exposition doit rester possible pendant une donnée obsolète, sans jamais exécuter contre un ancien prix ni dupliquer l’exécution. |
 | UX-TRADING-008 | `LOCKED` | L’interaction de WariX peut s’inspirer de terminaux établis, mais son langage visuel (couleurs, espacement, icônes, typographie, formes) reste original — jetons `--wariba-chart-*`/`--wariba-status-*` existants uniquement. | Positionnement de marque distinct ; aucune copie visuelle d’une autre plateforme. |
 | UX-TRADING-009 | `LOCKED` | Prompt 7 Appendice 07-D — le menu contextuel du graphique propose désormais dynamiquement les types d'ordre en attente réellement valides au prix cliqué (jamais plus de deux des quatre : Achat/Vente Limite/Stop, selon la position du prix par rapport au bid/ask courant) et « Créer une alerte ici » (toujours proposé, sans contrainte directionnelle). Les ordres en attente et les alertes actives sur le symbole affiché apparaissent comme des lignes de prix natives avec une poignée glissable interactive (même mécanisme que les lignes SL/TP de 07-C — `series.createPriceLine` pour le trait, overlay HTML pour l'interactivité), chacune avec sa propre alternative non-glissée (flèches clavier, bouton « Gérer »). Un centre de notifications accessible depuis l'en-tête liste l'historique des alertes déclenchées (marquage lu) et gère les alertes existantes (activer/désactiver/supprimer/créer). | Remplace UX-TRADING-003, dont la justification (« aucun ordre en attente ni alerte n'existe ») n'est plus vraie après cet appendice. |
+| UX-SUPPORT-001 | `LOCKED` | Phase 3.2 — `/support` est **une seule route canonique** servant deux publics : la Constitution la liste à la fois dans les routes publiques et dans celles du Trader Hub (§6), et Next.js ne résout qu'une page par chemin. La route vit hors des groupes `(public)` et `(platform)` ; son layout choisit la coque selon la session (`PublicChrome` pour un visiteur, `HubShell` pour un trader connecté). Le sous-arbre `/support/` est protégé par le middleware ; `/support` lui-même reste public. | Résout la contradiction sans dupliquer le système de tickets et supprime le seul `PLACEBO_STATUS_UI` de l'audit : l'entrée Support du Hub ne pointe plus vers une page marketing. |
+| UX-SUPPORT-002 | `LOCKED` | Phase 3.2 — **aucune réversion de breach n'est offerte**. `evaluation_account` ne prévoit aucune transition sortante depuis `breached` (`@wariba/domain/state-machines.ts`), donc aucune commande corrective autorisée n'existe. Les issues qu'un opérateur peut enregistrer sont `upheld` et `requires_escalation` ; `overturned` figure dans la contrainte de colonne pour une future transition corrective et est **refusée** par la couche commande. Une contestation n'écrit jamais dans `app.trading_accounts`, `app.risk_violations`, `app.account_daily_snapshots`, `app.account_state_transitions` ni `app.trading_ledger_entries`. | Fail closed. Enregistrer une issue que la plateforme ne peut pas exécuter dirait à un trader que son compte a été rétabli alors qu'il ne l'est pas. Toute correction administrative future devra arriver comme une transition explicite et auditée, jamais comme un UPDATE sur la preuve d'origine. |
+| UX-SUPPORT-003 | `LOCKED` | Phase 3.2 — `app.ticket_messages` est **append-only en base**, pas par convention : un trigger refuse tout `UPDATE`, et refuse un `DELETE` tant que la demande parente existe (une suppression en cascade depuis la demande reste permise). | Trader et opérateur atteignent la table par la même connexion de service ; une vérification en code applicatif ne protège rien qu'un bug applicatif ne puisse défaire. « Le staff ne peut pas réécrire silencieusement un message trader » devient une garantie de base de données. |
 
 ---
 
@@ -728,6 +731,20 @@ trading manuel ni à la règle d'éligibilité de profit à 60 secondes (TRD-033
 ---
 
 # 26. Historique des versions
+
+## v1.27 — 2026-08-23
+
+Phase 3.2 — Support + Contestations, satisfaisant `UX-010` `LOCKED`
+(« Support et contestation intégrés au produit »), le domaine le plus faible de
+l'audit Product OS Master (Support 6 %, Disputes 0 %). Trois tables
+(`app.support_tickets`, `app.ticket_messages`, `app.contestations`), RLS
+propriétaire, sept permissions granulaires (`support.*`, `dispute.*`), deux
+files opérateur dans WARIBA Control. Trois décisions nouvelles :
+`UX-SUPPORT-001` (une route `/support`, deux publics), `UX-SUPPORT-002` (aucune
+réversion de breach — fail closed) et `UX-SUPPORT-003` (conversation
+append-only garantie par trigger). Restent déférés et non comptés comme faits :
+pièces jointes (`SEC-008`), persistance des articles d'aide, centre de
+notifications (`ENG-031` + `UX-HUB-010`).
 
 ## v1.26 — 2026-08-22
 

@@ -23,6 +23,11 @@ const AREA_ICON: Record<string, ReactNode> = {
   '/control/trading': <OverviewIcon size="sm" />,
   '/control/integrity': <ShieldIcon size="sm" />,
   '/control/payouts': <PayoutsIcon size="sm" />,
+  // Phase 3.2. Support wears the people glyph (a queue of requests from
+  // traders); contestations wear the shield, the same mark Risk & Integrity
+  // and Audit use — a contestation is an evidence surface, not an inbox.
+  '/control/support': <UsersIcon size="sm" />,
+  '/control/contestations': <ShieldIcon size="sm" />,
   '/control/market-operations': <OverviewIcon size="sm" />,
   '/control/incidents': <ShieldIcon size="sm" />,
   '/control/treasury': <OverviewIcon size="sm" />,

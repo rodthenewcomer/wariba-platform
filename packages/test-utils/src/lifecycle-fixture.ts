@@ -259,6 +259,23 @@ export async function deleteLifecycleFixture(
 ): Promise<void> {
   const db = createDbClient(env.databaseUrl);
   try {
+    /*
+     * Phase 3.2 rows first, and before the account.
+     *
+     * A support ticket references both the user and (optionally) the account,
+     * so leaving one behind turns teardown into a foreign-key error and leaves
+     * a synthetic user in the database. Contestations go before tickets
+     * (they reference one); `app.ticket_messages` is not named at all —
+     * deleting the ticket cascades to it, which is exactly the case its
+     * append-only trigger permits.
+     */
+    await db.deleteFrom('app.contestations').where('user_id', '=', fixture.userId).execute();
+    await db.deleteFrom('app.support_tickets').where('user_id', '=', fixture.userId).execute();
+    await db
+      .deleteFrom('app.staff_action_rate_limits')
+      .where('actor_id', '=', fixture.userId)
+      .execute();
+
     if (fixture.accountId) {
       // Children first: nothing here relies on cascade behaviour that a
       // migration could later change.
