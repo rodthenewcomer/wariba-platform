@@ -1,0 +1,12 @@
+{
+  "euroLaunch": 915408000,
+  "snapshot": {
+    "timeframe": "1M",
+    "candles": 273,
+    "sourceEpoch": "twelve-data:production:history-v1-map-e6d7f50d",
+    "oldestBar": "1070236800",
+    "newestBar": "1785542400",
+    "realtimeContinuation": "refused_price_divergence",
+    "gaps": "0"
+  }
+}

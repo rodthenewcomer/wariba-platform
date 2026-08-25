@@ -16,6 +16,10 @@ import {
   type StaffFixtureUser,
 } from '@wariba/test-utils';
 import { assertAccessible } from './accessibility';
+import {
+  waitForAccountsRelationshipReady,
+  waitForPerformanceDashboardReady,
+} from './evidence-ready';
 import { lifecycleEnv } from './fixtures';
 
 const OUT = '../../docs/04-ux/evidence/wariba-phase-3-3-1-evaluation-performance-handoff';
@@ -267,6 +271,10 @@ test.describe('@critical @handoff @phase-3-3-1 Evaluation to Performance handoff
       await expect(
         performance.getByText(`Compte créé : ${emptyPerformance.publicId}`),
       ).toBeVisible();
+      await waitForAccountsRelationshipReady(performance, {
+        performancePublicId: emptyPerformance.publicId,
+        evaluationPublicId: emptyPerformanceOwner.accountPublicId as string,
+      });
       await screenshot(performance, '11-accounts-parent-child-1440');
 
       await performance.goto(`/hub?account=${emptyPerformanceOwner.accountId}`);
@@ -328,8 +336,13 @@ test.describe('@critical @handoff @phase-3-3-1 Evaluation to Performance handoff
       await performance.goto(`/comptes/${emptyPerformance.publicId}/bienvenue-performance`);
       await screenshot(performance, '22-performance-ready-390');
       await performance.goto(`/hub?account=${emptyPerformance.id}`);
+      await waitForPerformanceDashboardReady(performance, emptyPerformance.publicId);
       await screenshot(performance, '23-performance-dashboard-390');
       await performance.goto('/comptes');
+      await waitForAccountsRelationshipReady(performance, {
+        performancePublicId: emptyPerformance.publicId,
+        evaluationPublicId: emptyPerformanceOwner.accountPublicId as string,
+      });
       await screenshot(performance, '24-accounts-parent-child-390');
 
       await performance.setViewportSize(MOBILE_MIN);
@@ -337,12 +350,16 @@ test.describe('@critical @handoff @phase-3-3-1 Evaluation to Performance handoff
       await assertNoOverflow(performance);
       await screenshot(performance, '25-performance-ready-320');
       await performance.goto(`/hub?account=${emptyPerformance.id}`);
+      // `assertNoOverflow` measures the document's width; it says nothing about
+      // whether the content arrived. Both matter for this capture.
+      await waitForPerformanceDashboardReady(performance, emptyPerformance.publicId);
       await assertNoOverflow(performance);
       await screenshot(performance, '27-performance-dashboard-320');
       await performance.goto(`/comptes/${emptyPerformance.publicId}/bienvenue-performance`);
       await performance.getByTestId('performance-ready-actions').scrollIntoViewIfNeeded();
       await screenshot(performance, '28-cta-not-overlapped-320', false);
       await performance.goto(`/hub?account=${emptyPerformanceOwner.accountId}`);
+      await expect(performance.getByTestId('evaluation-archive')).toBeVisible({ timeout: 30_000 });
       await assertNoOverflow(performance);
       await screenshot(performance, '29-evaluation-archived-320');
     } finally {

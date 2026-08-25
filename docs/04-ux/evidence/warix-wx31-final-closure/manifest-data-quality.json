@@ -1,0 +1,23 @@
+{
+  "viewport": "1440x900",
+  "snapshots": [
+    {
+      "timeframe": "1m",
+      "candles": 800,
+      "sourceEpoch": "twelve-data:production:history-v1-map-e6d7f50d",
+      "oldestBar": "1787639100",
+      "newestBar": "1787687040",
+      "realtimeContinuation": "refused_price_divergence",
+      "gaps": "0"
+    },
+    {
+      "timeframe": "5m",
+      "candles": 400,
+      "sourceEpoch": "twelve-data:production:history-v1-map-e6d7f50d",
+      "oldestBar": "1787567100",
+      "newestBar": "1787686800",
+      "realtimeContinuation": "refused_price_divergence",
+      "gaps": "0"
+    }
+  ]
+}
