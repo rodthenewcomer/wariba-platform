@@ -112,15 +112,31 @@ export const ChartBottomBar = memo(function ChartBottomBar({
             </button>
           );
         })}
-        <span
+        {/*
+         * A disabled control, not a labelled <span>.
+         *
+         * This is the date-picker affordance, and it is permanently
+         * unavailable — there is no date selection to offer yet. It was a
+         * `<span aria-label="…">`, which is the one thing ARIA forbids: a span
+         * with no role is `generic`, and `aria-label` on a generic element is
+         * dropped, so the name never reached anyone. A sighted trader saw a
+         * greyed glyph with a tooltip; a screen-reader user met an empty box.
+         *
+         * A disabled button says exactly what is true and is what every
+         * horizon beside it already becomes when its range is unavailable:
+         * named, announced, and not operable.
+         */}
+        <button
+          type="button"
+          disabled
           aria-label="Sélection de date indisponible"
           title="Sélection de date indisponible"
-          className="ml-1 flex h-7 w-7 items-center justify-center border-l border-[color:var(--wariba-component-workstation-border-hairline)] pl-1 text-[color:var(--wariba-component-workstation-text-tertiary)]"
+          className="ml-1 flex h-7 w-7 cursor-not-allowed items-center justify-center border-l border-[color:var(--wariba-component-workstation-border-hairline)] pl-1 text-[color:var(--wariba-component-workstation-text-tertiary)] opacity-45"
         >
           <span aria-hidden="true" className="text-base leading-none">
             ▣
           </span>
-        </span>
+        </button>
       </div>
 
       <div className="flex items-center gap-0.5" aria-label="Échelle et session du graphique">

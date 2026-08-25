@@ -106,6 +106,7 @@
   --wariba-color-emerald-500: #258A61;
   --wariba-color-emerald-900: #12382B;
   --wariba-color-coral-100: #FCE5E5;
+  --wariba-color-coral-300: #F46E6E;
   --wariba-color-coral-400: #E05A5A;
   --wariba-color-coral-500: #C94D4D;
   --wariba-color-coral-900: #462020;
@@ -543,7 +544,7 @@
   --wariba-component-workstation-text-tertiary: #9AA3B1;
   --wariba-component-workstation-text-inverse: #0B0D12;
   --wariba-component-workstation-text-financial-positive: #36B37E;
-  --wariba-component-workstation-text-financial-negative: #E05A5A;
+  --wariba-component-workstation-text-financial-negative: #F46E6E;
   --wariba-component-workstation-interaction-action: #6684FF;
   --wariba-component-workstation-interaction-focus: #6684FF;
   --wariba-component-workstation-interaction-selected: #6684FF;
@@ -620,8 +621,8 @@
   --wariba-component-workstation-glow-take-profit: 0 0 0 1px rgba(54, 179, 126, 0.35), 0 6px 18px -10px rgba(54, 179, 126, 0.55);
   --wariba-component-workstation-glow-stop-loss: 0 0 0 1px rgba(224, 90, 90, 0.35), 0 6px 18px -10px rgba(224, 90, 90, 0.55);
   --wariba-component-workstation-elevation-chip: 0 8px 20px -12px rgba(0, 0, 0, 0.85), inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
-  --wariba-component-workstation-flash-positive: rgba(54, 179, 126, 0.28);
-  --wariba-component-workstation-flash-negative: rgba(224, 90, 90, 0.28);
+  --wariba-component-workstation-flash-positive: rgba(54, 179, 126, 0.18);
+  --wariba-component-workstation-flash-negative: rgba(224, 90, 90, 0.18);
   --wariba-component-workstation-motion-micro: 100ms;
   --wariba-component-workstation-motion-quick: 140ms;
   --wariba-component-workstation-motion-standard: 180ms;
@@ -743,6 +744,7 @@
   --color-emerald-500: var(--wariba-color-emerald-500);
   --color-emerald-900: var(--wariba-color-emerald-900);
   --color-coral-100: var(--wariba-color-coral-100);
+  --color-coral-300: var(--wariba-color-coral-300);
   --color-coral-400: var(--wariba-color-coral-400);
   --color-coral-500: var(--wariba-color-coral-500);
   --color-coral-900: var(--wariba-color-coral-900);

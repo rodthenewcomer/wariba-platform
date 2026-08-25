@@ -62,6 +62,7 @@ export const color = {
   "emerald.500": "#258A61",
   "emerald.900": "#12382B",
   "coral.100": "#FCE5E5",
+  "coral.300": "#F46E6E",
   "coral.400": "#E05A5A",
   "coral.500": "#C94D4D",
   "coral.900": "#462020",

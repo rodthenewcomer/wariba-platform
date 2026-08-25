@@ -305,7 +305,12 @@ test.describe('WariX workstation shell', { tag: ['@trade'] }, () => {
     for (const label of ['WariX', 'Hub', 'Comptes', 'Retraits', 'Plus']) {
       await expect(rail.getByRole('link', { name: label })).toBeVisible();
     }
-    await expect(rail.getByRole('link', { name: 'Trade' })).toHaveAttribute('aria-current', 'page');
+    /*
+     * The /trade destination is named "WariX" in the rail, not "Trade" — the
+     * list asserted just above already says so. This line kept the pre-rename
+     * name, so it was asserting `aria-current` on a link that does not exist.
+     */
+    await expect(rail.getByRole('link', { name: 'WariX' })).toHaveAttribute('aria-current', 'page');
 
     // The 214px header stack the W0 audit measured is gone.
     const statusHeight = await page
@@ -421,7 +426,9 @@ test.describe('WariX mobile shell', { tag: ['@trade', '@mobile'] }, () => {
     // Compact account context, the chart, and an execution entry action —
     // all reachable without scrolling past a market list.
     await expect(page.getByTestId('workstation-status-bar')).toBeInViewport();
-    await expect(page.getByTestId('mobile-market-trigger')).toBeInViewport();
+    // The symbol control is the chart toolbar's since the VX1 pass;
+    // `mobile-market-trigger` no longer exists.
+    await expect(page.getByTestId('chart-symbol-search-trigger')).toBeInViewport();
     await expect(page.getByRole('button', { name: /^Trader / })).toBeInViewport();
   });
 
@@ -433,7 +440,7 @@ test.describe('WariX mobile shell', { tag: ['@trade', '@mobile'] }, () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await openWorkstation(page);
 
-    await page.getByTestId('mobile-market-trigger').click();
+    await page.getByTestId('chart-symbol-search-trigger').click();
     const sheet = page.getByRole('dialog');
     // W2 §26 replaced the legacy watchlist with the Market Navigator — same
     // sheet, same trigger, richer content.
@@ -441,7 +448,7 @@ test.describe('WariX mobile shell', { tag: ['@trade', '@mobile'] }, () => {
     await sheet.getByRole('button', { name: /^GBPUSD/ }).click();
 
     // Selecting from the sheet changes the workspace and closes the sheet.
-    await expect(page.getByTestId('mobile-market-trigger')).toContainText('GBPUSD');
+    await expect(page.getByTestId('chart-symbol-search-trigger')).toHaveAccessibleName(/GBPUSD/);
     await expect(page.getByRole('group', { name: /Graphique GBPUSD/ })).toBeVisible();
   });
 });

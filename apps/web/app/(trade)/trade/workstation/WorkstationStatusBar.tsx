@@ -58,7 +58,16 @@ type MetricTone = 'neutral' | 'attention' | 'critical' | 'positive' | 'negative'
 const METRIC_TONE_CLASS: Record<MetricTone, string> = {
   neutral: 'text-[color:var(--wariba-component-workstation-text-primary)]',
   attention: 'text-[color:var(--wariba-component-workstation-trading-warning)]',
-  critical: 'text-[color:var(--wariba-component-workstation-trading-sell)]',
+  /*
+   * The text token, not the sell identity token.
+   *
+   * `trading-sell` fills buy/sell controls and chart marks, where it is not
+   * text and its contrast is judged against white on top of it. Used as a
+   * *foreground* on the critical tile's own sell wash it measured 4.00:1.
+   * A metric reporting a breached budget is a number, so it takes the token
+   * the other numbers take.
+   */
+  critical: 'text-[color:var(--wariba-component-workstation-text-financial-negative)]',
   positive: 'text-[color:var(--wariba-component-workstation-text-financial-positive)]',
   negative: 'text-[color:var(--wariba-component-workstation-text-financial-negative)]',
 };
