@@ -342,10 +342,22 @@ test.describe('@critical @operator-closure Phase 3.3 evidence', () => {
       await assertNoCriticalOrSeriousA11y(payoutPage);
       await shoot(payoutPage, '13-trader-pass-review-1440');
       await payoutPage.goto('/verification-identite');
-      await expect(payoutPage.getByTestId('kyc-state')).toContainText('Vérification requise');
+      /*
+       * Phase 3.3.2 B1 — the card and the case must agree.
+       *
+       * This used to assert "Vérification requise" beside a file already "En
+       * cours d'examen", which is the contradiction the trader was reading:
+       * the header said start it, the case said it had started, and the steps
+       * below told them to contact support to trigger what support had already
+       * triggered. The state reads the open case now.
+       */
+      await expect(payoutPage.getByTestId('kyc-state')).toContainText('Vérification en cours');
+      await expect(payoutPage.getByTestId('kyc-state')).not.toContainText('Vérification requise');
       await expect(payoutPage.getByTestId('identity-review-state')).toContainText(
         'En cours d’examen',
       );
+      // And no instruction to start something that is already running.
+      await expect(payoutPage.getByText(/Contactez le support pour la déclencher/)).toHaveCount(0);
       await assertNoCriticalOrSeriousA11y(payoutPage);
       await shoot(payoutPage, '14-trader-identity-1440');
 

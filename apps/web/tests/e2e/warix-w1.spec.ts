@@ -1,7 +1,9 @@
+import { randomUUID } from 'node:crypto';
 import { AxeBuilder } from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import {
   deletePayoutAccount,
+  acknowledgePerformanceRules,
   seedPayoutAccount,
   type PayoutAccountFixture,
   type PayoutFixtureEnvironment,
@@ -57,9 +59,20 @@ async function openAccountSwitcher(page: Page) {
  * The **active** account, i.e. the switcher's summary. The menu below it
  * lists every account the trader owns, so asserting on the whole switcher
  * would confuse "this account is loaded" with "this account is offered".
+ *
+ * Asserted through the accessible name, not the visible text. The pill reads
+ * `ONE · 10K` since the VX1 header pass — the programme, the nominal and the
+ * canonical public id moved into the accessible name, which is where a screen
+ * reader gets them and where they are stable. Matching the compact display
+ * string instead made a copy improvement look like a stale-account bug.
  */
 function activeAccountLabel(page: Page) {
   return page.getByTestId('workstation-account-switcher').locator('summary');
+}
+
+/** The identity the switcher announces, as a string a test can match on. */
+async function activeAccountName(page: Page): Promise<string> {
+  return (await activeAccountLabel(page).getAttribute('aria-label')) ?? '';
 }
 
 async function publicIdOf(accountId: string): Promise<string> {
@@ -113,14 +126,16 @@ test.describe('WariX account selection', { tag: ['@trade'] }, () => {
       await login(page, tradeAccount.email, tradeAccount.password);
       await openWorkstation(page, `/trade?account=${tradeAccount.accountId}`);
       await expect(page).toHaveURL(new RegExp(`account=${tradeAccount.accountId}`));
-      await expect(activeAccountLabel(page)).toContainText(tradeAccount.accountPublicId);
+      expect(await activeAccountName(page)).toContain(tradeAccount.accountPublicId);
 
       // A1 is the 10K fixture; A2 is a 5K account. Equity comes from the
       // websocket snapshot, not from the server-rendered switcher list, so
       // asserting it is how this test proves the *realtime session* follows
       // the account (W1 §27) rather than just the label changing.
       const equity = page.getByTestId('workstation-metrics');
-      await expect(equity).toContainText('10000.00 USD');
+      // The metric rows stopped repeating the currency on every line in the
+      // WariX copy pass; the figure is the fact this test is about.
+      await expect(equity).toContainText('10000.00');
 
       // Switching is an ordinary anchor (UX-NAV-001) — assert the element
       // itself, then that following it really replaced the document.
@@ -136,12 +151,12 @@ test.describe('WariX account selection', { tag: ['@trade'] }, () => {
       );
 
       // The loaded account is A2 — A1 is only offered, never active.
-      await expect(activeAccountLabel(page)).toContainText(await publicIdOf(second.accountId));
-      await expect(activeAccountLabel(page)).not.toContainText(tradeAccount.accountPublicId);
+      expect(await activeAccountName(page)).toContain(await publicIdOf(second.accountId));
+      expect(await activeAccountName(page)).not.toContain(tradeAccount.accountPublicId);
       // The new websocket session is subscribed to A2: A2's own equity, and
       // no trace of A1's, is what the status bar reports.
-      await expect(equity).toContainText('5000.00 USD');
-      await expect(equity).not.toContainText('10000.00 USD');
+      await expect(equity).toContainText('5000.00');
+      await expect(equity).not.toContainText('10000.00');
 
       // …and back again.
       const backMenu = await openAccountSwitcher(page);
@@ -155,8 +170,10 @@ test.describe('WariX account selection', { tag: ['@trade'] }, () => {
         'open',
         { timeout: 30_000 },
       );
-      await expect(activeAccountLabel(page)).toContainText(tradeAccount.accountPublicId);
-      await expect(equity).toContainText('10000.00 USD');
+      expect(await activeAccountName(page)).toContain(tradeAccount.accountPublicId);
+      // The metric rows stopped repeating the currency on every line in the
+      // WariX copy pass; the figure is the fact this test is about.
+      await expect(equity).toContainText('10000.00');
     },
   );
 
@@ -171,12 +188,12 @@ test.describe('WariX account selection', { tag: ['@trade'] }, () => {
       // Safe fallback to one of the trader's OWN accounts. The requested id
       // is still echoed in the URL — the trader typed it — but nothing about
       // trader B's account is loaded, named or disclosed.
-      await expect(activeAccountLabel(page)).not.toContainText(foreignPublicId);
+      expect(await activeAccountName(page)).not.toContain(foreignPublicId);
       const ownPublicIds = await Promise.all([
         publicIdOf(tradeAccount.accountId),
         publicIdOf(second.accountId),
       ]);
-      const activeLabel = (await activeAccountLabel(page).innerText()).trim();
+      const activeLabel = (await activeAccountName(page)).trim();
       expect(ownPublicIds.some((id) => activeLabel.includes(id))).toBe(true);
 
       // Trader B's public identity, status, balance and risk appear nowhere.
@@ -205,6 +222,26 @@ test.describe('WariX program identity', { tag: ['@trade'] }, () => {
     // Seeds a WARIBA_PERFORMANCE account plus the WARIBA_ONE evaluation
     // account it graduated from — one trader, both programs.
     performance = await seedPayoutAccount(environment);
+
+    /*
+     * PERF-036 gates the first Performance trade behind an immutable read of
+     * the account's own rules, so `/trade` on a freshly provisioned account
+     * renders the gate rather than the workstation. This test is about which
+     * programme the workstation names, not about the gate — so it satisfies
+     * the gate the way a trader does, through the recorded acknowledgement,
+     * rather than asserting against a screen it did not mean to open.
+     */
+    const db = createFixtureDb();
+    try {
+      await acknowledgePerformanceRules(db, {
+        userId: performance.userId,
+        accountId: performance.accountId,
+        correlationId: randomUUID(),
+        now: new Date(),
+      });
+    } finally {
+      await db.destroy();
+    }
   });
 
   test.afterAll(async () => {
@@ -219,7 +256,7 @@ test.describe('WariX program identity', { tag: ['@trade'] }, () => {
 
       await openWorkstation(page, `/trade?account=${performance.accountId}`);
       // W0 §3A.4: this said "WARIBA ONE" for every account before W1.
-      await expect(activeAccountLabel(page)).toContainText('WARIBA Performance');
+      expect(await activeAccountName(page)).toContain('WARIBA Performance');
       // W2 §15/§16 moved Payout out of the execution dock; the Account tab now
       // links to its canonical route for a Performance account.
       await page.getByRole('tab', { name: /^Compte/ }).click();
@@ -227,11 +264,27 @@ test.describe('WariX program identity', { tag: ['@trade'] }, () => {
         page.getByTestId('workstation-dock').getByRole('link', { name: 'Retraits' }),
       ).toBeVisible();
 
-      await openWorkstation(page, `/trade?account=${performance.evaluationAccountId}`);
-      await expect(activeAccountLabel(page)).toContainText('WARIBA ONE');
-      await expect(activeAccountLabel(page)).not.toContainText('WARIBA Performance');
+      /*
+       * The evaluation half moved from the workstation to the gate.
+       *
+       * A successful evaluation is not tradable — the handoff gives its
+       * successor the trading, and `/trade` on the parent now explains that
+       * instead of opening a workstation on a finished account. So the
+       * programme-naming contract is asserted where a trader actually meets it,
+       * and the assertion gains the thing that matters more: the parent points
+       * at its child rather than at itself.
+       */
+      await page.goto(`/trade?account=${performance.evaluationAccountId}`);
+      const gate = page.getByTestId('warix-gate');
+      await expect(gate).toBeVisible();
+      await expect(gate).toContainText('WARIBA ONE');
+      await expect(gate).not.toContainText('WARIBA Performance');
+      await expect(
+        gate.getByRole('link', { name: 'Découvrir mes nouvelles règles' }),
+      ).toBeVisible();
 
-      // The two are told apart explicitly in the switcher, not only by name.
+      // The two programmes are told apart explicitly in the switcher.
+      await openWorkstation(page, `/trade?account=${performance.accountId}`);
       const menu = await openAccountSwitcher(page);
       await expect(menu.getByText('Évaluation')).toBeVisible();
       await expect(menu.getByText('Performance', { exact: true })).toBeVisible();

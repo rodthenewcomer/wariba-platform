@@ -231,7 +231,20 @@ test.describe('@critical @handoff @phase-3-3-1 Evaluation to Performance handoff
 
       await performance.getByRole('checkbox').check();
       await performance.getByTestId('performance-rules-submit').click();
-      await performance.waitForURL('**/bienvenue-performance?etat=pret');
+      /*
+       * The acknowledgement now lands on the Performance dashboard.
+       *
+       * It used to return to this page with `?etat=pret`, and that same-route
+       * redirect was applied by the client roughly one time in three — the
+       * write always landed, the page did not move. Landing on the account the
+       * trader has just unlocked is both reliable and the destination that
+       * matches what happened (UX-HUB-012).
+       */
+      await performance.waitForURL(`**/hub?account=${emptyPerformance.id}`);
+      await expect(performance.getByTestId('mission-checklist')).toBeVisible();
+
+      // The ready screen keeps its own address for anyone re-reading it.
+      await performance.goto(`/comptes/${emptyPerformance.publicId}/bienvenue-performance`);
       await expect(performance.getByTestId('performance-handoff')).toHaveAttribute(
         'data-stage',
         'performance_ready',

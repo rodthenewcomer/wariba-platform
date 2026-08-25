@@ -39,10 +39,9 @@ const STAGE_COPY: Record<
       'Vous n’avez rien à faire. Votre évaluation reste réussie et aucun second compte ne sera créé.',
   },
   rules_onboarding: {
-    eyebrow: 'Bienvenue dans WARIBA Performance',
-    title: 'Avant votre premier trade, prenez connaissance de vos règles.',
-    description:
-      'Ce compte ne suit pas les mêmes règles que votre évaluation. Lisez-les puis confirmez ci-dessous.',
+    eyebrow: 'Votre compte est prêt',
+    title: 'Bienvenue dans WARIBA Performance.',
+    description: 'Avant votre premier trade, prenez connaissance des règles attachées à ce compte.',
   },
   performance_ready: {
     eyebrow: 'Compte Performance prêt',
@@ -64,20 +63,24 @@ function RuleValue({ applicable, value }: { applicable: boolean; value: string |
 }
 
 /**
- * A7 — two questions, answered separately.
- *
- * A trader arriving on Performance has exactly two things to find out: what is
- * new, and what stays the same. The single ten-row table answered neither on a
- * phone, because ten stacked cards of which seven repeat a number the trader
- * already knows is ten cards nobody reads. Desktop keeps the full side-by-side
- * table — comparing is what a wide screen is good at — and the phone gets the
- * answer instead of the comparison.
+ * On a phone the Performance column is the answer; the ONE column is only
+ * needed when Performance drops the rule entirely, and then the honest thing
+ * to show is that it no longer applies.
  */
+function PerformanceSide({ row }: { row: RuleComparisonItem }) {
+  return row.performance.applicable ? (
+    <span className="wariba-data font-semibold text-[color:var(--wariba-text-primary)]">
+      {row.performance.displayValue}
+    </span>
+  ) : (
+    <span className="text-[color:var(--wariba-text-tertiary)]">Ne s’applique plus</span>
+  );
+}
+
 function RuleComparison({ handoff }: { handoff: EvaluationToPerformanceHandoffDTO }) {
   if (handoff.ruleComparison.length === 0) return null;
   const introduced = handoff.ruleComparison.filter((row) => row.group === 'new');
   const unchanged = handoff.ruleComparison.filter((row) => row.group === 'unchanged');
-
   return (
     <section aria-labelledby="rule-comparison-title" data-testid="performance-rule-comparison">
       <div className="mb-3">
@@ -180,21 +183,6 @@ function RuleComparison({ handoff }: { handoff: EvaluationToPerformanceHandoffDT
         ) : null}
       </div>
     </section>
-  );
-}
-
-/**
- * On a phone the Performance column is the answer; the ONE column is only
- * needed when Performance drops the rule entirely, and then the honest thing
- * to show is that it no longer applies.
- */
-function PerformanceSide({ row }: { row: RuleComparisonItem }) {
-  return row.performance.applicable ? (
-    <span className="wariba-data font-semibold text-[color:var(--wariba-text-primary)]">
-      {row.performance.displayValue}
-    </span>
-  ) : (
-    <span className="text-[color:var(--wariba-text-tertiary)]">Ne s’applique plus</span>
   );
 }
 
@@ -376,7 +364,7 @@ export function PerformanceHandoff({
 
       <Surface tone={ready || onboarding ? 'emerald' : 'cyan'} className="overflow-hidden p-0">
         <div className="grid gap-0 lg:grid-cols-[1fr_19rem]">
-          <div className="flex flex-col justify-center p-6 sm:p-8 lg:p-10">
+          <div className="flex flex-col justify-center p-5 sm:p-8 lg:p-10">
             <div className="flex items-center gap-3 text-[color:var(--wariba-accent-emerald)]">
               <span
                 aria-hidden="true"
@@ -392,25 +380,31 @@ export function PerformanceHandoff({
                 {copy.eyebrow}
               </p>
             </div>
-            <h1 className="mt-5 max-w-[20ch] text-[length:var(--wariba-font-size-heading-xl)] font-bold leading-[1.06] tracking-[-0.03em] text-[color:var(--wariba-text-primary)]">
+            {/*
+             * A17 — the headline gives way to the decision on a small screen.
+             *
+             * At 320 px the display size pushed "Ouvrir WariX" 105 px below
+             * the fold, which is the same failure as burying it under the
+             * rule tables, just prettier.
+             */}
+            <h1 className="mt-4 max-w-[20ch] text-[length:var(--wariba-font-size-heading-md)] font-bold leading-[1.08] tracking-[-0.02em] text-[color:var(--wariba-text-primary)] sm:mt-5 sm:text-[length:var(--wariba-font-size-heading-xl)] sm:leading-[1.06] sm:tracking-[-0.03em]">
               {copy.title}
             </h1>
-            <p className="mt-4 max-w-[60ch] text-[length:var(--wariba-font-size-body-md)] leading-relaxed text-[color:var(--wariba-text-secondary)]">
+            <p className="mt-3 max-w-[60ch] text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-text-secondary)] sm:mt-4 sm:text-[length:var(--wariba-font-size-body-md)]">
               {copy.description}
             </p>
 
             {/*
-             * A5/A17 — the decision lives in the first viewport.
+             * A17 — the decision lives in the first viewport.
              *
-             * The ready state's only job is "open WariX with the new account",
-             * and that button used to sit below the rule comparison, the
-             * buffer panel, the payout path and the full rule list — two to
-             * three thousand pixels of reading on a phone before the trader
-             * reached the one control the screen exists for.
+             * Inside the hero's own column, not after the hero: below `lg` the
+             * account rail stacks underneath, so a sibling placement put
+             * "Ouvrir WariX" 105 px below the fold at 320 px — the same
+             * failure as burying it under the rule tables, only prettier.
              */}
             {ready && performance ? (
               <div
-                className="mt-7 flex flex-col gap-2.5 sm:flex-row sm:items-center"
+                className="mt-5 flex flex-col gap-2.5 sm:mt-7 sm:flex-row sm:items-center"
                 data-testid="performance-ready-actions"
               >
                 <ActionLink href={`/trade?account=${performance.id}`} icon="warix" size="lg">
@@ -424,33 +418,6 @@ export function PerformanceHandoff({
                   Voir mes règles
                 </ActionLink>
               </div>
-            ) : null}
-
-            {onboarding && performance ? (
-              <form
-                action={acknowledgePerformanceRulesAction}
-                className="mt-7 flex flex-col gap-4"
-                data-testid="performance-rules-acknowledgement"
-              >
-                <input type="hidden" name="accountPublicId" value={performance.publicId} />
-                <label className="flex max-w-[52ch] cursor-pointer items-start gap-3 text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-text-primary)]">
-                  <input
-                    className="mt-0.5 h-5 w-5 shrink-0 accent-[color:var(--wariba-accent-indigo)]"
-                    type="checkbox"
-                    name="acknowledged"
-                    value="yes"
-                    required
-                  />
-                  <span>J’ai pris connaissance des règles de mon compte WARIBA Performance.</span>
-                </label>
-                <Button
-                  type="submit"
-                  className="min-h-11 self-start"
-                  data-testid="performance-rules-submit"
-                >
-                  Continuer vers mon compte Performance
-                </Button>
-              </form>
             ) : null}
           </div>
 
@@ -544,12 +511,6 @@ export function PerformanceHandoff({
                       </dd>
                     </div>
                     <div>
-                      {/*
-                       * A8 — "seuil du buffer", never "plancher". The floor a
-                       * trader must not fall through is the Maximum Loss one,
-                       * and it ends the account; this level only decides which
-                       * part of a gain can be requested.
-                       */}
                       <dt className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
                         Seuil du buffer
                       </dt>
@@ -588,6 +549,33 @@ export function PerformanceHandoff({
               Version attachée : {performance.policyVersion}
             </p>
           </Surface>
+
+          {onboarding ? (
+            <form
+              action={acknowledgePerformanceRulesAction}
+              className="rounded-[14px] border border-[color:var(--wariba-accent-emerald-edge)] bg-[color:var(--wariba-accent-emerald-wash)] p-5 sm:p-6"
+              data-testid="performance-rules-acknowledgement"
+            >
+              <input type="hidden" name="accountPublicId" value={performance.publicId} />
+              <label className="flex cursor-pointer items-start gap-3 text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-text-primary)]">
+                <input
+                  className="mt-0.5 h-5 w-5 shrink-0 accent-[color:var(--wariba-accent-indigo)]"
+                  type="checkbox"
+                  name="acknowledged"
+                  value="yes"
+                  required
+                />
+                <span>J’ai pris connaissance des règles de mon compte WARIBA Performance.</span>
+              </label>
+              <Button
+                type="submit"
+                className="mt-5 min-h-11"
+                data-testid="performance-rules-submit"
+              >
+                Continuer vers mon compte Performance
+              </Button>
+            </form>
+          ) : null}
         </>
       ) : (
         <div className="flex flex-wrap gap-2">
