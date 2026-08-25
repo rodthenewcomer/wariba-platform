@@ -1346,6 +1346,112 @@ body {
   }
 }
 
+/* Help Center visual education.
+ * Motion explains sequence and thresholds; it is never a decorative loop.
+ * The global reduced-motion contract below collapses every transition to 1ms.
+ */
+@keyframes help-visual-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes help-visual-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes help-visual-rise {
+  from {
+    opacity: 0.35;
+    transform: scaleY(0.08);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+.help-visual .help-visual-node {
+  animation: help-visual-enter 320ms var(--wariba-component-workstation-ease-enter) both;
+}
+
+.help-visual .help-visual-node:nth-child(2) {
+  animation-delay: 55ms;
+}
+
+.help-visual .help-visual-node:nth-child(3) {
+  animation-delay: 110ms;
+}
+
+.help-visual .help-visual-node:nth-child(4) {
+  animation-delay: 165ms;
+}
+
+.help-visual .help-visual-node:nth-child(5) {
+  animation-delay: 220ms;
+}
+
+.help-visual .help-visual-node:nth-child(n + 6) {
+  animation-delay: 275ms;
+}
+
+.help-visual-flow::before {
+  position: absolute;
+  top: 16px;
+  bottom: 16px;
+  left: 15px;
+  width: 1px;
+  background: var(--wariba-color-ink-700);
+  content: '';
+}
+
+.help-visual-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: help-visual-draw 780ms var(--wariba-component-workstation-ease-enter) 90ms forwards;
+}
+
+.help-visual-draw-delayed {
+  animation-delay: 260ms;
+}
+
+.help-visual-bar {
+  transform-origin: bottom;
+  animation: help-visual-rise 460ms var(--wariba-component-workstation-ease-enter) both;
+}
+
+.help-screenshot-pin {
+  transition:
+    transform var(--wariba-component-workstation-motion-interaction),
+    background-color var(--wariba-component-workstation-motion-interaction);
+}
+
+.help-screenshot-pin:hover {
+  transform: scale(1.08);
+  background: var(--wariba-color-cobalt-900);
+}
+
+@media (min-width: 768px) {
+  .help-visual-flow::before {
+    top: 15px;
+    right: 16px;
+    bottom: auto;
+    left: 16px;
+    width: auto;
+    height: 1px;
+  }
+}
+
 /* Reduced motion — Design System §41.2 */
 @media (prefers-reduced-motion: reduce) {
   *,

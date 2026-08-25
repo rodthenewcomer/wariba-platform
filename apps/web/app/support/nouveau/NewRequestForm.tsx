@@ -136,7 +136,7 @@ export function NewRequestForm({
               ))}
             </select>
             <p className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
-              Rattacher un compte permet à l’opérateur de consulter directement la policy, les
+              Rattacher un compte permet à l’opérateur de consulter directement les règles, les
               journées et les décisions enregistrées.
             </p>
           </div>

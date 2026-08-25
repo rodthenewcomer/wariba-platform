@@ -2,10 +2,11 @@
 
 > ## Enregistrement daté — ne décrit plus l'état courant
 >
-> Ce document mesure le code **à sa date**. Trois tranches ont été livrées
-> depuis : Phase 3.1A (déployabilité), Phase 3.2 (Support + Contestations) et
-> le Centre d'aide. Six exigences ont changé d'état et la couverture est passée
-> de 77,1 % à 80,4 %.
+> Ce document mesure le code **à sa date**. Cinq tranches ont été livrées
+> depuis : Phase 3.1A (déployabilité), Phase 3.2 (Support + Contestations),
+> le Centre d'aide, Phase 3.3 (Operator Closure) et Phase 3.3.1 (handoff
+> Evaluation → Performance). La couverture courante est 82,0 % ; les chiffres
+> historiques ci-dessous restent ceux de l'audit.
 >
 > **Pour l'état courant et le séquencement restant, voir
 > `WARIBA_ROAD_TO_BETA_2026-08-24.md`.**

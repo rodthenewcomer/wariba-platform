@@ -64,20 +64,21 @@ export default async function ControlContestationsPage({
 }: {
   searchParams: Promise<ControlSupportSearchParams>;
 }) {
-  await requireControlArea('contestations');
+  const session = await requireControlArea('contestations');
 
   const params = await searchParams;
   const query = parseControlContestationQuery(params);
   const result = await buildControlContestationQueueView(getDb(), {
     filters: query.filters,
     page: query.page,
+    currentStaffId: session.userId,
   });
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Text as="h1" variant="heading-lg">
-          Contestation queue
+          File de contestations
         </Text>
         <Badge variant="neutral">{result.total} contestation(s)</Badge>
       </div>
@@ -147,7 +148,11 @@ export default async function ControlContestationsPage({
               <option value="">Toutes</option>
               {CONTROL_SUPPORT_ASSIGNMENTS.map((value) => (
                 <option key={value} value={value}>
-                  {value === 'assigned' ? 'Affectées' : 'Non affectées'}
+                  {value === 'mine'
+                    ? 'À moi'
+                    : value === 'assigned'
+                      ? 'Affectées'
+                      : 'Non affectées'}
                 </option>
               ))}
             </select>
@@ -187,6 +192,7 @@ export default async function ControlContestationsPage({
               <DataTableHeaderCell>Motif</DataTableHeaderCell>
               <DataTableHeaderCell>Statut</DataTableHeaderCell>
               <DataTableHeaderCell>Ancienneté</DataTableHeaderCell>
+              <DataTableHeaderCell>Dernière activité</DataTableHeaderCell>
               <DataTableHeaderCell>Examinateur</DataTableHeaderCell>
             </DataTableRow>
           </DataTableHead>
@@ -209,6 +215,9 @@ export default async function ControlContestationsPage({
                 <DataTableCell>{item.reasonLabel}</DataTableCell>
                 <DataTableCell>{item.statusLabel}</DataTableCell>
                 <DataTableCell>{item.ageLabel}</DataTableCell>
+                <DataTableCell>
+                  <span className="wariba-data">{item.lastActivityLabel}</span>
+                </DataTableCell>
                 <DataTableCell>{item.reviewerLabel}</DataTableCell>
               </DataTableRow>
             ))}

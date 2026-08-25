@@ -4,6 +4,8 @@ import { randomUUID } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import {
   authorizeSensitiveStaffAction,
+  assignContestation,
+  executeContestationReplacement,
   recordContestationDecision,
   setContestationReviewState,
   staffCan,
@@ -40,17 +42,50 @@ export interface ControlContestationActionResult {
 const NOT_AUTHORIZED = 'Votre rôle ne permet pas cette action.';
 const GENERIC = 'Cette action n’a pas pu aboutir.';
 
-const FORWARDABLE = new Set(['ContestationStateError', 'StaffActionRateLimitExceededError']);
+const FORWARDABLE = new Set([
+  'ContestationStateError',
+  'OperatorCaseStaleError',
+  'StaffActionRateLimitExceededError',
+]);
 
 function fail(error: unknown): ControlContestationActionResult {
   if (error instanceof Error && FORWARDABLE.has(error.name)) return { error: error.message };
   return { error: GENERIC };
 }
 
+export async function assignContestationToSelfAction(
+  publicId: string,
+  expectedVersion: number,
+): Promise<ControlContestationActionResult> {
+  const session = await requireStaffRole();
+  if (!staffCan(session.role, 'dispute.assign')) return { error: NOT_AUTHORIZED };
+  try {
+    await authorizeSensitiveStaffAction(getDb(), {
+      actorId: session.userId,
+      actorRole: session.role,
+      permission: 'dispute.assign',
+      limit: 30,
+    });
+    await assignContestation(getDb(), {
+      publicId,
+      staffUserId: session.userId,
+      staffRole: session.role,
+      expectedVersion,
+      correlationId: randomUUID(),
+    });
+  } catch (error) {
+    return fail(error);
+  }
+  revalidatePath('/control/contestations');
+  revalidatePath(`/control/contestations/${publicId}`);
+  return {};
+}
+
 export async function takeContestationReviewAction(
   publicId: string,
   nextStatus: 'under_review' | 'needs_information',
   reason: string,
+  expectedVersion: number,
 ): Promise<ControlContestationActionResult> {
   // Any staff role gets past this; `staffCan` below is the real gate, because
   // two roles qualify for dispute.review and requireStaffRole names only one.
@@ -72,6 +107,7 @@ export async function takeContestationReviewAction(
       nextStatus,
       reason,
       correlationId: randomUUID(),
+      expectedVersion,
     });
   } catch (error) {
     return fail(error);
@@ -85,16 +121,18 @@ export async function recordContestationDecisionAction(
   publicId: string,
   decision: ContestationDecision,
   reason: string,
+  expectedVersion: number,
 ): Promise<ControlContestationActionResult> {
   const session = await requireStaffRole();
-  if (!staffCan(session.role, 'dispute.resolve')) return { error: NOT_AUTHORIZED };
+  const permission = decision === 'correction_required' ? 'dispute.correct' : 'dispute.resolve';
+  if (!staffCan(session.role, permission)) return { error: NOT_AUTHORIZED };
   if (reason.trim().length === 0) return { error: 'Un motif de décision est requis.' };
 
   try {
     await authorizeSensitiveStaffAction(getDb(), {
       actorId: session.userId,
       actorRole: session.role,
-      permission: 'dispute.resolve',
+      permission,
       // Deciding a dispute is a low-volume, high-consequence action. Five per
       // minute is far above any real review pace and well below a script's.
       limit: 5,
@@ -106,6 +144,7 @@ export async function recordContestationDecisionAction(
       decision,
       reason,
       correlationId: randomUUID(),
+      expectedVersion,
     });
   } catch (error) {
     return fail(error);
@@ -113,4 +152,42 @@ export async function recordContestationDecisionAction(
   revalidatePath('/control/contestations');
   revalidatePath(`/control/contestations/${publicId}`);
   return {};
+}
+
+export async function executeContestationReplacementAction(
+  publicId: string,
+  reason: string,
+  expectedVersion: number,
+): Promise<ControlContestationActionResult & { replacementAccountPublicId?: string }> {
+  const session = await requireStaffRole();
+  if (!staffCan(session.role, 'dispute.remediate')) return { error: NOT_AUTHORIZED };
+  if (reason.trim().length < 10) {
+    return { error: 'Décrivez la correction effectuée en au moins 10 caractères.' };
+  }
+
+  try {
+    await authorizeSensitiveStaffAction(getDb(), {
+      actorId: session.userId,
+      actorRole: session.role,
+      permission: 'dispute.remediate',
+      limit: 5,
+    });
+    const result = await executeContestationReplacement(getDb(), {
+      publicId,
+      staffUserId: session.userId,
+      staffRole: session.role,
+      reason,
+      correlationId: randomUUID(),
+      expectedVersion,
+    });
+    revalidatePath('/control/contestations');
+    revalidatePath(`/control/contestations/${publicId}`);
+    revalidatePath('/control');
+    revalidatePath('/support');
+    revalidatePath(`/support/contestations/${publicId}`);
+    revalidatePath('/hub');
+    return { replacementAccountPublicId: result.replacementAccountPublicId };
+  } catch (error) {
+    return fail(error);
+  }
 }

@@ -195,6 +195,29 @@ export {
   authorizeSensitiveStaffAction,
   type AuthorizeSensitiveStaffActionParams,
 } from './control-security';
+export {
+  IDENTITY_REVIEW_STATUS_LABELS,
+  IDENTITY_REVIEW_STATUSES,
+  IDENTITY_REVIEW_ASSIGNMENTS,
+  parseControlIdentityQuery,
+  buildControlIdentityQueueView,
+  buildControlIdentityDetailView,
+  assignIdentityReview,
+  updateIdentityReview,
+  type ControlIdentitySearchParams,
+  type ControlIdentityActionParams,
+} from './control-identity';
+export {
+  PASS_REVIEW_STATUSES,
+  PASS_REVIEW_ACTION_BLOCKED_BY_PRODUCT_DECISION,
+  parseControlPassReviewQuery,
+  buildControlPassReviewQueueView,
+  buildControlPassReviewDetailView,
+  recordPassReviewOperationalState,
+  type ControlPassReviewSearchParams,
+  type ControlPassReviewActionParams,
+} from './control-pass-review';
+export { buildControlOverviewView } from './control-overview';
 
 export {
   createUserProfile,
@@ -215,6 +238,25 @@ export {
   type AccountSummaryDTO,
   type ListAccountsForUserParams,
 } from './accounts-list';
+
+export {
+  buildEvaluationToPerformanceHandoff,
+  EvaluationPerformanceHandoffError,
+  type EvaluationPerformanceHandoffStage,
+  type EvaluationToPerformanceHandoffDTO,
+  type HandoffRuleKey,
+  type HandoffTimelineItem,
+  type PayoutPathStep,
+  type PerformanceRuleItem,
+  type RuleComparisonItem,
+} from './evaluation-performance-handoff';
+export {
+  acknowledgePerformanceRules,
+  loadPerformanceRulesAcknowledgement,
+  PerformanceRulesAcknowledgementError,
+  type PerformanceRulesAcknowledgement,
+  type PerformanceRulesAcknowledgementErrorCode,
+} from '@wariba/database';
 
 export {
   loadAccountRiskEngineInputs,
@@ -521,7 +563,9 @@ export {
   replyToSupportTicket,
   setSupportTicketResolution,
   setContestationReviewState,
+  assignContestation,
   recordContestationDecision,
+  executeContestationReplacement,
   type ControlSupportActionParams,
   type ControlContestationActionParams,
 } from './control-support-actions';
@@ -533,6 +577,8 @@ export type {
   ContestationTargetType,
   ContestationReasonCategory,
   ContestationDecision,
+  IdentityReviewStatus,
+  PassReviewOperatorStatus,
 } from '@wariba/database';
 export {
   SupportOwnershipError,
@@ -541,6 +587,10 @@ export {
   ContestationTargetError,
   ContestationStateError,
   StaffActionRateLimitExceededError,
+  OperatorCaseStaleError,
+  IdentityReviewStateError,
+  requestIdentityReview,
+  loadLatestIdentityReviewForTrader,
 } from '@wariba/database';
 
 export {

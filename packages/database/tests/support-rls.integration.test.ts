@@ -48,6 +48,7 @@ describeIfDb('support and contestations — row level security (real database)',
   let ticketA: { id: string; publicId: string };
   let contestationA: string;
   let accountA: string;
+  let identityReviewPublicId: string;
   const cleanupUserIds: string[] = [];
 
   const createTestUser = async (): Promise<string> => {
@@ -103,6 +104,18 @@ describeIfDb('support and contestations — row level security (real database)',
       currency: productVersion.nominal_currency,
     });
     accountA = account.id;
+    identityReviewPublicId = (
+      await db
+        .insertInto('app.identity_review_cases')
+        .values({
+          user_id: userA,
+          account_id: accountA,
+          reason: 'first_payout',
+          correlation_id: randomUUID(),
+        })
+        .returning('public_id')
+        .executeTakeFirstOrThrow()
+    ).public_id;
 
     const transition = await db
       .insertInto('app.account_state_transitions')
@@ -162,6 +175,7 @@ describeIfDb('support and contestations — row level security (real database)',
     for (const userId of cleanupUserIds) {
       await db.deleteFrom('app.contestations').where('user_id', '=', userId).execute();
       await db.deleteFrom('app.support_tickets').where('user_id', '=', userId).execute();
+      await db.deleteFrom('app.identity_review_cases').where('user_id', '=', userId).execute();
       const accounts = await db
         .selectFrom('app.trading_accounts')
         .select('id')
@@ -254,6 +268,30 @@ describeIfDb('support and contestations — row level security (real database)',
     expect(own).toHaveLength(1);
   });
 
+  it('keeps identity workflow metadata behind the BFF for every browser role', async () => {
+    for (const userId of [userA, userB]) {
+      await expect(
+        asRole(db, 'authenticated', userId, (trx) =>
+          trx
+            .selectFrom('app.identity_review_cases')
+            .select('public_id')
+            .where('public_id', '=', identityReviewPublicId)
+            .execute(),
+        ),
+      ).rejects.toThrow(/permission denied/);
+    }
+  });
+
+  it('keeps post-result operator reviews unreachable from trader sessions', async () => {
+    for (const userId of [userA, userB]) {
+      await expect(
+        asRole(db, 'authenticated', userId, (trx) =>
+          trx.selectFrom('app.pass_review_operator_states').selectAll().execute(),
+        ),
+      ).rejects.toThrow(/permission denied/);
+    }
+  });
+
   it('gives the anon role no grant on any support table', async () => {
     // Stronger than "returns no rows": there is no grant at all, so the read
     // is refused before a policy is ever consulted. Asserted as the refusal
@@ -264,6 +302,8 @@ describeIfDb('support and contestations — row level security (real database)',
       'app.support_tickets',
       'app.ticket_messages',
       'app.contestations',
+      'app.identity_review_cases',
+      'app.pass_review_operator_states',
     ] as const) {
       await expect(
         asRole(db, 'anon', null, (trx) => trx.selectFrom(table).selectAll().execute()),

@@ -9,6 +9,7 @@
 export const PACKAGE_NAME = '@wariba/database';
 
 export { createDbClient, type Db, type DbExecutor } from './client';
+export { OperatorCaseStaleError, assertExpectedCaseVersion } from './operator-case';
 export {
   registerMarketDataSource,
   upsertMarketBars,
@@ -54,6 +55,8 @@ export type {
   ContestationStatus,
   ContestationReasonCategory,
   ContestationDecision,
+  IdentityReviewStatus,
+  PassReviewOperatorStatus,
 } from './schema';
 export {
   getStaffRole,
@@ -127,16 +130,53 @@ export {
 export {
   loadControlContestationQueue,
   loadControlContestation,
+  assignContestationInTransaction,
   setContestationReviewStateInTransaction,
   recordContestationDecisionInTransaction,
+  executeContestationReplacementInTransaction,
   ContestationStateError,
   type ControlContestationFilters,
   type ControlContestationQueueRow,
   type ControlContestationQueuePage,
   type ControlContestationDetail,
   type ContestationBeforeAfter,
+  type ContestationRemediationResult,
 } from './control-contestations';
 export { recordStaffAuditEvent, type RecordStaffAuditEventParams } from './audit';
+export {
+  loadControlOverview,
+  type OperationalQueueKind,
+  type OperationalQueueSummary,
+  type AssignedOperationalCase,
+  type AgingOperationalCase,
+  type RecentOperatorDecision,
+  type ControlOverviewScope,
+} from './control-overview';
+export {
+  loadControlPassReviewQueue,
+  loadControlPassReviewCase,
+  setPassReviewOperatorStateInTransaction,
+  PassReviewStateError,
+  type PassReviewFilters,
+  type PassReviewQueueRow,
+  type PassReviewQueuePage,
+  type PassReviewCaseFacts,
+  type PassReviewOperatorChange,
+} from './control-pass-reviews';
+export {
+  loadIdentityReviewQueue,
+  loadIdentityReviewDetail,
+  loadLatestIdentityReviewForTrader,
+  requestIdentityReview,
+  assignIdentityReviewInTransaction,
+  updateIdentityReviewInTransaction,
+  IdentityReviewStateError,
+  type IdentityReviewFilters,
+  type IdentityReviewQueueRow,
+  type IdentityReviewQueuePage,
+  type IdentityReviewDetail,
+  type IdentityReviewBeforeAfter,
+} from './identity-reviews';
 export {
   searchControlOrders,
   loadControlTradingSummary,
@@ -268,6 +308,13 @@ export {
   type CycleProgress,
   type OpenPerformanceReviewCase,
 } from './performance';
+export {
+  acknowledgePerformanceRules,
+  loadPerformanceRulesAcknowledgement,
+  PerformanceRulesAcknowledgementError,
+  type PerformanceRulesAcknowledgement,
+  type PerformanceRulesAcknowledgementErrorCode,
+} from './performance-onboarding';
 export {
   createPayoutRequestInTransaction,
   approvePayoutRequestInTransaction,

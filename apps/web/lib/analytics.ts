@@ -18,7 +18,9 @@ export type HubAnalyticsEvent =
    */
   | 'help_article_viewed'
   | 'help_search_no_result'
-  | 'help_support_cta';
+  | 'help_support_cta'
+  | 'performance_rules_viewed'
+  | 'performance_account_opened';
 
 // console.info works identically server- and client-side in Next.js (both
 // land in captured logs) — no Node-only sink, so this is safe to import

@@ -48,6 +48,7 @@ describeIfDb('support tickets and contestations (real database)', () => {
   let userA: string;
   let userB: string;
   let staffUser: string;
+  let secondStaffUser: string;
   let accountA: string;
   let accountAPublicId: string;
   let accountB: string;
@@ -152,9 +153,13 @@ describeIfDb('support tickets and contestations (real database)', () => {
     userA = await createTestUser('a');
     userB = await createTestUser('b');
     staffUser = await createTestUser('staff');
+    secondStaffUser = await createTestUser('staff-b');
     await db
       .insertInto('app.staff_members')
-      .values({ user_id: staffUser, role: 'support' })
+      .values([
+        { user_id: staffUser, role: 'support' },
+        { user_id: secondStaffUser, role: 'risk' },
+      ])
       .execute();
     const a = await createAccountFor(userA);
     accountA = a.id;
@@ -323,6 +328,43 @@ describeIfDb('support tickets and contestations (real database)', () => {
   });
 
   describe('an operator working the queue', () => {
+    it('refuses an operator action submitted from a stale case page', async () => {
+      const created = await createSupportTicket(db, {
+        userId: userA,
+        accountId: accountA,
+        category: 'technical',
+        subject: 'Dossier concurrent',
+        body: 'Deux opérateurs ont ouvert cette demande.',
+        correlationId: randomUUID(),
+      });
+      await db.transaction().execute((trx) =>
+        assignSupportTicketInTransaction(trx, {
+          publicId: created.publicId,
+          assignToStaffId: staffUser,
+          expectedVersion: 1,
+          now: new Date(),
+        }),
+      );
+      await expect(
+        db.transaction().execute((trx) =>
+          appendStaffMessageInTransaction(trx, {
+            publicId: created.publicId,
+            staffUserId: secondStaffUser,
+            body: 'Réponse depuis une page devenue obsolète.',
+            requestsInformation: false,
+            expectedVersion: 1,
+            correlationId: randomUUID(),
+            now: new Date(),
+          }),
+        ),
+      ).rejects.toMatchObject({ name: 'OperatorCaseStaleError' });
+      const thread = await loadSupportTicketForUser(db, {
+        userId: userA,
+        publicId: created.publicId,
+      });
+      expect(thread?.messages).toHaveLength(1);
+    });
+
     it('assigns, replies, requests information and resolves', async () => {
       const created = await createSupportTicket(db, {
         userId: userA,
@@ -337,6 +379,7 @@ describeIfDb('support tickets and contestations (real database)', () => {
         assignSupportTicketInTransaction(trx, {
           publicId: created.publicId,
           assignToStaffId: staffUser,
+          expectedVersion: 1,
           now: new Date(),
         }),
       );
@@ -349,6 +392,7 @@ describeIfDb('support tickets and contestations (real database)', () => {
           staffUserId: staffUser,
           body: 'Pouvez-vous préciser l’heure exacte ?',
           requestsInformation: true,
+          expectedVersion: 2,
           correlationId: randomUUID(),
           now: new Date(),
         }),
@@ -377,6 +421,7 @@ describeIfDb('support tickets and contestations (real database)', () => {
           staffUserId: staffUser,
           resolution: 'resolved',
           reason: 'Blocage expliqué au trader.',
+          expectedVersion: 4,
           correlationId: randomUUID(),
           now: new Date(),
         }),
@@ -482,6 +527,62 @@ describeIfDb('support tickets and contestations (real database)', () => {
       ).rejects.toBeInstanceOf(DuplicateContestationError);
     });
 
+    it('fails closed when the linked authoritative evidence is missing', async () => {
+      const missingViolation = await recordBreach(accountB);
+      const opened = await openContestation(db, {
+        userId: userB,
+        accountId: accountB,
+        targetType: 'account_breach',
+        targetId: missingViolation,
+        reasonCategory: 'evidence_incomplete',
+        traderStatement: 'Les preuves liées à cette décision semblent incomplètes.',
+        correlationId: randomUUID(),
+      });
+      await db
+        .updateTable('app.contestations')
+        .set({ target_id: randomUUID() })
+        .where('public_id', '=', opened.contestationPublicId)
+        .execute();
+
+      const detail = await loadControlContestation(db, {
+        publicId: opened.contestationPublicId,
+      });
+      expect(detail?.evidence).toBeNull();
+
+      await expect(
+        db.transaction().execute((trx) =>
+          setContestationReviewStateInTransaction(trx, {
+            publicId: opened.contestationPublicId,
+            reviewerUserId: secondStaffUser,
+            nextStatus: 'under_review',
+            expectedVersion: 1,
+            now: new Date(),
+          }),
+        ),
+      ).rejects.toThrow('preuves liées');
+
+      await expect(
+        db.transaction().execute((trx) =>
+          recordContestationDecisionInTransaction(trx, {
+            publicId: opened.contestationPublicId,
+            reviewerUserId: secondStaffUser,
+            decision: 'upheld',
+            reason: 'Une décision ne doit pas être enregistrée sans preuve.',
+            expectedVersion: 1,
+            correlationId: randomUUID(),
+            now: new Date(),
+          }),
+        ),
+      ).rejects.toThrow('preuves liées');
+
+      const unchanged = await db
+        .selectFrom('app.contestations')
+        .select(['status', 'decision', 'version'])
+        .where('public_id', '=', opened.contestationPublicId)
+        .executeTakeFirstOrThrow();
+      expect(unchanged).toEqual({ status: 'open', decision: null, version: 1 });
+    });
+
     it('refuses a decision that is not on the trader’s own account', async () => {
       await expect(
         openContestation(db, {
@@ -494,6 +595,43 @@ describeIfDb('support tickets and contestations (real database)', () => {
           correlationId: randomUUID(),
         }),
       ).rejects.toBeInstanceOf(ContestationTargetError);
+    });
+
+    it('refuses the second of two operator decisions on the same case', async () => {
+      const secondViolation = await recordBreach(accountB);
+      const opened = await openContestation(db, {
+        userId: userB,
+        accountId: accountB,
+        targetType: 'account_breach',
+        targetId: secondViolation,
+        reasonCategory: 'evidence_incomplete',
+        traderStatement: 'Deux examinateurs ont ouvert le même dossier avant la décision.',
+        correlationId: randomUUID(),
+      });
+      await db.transaction().execute((trx) =>
+        recordContestationDecisionInTransaction(trx, {
+          publicId: opened.contestationPublicId,
+          reviewerUserId: staffUser,
+          decision: 'upheld',
+          reason: 'Le premier examinateur a finalisé le dossier.',
+          expectedVersion: 1,
+          correlationId: randomUUID(),
+          now: new Date(),
+        }),
+      );
+      await expect(
+        db.transaction().execute((trx) =>
+          recordContestationDecisionInTransaction(trx, {
+            publicId: opened.contestationPublicId,
+            reviewerUserId: secondStaffUser,
+            decision: 'upheld',
+            reason: 'Le second examinateur soumet une ancienne version.',
+            expectedVersion: 1,
+            correlationId: randomUUID(),
+            now: new Date(),
+          }),
+        ),
+      ).rejects.toMatchObject({ name: 'OperatorCaseStaleError' });
     });
 
     it('refuses `overturned` — no corrective command exists in this build', async () => {
@@ -510,6 +648,7 @@ describeIfDb('support tickets and contestations (real database)', () => {
             reviewerUserId: staffUser,
             decision: 'overturned',
             reason: 'Tentative de réversion.',
+            expectedVersion: 1,
             correlationId: randomUUID(),
             now: new Date(),
           }),
@@ -560,6 +699,7 @@ describeIfDb('support tickets and contestations (real database)', () => {
           publicId: contestation.public_id,
           reviewerUserId: staffUser,
           nextStatus: 'under_review',
+          expectedVersion: 1,
           now: new Date(),
         }),
       );
@@ -569,6 +709,7 @@ describeIfDb('support tickets and contestations (real database)', () => {
           reviewerUserId: staffUser,
           decision: 'upheld',
           reason: 'Le plancher appliqué correspond à la policy publiée.',
+          expectedVersion: 2,
           correlationId: randomUUID(),
           now: new Date(),
         }),
@@ -630,6 +771,7 @@ describeIfDb('support tickets and contestations (real database)', () => {
             reviewerUserId: staffUser,
             decision: 'upheld',
             reason: 'Seconde décision.',
+            expectedVersion: 3,
             correlationId: randomUUID(),
             now: new Date(),
           }),
@@ -656,6 +798,7 @@ describeIfDb('support tickets and contestations (real database)', () => {
             staffUserId: staffUser,
             resolution: 'closed',
             reason: 'Tentative de clôture prématurée.',
+            expectedVersion: 1,
             correlationId: randomUUID(),
             now: new Date(),
           }),

@@ -22,6 +22,7 @@ import {
   type ContestationEvidenceView,
   type EvidenceRow,
 } from './support-view';
+import { accountStatusLabel } from './account-status-labels';
 
 /**
  * Phase 3.2 — the operator's read of Support and Contestations.
@@ -64,7 +65,7 @@ export const CONTROL_SUPPORT_CATEGORIES = [
   'technical',
 ] as const;
 
-export const CONTROL_SUPPORT_ASSIGNMENTS = ['assigned', 'unassigned'] as const;
+export const CONTROL_SUPPORT_ASSIGNMENTS = ['assigned', 'unassigned', 'mine'] as const;
 
 /** Age buckets an operator actually triages by. */
 export const CONTROL_SUPPORT_AGES: Record<string, number> = {
@@ -118,7 +119,7 @@ export function parseControlSupportQuery(params: ControlSupportSearchParams): Co
 
   const assignment = first(params.assignment);
   if (assignment && (CONTROL_SUPPORT_ASSIGNMENTS as readonly string[]).includes(assignment)) {
-    filters.assignment = assignment as 'assigned' | 'unassigned';
+    filters.assignment = assignment as 'assigned' | 'unassigned' | 'mine';
   } else if (assignment) ignored.push('assignment');
 
   const age = first(params.age);
@@ -173,6 +174,7 @@ export interface ControlSupportQueueItem {
   statusLabel: string;
   status: string;
   ageLabel: string;
+  lastActivityLabel: string;
   assignedLabel: string;
   hasContestation: boolean;
 }
@@ -187,11 +189,12 @@ export interface ControlSupportQueueView {
 
 export async function buildControlSupportQueueView(
   db: Db,
-  params: { filters: ControlSupportFilters; page: number; now?: Date },
+  params: { filters: ControlSupportFilters; page: number; now?: Date; currentStaffId?: string },
 ): Promise<ControlSupportQueueView> {
   const now = params.now ?? new Date();
+  const filters = resolveAssignment(params.filters, params.currentStaffId);
   const result = await loadControlSupportQueue(db, {
-    filters: params.filters,
+    filters,
     page: params.page,
     now,
   });
@@ -206,6 +209,7 @@ export async function buildControlSupportQueueView(
       statusLabel: SUPPORT_STATUS_LABELS[row.status],
       status: row.status,
       ageLabel: formatAge(row.createdAt, now),
+      lastActivityLabel: formatSupportTimestamp(row.updatedAt),
       // Unassigned is the state that needs acting on, so it is named rather
       // than left as an empty cell an operator has to interpret.
       assignedLabel: row.assignedStaffEmail ?? 'Non affectée',
@@ -228,6 +232,7 @@ export interface ControlSupportTicketView {
   status: string;
   priority: string;
   assignedStaffId: string | null;
+  version: number;
   assignedLabel: string;
   correlationId: string;
   createdAtLabel: string;
@@ -235,6 +240,11 @@ export interface ControlSupportTicketView {
   ageLabel: string;
   accountRows: readonly EvidenceRow[];
   accountPublicId: string | null;
+  linkedAccount: {
+    accountId: string;
+    publicId: string;
+    relationLabel: string;
+  } | null;
   messages: readonly {
     authorLabel: string;
     isStaff: boolean;
@@ -243,6 +253,12 @@ export interface ControlSupportTicketView {
     timestampLabel: string;
   }[];
   contestation: { publicId: string; statusLabel: string; href: string } | null;
+  operatorHistory: readonly {
+    actionLabel: string;
+    actorLabel: string;
+    reason: string;
+    occurredAtLabel: string;
+  }[];
 }
 
 export async function buildControlSupportTicketView(
@@ -261,24 +277,55 @@ export async function buildControlSupportTicketView(
     categoryLabel: SUPPORT_CATEGORY_SHORT[ticket.category],
     statusLabel: SUPPORT_STATUS_LABELS[ticket.status],
     status: ticket.status,
-    priority: ticket.priority,
+    priority: ({ low: 'Basse', normal: 'Normale', high: 'Haute', urgent: 'Urgente' } as const)[
+      ticket.priority
+    ],
     assignedStaffId: ticket.assignedStaffId,
+    version: ticket.version,
     assignedLabel: ticket.assignedStaffEmail ?? 'Non affectée',
     correlationId: ticket.correlationId,
     createdAtLabel: formatSupportTimestamp(ticket.createdAt),
     updatedAtLabel: formatSupportTimestamp(ticket.updatedAt),
     ageLabel: formatAge(ticket.createdAt, now),
     accountPublicId: ticket.account?.accountPublicId ?? null,
+    linkedAccount: ticket.account?.linkedAccount
+      ? {
+          accountId: ticket.account.linkedAccount.accountId,
+          publicId: ticket.account.linkedAccount.accountPublicId,
+          relationLabel:
+            ticket.account.linkedAccount.relation === 'source_evaluation'
+              ? 'Évaluation d’origine'
+              : 'Compte Performance créé',
+        }
+      : null,
     accountRows: ticket.account
       ? [
           { label: 'Compte', value: ticket.account.accountPublicId, numeric: true },
-          { label: 'Programme', value: ticket.account.programType },
-          { label: 'Statut', value: ticket.account.status },
+          {
+            label: 'Programme',
+            value:
+              ticket.account.programType === 'WARIBA_PERFORMANCE'
+                ? 'WARIBA Performance'
+                : 'WARIBA ONE',
+          },
+          { label: 'Statut', value: accountStatusLabel(ticket.account.status) },
           {
             label: 'Nominal',
             value: `${ticket.account.nominalBalance} ${ticket.account.currency}`,
             numeric: true,
           },
+          ...(ticket.account.linkedAccount
+            ? [
+                {
+                  label:
+                    ticket.account.linkedAccount.relation === 'source_evaluation'
+                      ? 'Évaluation d’origine'
+                      : 'Compte Performance créé',
+                  value: ticket.account.linkedAccount.accountPublicId,
+                  numeric: true,
+                },
+              ]
+            : []),
         ]
       : [],
     messages: ticket.messages.map((message) => ({
@@ -303,6 +350,21 @@ export async function buildControlSupportTicketView(
           href: `/control/contestations/${ticket.contestation.publicId}`,
         }
       : null,
+    operatorHistory: ticket.operatorHistory.map((event) => ({
+      actionLabel:
+        (
+          {
+            'support_ticket.assigned': 'Affectation',
+            'support_ticket.replied': 'Réponse envoyée',
+            'support_ticket.information_requested': 'Information demandée',
+            'support_ticket.resolved': 'Résolution',
+            'support_ticket.closed': 'Clôture',
+          } as Record<string, string>
+        )[event.action] ?? 'Action opérateur',
+      actorLabel: event.actorEmail ?? 'Opérateur',
+      reason: event.reason ?? '—',
+      occurredAtLabel: formatSupportTimestamp(event.occurredAt),
+    })),
   };
 }
 
@@ -317,6 +379,9 @@ export const CONTROL_CONTESTATION_STATUSES = [
   'upheld',
   'overturned',
   'closed',
+  'correction_required',
+  'decision_corrected',
+  'finance_compliance_review',
 ] as const;
 
 export const CONTROL_CONTESTATION_TARGETS = [
@@ -370,7 +435,7 @@ export function parseControlContestationQuery(
 
   const assignment = first(params.assignment);
   if (assignment && (CONTROL_SUPPORT_ASSIGNMENTS as readonly string[]).includes(assignment)) {
-    filters.assignment = assignment as 'assigned' | 'unassigned';
+    filters.assignment = assignment as 'assigned' | 'unassigned' | 'mine';
   } else if (assignment) ignored.push('assignment');
 
   const query = first(params.q);
@@ -396,6 +461,7 @@ export interface ControlContestationQueueItem {
   statusLabel: string;
   status: string;
   ageLabel: string;
+  lastActivityLabel: string;
   reviewerLabel: string;
 }
 
@@ -409,11 +475,16 @@ export interface ControlContestationQueueView {
 
 export async function buildControlContestationQueueView(
   db: Db,
-  params: { filters: ControlContestationFilters; page: number; now?: Date },
+  params: {
+    filters: ControlContestationFilters;
+    page: number;
+    now?: Date;
+    currentStaffId?: string;
+  },
 ): Promise<ControlContestationQueueView> {
   const now = params.now ?? new Date();
   const result = await loadControlContestationQueue(db, {
-    filters: params.filters,
+    filters: resolveAssignment(params.filters, params.currentStaffId),
     page: params.page,
   });
 
@@ -430,13 +501,26 @@ export async function buildControlContestationQueueView(
       statusLabel: CONTESTATION_STATUS_LABELS[row.status],
       status: row.status,
       ageLabel: formatAge(row.openedAt, now),
-      reviewerLabel: row.reviewerEmail ?? 'Non affectée',
+      lastActivityLabel: formatSupportTimestamp(row.updatedAt),
+      reviewerLabel: row.assignedStaffEmail ?? 'Non affectée',
     })),
     total: result.total,
     page: result.page,
     pageSize: result.pageSize,
     totalPages: Math.max(1, Math.ceil(result.total / result.pageSize)),
   };
+}
+
+function resolveAssignment<T extends ControlSupportFilters | ControlContestationFilters>(
+  filters: T,
+  currentStaffId: string | undefined,
+): T {
+  if (filters.assignment !== 'mine') return filters;
+  const { assignment: _assignment, ...rest } = filters;
+  return {
+    ...rest,
+    ...(currentStaffId ? { assignedStaffId: currentStaffId } : {}),
+  } as T;
 }
 
 export interface ControlContestationView {
@@ -456,6 +540,11 @@ export interface ControlContestationView {
   reviewedAtLabel: string | null;
   resolvedAtLabel: string | null;
   reviewerLabel: string;
+  assignedStaffId: string | null;
+  replacementAccountPublicId: string | null;
+  accountProgramLabel: string | null;
+  accountNominalLabel: string | null;
+  version: number;
   correlationId: string;
   consequenceLabel: string | null;
   evidence: ContestationEvidenceView | null;
@@ -463,6 +552,12 @@ export interface ControlContestationView {
   evidenceRefRows: readonly EvidenceRow[];
   /** True while an operator may still take review or record an outcome. */
   isLive: boolean;
+  operatorHistory: readonly {
+    actionLabel: string;
+    actorLabel: string;
+    reason: string;
+    occurredAtLabel: string;
+  }[];
 }
 
 const LIVE_STATUSES = new Set(['open', 'under_review', 'needs_information']);
@@ -495,7 +590,20 @@ export async function buildControlContestationView(
     openedAtLabel: formatSupportTimestamp(detail.openedAt),
     reviewedAtLabel: detail.reviewedAt ? formatSupportTimestamp(detail.reviewedAt) : null,
     resolvedAtLabel: detail.resolvedAt ? formatSupportTimestamp(detail.resolvedAt) : null,
-    reviewerLabel: detail.reviewerEmail ?? 'Non affectée',
+    reviewerLabel: detail.assignedStaffEmail ?? 'Non affectée',
+    assignedStaffId: detail.assignedStaffId,
+    replacementAccountPublicId: detail.replacementAccountPublicId,
+    accountProgramLabel:
+      detail.accountProgramType === 'WARIBA_PERFORMANCE'
+        ? 'WARIBA Performance'
+        : detail.accountProgramType === 'WARIBA_ONE'
+          ? 'WARIBA ONE'
+          : null,
+    accountNominalLabel:
+      detail.accountNominalBalance && detail.accountCurrency
+        ? `${detail.accountNominalBalance} ${detail.accountCurrency}`
+        : null,
+    version: detail.version,
     correlationId: detail.correlationId,
     consequenceLabel: detail.evidence
       ? (CONSEQUENCE_LABELS[detail.evidence.violation.consequence] ??
@@ -504,5 +612,22 @@ export async function buildControlContestationView(
     evidence: detail.evidence ? projectContestationEvidence(detail.evidence) : null,
     evidenceRefRows,
     isLive: LIVE_STATUSES.has(detail.status),
+    operatorHistory: detail.operatorHistory.map((event) => ({
+      actionLabel:
+        (
+          {
+            'contestation.assigned': 'Affectation',
+            'contestation.review_started': 'Examen commencé',
+            'contestation.information_requested': 'Information demandée',
+            'contestation.decision_recorded': 'Décision enregistrée',
+            'contestation.correction_required': 'Correction requise',
+            'contestation.finance_compliance_review_required': 'Examen Finance et Conformité',
+            'contestation.replacement_account_issued': 'Compte de remplacement créé',
+          } as Record<string, string>
+        )[event.action] ?? 'Action opérateur',
+      actorLabel: event.actorEmail ?? 'Opérateur',
+      reason: event.reason ?? '—',
+      occurredAtLabel: formatSupportTimestamp(event.occurredAt),
+    })),
   };
 }

@@ -32,6 +32,7 @@ export const PAYOUTS_ARTICLES: readonly HelpArticle[] = [
         kind: 'paragraph',
         text: 'WARIBA repart de l’état réel de votre compte et affiche chaque condition séparément.',
       },
+      { kind: 'visual', id: 'HLP-VIS-011' },
       { kind: 'heading', text: 'Ce que vous voyez à l’écran' },
       {
         kind: 'list',
@@ -159,6 +160,11 @@ export const PAYOUTS_ARTICLES: readonly HelpArticle[] = [
     related: ['demander-un-payout', 'payout-echoue'],
     lastReviewedAt: '2026-08-24',
     body: [
+      {
+        kind: 'paragraph',
+        text: 'Une demande passe par plusieurs états distincts. Une approbation confirme la décision, mais seul le statut « Payé » confirme le paiement.',
+      },
+      { kind: 'visual', id: 'HLP-VIS-014' },
       {
         kind: 'table',
         columns: ['Statut', 'Ce qu’il signifie'],

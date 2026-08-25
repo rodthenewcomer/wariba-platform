@@ -79,7 +79,6 @@ export default async function ControlSupportTicketPage({
               { label: 'Ouverte le', value: ticket.createdAtLabel, numeric: true },
               { label: 'Ancienneté', value: ticket.ageLabel },
               { label: 'Dernière activité', value: ticket.updatedAtLabel, numeric: true },
-              { label: 'Correlation ID', value: ticket.correlationId, numeric: true },
             ]}
           />
           {ticket.accountRows.length > 0 ? (
@@ -92,6 +91,12 @@ export default async function ControlSupportTicketPage({
               {ticket.accountPublicId ? (
                 <Link href={`/control/accounts?q=${encodeURIComponent(ticket.accountPublicId)}`}>
                   Ouvrir le compte dans Accounts
+                </Link>
+              ) : null}
+              {ticket.linkedAccount ? (
+                <Link href={`/control/accounts/${ticket.linkedAccount.accountId}`}>
+                  {ticket.linkedAccount.relationLabel} ·{' '}
+                  <span className="wariba-data">{ticket.linkedAccount.publicId}</span>
                 </Link>
               ) : null}
             </div>
@@ -110,6 +115,43 @@ export default async function ControlSupportTicketPage({
           </div>
         ) : null}
       </Card>
+
+      <details className="rounded-[var(--wariba-radius-sm)] border border-[color:var(--wariba-border-subtle)] p-4">
+        <summary className="cursor-pointer font-semibold">Détails techniques</summary>
+        <div className="mt-3">
+          <EvidenceTable
+            caption="Métadonnées"
+            rows={[
+              { label: 'Version du dossier', value: String(ticket.version), numeric: true },
+              { label: 'Correlation ID', value: ticket.correlationId, numeric: true },
+            ]}
+          />
+        </div>
+      </details>
+
+      {ticket.operatorHistory.length > 0 ? (
+        <Card padding="comfortable">
+          <Text as="h2" variant="heading-sm">
+            Historique opérateur
+          </Text>
+          <ol className="mt-4 divide-y divide-[color:var(--wariba-border-subtle)]">
+            {ticket.operatorHistory.map((event, index) => (
+              <li
+                key={`${event.occurredAtLabel}-${index}`}
+                className="grid gap-2 py-3 md:grid-cols-[160px_1fr_200px]"
+              >
+                <span className="font-semibold">{event.actionLabel}</span>
+                <span className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
+                  {event.reason}
+                </span>
+                <span className="wariba-data text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]">
+                  {event.actorLabel} · {event.occurredAtLabel}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </Card>
+      ) : null}
 
       <Card padding="comfortable">
         <Text as="h2" variant="heading-sm">
@@ -149,6 +191,7 @@ export default async function ControlSupportTicketPage({
             canAct={canAct}
             assignedToMe={ticket.assignedStaffId === session.userId}
             isSettled={isSettled}
+            version={ticket.version}
           />
         </div>
       </Card>

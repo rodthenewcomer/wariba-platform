@@ -27,6 +27,7 @@ export const WARIX_ARTICLES: readonly HelpArticle[] = [
         kind: 'paragraph',
         text: 'WariX est le terminal de trading WARIBA. C’est là que vous suivez le marché, passez vos ordres et gérez vos positions.',
       },
+      { kind: 'visual', id: 'HLP-SCR-004' },
       { kind: 'heading', text: 'À quoi sert WariX' },
       {
         kind: 'list',
@@ -70,6 +71,11 @@ export const WARIX_ARTICLES: readonly HelpArticle[] = [
     related: ['ordre-refuse', 'stop-loss-take-profit', 'ordres-en-attente'],
     lastReviewedAt: '2026-08-24',
     body: [
+      {
+        kind: 'paragraph',
+        text: 'Dans WariX, choisissez l’instrument, le type d’ordre et la quantité, puis vérifiez les protections et l’impact affiché avant d’envoyer. WARIBA confirme ensuite si l’ordre est accepté ou refusé.',
+      },
+      { kind: 'visual', id: 'HLP-SCR-001' },
       {
         kind: 'list',
         ordered: true,
@@ -117,6 +123,7 @@ export const WARIX_ARTICLES: readonly HelpArticle[] = [
         kind: 'paragraph',
         text: 'Un Stop Loss et un Take Profit sont des protections attachées à une position ou à une instruction, selon le type d’ordre supporté.',
       },
+      { kind: 'visual', id: 'HLP-SCR-002' },
       {
         kind: 'paragraph',
         text: 'C’est WARIBA qui déclenche vos protections. Le prix affiché sur le graphique ne constitue pas une garantie d’exécution exacte : le spread et le slippage du modèle peuvent s’appliquer.',
@@ -144,6 +151,11 @@ export const WARIX_ARTICLES: readonly HelpArticle[] = [
     related: ['permissions-de-trading', 'placer-un-ordre'],
     lastReviewedAt: '2026-08-24',
     body: [
+      {
+        kind: 'paragraph',
+        text: 'Vous pouvez réduire une position, la clôturer entièrement ou demander Close All. Chaque action porte sur l’exposition réellement ouverte au moment de sa validation.',
+      },
+      { kind: 'visual', id: 'HLP-SCR-003' },
       {
         kind: 'table',
         columns: ['Action', 'Effet'],

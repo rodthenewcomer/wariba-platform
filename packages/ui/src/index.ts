@@ -79,3 +79,6 @@ export * from './wariba/TradingDaysList';
 export * from './wariba/OpenPositionsTable';
 export * from './wariba/Guardian';
 export * from './wariba/WariXPositionsTable';
+
+// Help Center visual education — presentation-only models, no policy math.
+export * from './help-visuals';

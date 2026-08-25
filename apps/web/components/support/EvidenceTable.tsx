@@ -36,7 +36,7 @@ export function EvidenceTable({
     <div className="overflow-x-auto" data-testid={testId ?? 'evidence-table'}>
       <table className="w-full min-w-0 border-collapse text-left">
         {caption ? (
-          <caption className="pb-2 text-left text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase tracking-[var(--wariba-letter-spacing-wide)] text-[color:var(--wariba-text-tertiary)]">
+          <caption className="pb-2 text-left text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase tracking-[var(--wariba-letter-spacing-wide)] text-[color:var(--wariba-text-secondary)]">
             {caption}
           </caption>
         ) : null}

@@ -87,11 +87,13 @@ describeIfDb('treasury reserve — real database', () => {
       currency: productVersion.nominal_currency,
     });
     cleanupAccountIds.push(evaluation.id);
+    await db
+      .updateTable('app.trading_accounts')
+      .set({ status: 'passed' })
+      .where('id', '=', evaluation.id)
+      .execute();
     const performance = await activatePerformanceAccountInTransaction(db, {
       evaluationAccountId: evaluation.id,
-      userId,
-      nominalBalance: productVersion.nominal_balance,
-      currency: productVersion.nominal_currency,
     });
     const cycle = await loadActiveCycle(db, performance.id);
     return { accountId: performance.id, cycleId: cycle?.id as string };

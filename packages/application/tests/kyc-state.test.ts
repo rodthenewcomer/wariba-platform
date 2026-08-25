@@ -17,7 +17,7 @@ describe('KYC state', () => {
    * product does not pretend those intermediate states already happen — there
    * is no document upload, so nothing can be "submitted".
    */
-  it('reaches only the two states this deployment can actually produce', () => {
+  it('reaches only states produced by the private-beta manual workflow', () => {
     expect(reachableKycStates()).toEqual(['not_started', 'verified']);
     expect(KYC_PROVIDER_INTEGRATED).toBe(false);
   });

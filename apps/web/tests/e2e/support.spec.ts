@@ -30,14 +30,17 @@ import { lifecycleEnv } from './fixtures';
  * between them.
  */
 const OUT = '../../docs/04-ux/evidence/wariba-phase-3-2-support';
+const HELP_VISUAL_OUT = '../../docs/04-ux/evidence/wariba-help-visual-system/product';
 
 const SIZES = {
   desktop: { width: 1440, height: 900 },
   mobile: { width: 390, height: 844 },
+  mobileCapture: { width: 390, height: 1200 },
   small: { width: 320, height: 568 },
 } as const;
 
 type Page = import('@playwright/test').Page;
+type Locator = import('@playwright/test').Locator;
 
 async function signIn(page: Page, email: string, password: string) {
   await page.goto('/login');
@@ -51,6 +54,14 @@ async function shoot(page: Page, name: string) {
   mkdirSync(OUT, { recursive: true });
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: true });
+}
+
+async function shootHelpAsset(locator: Locator, name: string) {
+  mkdirSync(HELP_VISUAL_OUT, { recursive: true });
+  await locator.screenshot({
+    path: `${HELP_VISUAL_OUT}/${name}.png`,
+    animations: 'disabled',
+  });
 }
 
 async function noHorizontalOverflow(page: Page) {
@@ -182,7 +193,7 @@ test.describe('@support Phase 3.2 — support and contestations', () => {
       const staffPage = await staffContext.newPage();
       await signIn(staffPage, supportOperator.email, STAFF_E2E_TEST_PASSWORD);
       await staffPage.goto('/control/support');
-      await expect(staffPage.getByText('Support queue')).toBeVisible();
+      await expect(staffPage.getByText('File Support')).toBeVisible();
       await expect(staffPage.getByRole('link', { name: ticketReference })).toBeVisible();
       await staffPage.setViewportSize(SIZES.desktop);
       await shoot(staffPage, 'control-support-queue');
@@ -215,6 +226,10 @@ test.describe('@support Phase 3.2 — support and contestations', () => {
     await expect(staffMessage).toContainText('WARIBA Support');
     await expect(staffMessage).not.toContainText(supportOperator.email);
     await shoot(page, 'support-ticket-desktop');
+    await shootHelpAsset(
+      page.locator('main .max-w-3xl').first(),
+      'HLP-SCR-007-support-ticket-desktop',
+    );
   });
 
   test('a breached trader contests the decision and Control opens the same evidence', async ({
@@ -225,7 +240,9 @@ test.describe('@support Phase 3.2 — support and contestations', () => {
     await signIn(page, trader.email, trader.password);
 
     // --- The entry point is on the breach banner, where the trader stands ---
-    await page.goto('/hub');
+    // `signIn` has already navigated to `/hub`. Starting a second navigation
+    // to the same server-rendered page here can leave Playwright waiting for a
+    // redundant `load` while the first document is still settling.
     const contest = page.getByRole('link', { name: 'Ouvrir une contestation' });
     await expect(contest).toBeVisible();
     await shoot(page, 'breach-contestation-entry');
@@ -240,6 +257,18 @@ test.describe('@support Phase 3.2 — support and contestations', () => {
       .fill(
         'Le plancher de perte maximale retenu ne correspond pas à ma meilleure balance de clôture.',
       );
+
+    // Fresh current-product tutorial crop — form, not the Hub banner whose
+    // other actions depend on an unrelated open product decision.
+    await shootHelpAsset(
+      page.getByTestId('contestation-form'),
+      'HLP-SCR-006-dispute-entry-desktop',
+    );
+    // Keep the true 390 px phone breakpoint while giving the cropped form
+    // enough vertical room to sit above the fixed Hub navigation.
+    await page.setViewportSize(SIZES.mobileCapture);
+    await shootHelpAsset(page.getByTestId('contestation-form'), 'HLP-SCR-006-dispute-entry-mobile');
+    await page.setViewportSize(SIZES.desktop);
     await page.getByTestId('contestation-submit').click();
 
     await page.waitForURL('**/support/contestations/**');
@@ -268,6 +297,10 @@ test.describe('@support Phase 3.2 — support and contestations', () => {
     await expect(page.getByTestId('contestation-narrative')).toBeVisible();
     const traderThreshold = await evidence.locator('tr', { hasText: 'Seuil' }).innerText();
     await shoot(page, 'contestation-detail-trader');
+    await shootHelpAsset(
+      page.getByRole('region', { name: 'Décision contestée' }),
+      'HLP-SCR-005-breach-evidence-desktop',
+    );
 
     // --- A second contestation on the same decision is refused -------------
     await page.goto(`/support/contestations/nouvelle?account=${trader.accountId}`);
@@ -283,7 +316,7 @@ test.describe('@support Phase 3.2 — support and contestations', () => {
       await signIn(reviewerPage, riskReviewer.email, STAFF_E2E_TEST_PASSWORD);
       await reviewerPage.setViewportSize(SIZES.desktop);
       await reviewerPage.goto('/control/contestations');
-      await expect(reviewerPage.getByText('Contestation queue')).toBeVisible();
+      await expect(reviewerPage.getByText('File de contestations')).toBeVisible();
       await reviewerPage.getByRole('link', { name: contestationReference }).click();
       await reviewerPage.waitForURL(`**/control/contestations/${contestationReference}`);
 
@@ -358,6 +391,11 @@ test.describe('@support Phase 3.2 — support and contestations', () => {
     await expect(page.getByTestId('ticket-message').first()).toBeVisible();
     expect(await noHorizontalOverflow(page)).toBe(true);
     await shoot(page, 'support-ticket-390');
+    await page.setViewportSize(SIZES.mobileCapture);
+    await shootHelpAsset(
+      page.locator('main .max-w-3xl').first(),
+      'HLP-SCR-007-support-ticket-mobile',
+    );
 
     // A composer a phone can actually use: 44px minimum, in the viewport.
     const submit = page.getByTestId('reply-submit');
@@ -387,6 +425,11 @@ test.describe('@support Phase 3.2 — support and contestations', () => {
     await expect(page.getByTestId('contestation-reference')).toBeVisible();
     expect(await noHorizontalOverflow(page)).toBe(true);
     await shoot(page, 'contestation-detail-390');
+    await page.setViewportSize(SIZES.mobileCapture);
+    await shootHelpAsset(
+      page.getByRole('region', { name: 'Décision contestée' }),
+      'HLP-SCR-005-breach-evidence-mobile',
+    );
   });
 
   /**

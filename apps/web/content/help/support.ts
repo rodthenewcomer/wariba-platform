@@ -56,6 +56,11 @@ export const SUPPORT_ARTICLES: readonly HelpArticle[] = [
     lastReviewedAt: '2026-08-24',
     body: [
       {
+        kind: 'paragraph',
+        text: 'Ouvrez une demande depuis Support, décrivez votre problème puis conservez sa référence. Le statut et toutes les réponses restent réunis dans le même fil.',
+      },
+      { kind: 'visual', id: 'HLP-SCR-007' },
+      {
         kind: 'list',
         ordered: true,
         items: [
@@ -105,6 +110,7 @@ export const SUPPORT_ARTICLES: readonly HelpArticle[] = [
         kind: 'paragraph',
         text: 'Une contestation sert à remettre en question une décision WARIBA contestable — par exemple un compte terminé disposant d’une preuve.',
       },
+      { kind: 'visual', id: 'HLP-SCR-006' },
       {
         kind: 'list',
         ordered: true,
@@ -266,6 +272,11 @@ export const SUPPORT_ARTICLES: readonly HelpArticle[] = [
     related: ['creer-et-suivre-un-ticket', 'examen-contestation'],
     lastReviewedAt: '2026-08-24',
     body: [
+      {
+        kind: 'paragraph',
+        text: 'Une demande et une contestation ne suivent pas exactement les mêmes étapes. Le statut affiché vous indique si WARIBA agit, si une réponse est attendue de votre part ou si le dossier est terminé.',
+      },
+      { kind: 'visual', id: 'HLP-VIS-016' },
       {
         kind: 'table',
         caption: 'Votre demande',

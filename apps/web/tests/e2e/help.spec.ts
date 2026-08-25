@@ -1,4 +1,5 @@
 import { mkdirSync } from 'node:fs';
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
 /**
@@ -14,6 +15,7 @@ import { expect, test } from '@playwright/test';
  * being verified: help must be readable before anyone has an account.
  */
 const OUT = '../../docs/04-ux/evidence/wariba-help-editorial-closure';
+const VISUAL_OUT = '../../docs/04-ux/evidence/wariba-help-visual-system';
 
 const SIZES = {
   desktop: { width: 1440, height: 900 },
@@ -27,6 +29,12 @@ async function shoot(page: Page, name: string) {
   mkdirSync(OUT, { recursive: true });
   await page.waitForTimeout(250);
   await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: true });
+}
+
+async function shootVisual(page: Page, name: string) {
+  mkdirSync(VISUAL_OUT, { recursive: true });
+  await page.waitForTimeout(250);
+  await page.screenshot({ path: `${VISUAL_OUT}/${name}.png`, fullPage: true });
 }
 
 async function noHorizontalOverflow(page: Page) {
@@ -236,5 +244,62 @@ test.describe('@help Centre d’aide', () => {
       expect(await noHorizontalOverflow(page), `${path} overflows at 320`).toBe(true);
     }
     await shoot(page, 'aide-statuts-320');
+  });
+
+  test('les visuels P0 restent lisibles, réels et statiques en reduced motion', async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    await page.setViewportSize(SIZES.desktop);
+    await page.goto('/aide/risque-regles/dll-vs-perte-maximale');
+
+    const diagram = page.locator('[data-help-visual="HLP-VIS-001"]');
+    await expect(diagram).toBeVisible();
+    await expect(diagram).toContainText('Perte quotidienne');
+    await expect(diagram).toContainText('Perte maximale');
+    await expect(diagram).not.toContainText('{{fact:');
+    await expect(diagram.getByText(/QUOTIDIEN_POLICY|MAXIMUM_POLICY/)).toHaveCount(0);
+    await shootVisual(page, 'HLP-VIS-001-article-1440');
+    await page.waitForTimeout(700);
+    const accessibility = await new AxeBuilder({ page }).analyze();
+    const serious = accessibility.violations.filter(
+      (violation) => violation.impact === 'critical' || violation.impact === 'serious',
+    );
+    expect(serious, JSON.stringify(serious, null, 2)).toHaveLength(0);
+
+    await page.goto('/aide/support/creer-et-suivre-un-ticket');
+    const screenshot = page.locator('[data-help-visual="HLP-SCR-007"]');
+    await expect(screenshot).toBeVisible();
+    const image = screenshot.getByRole('img');
+    await expect(image).toHaveJSProperty('complete', true);
+    expect(await image.evaluate((node) => (node as HTMLImageElement).naturalWidth)).toBeGreaterThan(
+      0,
+    );
+    await expect(screenshot.getByRole('list', { name: 'Repères de la capture' })).toBeVisible();
+    await shootVisual(page, 'HLP-SCR-007-article-1440');
+
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/aide/risque-regles/trailing-eod');
+    const animated = page.locator('.help-visual .help-visual-node').first();
+    await expect(animated).toBeVisible();
+    expect(await animated.evaluate((node) => getComputedStyle(node).animationDuration)).toBe(
+      '0.001s',
+    );
+
+    await page.setViewportSize(SIZES.mobile);
+    await page.goto('/aide/support/creer-et-suivre-un-ticket');
+    expect(await noHorizontalOverflow(page)).toBe(true);
+    await expect(page.locator('[data-help-visual="HLP-SCR-007"]')).toBeVisible();
+    await shootVisual(page, 'HLP-SCR-007-article-390');
+
+    await page.setViewportSize(SIZES.small);
+    for (const path of [
+      '/aide/risque-regles/dll-vs-perte-maximale',
+      '/aide/risque-regles/trailing-eod',
+      '/aide/support/creer-et-suivre-un-ticket',
+    ]) {
+      await page.goto(path);
+      expect(await noHorizontalOverflow(page), `${path} déborde à 320 px`).toBe(true);
+    }
   });
 });

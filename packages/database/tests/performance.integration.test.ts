@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDbClient, type Db } from '../src/client';
 import { activateEvaluationAccount } from '../src/activation';
 import { openPosition, closePosition } from '../src/trading';
+import { acknowledgePerformanceRules } from '../src/performance-onboarding';
 import {
   activatePerformanceAccountInTransaction,
   loadActiveCycle,
@@ -72,7 +73,7 @@ describeIfDb('performance engine — real database', () => {
     });
   };
 
-  /** A real Evaluation account, activated but never passed — only its identity/nominal/currency are used as the Performance account's provenance and starting values. */
+  /** A real passed Evaluation account used as canonical Performance provenance. */
   const createEvaluationAccount = async (
     label: string,
   ): Promise<{ userId: string; accountId: string; nominalBalance: string; currency: string }> => {
@@ -108,6 +109,11 @@ describeIfDb('performance engine — real database', () => {
       nominalBalance: productVersion.nominal_balance,
       currency: productVersion.nominal_currency,
     });
+    await db
+      .updateTable('app.trading_accounts')
+      .set({ status: 'passed' })
+      .where('id', '=', account.id)
+      .execute();
     cleanupAccountIds.push(account.id);
     return {
       userId,
@@ -156,6 +162,10 @@ describeIfDb('performance engine — real database', () => {
       await db.deleteFrom('app.account_state_transitions').where('account_id', '=', id).execute();
       await db.deleteFrom('app.performance_cycles').where('account_id', '=', id).execute();
       await db.deleteFrom('app.performance_review_cases').where('account_id', '=', id).execute();
+      await db
+        .deleteFrom('app.performance_rule_acknowledgements')
+        .where('account_id', '=', id)
+        .execute();
       const account = await db
         .selectFrom('app.trading_accounts')
         .select('source_purchase_order_id')
@@ -181,9 +191,6 @@ describeIfDb('performance engine — real database', () => {
     const evaluation = await createEvaluationAccount('fresh');
     const performance = await activatePerformanceAccountInTransaction(db, {
       evaluationAccountId: evaluation.accountId,
-      userId: evaluation.userId,
-      nominalBalance: evaluation.nominalBalance,
-      currency: evaluation.currency,
     });
 
     const cycle = await loadActiveCycle(db, performance.id);
@@ -204,18 +211,34 @@ describeIfDb('performance engine — real database', () => {
     const evaluation = await createEvaluationAccount('excess');
     const performance = await activatePerformanceAccountInTransaction(db, {
       evaluationAccountId: evaluation.accountId,
+    });
+
+    const beforeAcknowledgement = await openPosition(db, {
+      accountId: performance.id,
+      idempotencyKey: randomUUID(),
+      symbol: 'EURUSD',
+      side: 'buy',
+      quantity: '0.60',
+      market: ALL_MARKETS.EURUSD,
+      marketBySymbol: ALL_MARKETS,
+      now: NOW,
+    });
+    expect(beforeAcknowledgement.order.rejectionCode).toBe('performance_rules_not_acknowledged');
+    await acknowledgePerformanceRules(db, {
       userId: evaluation.userId,
-      nominalBalance: evaluation.nominalBalance,
-      currency: evaluation.currency,
+      accountId: performance.id,
+      correlationId: randomUUID(),
+      now: NOW,
     });
 
     // 0.60 lot EURUSD, ~905 points — well above the 1000 needed to clear
     // the 11,000 floor from a 10,000 nominal start (same trade shape as
     // risk.integration.test.ts's own pass scenario).
     const openMarket = { bid: '1.09995', ask: '1.10000', timestamp: FRESH_TICK, sequence: '1' };
+    const firstPerformanceTradeKey = randomUUID();
     const open = await openPosition(db, {
       accountId: performance.id,
-      idempotencyKey: randomUUID(),
+      idempotencyKey: firstPerformanceTradeKey,
       symbol: 'EURUSD',
       side: 'buy',
       quantity: '0.60',
@@ -223,6 +246,24 @@ describeIfDb('performance engine — real database', () => {
       marketBySymbol: marketsWithEurusd(openMarket),
       now: NOW,
     });
+    const replayedOpen = await openPosition(db, {
+      accountId: performance.id,
+      idempotencyKey: firstPerformanceTradeKey,
+      symbol: 'EURUSD',
+      side: 'buy',
+      quantity: '0.60',
+      market: openMarket,
+      marketBySymbol: marketsWithEurusd(openMarket),
+      now: NOW,
+    });
+    expect(replayedOpen.order.alreadyExisted).toBe(true);
+    const firstTradeEvents = await db
+      .selectFrom('app.outbox_events')
+      .select('id')
+      .where('aggregate_id', '=', performance.id)
+      .where('event_type', '=', 'performance_first_trade')
+      .execute();
+    expect(firstTradeEvents).toHaveLength(1);
     const closeMarket = {
       bid: '1.10900',
       ask: '1.10905',
@@ -251,9 +292,6 @@ describeIfDb('performance engine — real database', () => {
     const evaluation = await createEvaluationAccount('advance');
     const performance = await activatePerformanceAccountInTransaction(db, {
       evaluationAccountId: evaluation.accountId,
-      userId: evaluation.userId,
-      nominalBalance: evaluation.nominalBalance,
-      currency: evaluation.currency,
     });
     const cycle = await loadActiveCycle(db, performance.id);
 
@@ -282,9 +320,6 @@ describeIfDb('performance engine — real database', () => {
     const evaluation = await createEvaluationAccount('review');
     const performance = await activatePerformanceAccountInTransaction(db, {
       evaluationAccountId: evaluation.accountId,
-      userId: evaluation.userId,
-      nominalBalance: evaluation.nominalBalance,
-      currency: evaluation.currency,
     });
     const cycle1 = await loadActiveCycle(db, performance.id);
 

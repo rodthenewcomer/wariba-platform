@@ -51,6 +51,13 @@ export default async function ControlContestationPage({
 
   const canReview = staffCan(session.role, 'dispute.review');
   const canResolve = staffCan(session.role, 'dispute.resolve');
+  const canCorrect = staffCan(session.role, 'dispute.correct');
+  const canRemediate = staffCan(session.role, 'dispute.remediate');
+  const evidenceRows =
+    contestation.evidence?.rows.filter((row) => row.label !== 'Version de calcul') ?? [];
+  const calculationVersion = contestation.evidence?.rows.find(
+    (row) => row.label === 'Version de calcul',
+  )?.value;
 
   return (
     <div className="flex flex-col gap-6">
@@ -60,7 +67,7 @@ export default async function ControlContestationPage({
             <span className="wariba-data">{contestation.publicId}</span>
           </Text>
           <Badge variant="neutral">{contestation.statusLabel}</Badge>
-          {contestation.decisionLabel ? (
+          {contestation.decisionLabel && contestation.decisionLabel !== contestation.statusLabel ? (
             <Badge variant="review">{contestation.decisionLabel}</Badge>
           ) : null}
         </div>
@@ -88,15 +95,9 @@ export default async function ControlContestationPage({
                     },
                   ]
                 : []),
-              { label: 'Correlation ID', value: contestation.correlationId, numeric: true },
             ]}
           />
-          <div className="flex flex-col gap-3">
-            <EvidenceTable
-              caption="Preuves référencées"
-              testId="control-contestation-refs"
-              rows={contestation.evidenceRefRows}
-            />
+          <div className="flex items-start">
             <Link href={contestation.ticketHref}>
               Voir la demande {contestation.ticketPublicId}
             </Link>
@@ -106,14 +107,9 @@ export default async function ControlContestationPage({
 
       {contestation.evidence ? (
         <Card padding="comfortable">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <Text as="h2" variant="heading-sm">
-              {contestation.evidence.ruleLabel}
-            </Text>
-            <span className="wariba-data text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]">
-              {contestation.evidence.ruleCode}
-            </span>
-          </div>
+          <Text as="h2" variant="heading-sm">
+            {contestation.evidence.ruleLabel}
+          </Text>
           <Text variant="body-sm" color="secondary">
             Conséquence : {contestation.consequenceLabel}
           </Text>
@@ -121,7 +117,7 @@ export default async function ControlContestationPage({
             <EvidenceTable
               caption="Décision"
               testId="control-contestation-evidence"
-              rows={contestation.evidence.rows}
+              rows={evidenceRows}
             />
             {contestation.evidence.orderRows.length > 0 ? (
               <EvidenceTable
@@ -204,6 +200,52 @@ export default async function ControlContestationPage({
         </Card>
       ) : null}
 
+      {contestation.operatorHistory.length > 0 ? (
+        <Card padding="comfortable">
+          <Text as="h2" variant="heading-sm">
+            Historique opérateur
+          </Text>
+          <ol className="mt-4 divide-y divide-[color:var(--wariba-border-subtle)]">
+            {contestation.operatorHistory.map((event, index) => (
+              <li
+                key={`${event.occurredAtLabel}-${index}`}
+                className="grid gap-2 py-3 md:grid-cols-[180px_1fr_220px]"
+              >
+                <span className="font-semibold">{event.actionLabel}</span>
+                <span className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
+                  {event.reason}
+                </span>
+                <span className="wariba-data text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]">
+                  {event.actorLabel} · {event.occurredAtLabel}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </Card>
+      ) : null}
+
+      <details className="rounded-[var(--wariba-radius-sm)] border border-[color:var(--wariba-border-subtle)] p-4">
+        <summary className="cursor-pointer font-semibold">Détails techniques</summary>
+        <div className="mt-3 grid gap-6 md:grid-cols-2">
+          <EvidenceTable
+            caption="Dossier"
+            rows={[
+              { label: 'Version', value: String(contestation.version), numeric: true },
+              { label: 'Correlation ID', value: contestation.correlationId, numeric: true },
+              { label: 'Code règle', value: contestation.evidence?.ruleCode ?? '—', numeric: true },
+              ...(calculationVersion
+                ? [{ label: 'Version de calcul', value: calculationVersion, numeric: true }]
+                : []),
+            ]}
+          />
+          <EvidenceTable
+            caption="Preuves référencées"
+            testId="control-contestation-refs"
+            rows={contestation.evidenceRefRows}
+          />
+        </div>
+      </details>
+
       <Card padding="comfortable">
         <Text as="h2" variant="heading-sm">
           Examen
@@ -213,7 +255,17 @@ export default async function ControlContestationPage({
             publicId={contestation.publicId}
             canReview={canReview}
             canResolve={canResolve}
+            canCorrect={canCorrect}
+            canRemediate={canRemediate}
             isLive={contestation.isLive}
+            status={contestation.status}
+            evidenceAvailable={Boolean(contestation.evidence)}
+            assignedToMe={contestation.assignedStaffId === session.userId}
+            version={contestation.version}
+            originalAccountPublicId={contestation.accountPublicId}
+            replacementAccountPublicId={contestation.replacementAccountPublicId}
+            replacementProgramLabel={contestation.accountProgramLabel}
+            replacementNominalLabel={contestation.accountNominalLabel}
           />
         </div>
       </Card>

@@ -35,6 +35,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
         kind: 'paragraph',
         text: 'Voici les règles WARIBA ONE actuellement publiées. Un compte déjà activé garde la version acceptée le jour de son activation : celle qui s’applique au vôtre est affichée dans votre espace WARIBA.',
       },
+      { kind: 'visual', id: 'HLP-VIS-019' },
       {
         kind: 'ruleTable',
         caption: 'Règles WARIBA ONE en vigueur',
@@ -172,6 +173,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
         kind: 'paragraph',
         text: 'La perte quotidienne est une protection temporaire. Le montant de référence correspond à {{fact:dailyLossRate}} du nominal simulé, selon les règles attachées à votre compte.',
       },
+      { kind: 'visual', id: 'HLP-VIS-003' },
       {
         kind: 'example',
         title: 'Illustration sur un nominal de 10 000 USD',
@@ -299,6 +301,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
         kind: 'paragraph',
         text: 'La règle du Meilleur Jour vérifie que vos gains ne viennent pas tous d’une seule journée. Votre meilleure journée ne doit pas représenter plus de {{fact:bestDayMaxRatio}} de l’ensemble de vos journées gagnantes.',
       },
+      { kind: 'visual', id: 'HLP-VIS-004' },
       {
         kind: 'formula',
         expression: 'part = votre meilleure journée ÷ total de vos journées gagnantes',
@@ -351,6 +354,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
         kind: 'paragraph',
         text: 'Les règles en vigueur prévoient une durée minimale de {{fact:shortDurationSeconds}} pour qu’un résultat profitable contribue au résultat programme éligible.',
       },
+      { kind: 'visual', id: 'HLP-VIS-005' },
       { kind: 'heading', text: 'Concrètement' },
       {
         kind: 'paragraph',
@@ -531,6 +535,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
         kind: 'paragraph',
         text: 'Atteindre l’objectif ne déclenche pas immédiatement un compte Performance.',
       },
+      { kind: 'visual', id: 'HLP-VIS-006' },
       {
         kind: 'formula',
         expression:
@@ -550,6 +555,7 @@ export const WARIBA_ONE_ARTICLES: readonly HelpArticle[] = [
         kind: 'paragraph',
         text: 'La vérification porte sur la journée terminée, vos règles, vos ordres et un éventuel dépassement de limite. Un cas ambigu est examiné par une personne. Une fois approuvé, votre compte Performance est créé une seule fois.',
       },
+      { kind: 'visual', id: 'HLP-VIS-018' },
       {
         kind: 'callout',
         tone: 'attention',

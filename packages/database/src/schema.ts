@@ -168,6 +168,8 @@ export interface TradingAccountsTable {
   source_purchase_order_id: string | null;
   /** Set for WARIBA_PERFORMANCE accounts, spawned from the Evaluation account that passed (PERF-020); null for WARIBA_ONE. */
   source_evaluation_account_id: string | null;
+  /** Set only for a no-cost compensating replacement account (UX-SUPPORT-004). Unique per contestation and never written on the original account. */
+  source_contestation_id: string | null;
   program_type: Generated<'WARIBA_ONE' | 'WARIBA_PERFORMANCE'>;
   /** Sandbox-only — no real identity or payout-rail integration exists. Staff-set via Control (Phase G), never trader-set. */
   kyc_sandbox_verified: Generated<boolean>;
@@ -185,6 +187,22 @@ export interface TradingAccountsTable {
   version: Generated<number>;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
+}
+
+/**
+ * Phase 3.3.1 — proof of the first-entry Performance rules onboarding.
+ * The policy id is copied from the locked account row by the server command;
+ * no browser-supplied policy value is accepted.
+ */
+export interface PerformanceRuleAcknowledgementsTable {
+  id: Generated<string>;
+  user_id: string;
+  account_id: string;
+  policy_version_id: string;
+  source: 'performance_onboarding';
+  acknowledged_at: Timestamp;
+  correlation_id: string;
+  created_at: GeneratedTimestamp;
 }
 
 export interface AccountStateTransitionsTable {
@@ -787,6 +805,9 @@ export interface SupportTicketsTable {
   /** Operator-set only — no trader surface and no grant can reach it. */
   priority: Generated<SupportTicketPriority>;
   assigned_staff_id: string | null;
+  assigned_at: Timestamp | null;
+  /** Optimistic-concurrency token for every operator mutation. */
+  version: Generated<number>;
   correlation_id: string;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
@@ -815,7 +836,15 @@ export interface TicketMessagesTable {
 export type ContestationTargetType = 'account_breach' | 'risk_decision' | 'payout_decision';
 
 export type ContestationStatus =
-  'open' | 'under_review' | 'needs_information' | 'upheld' | 'overturned' | 'closed';
+  | 'open'
+  | 'under_review'
+  | 'needs_information'
+  | 'upheld'
+  | 'overturned'
+  | 'closed'
+  | 'correction_required'
+  | 'decision_corrected'
+  | 'finance_compliance_review';
 
 export type ContestationReasonCategory =
   'rule_misapplied' | 'market_data_disputed' | 'execution_error' | 'evidence_incomplete' | 'other';
@@ -827,7 +856,13 @@ export type ContestationReasonCategory =
  * no authorized corrective command exists and `recordContestationDecision`
  * refuses it. See DEC-3.2-02 in the Phase 3.2 implementation note.
  */
-export type ContestationDecision = 'upheld' | 'overturned' | 'requires_escalation';
+export type ContestationDecision =
+  | 'upheld'
+  | 'overturned'
+  | 'requires_escalation'
+  | 'correction_required'
+  | 'decision_corrected'
+  | 'finance_compliance_review';
 
 export interface ContestationsTable {
   id: Generated<string>;
@@ -849,6 +884,61 @@ export interface ContestationsTable {
   reviewed_at: Timestamp | null;
   resolved_at: Timestamp | null;
   reviewed_by: string | null;
+  /** Operational owner, distinct from the operator who records a review action. */
+  assigned_staff_id: string | null;
+  assigned_at: Timestamp | null;
+  /** Optimistic-concurrency token for every operator mutation. */
+  version: Generated<number>;
+  correlation_id: string;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export type PassReviewOperatorStatus = 'reviewed' | 'integrity_escalated';
+
+/**
+ * Post-result operational state for ONE-025. This table never participates in
+ * pass calculation or Performance activation; it records only who inspected
+ * an already-authoritative result and whether an integrity follow-up is needed.
+ */
+export interface PassReviewOperatorStatesTable {
+  account_id: string;
+  status: PassReviewOperatorStatus;
+  assigned_staff_id: string;
+  reason: string;
+  reviewed_at: Timestamp;
+  version: Generated<number>;
+  correlation_id: string;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export type IdentityReviewStatus =
+  'requested' | 'under_review' | 'needs_information' | 'verified' | 'unable_to_verify' | 'closed';
+
+/**
+ * Phase 3.3 private-beta identity workflow.
+ *
+ * No field can contain an identity document, selfie, biometric payload or
+ * provider response. `evidence_reference` is an out-of-band human reference;
+ * the authoritative product result remains trading_accounts.kyc_sandbox_verified.
+ */
+export interface IdentityReviewCasesTable {
+  id: Generated<string>;
+  public_id: Generated<string>;
+  user_id: string;
+  account_id: string;
+  reason: 'first_payout';
+  status: Generated<IdentityReviewStatus>;
+  assigned_staff_id: string | null;
+  assigned_at: Timestamp | null;
+  evidence_reference: string | null;
+  decision_reason: string | null;
+  trader_message: string | null;
+  requested_at: GeneratedTimestamp;
+  reviewed_at: Timestamp | null;
+  resolved_at: Timestamp | null;
+  version: Generated<number>;
   correlation_id: string;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
@@ -866,6 +956,7 @@ export interface Database {
   'app.payment_events': PaymentEventsTable;
   'app.receipts': ReceiptsTable;
   'app.trading_accounts': TradingAccountsTable;
+  'app.performance_rule_acknowledgements': PerformanceRuleAcknowledgementsTable;
   'app.account_state_transitions': AccountStateTransitionsTable;
   'app.account_daily_snapshots': AccountDailySnapshotsTable;
   'app.risk_violations': RiskViolationsTable;
@@ -898,6 +989,8 @@ export interface Database {
   'app.support_tickets': SupportTicketsTable;
   'app.ticket_messages': TicketMessagesTable;
   'app.contestations': ContestationsTable;
+  'app.pass_review_operator_states': PassReviewOperatorStatesTable;
+  'app.identity_review_cases': IdentityReviewCasesTable;
   'audit.audit_events': AuditEventsTable;
   'auth.users': AuthUsersTable;
 }

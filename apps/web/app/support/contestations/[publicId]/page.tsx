@@ -201,6 +201,13 @@ export default async function ContestationPage({
             <p className="text-[length:var(--wariba-font-size-body-md)] font-semibold text-[color:var(--wariba-text-primary)]">
               {contestation.decisionLabel}
             </p>
+            {contestation.status === 'decision_corrected' ? (
+              <div className="mt-2 max-w-[66ch] space-y-2 text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-text-secondary)]">
+                <p>Nous avons confirmé qu’une erreur a affecté la décision précédente.</p>
+                <p>Votre ancien compte reste consultable afin de conserver son historique.</p>
+                <p>Un compte de remplacement vous a été attribué sans frais.</p>
+              </div>
+            ) : null}
             {contestation.decisionReason ? (
               <p className="mt-2 max-w-[66ch] whitespace-pre-wrap text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-text-secondary)]">
                 {contestation.decisionReason}
@@ -210,6 +217,19 @@ export default async function ContestationPage({
               <p className="wariba-data mt-3 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
                 {contestation.resolvedAtLabel}
               </p>
+            ) : null}
+            {contestation.replacementAccountPublicId && contestation.replacementAccountHref ? (
+              <div className="mt-4">
+                <p className="wariba-data mb-3 text-[length:var(--wariba-font-size-body-sm)] font-semibold text-[color:var(--wariba-text-primary)]">
+                  Compte de remplacement : {contestation.replacementAccountPublicId}
+                </p>
+                <ActionLink
+                  href={contestation.replacementAccountHref}
+                  data-testid="contestation-replacement-account-link"
+                >
+                  Ouvrir mon nouveau compte
+                </ActionLink>
+              </div>
             ) : null}
           </Surface>
         </section>

@@ -1,5 +1,6 @@
 import type { Db, DbExecutor } from './client';
 import { SupportTicketStateError } from './support-tickets';
+import { assertExpectedCaseVersion } from './operator-case';
 import type {
   SupportTicketCategory,
   SupportTicketPriority,
@@ -26,7 +27,7 @@ export interface ControlSupportFilters {
   status?: SupportTicketStatus;
   category?: SupportTicketCategory;
   /** 'assigned' / 'unassigned' / a specific staff user id. */
-  assignment?: 'assigned' | 'unassigned';
+  assignment?: 'assigned' | 'unassigned' | 'mine';
   assignedStaffId?: string;
   /** Only tickets older than this many hours, for triage by age. */
   minAgeHours?: number;
@@ -45,6 +46,7 @@ export interface ControlSupportQueueRow {
   createdAt: Date;
   updatedAt: Date;
   assignedStaffEmail: string | null;
+  assignedAt: Date | null;
   hasContestation: boolean;
 }
 
@@ -112,6 +114,7 @@ export async function loadControlSupportQueue(
         'app.support_tickets.priority as priority',
         'app.support_tickets.created_at as created_at',
         'app.support_tickets.updated_at as updated_at',
+        'app.support_tickets.assigned_at as assigned_at',
         'app.trading_accounts.public_id as account_public_id',
         'trader.email as trader_email',
         'operator.email as operator_email',
@@ -137,6 +140,7 @@ export async function loadControlSupportQueue(
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       assignedStaffEmail: row.operator_email,
+      assignedAt: row.assigned_at,
       hasContestation: row.contestation_public_id !== null,
     })),
     total: Number(count?.total ?? 0),
@@ -156,6 +160,8 @@ export interface ControlSupportTicketDetail {
   priority: SupportTicketPriority;
   assignedStaffId: string | null;
   assignedStaffEmail: string | null;
+  assignedAt: Date | null;
+  version: number;
   correlationId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -168,6 +174,11 @@ export interface ControlSupportTicketDetail {
     status: string;
     nominalBalance: string;
     currency: string;
+    linkedAccount: {
+      accountId: string;
+      accountPublicId: string;
+      relation: 'source_evaluation' | 'performance_child';
+    } | null;
   } | null;
   messages: readonly {
     actorType: TicketMessageActorType;
@@ -181,6 +192,12 @@ export interface ControlSupportTicketDetail {
     status: string;
     targetType: string;
   } | null;
+  operatorHistory: readonly {
+    action: string;
+    actorEmail: string | null;
+    reason: string | null;
+    occurredAt: Date;
+  }[];
 }
 
 export async function loadControlSupportTicket(
@@ -201,6 +218,8 @@ export async function loadControlSupportTicket(
       'app.support_tickets.status as status',
       'app.support_tickets.priority as priority',
       'app.support_tickets.assigned_staff_id as assigned_staff_id',
+      'app.support_tickets.assigned_at as assigned_at',
+      'app.support_tickets.version as version',
       'app.support_tickets.correlation_id as correlation_id',
       'app.support_tickets.created_at as created_at',
       'app.support_tickets.updated_at as updated_at',
@@ -212,6 +231,7 @@ export async function loadControlSupportTicket(
       'app.trading_accounts.status as account_status',
       'app.trading_accounts.nominal_balance as nominal_balance',
       'app.trading_accounts.currency as currency',
+      'app.trading_accounts.source_evaluation_account_id as source_evaluation_account_id',
       'trader.email as trader_email',
       'operator.email as operator_email',
     ])
@@ -219,7 +239,7 @@ export async function loadControlSupportTicket(
     .executeTakeFirst();
   if (!ticket) return null;
 
-  const [messages, contestation] = await Promise.all([
+  const [messages, contestation, operatorHistory, linkedAccount] = await Promise.all([
     db
       .selectFrom('app.ticket_messages')
       .leftJoin('auth.users as author', 'author.id', 'app.ticket_messages.actor_staff_id')
@@ -238,6 +258,54 @@ export async function loadControlSupportTicket(
       .select(['public_id', 'status', 'target_type'])
       .where('ticket_id', '=', ticket.id)
       .executeTakeFirst(),
+    db
+      .selectFrom('audit.audit_events')
+      .leftJoin('auth.users as actor', 'actor.id', 'audit.audit_events.actor_id')
+      .select([
+        'audit.audit_events.action as action',
+        'audit.audit_events.reason as reason',
+        'audit.audit_events.occurred_at as occurred_at',
+        'actor.email as actor_email',
+      ])
+      .where('audit.audit_events.target_type', '=', 'support_ticket')
+      .where('audit.audit_events.target_id', '=', ticket.id)
+      .where('audit.audit_events.actor_type', '=', 'staff')
+      .orderBy('audit.audit_events.occurred_at', 'desc')
+      .limit(25)
+      .execute(),
+    ticket.account_id
+      ? ticket.source_evaluation_account_id
+        ? db
+            .selectFrom('app.trading_accounts')
+            .select(['id', 'public_id'])
+            .where('id', '=', ticket.source_evaluation_account_id)
+            .where('user_id', '=', ticket.user_id)
+            .executeTakeFirst()
+            .then((row) =>
+              row
+                ? {
+                    accountId: row.id,
+                    accountPublicId: row.public_id,
+                    relation: 'source_evaluation' as const,
+                  }
+                : null,
+            )
+        : db
+            .selectFrom('app.trading_accounts')
+            .select(['id', 'public_id'])
+            .where('source_evaluation_account_id', '=', ticket.account_id)
+            .where('user_id', '=', ticket.user_id)
+            .executeTakeFirst()
+            .then((row) =>
+              row
+                ? {
+                    accountId: row.id,
+                    accountPublicId: row.public_id,
+                    relation: 'performance_child' as const,
+                  }
+                : null,
+            )
+      : Promise.resolve(null),
   ]);
 
   return {
@@ -251,6 +319,8 @@ export async function loadControlSupportTicket(
     priority: ticket.priority,
     assignedStaffId: ticket.assigned_staff_id,
     assignedStaffEmail: ticket.operator_email,
+    assignedAt: ticket.assigned_at,
+    version: ticket.version,
     correlationId: ticket.correlation_id,
     createdAt: ticket.created_at,
     updatedAt: ticket.updated_at,
@@ -264,6 +334,7 @@ export async function loadControlSupportTicket(
           status: ticket.account_status as string,
           nominalBalance: ticket.nominal_balance as string,
           currency: ticket.currency as string,
+          linkedAccount,
         }
       : null,
     messages: messages.map((row) => ({
@@ -279,20 +350,26 @@ export async function loadControlSupportTicket(
           targetType: contestation.target_type,
         }
       : null,
+    operatorHistory: operatorHistory.map((event) => ({
+      action: event.action,
+      actorEmail: event.actor_email,
+      reason: event.reason,
+      occurredAt: event.occurred_at,
+    })),
   };
 }
 
 export interface TicketBeforeAfter {
   ticketId: string;
-  before: { status: SupportTicketStatus; assignedStaffId: string | null };
-  after: { status: SupportTicketStatus; assignedStaffId: string | null };
+  before: { status: SupportTicketStatus; assignedStaffId: string | null; version: number };
+  after: { status: SupportTicketStatus; assignedStaffId: string | null; version: number };
 }
 
 /** Locks and returns the ticket, or refuses in the caller's transaction. */
 async function lockTicket(trx: DbExecutor, publicId: string) {
   const ticket = await trx
     .selectFrom('app.support_tickets')
-    .select(['id', 'status', 'assigned_staff_id'])
+    .select(['id', 'status', 'assigned_staff_id', 'assigned_at', 'version'])
     .where('public_id', '=', publicId)
     .forUpdate()
     .executeTakeFirst();
@@ -309,10 +386,14 @@ function assertActionable(status: SupportTicketStatus): void {
 
 export async function assignSupportTicketInTransaction(
   trx: DbExecutor,
-  params: { publicId: string; assignToStaffId: string; now: Date },
+  params: { publicId: string; assignToStaffId: string; expectedVersion: number; now: Date },
 ): Promise<TicketBeforeAfter> {
   const ticket = await lockTicket(trx, params.publicId);
+  assertExpectedCaseVersion(ticket.version, params.expectedVersion);
   assertActionable(ticket.status);
+  if (ticket.assigned_staff_id && ticket.assigned_staff_id !== params.assignToStaffId) {
+    throw new SupportTicketStateError('Cette demande est déjà affectée à un autre opérateur.');
+  }
 
   // Picking a ticket up is also a triage statement: it moves out of the
   // untriaged pile so two operators do not answer the same person twice.
@@ -322,16 +403,26 @@ export async function assignSupportTicketInTransaction(
     .updateTable('app.support_tickets')
     .set({
       assigned_staff_id: params.assignToStaffId,
+      assigned_at: params.now,
       status: nextStatus,
       updated_at: params.now,
+      version: ticket.version + 1,
     })
     .where('id', '=', ticket.id)
     .execute();
 
   return {
     ticketId: ticket.id,
-    before: { status: ticket.status, assignedStaffId: ticket.assigned_staff_id },
-    after: { status: nextStatus, assignedStaffId: params.assignToStaffId },
+    before: {
+      status: ticket.status,
+      assignedStaffId: ticket.assigned_staff_id,
+      version: ticket.version,
+    },
+    after: {
+      status: nextStatus,
+      assignedStaffId: params.assignToStaffId,
+      version: ticket.version + 1,
+    },
   };
 }
 
@@ -343,12 +434,17 @@ export async function appendStaffMessageInTransaction(
     body: string;
     /** `true` when the operator is asking the trader for something. */
     requestsInformation: boolean;
+    expectedVersion: number;
     correlationId: string;
     now: Date;
   },
 ): Promise<TicketBeforeAfter> {
   const ticket = await lockTicket(trx, params.publicId);
+  assertExpectedCaseVersion(ticket.version, params.expectedVersion);
   assertActionable(ticket.status);
+  if (ticket.assigned_staff_id && ticket.assigned_staff_id !== params.staffUserId) {
+    throw new SupportTicketStateError('Cette demande est affectée à un autre opérateur.');
+  }
 
   await trx
     .insertInto('app.ticket_messages')
@@ -374,17 +470,24 @@ export async function appendStaffMessageInTransaction(
       // this table requires the timestamps to agree with the status.
       resolved_at: null,
       assigned_staff_id: ticket.assigned_staff_id ?? params.staffUserId,
+      assigned_at: ticket.assigned_at ?? params.now,
       updated_at: params.now,
+      version: ticket.version + 1,
     })
     .where('id', '=', ticket.id)
     .execute();
 
   return {
     ticketId: ticket.id,
-    before: { status: ticket.status, assignedStaffId: ticket.assigned_staff_id },
+    before: {
+      status: ticket.status,
+      assignedStaffId: ticket.assigned_staff_id,
+      version: ticket.version,
+    },
     after: {
       status: nextStatus,
       assignedStaffId: ticket.assigned_staff_id ?? params.staffUserId,
+      version: ticket.version + 1,
     },
   };
 }
@@ -396,13 +499,18 @@ export async function setSupportTicketResolutionInTransaction(
     staffUserId: string;
     resolution: 'resolved' | 'closed';
     reason: string;
+    expectedVersion: number;
     correlationId: string;
     now: Date;
   },
 ): Promise<TicketBeforeAfter> {
   const ticket = await lockTicket(trx, params.publicId);
+  assertExpectedCaseVersion(ticket.version, params.expectedVersion);
   if (ticket.status === 'closed') {
     throw new SupportTicketStateError('This request is already closed.');
+  }
+  if (ticket.assigned_staff_id && ticket.assigned_staff_id !== params.staffUserId) {
+    throw new SupportTicketStateError('Cette demande est affectée à un autre opérateur.');
   }
 
   /*
@@ -428,8 +536,23 @@ export async function setSupportTicketResolutionInTransaction(
     .updateTable('app.support_tickets')
     .set(
       params.resolution === 'resolved'
-        ? { status: 'resolved', resolved_at: params.now, closed_at: null, updated_at: params.now }
-        : { status: 'closed', closed_at: params.now, updated_at: params.now },
+        ? {
+            status: 'resolved',
+            resolved_at: params.now,
+            closed_at: null,
+            assigned_staff_id: ticket.assigned_staff_id ?? params.staffUserId,
+            assigned_at: ticket.assigned_at ?? params.now,
+            updated_at: params.now,
+            version: ticket.version + 1,
+          }
+        : {
+            status: 'closed',
+            closed_at: params.now,
+            assigned_staff_id: ticket.assigned_staff_id ?? params.staffUserId,
+            assigned_at: ticket.assigned_at ?? params.now,
+            updated_at: params.now,
+            version: ticket.version + 1,
+          },
     )
     .where('id', '=', ticket.id)
     .execute();
@@ -450,7 +573,15 @@ export async function setSupportTicketResolutionInTransaction(
 
   return {
     ticketId: ticket.id,
-    before: { status: ticket.status, assignedStaffId: ticket.assigned_staff_id },
-    after: { status: params.resolution, assignedStaffId: ticket.assigned_staff_id },
+    before: {
+      status: ticket.status,
+      assignedStaffId: ticket.assigned_staff_id,
+      version: ticket.version,
+    },
+    after: {
+      status: params.resolution,
+      assignedStaffId: ticket.assigned_staff_id ?? params.staffUserId,
+      version: ticket.version + 1,
+    },
   };
 }

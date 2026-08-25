@@ -28,7 +28,10 @@ export default async function globalSetup(): Promise<void> {
     await page.getByLabel('Adresse e-mail').fill(fixture.email);
     await page.getByLabel('Mot de passe', { exact: true }).fill(E2E_TEST_PASSWORD);
     await page.getByRole('button', { name: 'Se connecter' }).click();
-    await page.waitForURL('**/hub');
+    // A cold Next.js development server may compile the full Hub route after
+    // authentication. Keep this above the default 30 s so the setup measures
+    // the signed-in product state rather than cold compiler latency.
+    await page.waitForURL('**/hub', { timeout: 60_000 });
     /*
      * A test id, not a label. "Ouvrir WariX" is the account's next action and
      * legitimately appears in more than one place on the dashboard — the

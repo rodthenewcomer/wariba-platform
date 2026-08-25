@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { Button, Dialog, Text } from '@wariba/ui';
 import { assignTicketToSelfAction, replyToTicketAction, resolveTicketAction } from '../actions';
 
@@ -31,13 +31,15 @@ export function ControlTicketActions({
   canAct,
   assignedToMe,
   isSettled,
+  version,
 }: {
   publicId: string;
   canAct: boolean;
   assignedToMe: boolean;
   isSettled: boolean;
+  version: number;
 }) {
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [body, setBody] = useState('');
   const [resolveOpen, setResolveOpen] = useState(false);
@@ -52,17 +54,21 @@ export function ControlTicketActions({
     );
   }
 
-  const run = (fn: () => Promise<{ error?: string }>) => {
+  const run = async (fn: () => Promise<{ error?: string }>) => {
     setError(null);
-    startTransition(async () => {
+    setPending(true);
+    try {
       const result = await fn();
       if (result.error) setError(result.error);
-    });
+      else window.location.reload();
+    } finally {
+      setPending(false);
+    }
   };
 
   const send = (requestsInformation: boolean) => {
-    run(async () => {
-      const result = await replyToTicketAction(publicId, body, requestsInformation);
+    void run(async () => {
+      const result = await replyToTicketAction(publicId, body, requestsInformation, version);
       if (!result.error) setBody('');
       return result;
     });
@@ -77,7 +83,7 @@ export function ControlTicketActions({
               variant="secondary"
               size="sm"
               disabled={pending || assignedToMe}
-              onClick={() => run(() => assignTicketToSelfAction(publicId))}
+              onClick={() => void run(() => assignTicketToSelfAction(publicId, version))}
               data-testid="control-ticket-assign"
             >
               {assignedToMe ? 'Affectée à vous' : 'Prendre en charge'}
@@ -174,8 +180,8 @@ export function ControlTicketActions({
             disabled={pending || reason.trim().length === 0}
             data-testid="control-resolution-confirm"
             onClick={() =>
-              run(async () => {
-                const result = await resolveTicketAction(publicId, resolution, reason);
+              void run(async () => {
+                const result = await resolveTicketAction(publicId, resolution, reason, version);
                 if (!result.error) {
                   setResolveOpen(false);
                   setReason('');

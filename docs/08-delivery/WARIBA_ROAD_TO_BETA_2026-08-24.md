@@ -9,7 +9,7 @@ SOURCE        = WARIBA_PRODUCT_OS_MASTER_IMPLEMENTATION_MATRIX_2026-08-23.csv
 ```
 
 Ce document existe parce que la documentation avait pris du retard sur le code.
-Trois tranches ont été livrées depuis le dernier audit et six exigences du
+Cinq tranches ont été livrées depuis le dernier audit et plusieurs exigences du
 Product OS Master ont changé d'état sans que le plan soit réécrit. Il donne
 donc deux choses : **où en est réellement le produit**, et **ce qu'il reste
 avant qu'un testeur externe puisse s'en servir**.
@@ -21,24 +21,26 @@ Tous les chiffres viennent de la matrice, pas d'une appréciation.
 ## 1. Où en est le produit
 
 ```text
-PRODUCT_OS_REQUIREMENT_COVERAGE = 80.4%   (145.50 / 181)
-CRITICAL_PRODUCT_COMPLETENESS   = 81.3%   (126.00 / 155, P0+P1)
-P0_ONLY                         = 87.7%   ( 44.75 /  51)
+PRODUCT_OS_REQUIREMENT_COVERAGE = 82.0%   (148.50 / 181)
+CRITICAL_PRODUCT_COMPLETENESS   = 83.2%   (129.00 / 155, P0+P1)
+P0_ONLY                         = 91.2%   ( 46.50 /  51)
 
 PRIVATE_BETA_PRODUCT_READY      = no
 ```
 
 Progression depuis l'audit du 23 août :
 
-| Mesure | Audit 23/08 | Après 3.1A | Après 3.2 | Après Help Center |
-|---|--:|--:|--:|--:|
-| Couverture | 77,1 % | 77,1 % | 79,6 % | **80,4 %** |
-| Critique (P0+P1) | 77,4 % | 77,4 % | 80,3 % | **81,3 %** |
-| P0 seul | 79,4 % | 79,4 % | 87,7 % | **87,7 %** |
+| Mesure | Audit 23/08 | Après 3.1A | Après 3.2 | Après Help Center | Après 3.3 | Après 3.3.1 |
+|---|--:|--:|--:|--:|--:|--:|
+| Couverture | 77,1 % | 77,1 % | 79,6 % | 80,4 % | 81,4 % | **82,0 %** |
+| Critique (P0+P1) | 77,4 % | 77,4 % | 80,3 % | 81,3 % | 82,4 % | **83,2 %** |
+| P0 seul | 79,4 % | 79,4 % | 87,7 % | 87,7 % | 90,2 % | **91,2 %** |
 
-Le bond P0 vient entièrement de la tranche Support + Contestations : la dette
-était concentrée dans la bande critique, exactement là où l'audit l'avait
-située.
+Le gain 3.3 vient de la file Identité réellement opérable, du dossier trader
+persisté et des files Control. La clôture 3.3.1 verrouille ensuite le passage
+automatique (`ONE-025`/`ONE-026`), le handoff atomique Evaluation → Performance,
+la lecture de la policy attachée avant le premier trade et son funnel
+d'observabilité. Elle ne crée aucune décision financière humaine.
 
 ### Les dix plus grandes lacunes de l'audit, revisitées
 
@@ -47,35 +49,37 @@ située.
 | 1 | Aucun déploiement | MISSING | **PARTIEL** — Dockerfiles realtime/worker, `.env.example`, health/readiness. Aucun environnement n'a encore tourné ailleurs que sur localhost. |
 | 2 | Aucun système de support | MISSING | **FAIT** — `app.support_tickets`, `app.ticket_messages`, file Control, RLS, audit. |
 | 3 | Aucune contestation | MISSING | **FAIT** — `app.contestations`, preuve liée par identifiants, file Control, décision auditée. |
-| 4 | KYC sans provider ni file | UI_ONLY | inchangé — `KYC_PROVIDER_INTEGRATED = false`. |
+| 4 | KYC sans provider ni file | UI_ONLY | **PARTIEL** — file et dossier manuel réels ; aucun provider et aucun document stocké. |
 | 5 | Restauration jamais prouvée | MISSING | inchangé — `pnpm test:recovery` redémarre le realtime, ne restaure pas une base. |
 | 6 | Providers externes non branchés | BLOCKED | inchangé — market data, e-mail, PSP, payout : adaptateurs prêts, décisions non prises. |
-| 7 | Files opérateur absentes | MISSING | **PARTIEL** — Support et Contestations existent ; Pass Review et KYC manquent. |
+| 7 | Files opérateur absentes | MISSING | **FAIT** — Identité, Support, Contestations et Pass Review sont opérables ; la revue Pass est post-résultat conformément à `ONE-025`. |
 | 8 | `/status` absent | MISSING | inchangé — `OPS-010` `LOCKED` non satisfait. L'article d'aide dit maintenant explicitement qu'aucune page d'état n'est publiée. |
 | 9 | WariX : vues non sérialisables, 2 indicateurs sur 7 | MISSING | inchangé — l'aide publie EMA et SMA, pas sept. |
 | 10 | `/profil`, `/comptes/{id}`, `/parametres` | MISSING | inchangé. |
 
-Deux `VETO` de l'audit sont levés (trader prop-firm, support client). **Quatre
-restent** : fondateur (déploiement), opérations prop-firm (files Pass Review et
-KYC), opérations payout (aucun provider), conformité (aucun KYC).
+Trois `VETO` de l'audit sont levés (trader prop-firm, support client, opérations
+prop-firm). **Trois restent** : fondateur (déploiement), opérations payout
+(aucun provider), conformité (aucun provider KYC). La file Identité lève
+l'absence d'outil, pas la dépendance externe.
 
 ---
 
-## 2. Ce qui reste — 56 exigences ouvertes
+## 2. Ce qui reste — 54 exigences ouvertes ou indéterminées
 
 Réparties par tranche recommandée, telles que la matrice les porte :
 
 ```text
-tranche 3.3   15 exigences   dont  2 P0
-tranche 3.4   12 exigences   dont  0 P0
-tranche 3.5   16 exigences   dont 12 P0
+tranche 3.4   24 exigences   dont  1 P0
+tranche 3.5   15 exigences   dont 11 P0
 tranche 3.6    4 exigences   dont  1 P0
-WariX (3.2*)   5 exigences   dont  0 P0
+WariX           7 exigences   dont  0 P0
 gouvernance    4 exigences   dont  0 P0
 ```
 
-`*` Cinq exigences WariX portent encore l'étiquette 3.2 dans la matrice ; elles
-appartiennent à la tranche WariX Professional et sont replacées ci-dessous.
+Ce total comprend une exigence `CANNOT_VERIFY` : l'invariant de remount WariX
+ne peut pas être vérifié avant que `view=` existe. Les anciennes étiquettes
+3.2 ont été normalisées en `WariX` ; la tranche Support + Contestations reste
+historique et ne reçoit plus de travail futur.
 
 ---
 
@@ -87,35 +91,38 @@ complétude produit → croissance → finition. Une tranche est placée avant u
 autre quand elle **débloque** des lignes d'acceptation, pas quand elle est plus
 facile.
 
-### 3.3 — Fermeture opérateur · **la prochaine**
+### 3.3 — Fermeture opérateur · **livrée et clôturée**
 
-*15 exigences · 2 P0 · lève le VETO « opérations prop-firm »*
+*0 exigence restante dans la tranche · Phase 3.4 non démarrée*
 
-Control possède aujourd'hui 21 surfaces dont 6 mutables. Les deux files qui
-manquent sont celles sans lesquelles un compte ne peut pas franchir son étape :
+Control répond désormais à « que faut-il traiter maintenant ? » avec des
+comptages réels, l'âge neutre des dossiers, les affectations, les cas vieillissants
+et les décisions récentes. Support, Contestations et Identité partagent un
+contrat d'affectation/audit/version optimiste (`ENG-033`).
 
-| Exigence | Ce qu'il faut |
+| Exigence | État après 3.3 |
 |---|---|
-| `POS-75.01` File Pass Review | Une file `/control/pass-review` : colonnes §75, détail avec rule snapshot, timeline, trades, ordres, événements risque, intégrité, audit, panneau de décision avec reason code obligatoire. |
-| `POS-66.01` Pass Review | `app.performance_review_cases` existe et n'a aucune file. Rendre la décision mutable et auditée. |
-| `POS-72.01` WARIBA Review | Même chose après le dernier payout. |
-| `POS-26.01` Dashboard soft lock | Séparer visuellement blocage temporaire et compte terminé, avec compte à rebours de reset. |
-| `POS-06.15` `/comptes/{accountId}` · `POS-32.02` | La surface Hub canonique qui manque : une page par compte, avec ses règles, sa policy, son historique et ses preuves. |
-| `POS-06.20` `/profil` · `POS-41.01` | Idem pour le profil trader. |
-| `POS-06.21` `/parametres` · `POS-42.01` | 2 domaines sur 8, en lecture seule. Rendre mutable ce qui doit l'être. |
-| `POS-89.01` WariX offline | Re-sync forcé après reconnexion avant réactivation du trading. |
-| `POS-129.01` Toasts et feedback | Rejet de breach persistant plutôt qu'éphémère. |
+| `POS-76.01` File KYC | **DONE** — file/détail manuel, affectation, motif, message trader, preuve opaque, audit ; ni provider ni pièce. |
+| `POS-75.01` File Pass Review | **DONE** — file/détail, affectation, revue post-résultat, escalade intégrité, audit et concurrence ; aucune formule ou décision financière Control. |
+| `POS-66.01` Pass Review | **DONE** — `ONE-025`/`ONE-026` verrouillent le passage automatique après finalisation quotidienne et l'unique provisioning Performance atomique. |
+| Support / Contestations | **DONE durci** — affectation, filtres serveur, historique opérateur, conflit stale et isolation cross-trader. |
+| Handoff Evaluation → Performance | **DONE** — relation parent/enfant, onboarding des règles attachées, reconnaissance immuable, parité Trader/Support/Control et observabilité jusqu'au premier trade. |
 
-**Condition de sortie :** un opérateur peut faire passer un compte d'évaluation
-à Performance sans ouvrir Supabase, et un trader peut ouvrir le détail de son
-propre compte.
+**Condition de sortie satisfaite :** `ONE-025` interdit une approbation/refus
+humain du passage et autorise uniquement `reviewed` / `integrity_escalated`
+après le résultat. `UX-SUPPORT-004` verrouille séparément la remédiation par
+action compensatoire, sans réécriture du breach.
 
-### 3.4 — Preuve publique et confiance
+### 3.4 — Lifecycle, routes produit et preuve publique
 
-*12 exigences · 0 P0 · nécessaire avant toute ouverture publique, pas avant une bêta privée*
+*24 exigences · 1 P0 · prochaine tranche recommandée, non démarrée ici*
 
-`/status` (`OPS-010` `LOCKED`), `/regles`, `/confiance`, incidents visibles
-côté trader, analytics réellement branché, E2E d'acquisition.
+Cette tranche regroupe désormais les routes et états produit qui ne relevaient
+pas de l'OS opérateur : `/comptes/{id}`, `/profil`, paramètres, soft lock/reset,
+WARIBA Review côté trader, feedback lifecycle, puis `/status` (`OPS-010`
+`LOCKED`), `/regles`, `/confiance`, incidents visibles, analytics et E2E
+d'acquisition. Ce regroupement reflète le scope 3.3 réellement livré ; il ne
+constitue pas un démarrage de 3.4.
 
 **Dette identifiée pendant la tranche Centre d'aide** (`POS-14.01`) : `/programme`
 porte encore des valeurs de règle en dur hors du tableau `#regles` — le titre
@@ -132,14 +139,14 @@ de son état actuel que lorsque la page existera.
 
 ### 3.5 — KYC, payouts et providers · **le vrai mur**
 
-*16 exigences · **12 P0** · lève les VETO conformité, KYC et opérations payout*
+*15 exigences · **11 P0** · lève les VETO conformité, KYC et opérations payout*
 
 C'est la concentration P0 la plus dense du produit, et la seule tranche dont
 une partie ne dépend pas de l'ingénierie :
 
 | Bloc | Exigences | Nature |
 |---|---|---|
-| KYC | `POS-37.01`, `POS-76.01`, `POS-82.01`, `POS-02.07`, `POS-30.01`, `POS-110.01`, `POS-38.01` | Ingénierie **+ choix d'un provider**. |
+| KYC | `POS-37.01`, `POS-82.01`, `POS-02.07`, `POS-30.01`, `POS-110.01`, `POS-38.01` | Intégration provider et checks externes ; la file manuelle `POS-76.01` est déjà faite. |
 | Payout | `POS-71.01`, `POS-99.01`, `POS-111.01` | **Décision commerciale** (`OPEN-PAYOUT-001`) avant tout code. |
 | Paiement | `POS-98.01`, `POS-18.01` | **Contrat PSP** (`OPEN-PAYMENT-001`). |
 | Market data | `POS-100.01` | **Droits d'affichage** (`DATA-011` bloqué par credential). |
@@ -162,11 +169,15 @@ Audit de sécurité formel (`POS-97.01`), agrégation des métriques
 
 ### WariX Professional
 
-*5 exigences · 0 P0*
+*7 exigences · 0 P0 (dont 1 `CANNOT_VERIFY`)*
 
 `view=` sérialisable, vues Performance et Risk, séparation Chart Prefs /
-Settings / Risk Center, indicateurs au-delà d'EMA et SMA. Aucune n'est P0 :
-le terminal exécute, et c'est ce que la bêta demande de lui.
+Settings / Risk Center, re-sync après reconnexion, indicateurs au-delà d'EMA et
+SMA. Aucune n'est P0 : le terminal exécute, et c'est ce que la bêta demande de
+lui. Phase 3.3.1 a modifié uniquement `trade/page.tsx` et `trade-copy.ts` pour
+consommer le compte Performance autoritatif et bloquer le premier trade avant
+lecture des règles ; aucun graphique, ordre, indicateur, donnée marché ou UX
+d'exécution n'a été redessiné (`WARIX_APPLICATION_FILES_MODIFIED = 2`).
 
 ---
 
@@ -213,17 +224,16 @@ contester et obtenir une réponse**, alors :
 ```text
 1. Environnement déployé            §4.1   ingénierie          débloque tout
 2. E-mail sortant                   §4.3   décision + intégration
-3. Tranche 3.3 — fermeture opérateur       ingénierie          lève 1 VETO
-4. Restauration prouvée             §4.2   ingénierie
-5. Provider KYC + file              3.5    décision + ingénierie  lève 2 VETO
-6. Décision payout + provider       3.5    décision            lève 1 VETO
+3. Restauration prouvée             §4.2   ingénierie
+4. Provider KYC                     3.5    décision + ingénierie  lève 1 VETO
+5. Décision payout + provider       3.5    décision            lève 1 VETO
 ```
 
-Les étapes 1, 3 et 4 sont entièrement sous contrôle de l'équipe. Les étapes 2,
-5 et 6 commencent par une décision, pas par du code — et ce sont elles qui
-portent les quatre `VETO` restants.
+Les étapes 1 et 3 sont entièrement sous contrôle de l'équipe. Les étapes 2, 4
+et 5 commencent par une décision, pas par du code — et portent les trois
+`VETO` restants.
 
-**Une bêta privée sans payout réel est atteignable après les étapes 1 à 4.**
+**Une bêta privée sans payout réel est atteignable après les étapes 1 à 3.**
 Elle permettrait d'observer le parcours complet jusqu'à l'éligibilité payout,
 avec une file KYC manuelle en Control, à condition d'être annoncée pour ce
 qu'elle est. C'est une décision produit, pas une conclusion technique — mais
@@ -250,6 +260,8 @@ Ceux-ci sont **vivants** et reflètent l'état courant :
 | `WARIBA_PRODUCT_OS_MASTER_IMPLEMENTATION_MATRIX_2026-08-23.csv` | La matrice des 190 exigences. Mise à jour à chaque tranche. |
 | `WARIBA_ROAD_TO_BETA_2026-08-24.md` | Ce document. État courant et séquencement. |
 | `WARIBA_PHASE_3_2_DELIVERY_REPORT.md` | Support + Contestations. |
+| `WARIBA_PHASE_3_3_OPERATOR_CLOSURE_REPORT_2026-08-24.md` | Operator Closure, preuves, council et blockers décisionnels. |
+| `WARIBA_PHASE_3_3_1_EVALUATION_PERFORMANCE_HANDOFF_REPORT_2026-08-24.md` | Handoff Evaluation → Performance, preuves, tests et matrice finale. |
 | `WARIBA_HELP_CENTER_DELIVERY_REPORT.md` | Centre d'aide. |
 | `DECISION_LOG.md` | Autorité supérieure sur tous les précédents. |
 
@@ -257,9 +269,9 @@ Ceux-ci sont **vivants** et reflètent l'état courant :
 
 ## 7. Ce que ce document n'affirme pas
 
-- Que 80,4 % de couverture signifie 80 % du travail restant fait. Les quatre
-  lignes `BLOCKED_EXTERNAL` peuvent coûter plus longtemps que les quinze
-  exigences de la tranche 3.3.
+- Que 82,0 % de couverture signifie 82 % du travail restant fait. Les quatre
+  lignes `BLOCKED_EXTERNAL` peuvent coûter plus longtemps que plusieurs
+  exigences internes réunies.
 - Qu'une date de bêta est calculable aujourd'hui. Trois des six étapes du §5
   commencent par une décision commerciale non prise.
 - Que les exigences marquées `DONE` sont parfaites. Elles sont complètes au

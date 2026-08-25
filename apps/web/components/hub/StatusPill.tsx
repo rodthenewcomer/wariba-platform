@@ -19,7 +19,7 @@ const TONE: Record<PillTone, { dot: string; text: string; wash: string; edge: st
   },
   progress: {
     dot: 'var(--wariba-accent-indigo)',
-    text: 'var(--wariba-accent-indigo)',
+    text: 'var(--wariba-text-primary)',
     wash: 'var(--wariba-accent-indigo-wash)',
     edge: 'var(--wariba-accent-indigo-edge)',
   },

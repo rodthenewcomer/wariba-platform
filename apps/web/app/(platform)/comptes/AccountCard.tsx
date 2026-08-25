@@ -35,7 +35,11 @@ export function AccountCard({ item }: { item: AccountOverviewItem }) {
     [];
 
   if (lifecycle.tradable) {
-    actions.push({ label: 'Ouvrir WariX', href: '/trade', variant: 'primary' });
+    actions.push({
+      label: 'Ouvrir WariX',
+      href: `/trade?account=${account.id}`,
+      variant: 'primary',
+    });
   }
   if (lifecycle.state === 'funded_active') {
     actions.push({
@@ -57,6 +61,13 @@ export function AccountCard({ item }: { item: AccountOverviewItem }) {
       label: 'Voir le détail',
       href: `/hub?account=${account.id}`,
       variant: 'secondary',
+    });
+  }
+  if (lifecycle.state === 'passed' && account.performanceAccountPublicId) {
+    actions.push({
+      label: 'Découvrir mes nouvelles règles',
+      href: `/comptes/${account.performanceAccountPublicId}/bienvenue-performance`,
+      variant: 'primary',
     });
   }
 
@@ -188,9 +199,30 @@ export function AccountCard({ item }: { item: AccountOverviewItem }) {
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[color:var(--warix-border-subtle)] pt-4">
-        <span className="wariba-data truncate text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
-          {account.publicId}
-        </span>
+        <div className="min-w-0 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
+          <span className="wariba-data block truncate">{account.publicId}</span>
+          {account.sourceEvaluationPublicId ? (
+            <span className="mt-1 block">
+              Issu de{' '}
+              <a
+                className="wariba-data underline-offset-4 hover:underline"
+                href={`/hub?account=${account.sourceEvaluationAccountId ?? ''}`}
+              >
+                {account.sourceEvaluationPublicId}
+              </a>
+            </span>
+          ) : account.performanceAccountPublicId ? (
+            <span className="mt-1 block">
+              Compte créé :{' '}
+              <a
+                className="wariba-data underline-offset-4 hover:underline"
+                href={`/comptes/${account.performanceAccountPublicId}/bienvenue-performance`}
+              >
+                {account.performanceAccountPublicId}
+              </a>
+            </span>
+          ) : null}
+        </div>
         <div className="flex flex-wrap gap-2">
           {actions.map((action) => (
             <ActionLink

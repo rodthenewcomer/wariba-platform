@@ -46,6 +46,19 @@ export async function runDailyFinalizationJob(
   const failedAccountIds: string[] = [];
 
   for (const accountId of dueAccountIds) {
+    const triggerEventId = `daily_finalization:${accountId}:${startedAt.toISOString().slice(0, 10)}`;
+    const lifecycleAccount = await db
+      .selectFrom('app.trading_accounts')
+      .select('program_type')
+      .where('id', '=', accountId)
+      .executeTakeFirst();
+    const isEvaluation = lifecycleAccount?.program_type === 'WARIBA_ONE';
+    if (isEvaluation) {
+      params.logger.info('evaluation_daily_finalization_started', {
+        accountId,
+        triggerEventId,
+      });
+    }
     try {
       await finalizeDailyBoundaryForAccount(db, { accountId, clock: params.now });
       const evaluationNow = params.now();
@@ -60,8 +73,7 @@ export async function runDailyFinalizationJob(
       // audit/compliance record. Scoping the id to the account and the UTC
       // calendar day being evaluated makes two overlapping runs that reach
       // the same account on the same day collide on purpose.
-      const triggerEventId = `daily_finalization:${accountId}:${evaluationNow.toISOString().slice(0, 10)}`;
-      await evaluateAndApplyAccountRisk(db, {
+      const riskOutcome = await evaluateAndApplyAccountRisk(db, {
         accountId,
         now: evaluationNow,
         marketBySymbol: {},
@@ -69,6 +81,14 @@ export async function runDailyFinalizationJob(
         triggerEventId,
       });
       processedAccountIds.push(accountId);
+      if (isEvaluation) {
+        params.logger.info('evaluation_daily_finalization_completed', {
+          accountId,
+          triggerEventId,
+          previousStatus: riskOutcome.previousStatus,
+          newStatus: riskOutcome.newStatus,
+        });
+      }
     } catch (error) {
       params.logger.error('daily_finalization.account_failed', {
         accountId,

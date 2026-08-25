@@ -27,6 +27,11 @@ export const RISQUE_ARTICLES: readonly HelpArticle[] = [
     lastReviewedAt: '2026-08-24',
     body: [
       {
+        kind: 'paragraph',
+        text: 'La perte quotidienne protège une seule journée : si vous l’atteignez, les nouvelles positions sont suspendues jusqu’au prochain reset. La perte maximale protège le compte dans la durée : son franchissement met fin au compte.',
+      },
+      { kind: 'visual', id: 'HLP-VIS-001' },
+      {
         kind: 'table',
         caption: 'Les deux règles côte à côte',
         columns: ['Question', 'Perte quotidienne', 'Perte maximale'],
@@ -76,8 +81,9 @@ export const RISQUE_ARTICLES: readonly HelpArticle[] = [
     body: [
       {
         kind: 'paragraph',
-        text: '**EOD** veut dire « fin de journée ». Votre plancher de perte maximale n’est pas recalculé à chaque instant : il est réévalué une fois la journée terminée, à partir de votre meilleure clôture.',
+        text: '**FIN DE JOURNÉE** (EOD) désigne le moment où votre journée est finalisée. Votre plancher de perte maximale n’est pas recalculé à chaque instant : il est réévalué une fois la journée terminée, à partir de votre meilleure clôture.',
       },
+      { kind: 'visual', id: 'HLP-VIS-002' },
       { kind: 'heading', text: 'Comment il évolue' },
       {
         kind: 'list',
@@ -153,6 +159,7 @@ export const RISQUE_ARTICLES: readonly HelpArticle[] = [
         kind: 'paragraph',
         text: 'À chaque instant, WARIBA sait exactement ce que vous avez le droit de faire sur votre compte — et ce n’est pas un simple interrupteur ouvert ou fermé.',
       },
+      { kind: 'visual', id: 'HLP-VIS-017' },
       { kind: 'heading', text: 'Ce que WARIBA autorise, action par action' },
       {
         kind: 'list',
@@ -285,6 +292,7 @@ export const RISQUE_ARTICLES: readonly HelpArticle[] = [
         kind: 'paragraph',
         text: 'Un refus veut dire que WARIBA n’a pas accepté l’ordre. Rien n’est exécuté, aucune position ne bouge, et votre solde ne change pas.',
       },
+      { kind: 'visual', id: 'HLP-VIS-015' },
       { kind: 'heading', text: 'Raisons possibles' },
       {
         kind: 'list',
@@ -439,6 +447,7 @@ export const RISQUE_ARTICLES: readonly HelpArticle[] = [
         kind: 'paragraph',
         text: 'Quand WARIBA met fin à un compte, la décision n’est jamais un simple verdict : vous pouvez consulter exactement ce sur quoi elle s’appuie.',
       },
+      { kind: 'visual', id: 'HLP-SCR-005' },
       { kind: 'heading', text: 'Ce que vous pouvez consulter' },
       {
         kind: 'list',

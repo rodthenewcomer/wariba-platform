@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { HELP_P0_VISUAL_IDS } from '@wariba/ui';
 import { publishedArticles, type HelpArticle, type HelpBlock } from '../content/help';
 
 /**
@@ -34,6 +35,8 @@ function readerFacingStrings(article: HelpArticle): string[] {
         return [block.title, ...block.lines, block.conclusion ?? ''];
       case 'callout':
         return [block.title, block.text];
+      case 'visual':
+        return [];
     }
   };
   return [article.title, article.summary, ...article.body.flatMap(fromBlock)].filter(Boolean);
@@ -191,6 +194,28 @@ describe('forme des articles', () => {
         ['paragraph', 'list', 'table', 'ruleTable', 'formula', 'callout'],
         `${article.id} ouvre sur « ${first} »`,
       ).toContain(first);
+    }
+  });
+});
+
+describe('système visuel P0', () => {
+  it('intègre chacun des 25 visuels du gate une seule fois', () => {
+    const placements = publishedArticles().flatMap((article) =>
+      article.body
+        .filter((block): block is Extract<HelpBlock, { kind: 'visual' }> => block.kind === 'visual')
+        .map((block) => ({ article: article.id, id: block.id })),
+    );
+
+    expect(placements).toHaveLength(HELP_P0_VISUAL_IDS.length);
+    expect(new Set(placements.map(({ id }) => id))).toEqual(new Set(HELP_P0_VISUAL_IDS));
+  });
+
+  it('place le visuel après la réponse directe, jamais en ouverture', () => {
+    for (const article of publishedArticles()) {
+      const index = article.body.findIndex((block) => block.kind === 'visual');
+      if (index === -1) continue;
+      expect(index, `${article.id} ouvre trop tôt sur son visuel`).toBeGreaterThan(0);
+      expect(article.body.slice(0, index).some((block) => block.kind === 'paragraph')).toBe(true);
     }
   });
 });

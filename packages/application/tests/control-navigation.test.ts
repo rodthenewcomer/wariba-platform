@@ -31,6 +31,8 @@ const EXPECTED_READERS: Record<ControlAreaId, readonly StaffRole[]> = {
   accounts: ['support', 'admin', 'super_admin'],
   trading: ['support', 'admin', 'super_admin'],
   risk: ['risk', 'admin', 'super_admin'],
+  'pass-reviews': ['risk', 'compliance', 'admin', 'super_admin'],
+  'identity-reviews': ['compliance', 'admin', 'super_admin'],
   payouts: ['support', 'finance', 'admin', 'super_admin'],
   // Phase 3.2. Support answers tickets; risk and compliance decide disputes.
   // The two are listed separately here because the whole point of splitting
@@ -50,7 +52,7 @@ const EXPECTED_READERS: Record<ControlAreaId, readonly StaffRole[]> = {
 };
 
 describe('Control area read authorization', () => {
-  it('declares exactly the sixteen operating areas Control owns', () => {
+  it('declares exactly the operating areas Control owns', () => {
     expect(CONTROL_AREAS.map((area) => area.id).sort()).toEqual(
       Object.keys(EXPECTED_READERS).sort(),
     );

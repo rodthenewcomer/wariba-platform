@@ -291,7 +291,7 @@ export async function appendTraderMessage(
   return db.transaction().execute(async (trx) => {
     const ticket = await trx
       .selectFrom('app.support_tickets')
-      .select(['id', 'status'])
+      .select(['id', 'status', 'version'])
       .where('public_id', '=', params.publicId)
       .where('user_id', '=', params.userId)
       .forUpdate()
@@ -322,7 +322,13 @@ export async function appendTraderMessage(
 
     await trx
       .updateTable('app.support_tickets')
-      .set({ status: nextStatus, resolved_at: null, closed_at: null, updated_at: now })
+      .set({
+        status: nextStatus,
+        resolved_at: null,
+        closed_at: null,
+        updated_at: now,
+        version: ticket.version + 1,
+      })
       .where('id', '=', ticket.id)
       .execute();
 

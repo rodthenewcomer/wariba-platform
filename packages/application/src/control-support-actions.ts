@@ -1,6 +1,8 @@
 import {
   appendStaffMessageInTransaction,
+  assignContestationInTransaction,
   assignSupportTicketInTransaction,
+  executeContestationReplacementInTransaction,
   recordContestationDecisionInTransaction,
   recordStaffAuditEvent,
   setContestationReviewStateInTransaction,
@@ -27,6 +29,7 @@ export interface ControlSupportActionParams {
   staffUserId: string;
   staffRole: string;
   correlationId: string;
+  expectedVersion: number;
 }
 
 export async function assignSupportTicket(
@@ -38,6 +41,7 @@ export async function assignSupportTicket(
     const change = await assignSupportTicketInTransaction(trx, {
       publicId: params.publicId,
       assignToStaffId: params.assignToStaffId,
+      expectedVersion: params.expectedVersion,
       now,
     });
     await recordStaffAuditEvent(trx, {
@@ -70,6 +74,7 @@ export async function replyToSupportTicket(
       staffUserId: params.staffUserId,
       body: params.body,
       requestsInformation: params.requestsInformation,
+      expectedVersion: params.expectedVersion,
       correlationId: params.correlationId,
       now,
     });
@@ -113,6 +118,7 @@ export async function setSupportTicketResolution(
       staffUserId: params.staffUserId,
       resolution: params.resolution,
       reason: params.reason,
+      expectedVersion: params.expectedVersion,
       correlationId: params.correlationId,
       now,
     });
@@ -138,6 +144,35 @@ export interface ControlContestationActionParams {
   staffUserId: string;
   staffRole: string;
   correlationId: string;
+  expectedVersion: number;
+}
+
+export async function assignContestation(
+  db: Db,
+  params: ControlContestationActionParams,
+): Promise<void> {
+  const now = new Date();
+  await db.transaction().execute(async (trx) => {
+    const change = await assignContestationInTransaction(trx, {
+      publicId: params.publicId,
+      staffUserId: params.staffUserId,
+      expectedVersion: params.expectedVersion,
+      now,
+    });
+    await recordStaffAuditEvent(trx, {
+      actorId: params.staffUserId,
+      actorRole: params.staffRole,
+      permission: 'dispute.assign',
+      action: 'contestation.assigned',
+      targetType: 'contestation',
+      targetId: change.contestationId,
+      before: change.before,
+      after: change.after,
+      reason: 'Prise en charge par l’opérateur.',
+      correlationId: params.correlationId,
+      occurredAt: now,
+    });
+  });
 }
 
 export async function setContestationReviewState(
@@ -153,6 +188,7 @@ export async function setContestationReviewState(
       publicId: params.publicId,
       reviewerUserId: params.staffUserId,
       nextStatus: params.nextStatus,
+      expectedVersion: params.expectedVersion,
       now,
     });
     await recordStaffAuditEvent(trx, {
@@ -195,13 +231,19 @@ export async function recordContestationDecision(
       decision: params.decision,
       reason: params.reason,
       correlationId: params.correlationId,
+      expectedVersion: params.expectedVersion,
       now,
     });
     await recordStaffAuditEvent(trx, {
       actorId: params.staffUserId,
       actorRole: params.staffRole,
-      permission: 'dispute.resolve',
-      action: 'contestation.decision_recorded',
+      permission: params.decision === 'correction_required' ? 'dispute.correct' : 'dispute.resolve',
+      action:
+        change.after.decision === 'correction_required'
+          ? 'contestation.correction_required'
+          : change.after.decision === 'finance_compliance_review'
+            ? 'contestation.finance_compliance_review_required'
+            : 'contestation.decision_recorded',
       targetType: 'contestation',
       targetId: change.contestationId,
       before: change.before,
@@ -215,5 +257,51 @@ export async function recordContestationDecision(
       correlationId: params.correlationId,
       occurredAt: now,
     });
+  });
+}
+
+export async function executeContestationReplacement(
+  db: Db,
+  params: ControlContestationActionParams & { reason: string },
+): Promise<{ replacementAccountPublicId: string; alreadyExisted: boolean }> {
+  const now = new Date();
+  return db.transaction().execute(async (trx) => {
+    const change = await executeContestationReplacementInTransaction(trx, {
+      publicId: params.publicId,
+      staffUserId: params.staffUserId,
+      reason: params.reason,
+      expectedVersion: params.expectedVersion,
+      correlationId: params.correlationId,
+      now,
+    });
+    if (!change.alreadyExisted) {
+      await recordStaffAuditEvent(trx, {
+        actorId: params.staffUserId,
+        actorRole: params.staffRole,
+        permission: 'dispute.remediate',
+        action: 'contestation.replacement_account_issued',
+        targetType: 'contestation',
+        targetId: change.contestationId,
+        before: change.before,
+        after: {
+          ...change.after,
+          remediationType: 'replacement_account',
+          originalAccountId: change.originalAccountId,
+          originalAccountPublicId: change.originalAccountPublicId,
+          replacementAccountId: change.replacementAccountId,
+          replacementAccountPublicId: change.replacementAccountPublicId,
+          originalPolicyVersionId: change.originalPolicyVersionId,
+          replacementPolicyVersionId: change.replacementPolicyVersionId,
+          originalEvidenceMutated: false,
+        },
+        reason: params.reason.trim(),
+        correlationId: params.correlationId,
+        occurredAt: now,
+      });
+    }
+    return {
+      replacementAccountPublicId: change.replacementAccountPublicId,
+      alreadyExisted: change.alreadyExisted,
+    };
   });
 }

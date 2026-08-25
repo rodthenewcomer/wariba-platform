@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDbClient, type Db } from '../src/client';
 import { activateEvaluationAccount } from '../src/activation';
+import { acknowledgePerformanceRules } from '../src/performance-onboarding';
 import {
   activatePerformanceAccountInTransaction,
   evaluateCycleProgress,
@@ -118,11 +119,19 @@ describeIfDb('payout engine — real database', () => {
       currency: productVersion.nominal_currency,
     });
     cleanupAccountIds.push(evaluation.id);
+    await db
+      .updateTable('app.trading_accounts')
+      .set({ status: 'passed' })
+      .where('id', '=', evaluation.id)
+      .execute();
     const performance = await activatePerformanceAccountInTransaction(db, {
       evaluationAccountId: evaluation.id,
+    });
+    await acknowledgePerformanceRules(db, {
       userId,
-      nominalBalance: productVersion.nominal_balance,
-      currency: productVersion.nominal_currency,
+      accountId: performance.id,
+      correlationId: randomUUID(),
+      now: new Date(),
     });
     return { userId, accountId: performance.id };
   };
@@ -228,6 +237,10 @@ describeIfDb('payout engine — real database', () => {
       await db.deleteFrom('app.account_daily_snapshots').where('account_id', '=', id).execute();
       await db.deleteFrom('app.account_state_transitions').where('account_id', '=', id).execute();
       await db.deleteFrom('app.performance_cycles').where('account_id', '=', id).execute();
+      await db
+        .deleteFrom('app.performance_rule_acknowledgements')
+        .where('account_id', '=', id)
+        .execute();
       await db.deleteFrom('app.performance_review_cases').where('account_id', '=', id).execute();
       const account = await db
         .selectFrom('app.trading_accounts')

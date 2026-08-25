@@ -30,7 +30,7 @@ const FILTERS: { value: AccountFilter; label: string }[] = [
   { value: 'all', label: 'Tous' },
   { value: 'evaluation', label: 'Évaluations' },
   { value: 'review', label: 'En vérification' },
-  { value: 'funded', label: 'Funded' },
+  { value: 'funded', label: 'Performance' },
   { value: 'failed', label: 'Échoués' },
   { value: 'closed', label: 'Fermés' },
 ];

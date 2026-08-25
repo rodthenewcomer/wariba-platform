@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { HELP_P0_VISUAL_IDS } from '@wariba/ui';
 
 /**
  * The Help Center's content contract.
@@ -168,6 +169,18 @@ const calloutSchema = z.object({
   text: z.string().min(1),
 });
 
+/**
+ * A stable visual owned by the Help Center visual system.
+ *
+ * The block stores only the asset id. Copy, policy facts, runtime screenshot
+ * paths and annotation geometry live in the renderer/model layer, so an
+ * article cannot duplicate a live value or smuggle a product mock into prose.
+ */
+const visualSchema = z.object({
+  kind: z.literal('visual'),
+  id: z.enum(HELP_P0_VISUAL_IDS),
+});
+
 export const helpBlockSchema = z.discriminatedUnion('kind', [
   paragraphSchema,
   headingSchema,
@@ -177,6 +190,7 @@ export const helpBlockSchema = z.discriminatedUnion('kind', [
   formulaSchema,
   exampleSchema,
   calloutSchema,
+  visualSchema,
 ]);
 
 export type HelpBlock = z.infer<typeof helpBlockSchema>;

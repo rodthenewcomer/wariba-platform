@@ -130,6 +130,9 @@ export const CONTESTATION_STATUS_LABELS: Record<ContestationStatus, string> = {
   upheld: 'Décision maintenue',
   overturned: 'Décision annulée',
   closed: 'Clôturée',
+  correction_required: 'Correction en préparation',
+  decision_corrected: 'Décision corrigée',
+  finance_compliance_review: 'Examen en cours',
 };
 
 /**
@@ -146,6 +149,12 @@ export const CONTESTATION_STATUS_NEXT_ACTION: Record<ContestationStatus, string>
   upheld: 'Après examen, la décision d’origine ne change pas. Le motif est indiqué ci-dessous.',
   overturned: 'Après examen, la décision d’origine a été revue. Le motif est indiqué ci-dessous.',
   closed: 'L’examen de cette contestation est terminé.',
+  correction_required:
+    'Nous avons confirmé qu’une correction est nécessaire. Votre historique reste conservé pendant que nous préparons la suite.',
+  decision_corrected:
+    'Un compte de remplacement vous a été attribué sans frais. Votre ancien compte reste consultable afin de conserver son historique.',
+  finance_compliance_review:
+    'Le dossier nécessite un examen complémentaire. Aucune compensation automatique n’a été appliquée.',
 };
 
 export const CONTESTATION_STATUS_TONE: Record<ContestationStatus, SupportTone> = {
@@ -155,6 +164,9 @@ export const CONTESTATION_STATUS_TONE: Record<ContestationStatus, SupportTone> =
   upheld: 'muted',
   overturned: 'success',
   closed: 'muted',
+  correction_required: 'attention',
+  decision_corrected: 'success',
+  finance_compliance_review: 'progress',
 };
 
 export const CONTESTATION_REASON_CATEGORIES: readonly ContestationReasonCategory[] = [
@@ -547,8 +559,8 @@ export function projectContestationEvidence(
       numeric: true,
     },
     {
-      label: 'Version de policy',
-      value: `${evidence.policy.program} ${evidence.policy.semanticVersion}`,
+      label: 'Version des règles',
+      value: `${programDisplayName(evidence.policy.program)} ${evidence.policy.semanticVersion}`,
       numeric: true,
     },
     {
@@ -653,6 +665,8 @@ export interface ContestationView {
   openedAtLabel: string;
   resolvedAtLabel: string | null;
   evidence: ContestationEvidenceView | null;
+  replacementAccountPublicId: string | null;
+  replacementAccountHref: string | null;
 }
 
 /**
@@ -666,6 +680,9 @@ export const CONTESTATION_DECISION_LABELS: Record<string, string> = {
   upheld: 'Décision maintenue',
   overturned: 'Décision annulée',
   requires_escalation: 'Dossier escaladé',
+  correction_required: 'Correction en préparation',
+  decision_corrected: 'Décision corrigée',
+  finance_compliance_review: 'Examen en cours',
 };
 
 export function projectContestationView(detail: ContestationDetail): ContestationView {
@@ -686,6 +703,10 @@ export function projectContestationView(detail: ContestationDetail): Contestatio
     openedAtLabel: formatSupportTimestamp(detail.openedAt),
     resolvedAtLabel: detail.resolvedAt ? formatSupportTimestamp(detail.resolvedAt) : null,
     evidence: detail.evidence ? projectTraderContestationEvidence(detail.evidence) : null,
+    replacementAccountPublicId: detail.replacementAccountPublicId ?? null,
+    replacementAccountHref: detail.replacementAccountId
+      ? `/hub?account=${encodeURIComponent(detail.replacementAccountId)}`
+      : null,
   };
 }
 

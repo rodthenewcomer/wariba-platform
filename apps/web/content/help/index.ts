@@ -210,6 +210,8 @@ function searchableText(article: HelpArticle): string {
           return [block.title, ...block.lines, block.conclusion ?? ''].join(' ');
         case 'callout':
           return `${block.title} ${block.text}`;
+        case 'visual':
+          return block.id;
       }
     })
     .join(' ');

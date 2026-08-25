@@ -37,7 +37,12 @@ describeIfDb('runDailyFinalizationJob — real database', () => {
   let db: Db;
   let userId: string;
   let accountId: string;
-  const logger = createLogger({ service: 'worker-test', minLevel: 'error' });
+  const logLines: string[] = [];
+  const logger = createLogger({
+    service: 'worker-test',
+    minLevel: 'info',
+    write: (line) => logLines.push(line),
+  });
 
   const createTestUser = async (email: string): Promise<string> => {
     const res = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
@@ -180,6 +185,13 @@ describeIfDb('runDailyFinalizationJob — real database', () => {
     expect(result.dueAccountCount).toBeGreaterThan(0);
     expect(result.processedAccountIds).toContain(accountId);
     expect(result.failedAccountIds).not.toContain(accountId);
+
+    const lifecycleLogs = logLines
+      .map((line) => JSON.parse(line) as { event: string; accountId?: string })
+      .filter((record) => record.accountId === accountId)
+      .map((record) => record.event);
+    expect(lifecycleLogs).toContain('evaluation_daily_finalization_started');
+    expect(lifecycleLogs).toContain('evaluation_daily_finalization_completed');
 
     const afterJob = await db
       .selectFrom('app.trading_accounts')

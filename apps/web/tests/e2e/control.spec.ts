@@ -163,7 +163,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
 
     await page.goto('/control');
     await expect(page).toHaveURL(/\/control$/);
-    await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Vue d’ensemble' })).toBeVisible();
 
     await page.goto('/control/users');
     await expect(page).toHaveURL(/\/control\/users$/);
@@ -282,7 +282,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     await page.goto('/control');
 
     const nav = page.getByRole('navigation').first();
-    await expect(nav.getByRole('link', { name: 'Users' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Utilisateurs' })).toBeVisible();
     // Menu filtering is usability, not the boundary — but it must still not
     // advertise a surface this role would be refused at.
     await expect(nav.getByRole('link', { name: 'Audit' })).toHaveCount(0);
@@ -469,13 +469,13 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     await page.goto(`/control/accounts/${payoutAccount.accountId}`);
 
     // Authorized sections are present...
-    await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Vue d’ensemble' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Trading' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Payout' })).toBeVisible();
 
     // ...and the rest were never queried, so nothing renders for them. This
     // asserts the server response, not a hidden tab.
-    await expect(page.getByRole('heading', { name: 'Risk & Integrity' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Risque & intégrité' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Réconciliation financière' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Incidents' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Audit' })).toHaveCount(0);
@@ -508,8 +508,8 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     await page.goto(
       `/control/accounts/${payoutAccount.accountId}?section=risk&sections=all&reconciliation=1`,
     );
-    await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Risk & Integrity' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Vue d’ensemble' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Risque & intégrité' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Réconciliation financière' })).toHaveCount(0);
   });
 
@@ -518,9 +518,9 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     await page.goto(`/control/accounts/${payoutAccount.accountId}`);
 
     for (const heading of [
-      'Overview',
+      'Vue d’ensemble',
       'Trading',
-      'Risk & Integrity',
+      'Risque & intégrité',
       'Payout',
       'Réconciliation financière',
       'Incidents',
@@ -1321,7 +1321,7 @@ test.describe('WariX Control — mobile', { tag: ['@control', '@mobile'] }, () =
   test('Control navigation is reachable on a phone', async ({ page }) => {
     await actAs(page, adminStaff.email);
     await page.goto('/control');
-    await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Vue d’ensemble' })).toBeVisible();
     // Every authorized area must be navigable without a pointer-only affordance.
     const nav = page.getByRole('navigation');
     await expect(nav.first()).toBeVisible();

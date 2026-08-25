@@ -107,6 +107,7 @@ export const COMMENCER_ARTICLES: readonly HelpArticle[] = [
         kind: 'paragraph',
         text: 'Le parcours WARIBA compte quatre étapes. Aucune ne s’enchaîne automatiquement : chacune se termine par une vérification.',
       },
+      { kind: 'visual', id: 'HLP-VIS-008' },
       { kind: 'heading', text: '1. WARIBA ONE' },
       {
         kind: 'paragraph',

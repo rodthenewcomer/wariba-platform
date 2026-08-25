@@ -36,6 +36,8 @@ export const LIVE_CONTESTATION_STATUSES: readonly ContestationStatus[] = [
   'open',
   'under_review',
   'needs_information',
+  'correction_required',
+  'finance_compliance_review',
 ];
 
 export class DuplicateContestationError extends Error {
@@ -293,6 +295,8 @@ export interface ContestationDetail {
   correlationId: string;
   /** Read live from the authoritative rows on every render. */
   evidence: ContestedDecisionEvidence | null;
+  replacementAccountPublicId?: string | null;
+  replacementAccountId?: string | null;
 }
 
 /**
@@ -310,7 +314,7 @@ export async function loadContestationForUser(
     .selectFrom('app.contestations')
     .innerJoin('app.support_tickets', 'app.support_tickets.id', 'app.contestations.ticket_id')
     .leftJoin('app.trading_accounts', 'app.trading_accounts.id', 'app.contestations.account_id')
-    .select([
+    .select((eb) => [
       'app.contestations.public_id as public_id',
       'app.support_tickets.public_id as ticket_public_id',
       'app.trading_accounts.public_id as account_public_id',
@@ -326,6 +330,18 @@ export async function loadContestationForUser(
       'app.contestations.reviewed_at as reviewed_at',
       'app.contestations.resolved_at as resolved_at',
       'app.contestations.correlation_id as correlation_id',
+      eb
+        .selectFrom('app.trading_accounts as replacement')
+        .select('replacement.public_id')
+        .whereRef('replacement.source_contestation_id', '=', 'app.contestations.id')
+        .limit(1)
+        .as('replacement_account_public_id'),
+      eb
+        .selectFrom('app.trading_accounts as replacement')
+        .select('replacement.id')
+        .whereRef('replacement.source_contestation_id', '=', 'app.contestations.id')
+        .limit(1)
+        .as('replacement_account_id'),
     ])
     .where('app.contestations.public_id', '=', params.publicId)
     .where('app.contestations.user_id', '=', params.userId)
@@ -356,5 +372,7 @@ export async function loadContestationForUser(
     resolvedAt: row.resolved_at,
     correlationId: row.correlation_id,
     evidence,
+    replacementAccountPublicId: row.replacement_account_public_id,
+    replacementAccountId: row.replacement_account_id,
   };
 }

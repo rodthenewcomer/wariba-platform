@@ -1,4 +1,4 @@
-import type { Db } from './client';
+import type { Db, DbExecutor } from './client';
 import type { ContestationTargetType, RiskViolationRuleCode } from './schema';
 
 /**
@@ -123,7 +123,7 @@ export interface ContestationEvidenceRef {
  * load, and evidence linkage would become an enumeration oracle.
  */
 export async function loadContestedDecisionEvidence(
-  db: Db,
+  db: DbExecutor,
   params: {
     targetType: ContestationTargetType;
     targetId: string;

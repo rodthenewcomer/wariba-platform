@@ -67,6 +67,11 @@ export interface HelpPolicyFacts {
   evaluationPolicyVersion: string | null;
   performancePolicyVersion: string | null;
   facts: Readonly<Record<HelpFactKey, HelpFact>>;
+  /** Raw counts used only to render a number of visual steps, never to do financial math. */
+  visual: Readonly<{
+    performanceDaysRequired: number | null;
+    maxPayoutCyclesBeforeReview: number | null;
+  }>;
 }
 
 interface PolicyParameters {
@@ -307,6 +312,10 @@ export async function buildHelpPolicyFacts(db: Db): Promise<HelpPolicyFacts> {
     evaluationPolicyVersion: evaluation?.version ?? null,
     performancePolicyVersion: performance?.version ?? null,
     facts,
+    visual: {
+      performanceDaysRequired: perf.performance_days_required_per_payout ?? null,
+      maxPayoutCyclesBeforeReview: perf.max_payout_cycles_before_review ?? null,
+    },
   };
 }
 

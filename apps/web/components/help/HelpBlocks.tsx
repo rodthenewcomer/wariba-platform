@@ -1,6 +1,7 @@
 import type { HelpFact, HelpPolicyFacts } from '@wariba/application';
 import { HELP_FACT_UNPUBLISHED, resolveHelpFacts } from '@wariba/application';
 import type { HelpBlock, HelpFactKey } from '../../content/help';
+import { HelpArticleVisual } from './HelpArticleVisual';
 
 /**
  * The article renderer.
@@ -223,12 +224,15 @@ function RuleTable({
       </p>
       <dl className="mt-3 flex flex-col divide-y divide-[color:var(--wariba-color-ink-700)]">
         {resolved.map((fact) => (
-          <div key={fact.key} className="flex flex-col gap-1 py-2.5 first:pt-0 last:pb-0">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-              <dt className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-color-ink-100)]">
-                {fact.label}
-              </dt>
-              <dd
+          <div
+            key={fact.key}
+            className="grid gap-1 py-2.5 first:pt-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] sm:gap-x-4"
+          >
+            <dt className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-color-ink-100)]">
+              {fact.label}
+            </dt>
+            <dd className="flex min-w-0 flex-col gap-1">
+              <span
                 data-fact={fact.key}
                 data-published={fact.value !== null}
                 className={`wariba-data text-[length:var(--wariba-font-size-body-md)] font-semibold ${
@@ -238,11 +242,11 @@ function RuleTable({
                 }`}
               >
                 {fact.value ?? HELP_FACT_UNPUBLISHED}
-              </dd>
-            </div>
-            <p className="max-w-[68ch] text-[length:var(--wariba-font-size-label-sm)] leading-relaxed text-[color:var(--wariba-color-ink-300)]">
-              {fact.explanation}
-            </p>
+              </span>
+              <span className="max-w-[68ch] text-[length:var(--wariba-font-size-label-sm)] leading-relaxed text-[color:var(--wariba-color-ink-300)]">
+                {fact.explanation}
+              </span>
+            </dd>
           </div>
         ))}
       </dl>
@@ -328,7 +332,11 @@ export function HelpBlocks({
               <figure key={index} data-testid="help-formula">
                 {/* Scrollable rather than wrapped: a formula broken across
                     lines at 320px reads as two formulas. */}
-                <div className="overflow-x-auto rounded-[var(--wariba-radius-lg)] border border-[color:var(--wariba-color-ink-700)] bg-[color:var(--wariba-color-ink-900)] px-4 py-3">
+                <div
+                  tabIndex={0}
+                  aria-label="Formule, défilement horizontal possible"
+                  className="overflow-x-auto rounded-[var(--wariba-radius-lg)] border border-[color:var(--wariba-color-ink-700)] bg-[color:var(--wariba-color-ink-900)] px-4 py-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-color-cobalt-300)]"
+                >
                   <code className="wariba-data whitespace-nowrap text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-color-bone-50)]">
                     {block.expression}
                   </code>
@@ -402,6 +410,9 @@ export function HelpBlocks({
               </aside>
             );
           }
+
+          case 'visual':
+            return <HelpArticleVisual key={index} id={block.id} policyFacts={policyFacts} />;
         }
       })}
     </div>

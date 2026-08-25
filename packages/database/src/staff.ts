@@ -66,8 +66,24 @@ export type ControlPermission =
   | 'support.assign'
   | 'support.resolve'
   | 'dispute.read'
+  | 'dispute.assign'
   | 'dispute.review'
-  | 'dispute.resolve';
+  | 'dispute.resolve'
+  | 'dispute.correct'
+  | 'dispute.remediate'
+  // Phase 3.3 — Evaluation pass is system-authoritative. These operational
+  // permissions record post-result review or escalation only; no `.decide`
+  // permission exists and neither action can change the pass lifecycle.
+  | 'pass_review.read'
+  | 'pass_review.review'
+  | 'pass_review.escalate'
+  // Private-beta identity operations remain entirely with Compliance. Support
+  // reads only the trader-facing state through the normal support context and
+  // never gains the Control detail or its internal decision reason.
+  | 'identity_review.read'
+  | 'identity_review.assign'
+  | 'identity_review.review'
+  | 'identity_review.decide';
 
 const CONTROL_PERMISSION_REQUIREMENTS: Record<ControlPermission, readonly StaffRole[]> = {
   'account.view': ['support'],
@@ -140,8 +156,20 @@ const CONTROL_PERMISSION_REQUIREMENTS: Record<ControlPermission, readonly StaffR
    * resolving a dispute over its own tickets would be marking its own homework.
    */
   'dispute.read': ['support', 'risk', 'compliance'],
+  'dispute.assign': ['risk', 'compliance'],
   'dispute.review': ['risk', 'compliance'],
   'dispute.resolve': ['risk', 'compliance'],
+  'dispute.correct': ['risk', 'compliance'],
+  'dispute.remediate': ['risk', 'compliance'],
+
+  'pass_review.read': ['risk', 'compliance'],
+  'pass_review.review': ['risk', 'compliance'],
+  'pass_review.escalate': ['risk', 'compliance'],
+
+  'identity_review.read': ['compliance'],
+  'identity_review.assign': ['compliance'],
+  'identity_review.review': ['compliance'],
+  'identity_review.decide': ['compliance'],
 };
 
 /**

@@ -251,19 +251,41 @@ export async function evaluateAndApplyAccountRiskInTransaction(
     dailySnapshots,
   });
 
-  // V1 has no manual-review workflow: once an account is already sitting in
-  // pass_pending and the engine confirms it's still eligible (a breach would
-  // have produced 'breached' instead, never 'pass_pending'), auto-finalize
-  // rather than leave it stuck waiting on a review step that doesn't exist.
-  const targetStatus: EvaluationAccountStatus =
-    previousStatus === 'pass_pending' && result.recommendedStatus === 'pass_pending'
-      ? 'passed'
-      : result.recommendedStatus;
+  /*
+   * Phase 3.3.1 — reaching the objective is not passing.
+   *
+   * `pass_pending` remains tradable while the current session is open. Only
+   * the daily-finalization job is allowed to turn that state into `passed`;
+   * a later trade, a retry or the Control/manual-review trigger must leave it
+   * pending. Control remains post-result review only under ONE-025.
+   *
+   * A target can become eligible for the first time *because* the worker just
+   * finalized the day (for example, Best Day now includes that closed day).
+   * In that case both canonical transitions are recorded in this one
+   * transaction — active -> pass_pending -> passed — before the Performance
+   * account is created. No alternative state machine is introduced and no
+   * intermediate financial state can leak outside the commit.
+   */
+  const transitionTargets: EvaluationAccountStatus[] = [];
+  if (result.recommendedStatus !== previousStatus) {
+    transitionTargets.push(result.recommendedStatus);
+  }
+  if (
+    params.triggerEventType === 'daily_finalization' &&
+    account.program_type === 'WARIBA_ONE' &&
+    result.recommendedStatus === 'pass_pending'
+  ) {
+    // Existing pending target: only the finalization trigger advances it.
+    // Newly eligible target: first persist the required pass_pending evidence,
+    // then complete the pass in the same authoritative transaction.
+    transitionTargets.push('passed');
+  }
 
-  const transitioned = targetStatus !== previousStatus;
+  const transitioned = transitionTargets.length > 0;
   let transitionId: string | null = null;
-  if (transitioned) {
-    assertEvaluationAccountTransition(previousStatus, targetStatus);
+  let persistedStatus = previousStatus;
+  for (const targetStatus of transitionTargets) {
+    assertEvaluationAccountTransition(persistedStatus, targetStatus);
     await trx
       .updateTable('app.trading_accounts')
       .set({ status: targetStatus, updated_at: params.now })
@@ -273,13 +295,33 @@ export async function evaluateAndApplyAccountRiskInTransaction(
       .insertInto('app.account_state_transitions')
       .values({
         account_id: account.id,
-        from_status: previousStatus,
+        from_status: persistedStatus,
         to_status: targetStatus,
-        reason: reasonForTransition(previousStatus, targetStatus),
+        reason: reasonForTransition(persistedStatus, targetStatus),
       })
       .returning('id')
       .executeTakeFirstOrThrow();
     transitionId = transitionRow.id;
+
+    if (targetStatus === 'pass_pending' || targetStatus === 'passed') {
+      await trx
+        .insertInto('app.outbox_events')
+        .values({
+          aggregate_type: 'trading_account',
+          aggregate_id: account.id,
+          event_type:
+            targetStatus === 'pass_pending' ? 'evaluation_objective_reached' : 'evaluation_passed',
+          payload: JSON.stringify({
+            accountId: account.id,
+            policyVersionId: account.policy_version_id,
+            transitionId: transitionRow.id,
+            triggerEventType: params.triggerEventType,
+            triggerEventId: params.triggerEventId ?? null,
+          }),
+          occurred_at: params.now,
+        })
+        .execute();
+    }
 
     // Prompt 08 Phase B, PERF-020 — inside the same transaction as the
     // pass itself: either both land, or neither does. account.program_type
@@ -287,19 +329,13 @@ export async function evaluateAndApplyAccountRiskInTransaction(
     // already makes 'pass_pending' unreachable for a WARIBA_PERFORMANCE
     // account — belt and suspenders on a transition that spawns a second
     // financial account.
-    if (
-      previousStatus === 'pass_pending' &&
-      targetStatus === 'passed' &&
-      account.program_type === 'WARIBA_ONE'
-    ) {
+    if (targetStatus === 'passed' && account.program_type === 'WARIBA_ONE') {
       await activatePerformanceAccountInTransaction(trx, {
         evaluationAccountId: account.id,
-        userId: account.user_id,
-        nominalBalance: account.nominal_balance,
-        currency: account.currency,
         now: () => params.now,
       });
     }
+    persistedStatus = targetStatus;
   }
 
   for (const violation of result.violations) {
@@ -328,7 +364,7 @@ export async function evaluateAndApplyAccountRiskInTransaction(
   return {
     accountId: account.id,
     previousStatus,
-    newStatus: targetStatus,
+    newStatus: persistedStatus,
     transitioned,
     result,
   };

@@ -21,6 +21,12 @@ export interface AccountSummaryDTO {
   kycSandboxVerified: boolean;
   /** Whether a payout destination has been recorded. Same sandbox caveat. */
   payoutMethodConfigured: boolean;
+  /** Parent Evaluation for a Performance account, resolved from the same owner-scoped list. */
+  sourceEvaluationAccountId: string | null;
+  sourceEvaluationPublicId: string | null;
+  /** Child Performance for a successful Evaluation, resolved from the same owner-scoped list. */
+  performanceAccountId: string | null;
+  performanceAccountPublicId: string | null;
 }
 
 export interface ListAccountsForUserParams {
@@ -63,6 +69,7 @@ export async function listAccountsForUser(
       'app.trading_accounts.nominal_balance',
       'app.trading_accounts.currency',
       'app.trading_accounts.status',
+      'app.trading_accounts.source_evaluation_account_id',
       'app.trading_accounts.created_at',
       'app.trading_accounts.kyc_sandbox_verified',
       'app.trading_accounts.payout_method_sandbox_configured',
@@ -89,8 +96,22 @@ export async function listAccountsForUser(
       createdAt: row.created_at.toISOString(),
       kycSandboxVerified: row.kyc_sandbox_verified,
       payoutMethodConfigured: row.payout_method_sandbox_configured,
+      sourceEvaluationAccountId: row.source_evaluation_account_id,
+      sourceEvaluationPublicId: null,
+      performanceAccountId: null,
+      performanceAccountPublicId: null,
     };
   });
+
+  const byId = new Map(accounts.map((account) => [account.id, account]));
+  for (const account of accounts) {
+    if (!account.sourceEvaluationAccountId) continue;
+    const parent = byId.get(account.sourceEvaluationAccountId);
+    if (!parent) continue;
+    account.sourceEvaluationPublicId = parent.publicId;
+    parent.performanceAccountId = account.id;
+    parent.performanceAccountPublicId = account.publicId;
+  }
 
   return [...accounts].sort((a, b) => {
     const rankA = ATTENTION_REQUIRED_RANK[a.status] ?? 99;

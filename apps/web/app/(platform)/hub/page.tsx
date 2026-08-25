@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { ConsistencyMeter, OpenPositionsTable, Text } from '@wariba/ui';
 import {
   buildCommandCenterView,
+  buildEvaluationToPerformanceHandoff,
   buildOfferCatalog,
   deriveAccountLifecycle,
   listAccountsForUser,
@@ -31,6 +32,7 @@ import { PayoutSummary } from './PayoutSummary';
 import { QuickActions } from './QuickActions';
 import { RecentActivity } from './RecentActivity';
 import { quickActionsFor } from './dashboard-actions';
+import { PerformanceHandoff } from '../comptes/[publicId]/PerformanceHandoff';
 
 export const dynamic = 'force-dynamic';
 
@@ -122,6 +124,49 @@ export default async function HubPage({
 
   const now = new Date();
 
+  const handoff =
+    activeAccount.status === 'pass_pending' ||
+    activeAccount.status === 'passed' ||
+    activeAccount.programType === 'WARIBA_PERFORMANCE'
+      ? await buildEvaluationToPerformanceHandoff(db, {
+          userId: user.id,
+          accountId: activeAccount.id,
+        }).catch(() => null)
+      : null;
+
+  if (
+    activeAccount.programType === 'WARIBA_PERFORMANCE' &&
+    activeAccount.status === 'active' &&
+    !handoff
+  ) {
+    return (
+      <div className="max-w-2xl">
+        <Surface className="p-6">
+          <SurfaceTitle>Compte Performance indisponible</SurfaceTitle>
+          <Text variant="body-sm" color="secondary" className="mt-3">
+            Le lien avec votre évaluation d’origine ne peut pas être vérifié. Aucun accès au trading
+            n’est accordé tant que cette vérification n’est pas terminée.
+          </Text>
+          <div className="mt-5">
+            <ActionLink href="/support/nouveau">Contacter le support</ActionLink>
+          </div>
+        </Surface>
+      </div>
+    );
+  }
+
+  // Reading the account-specific rules is the mandatory bridge before the
+  // first Performance trade. It records no activation and changes no account
+  // fact; acknowledgement happens only on the explicit server action.
+  if (
+    activeAccount.programType === 'WARIBA_PERFORMANCE' &&
+    activeAccount.status === 'active' &&
+    handoff &&
+    !handoff.rulesAcknowledged
+  ) {
+    redirect(`/comptes/${activeAccount.publicId}/bienvenue-performance`);
+  }
+
   /*
    * The switcher earns its place only when there is something to switch
    * between. With one account it repeats the hero's first line and costs a
@@ -135,6 +180,15 @@ export default async function HubPage({
         basePath="/hub"
       />
     ) : null;
+
+  if (activeAccount.status === 'passed' && handoff) {
+    return (
+      <div className="flex flex-col gap-5">
+        {switcher}
+        <PerformanceHandoff handoff={handoff} />
+      </div>
+    );
+  }
 
   const baseDetails: HeroDetail[] = [
     { label: copy.reference, value: activeAccount.publicId },
@@ -208,7 +262,10 @@ export default async function HubPage({
    */
   const missionAction = mission.available ? mission.nextAction : null;
   const heroAction =
-    missionAction ?? (lifecycle.tradable ? { label: copy.openWarix, href: '/trade' } : null);
+    missionAction ??
+    (lifecycle.tradable
+      ? { label: copy.openWarix, href: `/trade?account=${activeAccount.id}` }
+      : null);
 
   const details: HeroDetail[] = [
     ...(hub.activatedAtLabel ? [{ label: copy.activatedOn, value: hub.activatedAtLabel }] : []),
@@ -229,7 +286,7 @@ export default async function HubPage({
         {lifecycle.tradable ? (
           <div className="hidden sm:block">
             <ActionLink
-              href="/trade"
+              href={`/trade?account=${activeAccount.id}`}
               size="sm"
               variant="secondary"
               icon="warix"
@@ -433,7 +490,11 @@ export default async function HubPage({
                         <span />
                       )}
                       <ActionLink
-                        href="/aide/wariba-one/regles-essentielles"
+                        href={
+                          isPerformanceAccount
+                            ? `/comptes/${activeAccount.publicId}/regles`
+                            : '/aide/wariba-one/regles-essentielles'
+                        }
                         variant="secondary"
                         size="sm"
                       >
@@ -460,7 +521,11 @@ export default async function HubPage({
                   </Text>
                   <div className="pt-1">
                     <ActionLink
-                      href="/aide/wariba-one/regles-essentielles"
+                      href={
+                        isPerformanceAccount
+                          ? `/comptes/${activeAccount.publicId}/regles`
+                          : '/aide/wariba-one/regles-essentielles'
+                      }
                       variant="secondary"
                       size="sm"
                     >

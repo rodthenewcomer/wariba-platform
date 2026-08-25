@@ -156,7 +156,7 @@ describe('projectContestationEvidence', () => {
     // the assertion cannot pass by accident against an ordinary space.
     expect(byLabel.get('Seuil')).toBe('9\u202f000,00 USD');
     expect(byLabel.get('Valeur observée')).toBe('8\u202f998,50 USD');
-    expect(byLabel.get('Version de policy')).toBe('WARIBA_ONE 1.1.0');
+    expect(byLabel.get('Version des règles')).toBe('WARIBA ONE 1.1.0');
     // French on both sides of the arrow. `active → breached` is the schema
     // talking to a person, which is what account-status-labels.ts exists to
     // stop; the same applies to the trigger.
@@ -289,6 +289,7 @@ describe('support and dispute permissions', () => {
     'support.assign',
     'support.resolve',
     'dispute.read',
+    'dispute.assign',
     'dispute.review',
     'dispute.resolve',
   ];

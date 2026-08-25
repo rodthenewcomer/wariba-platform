@@ -48,6 +48,7 @@ const FORWARDABLE = new Set([
   'SupportOwnershipError',
   'ContestationStateError',
   'StaffActionRateLimitExceededError',
+  'OperatorCaseStaleError',
 ]);
 
 function fail(error: unknown, fallback: string): ControlSupportActionResult {
@@ -59,6 +60,7 @@ function fail(error: unknown, fallback: string): ControlSupportActionResult {
 
 export async function assignTicketToSelfAction(
   publicId: string,
+  expectedVersion: number,
 ): Promise<ControlSupportActionResult> {
   const session = await requireStaffRole('support');
   try {
@@ -77,6 +79,7 @@ export async function assignTicketToSelfAction(
       staffRole: session.role,
       assignToStaffId: session.userId,
       correlationId: randomUUID(),
+      expectedVersion,
     });
   } catch (error) {
     return fail(error, 'Échec de la prise en charge.');
@@ -90,6 +93,7 @@ export async function replyToTicketAction(
   publicId: string,
   body: string,
   requestsInformation: boolean,
+  expectedVersion: number,
 ): Promise<ControlSupportActionResult> {
   const session = await requireStaffRole('support');
   if (body.trim().length === 0) {
@@ -112,6 +116,7 @@ export async function replyToTicketAction(
       body,
       requestsInformation,
       correlationId: randomUUID(),
+      expectedVersion,
     });
   } catch (error) {
     return fail(error, 'Échec de l’envoi.');
@@ -125,6 +130,7 @@ export async function resolveTicketAction(
   publicId: string,
   resolution: 'resolved' | 'closed',
   reason: string,
+  expectedVersion: number,
 ): Promise<ControlSupportActionResult> {
   const session = await requireStaffRole('support');
   // A resolution with no reason is an audit row that explains nothing six
@@ -145,6 +151,7 @@ export async function resolveTicketAction(
       resolution,
       reason,
       correlationId: randomUUID(),
+      expectedVersion,
     });
   } catch (error) {
     return fail(error, GENERIC);

@@ -85,6 +85,11 @@ describeIfDb('buildAccountPerformanceMissionView — real database', () => {
       nominalBalance: productVersion.nominal_balance,
       currency: productVersion.nominal_currency,
     });
+    await db
+      .updateTable('app.trading_accounts')
+      .set({ status: 'passed' })
+      .where('id', '=', account.id)
+      .execute();
     cleanupAccountIds.push(account.id);
     return {
       userId,
@@ -148,9 +153,6 @@ describeIfDb('buildAccountPerformanceMissionView — real database', () => {
     const evaluation = await createEvaluationAccount('fresh');
     const performance = await activatePerformanceAccountInTransaction(db, {
       evaluationAccountId: evaluation.accountId,
-      userId: evaluation.userId,
-      nominalBalance: evaluation.nominalBalance,
-      currency: evaluation.currency,
     });
 
     const view = await buildAccountPerformanceMissionView(db, { accountId: performance.id });

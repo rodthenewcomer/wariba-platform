@@ -60,6 +60,11 @@ export const PERFORMANCE_ARTICLES: readonly HelpArticle[] = [
     lastReviewedAt: '2026-08-24',
     body: [
       {
+        kind: 'paragraph',
+        text: 'Le buffer permanent se construit une seule fois et reste sur le compte. Seul l’excédent réalisé au-dessus peut devenir candidat à une demande de payout.',
+      },
+      { kind: 'visual', id: 'HLP-VIS-009' },
+      {
         kind: 'ruleTable',
         caption: 'Règles WARIBA Performance en vigueur',
         facts: ['permanentBufferRate'],
@@ -143,6 +148,11 @@ export const PERFORMANCE_ARTICLES: readonly HelpArticle[] = [
     lastReviewedAt: '2026-08-24',
     body: [
       {
+        kind: 'paragraph',
+        text: 'Chaque payout exige une nouvelle série de journées comptées. Une journée déjà utilisée ne peut pas servir à nouveau lors du cycle suivant.',
+      },
+      { kind: 'visual', id: 'HLP-VIS-010' },
+      {
         kind: 'ruleTable',
         caption: 'Règles WARIBA Performance en vigueur',
         facts: ['performanceDaysRequired', 'performanceDayThresholdRate'],
@@ -212,6 +222,11 @@ export const PERFORMANCE_ARTICLES: readonly HelpArticle[] = [
     lastReviewedAt: '2026-08-24',
     body: [
       {
+        kind: 'paragraph',
+        text: 'Votre part est appliquée au montant de payout approuvé après le buffer, le plafond et les autres conditions. La part publiée change lors du dernier cycle.',
+      },
+      { kind: 'visual', id: 'HLP-VIS-012' },
+      {
         kind: 'ruleTable',
         caption: 'Règles WARIBA Performance en vigueur',
         facts: ['traderSplitDefault', 'traderSplitFinalCycle'],
@@ -243,6 +258,11 @@ export const PERFORMANCE_ARTICLES: readonly HelpArticle[] = [
     related: ['split-des-payouts', 'parcours-one-performance-review'],
     lastReviewedAt: '2026-08-24',
     body: [
+      {
+        kind: 'paragraph',
+        text: 'Après la dernière demande autorisée par les règles, aucun cycle supplémentaire ne démarre automatiquement. Un dossier WARIBA Review s’ouvre sans garantir un compte Live.',
+      },
+      { kind: 'visual', id: 'HLP-VIS-013' },
       {
         kind: 'ruleTable',
         caption: 'Règles WARIBA Performance en vigueur',
