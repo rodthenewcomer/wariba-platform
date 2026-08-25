@@ -160,11 +160,22 @@ describeIfDb('buildAccountPerformanceMissionView — real database', () => {
 
     expect(view.variant).toBe('performance');
     expect(view.cycleNumber).toBe(1);
-    // Not 0: realizedBalance starts at the account's nominal balance (not
-    // zero), and the buffer floor is only nominalBalance * 1.10 (permanent
-    // buffer rate 0.10) — a fresh account is already ~90.9% of the way to
-    // the floor before a single trade, independent of account size.
-    expect(view.progressPercent).toBe(91);
+    /*
+     * Zero. This assertion used to read 91, with a comment explaining that a
+     * fresh account is "already ~90.9% of the way to the floor before a single
+     * trade" — which is exactly the defect, written down and then protected by
+     * the suite that was supposed to catch it. `realizedBalance / bufferFloor`
+     * is a ratio between two numbers that both start large; it is not progress.
+     *
+     * What a trader has built is the profit above nominal, and on an account
+     * that has never placed an order that is nothing (PERF-037).
+     */
+    expect(view.progressPercent).toBe(0);
+    expect(view.progressKind).toBe('buffer');
+    expect(view.progressLabel).toBe('Buffer à construire');
+    // And the two figures the percentage came from, so the screen can show its
+    // working rather than asking to be believed.
+    expect(view.progressDetail).toMatch(/^0 USD \/ [\d\s\u202f]+ USD$/u);
     expect(view.conditions).toHaveLength(3);
     expect(view.conditions.every((c) => c.met === false)).toBe(true);
     expect(view.payoutEligible).toBe(false);
