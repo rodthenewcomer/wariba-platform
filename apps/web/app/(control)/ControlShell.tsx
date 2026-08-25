@@ -1,9 +1,9 @@
 'use client';
 
 import { ControlSidebar, OverviewIcon, PayoutsIcon, ShieldIcon, UsersIcon } from '@wariba/ui';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { ControlDocumentLink } from './ControlDocumentLink';
 
 export interface ControlNavItem {
   href: string;
@@ -57,7 +57,7 @@ export function ControlShell({
       className="flex min-h-dvh flex-col bg-[color:var(--wariba-background-canvas)] md:flex-row"
     >
       <ControlSidebar
-        LinkComponent={Link}
+        LinkComponent={ControlDocumentLink}
         currentPath={pathname}
         items={areas.map((area) => ({
           href: area.href,

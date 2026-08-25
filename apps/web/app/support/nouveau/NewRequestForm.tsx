@@ -1,7 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useRef, useState } from 'react';
 import { actionClassName } from '../../../components/hub/Action';
 import { Surface } from '../../../components/hub/Surface';
 import { createSupportTicketAction } from '../actions';
@@ -66,18 +65,22 @@ export function NewRequestForm({
   defaultCategory: string;
   defaultAccountId: string | null;
 }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const inFlight = useRef(false);
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [category, setCategory] = useState(defaultCategory);
   const [accountId, setAccountId] = useState(defaultAccountId ?? '');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
 
-  const submit = (event: React.FormEvent<HTMLFormElement>) => {
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setPending(true);
     setError(null);
-    startTransition(async () => {
+
+    try {
       const result = await createSupportTicketAction({
         category,
         accountId: accountId === '' ? null : accountId,
@@ -86,15 +89,27 @@ export function NewRequestForm({
       });
       if (result.error) {
         setError(result.error);
+        inFlight.current = false;
+        setPending(false);
         return;
       }
-      router.push(`/support/demandes/${result.publicId}`);
-    });
+      if (!result.publicId) throw new Error('Missing support reference.');
+      window.location.assign(`/support/demandes/${encodeURIComponent(result.publicId)}`);
+    } catch {
+      setError('Cette action n’a pas pu aboutir. Réessayez dans un instant.');
+      inFlight.current = false;
+      setPending(false);
+    }
   };
 
   return (
     <Surface className="p-5 sm:p-6">
-      <form onSubmit={submit} className="flex flex-col gap-5" data-testid="new-request-form">
+      <form
+        onSubmit={submit}
+        aria-busy={pending}
+        className="flex flex-col gap-5"
+        data-testid="new-request-form"
+      >
         <div className="flex flex-col gap-2">
           <label className={LABEL} htmlFor="support-category">
             Type de demande

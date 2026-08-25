@@ -1,7 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useRef, useState } from 'react';
 import { actionClassName } from '../../../../components/hub/Action';
 import { replyToSupportTicketAction } from '../../actions';
 
@@ -13,27 +12,41 @@ import { replyToSupportTicketAction } from '../../actions';
  * page already says the request is closed in words.
  */
 export function ReplyComposer({ publicId }: { publicId: string }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const inFlight = useRef(false);
+  const [pending, setPending] = useState(false);
   const [body, setBody] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const submit = (event: React.FormEvent<HTMLFormElement>) => {
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setPending(true);
     setError(null);
-    startTransition(async () => {
+
+    try {
       const result = await replyToSupportTicketAction(publicId, { body });
       if (result.error) {
         setError(result.error);
+        inFlight.current = false;
+        setPending(false);
         return;
       }
-      setBody('');
-      router.refresh();
-    });
+      window.location.assign(`/support/demandes/${encodeURIComponent(publicId)}`);
+    } catch {
+      setError('Cette action n’a pas pu aboutir. Réessayez dans un instant.');
+      inFlight.current = false;
+      setPending(false);
+    }
   };
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-3" data-testid="reply-composer">
+    <form
+      onSubmit={submit}
+      aria-busy={pending}
+      className="flex flex-col gap-3"
+      data-testid="reply-composer"
+    >
       <label
         className="text-[length:var(--wariba-font-size-label-sm)] font-semibold text-[color:var(--wariba-text-secondary)]"
         htmlFor="support-reply"

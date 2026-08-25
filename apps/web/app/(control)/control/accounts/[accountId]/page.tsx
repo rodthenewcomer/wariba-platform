@@ -1,6 +1,6 @@
 import { Badge, Card, EmptyState, Text } from '@wariba/ui';
 import { authorizedAccountSections, loadControlAccountDetail } from '@wariba/application';
-import Link from 'next/link';
+import { ControlDocumentLink as Link } from '../../../ControlDocumentLink';
 import { notFound } from 'next/navigation';
 import { requireControlArea } from '../../../../../lib/staff-auth';
 import { getDb } from '../../../../../lib/db';

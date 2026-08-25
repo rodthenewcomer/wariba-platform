@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { ControlDocumentLink as Link } from '../../../ControlDocumentLink';
 import { Badge, Card, EmptyState, Text } from '@wariba/ui';
 import { buildControlIdentityDetailView, staffCan } from '@wariba/application';
 import { requireControlArea } from '../../../../../lib/staff-auth';

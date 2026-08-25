@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import type { SupportTone } from '@wariba/application';
 import { HubIcon } from '../../components/hub/icons';
 import { StatusPill, type PillTone } from '../../components/hub/StatusPill';
@@ -49,7 +48,7 @@ export function SupportRequestRow({
   testId,
 }: SupportRequestRowProps) {
   return (
-    <Link
+    <a
       href={href}
       data-testid={testId ?? 'support-request-row'}
       data-reference={reference}
@@ -89,6 +88,6 @@ export function SupportRequestRow({
       <span aria-hidden="true" className="shrink-0 text-[color:var(--wariba-text-tertiary)]">
         <HubIcon role="chevron" size={18} />
       </span>
-    </Link>
+    </a>
   );
 }

@@ -1,25 +1,30 @@
 'use server';
 
 import { randomUUID } from 'node:crypto';
-import { redirect } from 'next/navigation';
 import {
   acknowledgePerformanceRules,
   buildEvaluationToPerformanceHandoff,
-  PerformanceRulesAcknowledgementError,
 } from '@wariba/application';
 import { createSupabaseServerClient } from '../../../../lib/supabase/server';
 import { getDb } from '../../../../lib/db';
 
-export async function acknowledgePerformanceRulesAction(formData: FormData): Promise<void> {
+export interface PerformanceRulesAcknowledgementActionResult {
+  destination?: string;
+  error?: string;
+}
+
+const GENERIC_ERROR = 'Impossible de continuer pour le moment. Réessayez.';
+
+export async function acknowledgePerformanceRulesAction(
+  formData: FormData,
+): Promise<PerformanceRulesAcknowledgementActionResult> {
   const accountPublicId = formData.get('accountPublicId');
   const acknowledged = formData.get('acknowledged');
   if (typeof accountPublicId !== 'string' || accountPublicId.length === 0) {
-    redirect('/comptes?erreur=compte');
+    return { error: GENERIC_ERROR };
   }
   if (acknowledged !== 'yes') {
-    redirect(
-      `/comptes/${encodeURIComponent(accountPublicId)}/bienvenue-performance?erreur=confirmation`,
-    );
+    return { error: 'Cochez la case après avoir pris connaissance des règles.' };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -27,9 +32,9 @@ export async function acknowledgePerformanceRulesAction(formData: FormData): Pro
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    redirect(
-      `/login?next=${encodeURIComponent(`/comptes/${accountPublicId}/bienvenue-performance`)}`,
-    );
+    return {
+      destination: `/login?next=${encodeURIComponent(`/comptes/${accountPublicId}/bienvenue-performance`)}`,
+    };
   }
 
   const db = getDb();
@@ -39,9 +44,7 @@ export async function acknowledgePerformanceRulesAction(formData: FormData): Pro
   });
   const performance = handoff?.performanceAccount;
   if (!handoff || !performance) {
-    redirect(
-      `/comptes/${encodeURIComponent(accountPublicId)}/bienvenue-performance?erreur=indisponible`,
-    );
+    return { error: GENERIC_ERROR };
   }
 
   try {
@@ -51,14 +54,8 @@ export async function acknowledgePerformanceRulesAction(formData: FormData): Pro
       correlationId: randomUUID(),
       now: new Date(),
     });
-  } catch (error) {
-    const code =
-      error instanceof PerformanceRulesAcknowledgementError
-        ? error.code.toLowerCase()
-        : 'indisponible';
-    redirect(
-      `/comptes/${encodeURIComponent(performance.publicId)}/bienvenue-performance?erreur=${encodeURIComponent(code)}`,
-    );
+  } catch {
+    return { error: GENERIC_ERROR };
   }
 
   /*
@@ -78,5 +75,5 @@ export async function acknowledgePerformanceRulesAction(formData: FormData): Pro
    * The ready screen stays reachable at this route for anyone who wants to
    * re-read the comparison.
    */
-  redirect(`/hub?account=${performance.id}`);
+  return { destination: `/hub?account=${performance.id}` };
 }

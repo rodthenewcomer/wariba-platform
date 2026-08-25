@@ -1,7 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useRef, useState } from 'react';
 import type { ContestableDecisionOption } from '@wariba/application';
 import { actionClassName } from '../../../../components/hub/Action';
 import { Surface } from '../../../../components/hub/Surface';
@@ -52,18 +51,22 @@ export function ContestationForm({
   /** Resolved server-side: a client component cannot import the label maps. */
   reasons: readonly ReasonOption[];
 }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const inFlight = useRef(false);
+  const [pending, setPending] = useState(false);
   const selectable = decisions.filter((item) => item.existingContestationPublicId === null);
   const [targetId, setTargetId] = useState(selectable[0]?.targetId ?? '');
   const [reasonCategory, setReasonCategory] = useState<string>('rule_misapplied');
   const [statement, setStatement] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const submit = (event: React.FormEvent<HTMLFormElement>) => {
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setPending(true);
     setError(null);
-    startTransition(async () => {
+
+    try {
       const result = await openContestationAction({
         accountId,
         targetId,
@@ -72,15 +75,27 @@ export function ContestationForm({
       });
       if (result.error) {
         setError(result.error);
+        inFlight.current = false;
+        setPending(false);
         return;
       }
-      router.push(`/support/contestations/${result.publicId}`);
-    });
+      if (!result.publicId) throw new Error('Missing contestation reference.');
+      window.location.assign(`/support/contestations/${encodeURIComponent(result.publicId)}`);
+    } catch {
+      setError('Cette action n’a pas pu aboutir. Réessayez dans un instant.');
+      inFlight.current = false;
+      setPending(false);
+    }
   };
 
   return (
     <Surface className="p-5 sm:p-6">
-      <form onSubmit={submit} className="flex flex-col gap-5" data-testid="contestation-form">
+      <form
+        onSubmit={submit}
+        aria-busy={pending}
+        className="flex flex-col gap-5"
+        data-testid="contestation-form"
+      >
         <fieldset className="flex flex-col gap-3 border-0 p-0">
           <legend className={`${LABEL} mb-1`}>Décision contestée</legend>
           {decisions.map((decision) => {

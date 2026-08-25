@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Alert, Button } from '@wariba/ui';
+import { Alert } from '@wariba/ui';
 import type {
   EvaluationPerformanceHandoffStage,
   EvaluationToPerformanceHandoffDTO,
@@ -9,7 +9,7 @@ import { ActionLink } from '../../../../components/hub/Action';
 import { HubIcon } from '../../../../components/hub/icons';
 import { StatusPill } from '../../../../components/hub/StatusPill';
 import { Surface, SurfaceTitle } from '../../../../components/hub/Surface';
-import { acknowledgePerformanceRulesAction } from './actions';
+import { PerformanceAcknowledgementForm } from './PerformanceAcknowledgementForm';
 
 const STAGE_COPY: Record<
   EvaluationPerformanceHandoffStage,
@@ -551,30 +551,7 @@ export function PerformanceHandoff({
           </Surface>
 
           {onboarding ? (
-            <form
-              action={acknowledgePerformanceRulesAction}
-              className="rounded-[14px] border border-[color:var(--wariba-accent-emerald-edge)] bg-[color:var(--wariba-accent-emerald-wash)] p-5 sm:p-6"
-              data-testid="performance-rules-acknowledgement"
-            >
-              <input type="hidden" name="accountPublicId" value={performance.publicId} />
-              <label className="flex cursor-pointer items-start gap-3 text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-text-primary)]">
-                <input
-                  className="mt-0.5 h-5 w-5 shrink-0 accent-[color:var(--wariba-accent-indigo)]"
-                  type="checkbox"
-                  name="acknowledged"
-                  value="yes"
-                  required
-                />
-                <span>J’ai pris connaissance des règles de mon compte WARIBA Performance.</span>
-              </label>
-              <Button
-                type="submit"
-                className="mt-5 min-h-11"
-                data-testid="performance-rules-submit"
-              >
-                Continuer vers mon compte Performance
-              </Button>
-            </form>
+            <PerformanceAcknowledgementForm accountPublicId={performance.publicId} />
           ) : null}
         </>
       ) : (

@@ -13,8 +13,8 @@ import { HubIcon } from '../../../components/hub/icons';
 import { PageHeader } from '../../../components/hub/PageHeader';
 import { StatusPill } from '../../../components/hub/StatusPill';
 import { Surface, SurfaceTitle } from '../../../components/hub/Surface';
-import { Alert, Button } from '@wariba/ui';
-import { requestIdentityReviewAction } from './actions';
+import { Alert } from '@wariba/ui';
+import { IdentityReviewRequestForm } from './IdentityReviewRequestForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -130,7 +130,9 @@ export default async function IdentityVerificationPage({
             ? 'Aucun compte Performance valide n’a été sélectionné.'
             : query.error === 'indisponible'
               ? 'Le service est momentanément indisponible. Réessayez plus tard.'
-              : query.error}
+              : query.error === 'etat'
+                ? 'Cette demande a déjà changé d’état. Consultez le dossier affiché ci-dessous.'
+                : 'La demande n’a pas pu être envoyée. Réessayez plus tard.'}
         </Alert>
       ) : null}
 
@@ -169,12 +171,7 @@ export default async function IdentityVerificationPage({
 
         {view.actionable && view.state === 'not_started' && performanceAccount && !latestReview ? (
           <div className="flex flex-wrap gap-2">
-            <form action={requestIdentityReviewAction}>
-              <input type="hidden" name="accountId" value={performanceAccount.id} />
-              <Button type="submit" size="sm" data-testid="kyc-action">
-                Demander ma vérification
-              </Button>
-            </form>
+            <IdentityReviewRequestForm accountId={performanceAccount.id} />
           </div>
         ) : view.actionable && !liveReview ? (
           <ActionLink href="/support" data-testid="kyc-action">
