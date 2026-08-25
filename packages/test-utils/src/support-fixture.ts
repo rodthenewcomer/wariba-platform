@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import Decimal from 'decimal.js';
-import type { Db } from '@wariba/database';
+import type { ContestationReasonCategory, Db, SupportTicketCategory } from '@wariba/database';
 
 /**
  * Phase 3.2 fixtures — a recorded breach that can actually be contested.
@@ -119,4 +119,117 @@ export async function deleteSupportFixture(db: Db, userId: string): Promise<void
   await db.deleteFrom('app.contestations').where('user_id', '=', userId).execute();
   await db.deleteFrom('app.support_tickets').where('user_id', '=', userId).execute();
   await db.deleteFrom('app.staff_action_rate_limits').where('actor_id', '=', userId).execute();
+}
+
+export interface SeededSupportTicket {
+  id: string;
+  reference: string;
+}
+
+/**
+ * A support request that already exists, without driving the UI to make one.
+ *
+ * ## Why a fixture rather than "just create it through the form"
+ *
+ * Creating a ticket through the form is the *functional* test's subject, and
+ * it belongs there. Every other suite — the authorization checks, the
+ * responsive captures — needs a ticket to exist, not a ticket to be created;
+ * making them each walk the form spends a minute of wall clock and a login on
+ * setup, and couples an RBAC failure to a form regression. Two suites failing
+ * for one cause is two investigations.
+ *
+ * Nothing here is invented: the row is written through the same columns the
+ * application command writes, and the reference comes back from the database's
+ * own `public_id` sequence rather than being chosen here.
+ */
+export async function seedSupportTicket(
+  db: Db,
+  params: {
+    userId: string;
+    accountId?: string | null;
+    category?: SupportTicketCategory;
+    subject?: string;
+    body?: string;
+  },
+): Promise<SeededSupportTicket> {
+  const correlationId = randomUUID();
+  const ticket = await db
+    .insertInto('app.support_tickets')
+    .values({
+      user_id: params.userId,
+      account_id: params.accountId ?? null,
+      category: params.category ?? 'trading',
+      subject: params.subject ?? 'Ordre refusé sur XAUUSD',
+      correlation_id: correlationId,
+    })
+    .returning(['id', 'public_id'])
+    .executeTakeFirstOrThrow();
+
+  await db
+    .insertInto('app.ticket_messages')
+    .values({
+      ticket_id: ticket.id,
+      actor_type: 'trader',
+      actor_user_id: params.userId,
+      body:
+        params.body ??
+        'Mon ordre a été refusé alors que la marge me semblait suffisante. Pouvez-vous vérifier ?',
+      correlation_id: correlationId,
+    })
+    .execute();
+
+  return { id: ticket.id, reference: ticket.public_id };
+}
+
+export interface SeededContestation {
+  id: string;
+  reference: string;
+  ticketId: string;
+}
+
+/**
+ * An open contestation pointing at a real recorded violation.
+ *
+ * Requires `seedBreachEvidence` to have run for the account: a contestation
+ * whose `target_id` names no row is the incoherent state this package refuses
+ * to create, because the evidence panel would then have nothing to render and
+ * the test would be measuring an empty state it did not mean to.
+ */
+export async function seedContestation(
+  db: Db,
+  params: {
+    userId: string;
+    accountId: string;
+    riskViolationId: string;
+    reasonCategory?: ContestationReasonCategory;
+    traderStatement?: string;
+  },
+): Promise<SeededContestation> {
+  const correlationId = randomUUID();
+  const ticket = await seedSupportTicket(db, {
+    userId: params.userId,
+    accountId: params.accountId,
+    category: 'account',
+    subject: 'Contestation de la décision de perte maximale',
+  });
+
+  const contestation = await db
+    .insertInto('app.contestations')
+    .values({
+      user_id: params.userId,
+      ticket_id: ticket.id,
+      account_id: params.accountId,
+      target_type: 'account_breach',
+      target_id: params.riskViolationId,
+      reason_category: params.reasonCategory ?? 'rule_misapplied',
+      trader_statement:
+        params.traderStatement ??
+        'Le plancher de perte maximale retenu ne correspond pas à ma meilleure balance de clôture.',
+      evidence_ref: JSON.stringify({ riskViolationId: params.riskViolationId }),
+      correlation_id: correlationId,
+    })
+    .returning(['id', 'public_id'])
+    .executeTakeFirstOrThrow();
+
+  return { id: contestation.id, reference: contestation.public_id, ticketId: ticket.id };
 }

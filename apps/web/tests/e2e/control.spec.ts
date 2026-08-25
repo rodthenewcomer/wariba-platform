@@ -12,13 +12,13 @@ import {
   seedStaffAuditEvents,
   deleteStaffAuditEvents,
   evaluateReserveStatus,
-  STAFF_E2E_TEST_PASSWORD,
   type Db,
   type PayoutAccountFixture,
   type PayoutFixtureEnvironment,
   type StaffAuditFixture,
   type StaffFixtureUser,
 } from '@wariba/test-utils';
+import { SessionPool } from './sessions';
 
 /**
  * Prompt 7 Appendix 07-B, gate 4/5 — /control's real authorization
@@ -26,55 +26,25 @@ import {
  * session experiences (not just the DB-level RLS covered by
  * packages/database/tests/staff-rls.integration.test.ts).
  */
-type BrowserCookies = Awaited<ReturnType<import('@playwright/test').BrowserContext['cookies']>>;
-
-/**
- * One real sign-in per fixture user, captured once in beforeAll.
+/*
+ * Sessions come from the shared pool (tests/e2e/sessions.ts).
  *
- * Supabase caps sign-ins at `sign_in_sign_ups = 30` per five minutes per IP
- * (supabase/config.toml). This spec exercises ~50 role checks; authenticating
- * for each one exceeded that limit and GoTrue started rejecting logins, which
- * surfaced as a login that never reached /hub — indistinguishable from an
- * authorization failure, and moving from test to test as the suite's timing
- * shifted. The limit is a real protection and is not raised here: the suite
- * simply stops asking for 50 sessions when it needs six.
+ * The capture-once-reuse-many pattern was invented here, to stop this suite's
+ * ~50 role checks exhausting Supabase's `sign_in_sign_ups` limit and producing
+ * failures that read as authorization bugs. It now lives in one module so the
+ * Support suites inherit it instead of rediscovering the same limit.
  */
-const sessions = new Map<string, BrowserCookies>();
+const sessions = new SessionPool();
 
 async function captureSession(
   browser: import('@playwright/test').Browser,
   email: string,
 ): Promise<void> {
-  const context = await browser.newContext();
-  try {
-    const page = await context.newPage();
-    await page.goto('/login');
-    await page.getByLabel('Adresse e-mail').fill(email);
-    await page.getByLabel('Mot de passe', { exact: true }).fill(STAFF_E2E_TEST_PASSWORD);
-    await page.getByRole('button', { name: 'Se connecter' }).click();
-    await page.waitForURL('**/hub', { timeout: 30_000 });
-
-    // Landing on /hub is not proof the session is usable by the next
-    // navigation: the redirect can complete before the auth cookie is
-    // committed to the jar. Waiting for the cookie is a real state check —
-    // it is the thing every later request will actually carry.
-    await expect
-      .poll(async () => (await context.cookies()).some((c) => c.name.includes('auth-token')), {
-        timeout: 15_000,
-      })
-      .toBe(true);
-    sessions.set(email, await context.cookies());
-  } finally {
-    await context.close();
-  }
+  await sessions.captureStaff(browser, email);
 }
 
-/** Adopts a captured session. No network sign-in, so no rate-limit budget. */
 async function actAs(page: import('@playwright/test').Page, email: string): Promise<void> {
-  const cookies = sessions.get(email);
-  if (!cookies) throw new Error(`No captured session for ${email}.`);
-  await page.context().clearCookies();
-  await page.context().addCookies(cookies);
+  await sessions.actAs(page, email);
 }
 
 test.describe('WariX Control — role-based authorization', { tag: ['@control'] }, () => {

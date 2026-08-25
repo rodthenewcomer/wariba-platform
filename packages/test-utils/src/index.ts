@@ -58,8 +58,12 @@ export {
 
 export {
   seedBreachEvidence,
+  seedSupportTicket,
+  seedContestation,
   deleteSupportFixture,
   type SeededBreachEvidence,
+  type SeededSupportTicket,
+  type SeededContestation,
 } from './support-fixture';
 
 export {
