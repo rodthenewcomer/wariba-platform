@@ -1,5 +1,4 @@
 import { mkdirSync } from 'node:fs';
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import {
   activatePerformanceAccountInTransaction,
@@ -16,6 +15,7 @@ import {
   type PayoutAccountFixture,
   type StaffFixtureUser,
 } from '@wariba/test-utils';
+import { assertAccessible } from './accessibility';
 import { lifecycleEnv } from './fixtures';
 
 const OUT = '../../docs/04-ux/evidence/wariba-phase-3-3-1-evaluation-performance-handoff';
@@ -53,17 +53,6 @@ async function assertNoOverflow(page: Page): Promise<void> {
   ).toBe(true);
 }
 
-async function assertAccessible(page: Page): Promise<void> {
-  const results = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-    .analyze();
-  expect(
-    results.violations.filter(
-      (violation) => violation.impact === 'critical' || violation.impact === 'serious',
-    ),
-  ).toHaveLength(0);
-}
-
 async function newSignedPage(
   browser: Browser,
   fixture: Pick<LifecycleFixture | PayoutAccountFixture, 'email' | 'password'>,
@@ -75,7 +64,7 @@ async function newSignedPage(
   return { context, page };
 }
 
-test.describe('@phase-3-3-1 Evaluation to Performance handoff', () => {
+test.describe('@critical @handoff @phase-3-3-1 Evaluation to Performance handoff', () => {
   let db: Db;
   let objective: LifecycleFixture;
   let finalizing: LifecycleFixture;
@@ -138,7 +127,19 @@ test.describe('@phase-3-3-1 Evaluation to Performance handoff', () => {
   });
 
   test('runs the complete trader handoff, isolation and WariX context', async ({ browser }) => {
-    test.setTimeout(360_000);
+    /*
+     * Six signed-in sessions, ~20 navigations, an axe pass on each and a
+     * screenshot campaign, in one test. It was already running within a
+     * minute of its own cap, so waiting for each page to come to rest before
+     * measuring it pushed it over. The budget is raised rather than the wait
+     * removed — measuring a page mid-fade is what produced the contrast
+     * "failures" this suite reported against tokens that pass at rest.
+     *
+     * The lasting fix is the one applied to Support: this narrative wants to
+     * be three suites, so a failure names one thing. Left as it is here
+     * because Phase 3.3.2 does not reopen the handoff coverage itself.
+     */
+    test.setTimeout(600_000);
 
     const objectiveSession = await newSignedPage(browser, objective);
     const finalizingSession = await newSignedPage(browser, finalizing);

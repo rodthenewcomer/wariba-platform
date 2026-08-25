@@ -157,7 +157,7 @@ async function preparePassedEvaluation(db: Db, fixture: PayoutAccountFixture): P
   return account.public_id;
 }
 
-test.describe('@product-decision-closure Phase 3.3 locked decisions', () => {
+test.describe('@critical @product-decision-closure Phase 3.3 locked decisions', () => {
   let db: Db;
   let risk: StaffFixtureUser;
   let payout: PayoutAccountFixture;

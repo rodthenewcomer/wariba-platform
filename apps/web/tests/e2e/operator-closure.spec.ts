@@ -172,7 +172,7 @@ async function prepareCompletedPassReview(db: Db, fixture: PayoutAccountFixture)
     .execute();
 }
 
-test.describe('@operator-closure Phase 3.3 evidence', () => {
+test.describe('@critical @operator-closure Phase 3.3 evidence', () => {
   let db: Db;
   let admin: StaffFixtureUser;
   let support: StaffFixtureUser;

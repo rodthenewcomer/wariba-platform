@@ -7,7 +7,7 @@ language: "fr-FR"
 brand: "WARIBA"
 domain: "wariba.app"
 owner: "WARIBA Leadership, Product, Risk, Engineering & Operations"
-last_updated: "2026-08-24"
+last_updated: "2026-08-25"
 ---
 
 # WARIBA Decision Log v1.0
@@ -271,6 +271,7 @@ Révision:
 | PERF-034 | `LOCKED` | Best Day Rule : 50 % par cycle, non-breach. | Contrôle de concentration avant payout. |
 | PERF-035 | `LOCKED` | Aucun minimum général de jours en Performance hors cinq Performance Days par payout. | Éviter un délai artificiel distinct de la preuve requise. |
 | PERF-036 | `LOCKED` | Le compte Performance est créé actif avec sa policy publiée attachée, mais son **premier trade** reste bloqué jusqu'à une reconnaissance de lecture immuable de cette version. Le serveur dérive le trader, le compte et la policy ; une reconnaissance ne peut ni choisir ni modifier les règles. | Rend le changement ONE → Performance explicite sans transformer la lecture en approbation financière, sans retarder le provisioning et sans confier une mutation de policy au navigateur. Un retry retourne la preuve existante. |
+| PERF-037 | `LOCKED` | **La progression affichée sur un compte Performance est la construction du buffer**, mesurée depuis le solde nominal : `construit = max(0, solde éligible − nominal)`, `requis = plancher du buffer − nominal`, bornée à 100 %. Aucune surface ne peut présenter `solde ÷ plancher` comme une progression, et un compte Performance n'affiche aucun objectif de profit — sa policy n'en publie pas. Les deux montants d'où vient le pourcentage sont affichés à côté de lui. | `10 000 ÷ 11 000 = 91 %` faisait lire « presque terminé » sur un compte qui n'avait jamais passé un ordre. Un pourcentage ne peut décrire que quelque chose que le trader a réellement fait ; sinon la valeur canonique est zéro. Le calcul vit dans `@wariba/domain` (`computeBufferBuildProgress`) pour que le Hub, la liste des comptes et le Payout Center ne puissent pas diverger. |
 
 ---
 
@@ -499,6 +500,7 @@ Révision:
 | UX-HUB-009 | `LOCKED` | La vérification d'identité est **un état produit et une frontière**, jamais un flux simulé. WARIBA ne reçoit aucune pièce : `KYC_PROVIDER_INTEGRATED = false`, `reachableKycStates()` = `not_started` \| `verified`, et l'écran ne contient ni champ fichier ni mention de document. | Phase 2 Product OS §15. L'union des six états est le contrat qu'un prestataire externe remplira ; construire dès maintenant le vocabulaire évite que son intégration soit une réécriture d'UI. Prétendre que les états intermédiaires se produisent déjà serait un flux fabriqué — pire qu'un flux absent. |
 | UX-HUB-010 | `LOCKED` | Aucune destination « Récompenses / Réussites » ni « Notifications » n'est exposée tant qu'aucune table, aucun critère et aucune attribution n'existent. | Phase 2 Product OS §3/§27. Un trophée en barre latérale menant à une page vide — ou pire, à des jalons fabriqués — est exactement la progression manufacturée que ce produit refuse partout ailleurs. Elles reviennent quand il y aura quelque chose à décerner. |
 | UX-HUB-011 | `LOCKED` | Le handoff Evaluation → Performance est porté par la relation canonique parent/enfant : l'Evaluation réussie reste consultable et non tradable, le compte Performance est l'unique destination WariX, et l'onboarding compare les deux policies réellement attachées avant d'enregistrer la lecture. | Le trader et le support doivent pouvoir retrouver le parcours sans recopier d'identifiant ni interpréter un statut brut. Les écrans d'onboarding et de règles sont spécifiques au compte ; aucune valeur financière n'est saisie ou recalculée dans l'UI. |
+| UX-HUB-012 | `LOCKED` | Une fois le compte Performance créé et ses règles lues, **l'Evaluation réussie se rend comme une archive** — résultat final, lien vers le compte successeur, aucun budget de risque actif, aucune entrée d'ordre — et le **compte courant par défaut devient le compte Performance**. L'Evaluation reste atteignable par son propre identifiant. La chronologie du passage porte une convention temporelle unique et explicite (UTC nommé), et la finalisation retenue est celle qui a clôturé la journée de l'objectif, jamais la plus récente du compte. | Un compte terminé qui affiche des budgets vivants et une barre de progression dit au trader qu'il y trade encore. Et une chronologie où « Journée clôturée » précède « Objectif atteint » n'est pas une imprécision d'affichage : c'est une séquence impossible, produite en lisant le dernier instantané finalisé au lieu de celui qui a produit le résultat. |
 
 ---
 
@@ -534,6 +536,7 @@ Révision:
 | ENG-031 | `LOCKED` | Le scope "Notifications" du Hub (Prompt 06 #12) est servi par `recent_activity_view` (transitions d'état + violations de risque + exécutions) plutôt que par une table de notifications dédiée. | Aucune table de notifications n'existe et en construire une (avec statut lu/non-lu) serait un chantier séparé. Chaque événement pertinent pour un trader a déjà une ligne réelle dans une de ces trois tables — pas de nouvelle infrastructure, pas de donnée inventée. Réduction de scope assumée, décidée avec Rod (2026-08-04). Numéroté ENG-031 (pas ENG-029) lors de la fusion avec `main` — ENG-029 était déjà pris par une décision WariX développée en parallèle sur une autre branche. |
 | ENG-032 | `LOCKED` | L'état d'affichage Hub « attention » (entre normal et soft lock) se déclenche à ≥ 70 % du budget de perte quotidienne utilisé, ou à ≤ 30 % du budget de perte maximale restant (`nominal_balance × maximum_loss_rate` comme dénominateur fixe). | Seuils d'affichage uniquement, dérivés de nombres déjà calculés par le moteur de risque — aucune nouvelle règle financière, pas de nouveau plancher. Nécessaire car le moteur de risque ne distingue aujourd'hui que normal (implicite) et soft-lock/breach (booléens), sans zone d'alerte intermédiaire. Décidé avec Rod (2026-08-04). Numéroté ENG-032 (pas ENG-030) pour la même raison qu'ENG-031. |
 | ENG-033 | `LOCKED` | Toute file opérateur mutable porte une affectation serveur et une version optimiste. L'identité de l'opérateur vient de la session Control ; chaque commande verrouille le dossier, vérifie la version et refuse une soumission périmée avant d'écrire l'action et son audit dans la même transaction. | Deux opérateurs ne doivent ni s'écraser silencieusement ni pouvoir choisir l'identité de l'acteur depuis le navigateur. Phase 3.3 applique ce contrat à Support, Contestations et Identité. |
+| ENG-034 | `LOCKED` | **La preuve exigée dépend de l'action.** Faire avancer un dossier d'identité ou demander une information complémentaire n'exige aucune référence externe ; enregistrer une **vérification positive** en exige une ; un **refus** exige une référence externe ou un motif écrit suffisamment précis. Le contrat est pur, partagé par le formulaire Control et la commande, et vérifié par la commande. | Une vérification positive écrit `trading_accounts.kyc_sandbox_verified`, le drapeau que lit chaque contrôle de payout. Sans provenance, c'est une affirmation qu'aucun examen, audit ou contestation ultérieurs ne peuvent vérifier. Le formulaire l'exigeait déjà, la commande ne l'exigeait pas : la règle vivait dans la moitié qu'un navigateur peut contourner. |
 
 ---
 
@@ -741,6 +744,16 @@ trading manuel ni à la règle d'éligibilité de profit à 60 secondes (TRD-033
 ---
 
 # 26. Historique des versions
+
+## v1.32 — 2026-08-25
+
+Phase 3.3.2 — clôture vérité produit. `PERF-037` remplace la progression
+inventée d'un compte Performance neuf par la construction réelle du buffer et
+retire l'objectif de profit d'un programme qui n'en publie pas. `UX-HUB-012`
+fait de l'Evaluation réussie une archive, rend le compte Performance courant
+par défaut et impose une chronologie causalement possible et datée. `ENG-034`
+lie l'exigence de provenance à l'action d'identité plutôt qu'à toutes. Aucune
+décision de risque, de finalisation ou de provisioning n'est rouverte.
 
 ## v1.31 — 2026-08-24
 
