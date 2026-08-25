@@ -1,4 +1,5 @@
 import Decimal from 'decimal.js';
+import { computeBufferBuildProgress } from '@wariba/domain';
 import {
   evaluateCycleProgress,
   evaluatePayoutEligibility,
@@ -36,6 +37,18 @@ export interface AccountPerformanceMissionView {
   state: AccountPerformanceMissionState;
   cycleNumber: number;
   title: string;
+  /**
+   * What the bar underneath this mission is measuring.
+   *
+   * A Performance account has no profit objective — its policy says
+   * `Objectif : non applicable` — so a UI that labels its progress "Objectif"
+   * is describing a rule that does not exist on the account. The kind and the
+   * label travel with the number so no surface has to guess.
+   */
+  progressKind: 'buffer';
+  progressLabel: string;
+  /** "250 / 1 000 USD" — the two figures the percentage came from. */
+  progressDetail: string;
   progressPercent: number;
   conditions: AccountPerformanceMissionCondition[];
   nextAction: AccountMissionNextAction | null;
@@ -62,7 +75,7 @@ function formatUsd(amount: string): string {
 const REJECTION_LABEL: Record<PayoutRejectionCode, string> = {
   account_not_active: 'Le compte n’est pas actif.',
   no_active_cycle: 'Aucun cycle actif — le dossier WARIBA Review est ouvert.',
-  buffer_not_reached: 'Le solde éligible n’a pas encore dépassé le plancher du buffer permanent.',
+  buffer_not_reached: 'Le solde éligible n’a pas encore dépassé le seuil du buffer permanent.',
   performance_days_incomplete: 'Il manque des Performance Days pour ce cycle.',
   consistency_non_compliant:
     'La meilleure journée dépasse 50 % du profit positif total — répartissez le profit sur d’autres journées.',
@@ -138,22 +151,30 @@ export async function buildAccountPerformanceMissionView(
   const eligibility = await evaluatePayoutEligibility(db, params.accountId);
   const payoutRequests = await loadPayoutRequestsForAccount(db, params.accountId);
 
-  const progressPercent = Math.min(
-    100,
-    Math.max(
-      0,
-      Math.round(
-        new Decimal(progress.realizedBalance).dividedBy(progress.bufferFloor).times(100).toNumber(),
-      ),
-    ),
-  );
+  /*
+   * Phase 3.3.2 A1 — buffer built, not balance over floor.
+   *
+   * This used to be `realizedBalance / bufferFloor`, which on an untouched
+   * 10 000 USD account with an 11 000 USD floor rendered 91 % — a trader who
+   * had placed no trade at all was shown as nearly finished. The buffer a
+   * trader has built is the profit above nominal, and the honest number for a
+   * new account is zero.
+   */
+  const buffer = computeBufferBuildProgress({
+    realizedBalance: progress.realizedBalance,
+    nominalBalance: progress.nominalBalance,
+    bufferFloor: progress.bufferFloor,
+  });
 
   const conditions: AccountPerformanceMissionCondition[] = [
     {
-      label: 'Buffer permanent atteint',
+      label: 'Buffer permanent construit',
       detail: progress.bufferReached
-        ? `Excédent éligible : ${formatUsd(progress.eligibleExcess)}`
-        : `Plancher : ${formatUsd(progress.bufferFloor)}`,
+        ? `Disponible : ${formatUsd(progress.eligibleExcess)}`
+        : // A8 — "seuil du buffer" here, never "plancher". The floor a trader
+          // must not fall through is the Maximum Loss one; this level only
+          // decides which part of a gain can be requested.
+          `${formatUsd(buffer.builtAmount)} / ${formatUsd(buffer.requiredAmount)}`,
       met: progress.bufferReached,
     },
     {
@@ -201,7 +222,10 @@ export async function buildAccountPerformanceMissionView(
     }),
     cycleNumber: progress.cycleNumber,
     title: `Cycle de payout n°${progress.cycleNumber}`,
-    progressPercent,
+    progressKind: 'buffer',
+    progressLabel: progress.bufferReached ? 'Buffer construit' : 'Buffer à construire',
+    progressDetail: `${formatUsd(buffer.builtAmount)} / ${formatUsd(buffer.requiredAmount)}`,
+    progressPercent: buffer.percent,
     conditions,
     nextAction: eligibility.eligible
       ? // W2 §16 — the Payout Center moved out of the WariX execution dock onto

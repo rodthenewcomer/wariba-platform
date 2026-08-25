@@ -9,6 +9,7 @@ import {
   type IdentityReviewFilters,
   type IdentityReviewStatus,
 } from '@wariba/database';
+import { assertIdentityEvidenceSufficient, type IdentityDecisionStatus } from './identity-evidence';
 import { maskEmail } from './control-pii';
 import { accountStatusLabel } from './account-status-labels';
 import { formatAge, formatSupportTimestamp } from './support-view';
@@ -177,12 +178,19 @@ export async function assignIdentityReview(
 export async function updateIdentityReview(
   db: Db,
   params: ControlIdentityActionParams & {
-    nextStatus: 'under_review' | 'needs_information' | 'verified' | 'unable_to_verify';
+    nextStatus: IdentityDecisionStatus;
     decisionReason: string;
     traderMessage: string;
     evidenceReference?: string;
   },
 ): Promise<void> {
+  // Enforced in the command, not only in the Server Action: the boundary has to
+  // hold for every caller, including a future queue worker or a retry path.
+  assertIdentityEvidenceSufficient({
+    nextStatus: params.nextStatus,
+    decisionReason: params.decisionReason,
+    evidenceReference: params.evidenceReference,
+  });
   const now = new Date();
   await db.transaction().execute(async (trx) => {
     const change = await updateIdentityReviewInTransaction(trx, {

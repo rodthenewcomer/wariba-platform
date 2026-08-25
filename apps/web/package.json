@@ -20,6 +20,9 @@
     "test:e2e:support": "playwright test --grep @support",
     "test:e2e:help": "playwright test --grep @help",
     "test:e2e:mobile": "playwright test --grep @mobile",
+    "test:e2e:critical": "playwright test --grep @critical",
+    "test:e2e:handoff": "playwright test --grep @handoff",
+    "test:e2e:actuarial": "playwright test --grep @actuarial",
     "test:e2e:full": "playwright test",
     "visual-verify": "node scripts/visual-verify.mjs",
     "test:visual": "node scripts/visual-verify.mjs"

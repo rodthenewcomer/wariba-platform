@@ -104,19 +104,19 @@ export function AccountCard({ item }: { item: AccountOverviewItem }) {
 
       {detail ? (
         <>
-          {detail.progressPercent !== null ? (
+          {detail.progressPercent !== null && detail.progressLabel ? (
             <div>
               <div className="flex items-baseline justify-between gap-3">
                 <span className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
-                  Objectif
+                  {detail.progressLabel}
                 </span>
                 <span className="wariba-data text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]">
-                  {detail.objectiveDetail ?? `${detail.progressPercent} %`}
+                  {detail.progressDetail ?? `${detail.progressPercent} %`}
                 </span>
               </div>
               <ProgressBar
                 percent={detail.progressPercent}
-                label="Progression vers l’objectif"
+                label={detail.progressLabel}
                 tone={detail.progressPercent >= 100 ? 'emerald' : 'indigo'}
                 className="mt-2"
               />

@@ -64,6 +64,7 @@ export {
 export {
   computePayoutBufferFloor,
   computeEligibleExcess,
+  computeBufferBuildProgress,
   isPayoutBufferReached,
   computePerformanceDayThreshold,
   isPerformanceDayQualified,
@@ -73,6 +74,7 @@ export {
   computeApprovedGrossBase,
   computeTraderNetCash,
   computeWaribaShare,
+  type BufferBuildProgress,
 } from './performance-math';
 export {
   computeReserveCoverageRatio,

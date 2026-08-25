@@ -3,6 +3,7 @@ import { Alert, Button } from '@wariba/ui';
 import type {
   EvaluationPerformanceHandoffStage,
   EvaluationToPerformanceHandoffDTO,
+  RuleComparisonItem,
 } from '@wariba/application';
 import { ActionLink } from '../../../../components/hub/Action';
 import { HubIcon } from '../../../../components/hub/icons';
@@ -38,9 +39,10 @@ const STAGE_COPY: Record<
       'Vous n’avez rien à faire. Votre évaluation reste réussie et aucun second compte ne sera créé.',
   },
   rules_onboarding: {
-    eyebrow: 'Votre compte est prêt',
-    title: 'Bienvenue dans WARIBA Performance.',
-    description: 'Avant votre premier trade, prenez connaissance des règles attachées à ce compte.',
+    eyebrow: 'Bienvenue dans WARIBA Performance',
+    title: 'Avant votre premier trade, prenez connaissance de vos règles.',
+    description:
+      'Ce compte ne suit pas les mêmes règles que votre évaluation. Lisez-les puis confirmez ci-dessous.',
   },
   performance_ready: {
     eyebrow: 'Compte Performance prêt',
@@ -61,8 +63,21 @@ function RuleValue({ applicable, value }: { applicable: boolean; value: string |
   );
 }
 
+/**
+ * A7 — two questions, answered separately.
+ *
+ * A trader arriving on Performance has exactly two things to find out: what is
+ * new, and what stays the same. The single ten-row table answered neither on a
+ * phone, because ten stacked cards of which seven repeat a number the trader
+ * already knows is ten cards nobody reads. Desktop keeps the full side-by-side
+ * table — comparing is what a wide screen is good at — and the phone gets the
+ * answer instead of the comparison.
+ */
 function RuleComparison({ handoff }: { handoff: EvaluationToPerformanceHandoffDTO }) {
   if (handoff.ruleComparison.length === 0) return null;
+  const introduced = handoff.ruleComparison.filter((row) => row.group === 'new');
+  const unchanged = handoff.ruleComparison.filter((row) => row.group === 'unchanged');
+
   return (
     <section aria-labelledby="rule-comparison-title" data-testid="performance-rule-comparison">
       <div className="mb-3">
@@ -119,33 +134,217 @@ function RuleComparison({ handoff }: { handoff: EvaluationToPerformanceHandoffDT
         </table>
       </div>
 
-      <dl className="grid gap-2 md:hidden">
-        {handoff.ruleComparison.map((row) => (
-          <div
-            key={row.key}
-            className="rounded-[10px] border border-[color:var(--warix-border-subtle)] p-4"
-          >
-            <dt className="font-semibold text-[color:var(--wariba-text-primary)]">{row.label}</dt>
-            <dd className="mt-3 grid grid-cols-2 gap-3 text-[length:var(--wariba-font-size-label-sm)]">
-              <span className="flex flex-col gap-1">
-                <span className="text-[color:var(--wariba-text-tertiary)]">ONE</span>
-                <RuleValue
-                  applicable={row.evaluation.applicable}
-                  value={row.evaluation.displayValue}
-                />
-              </span>
-              <span className="flex flex-col gap-1">
-                <span className="text-[color:var(--wariba-text-tertiary)]">Performance</span>
-                <RuleValue
-                  applicable={row.performance.applicable}
-                  value={row.performance.displayValue}
-                />
-              </span>
-            </dd>
+      <div className="flex flex-col gap-5 md:hidden">
+        {introduced.length > 0 ? (
+          <div data-testid="performance-rules-new">
+            <h3 className="text-[length:var(--wariba-font-size-label-md)] font-semibold uppercase tracking-[0.08em] text-[color:var(--wariba-accent-emerald)]">
+              Nouveau en Performance
+            </h3>
+            <dl className="mt-3 grid gap-2">
+              {introduced.map((row) => (
+                <div
+                  key={row.key}
+                  className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-[10px] border border-[color:var(--warix-border-subtle)] p-3.5"
+                >
+                  <dt className="font-medium text-[color:var(--wariba-text-primary)]">
+                    {row.label}
+                  </dt>
+                  <dd className="text-[length:var(--wariba-font-size-body-sm)]">
+                    <PerformanceSide row={row} />
+                  </dd>
+                </div>
+              ))}
+            </dl>
           </div>
-        ))}
-      </dl>
+        ) : null}
+
+        {unchanged.length > 0 ? (
+          <div data-testid="performance-rules-unchanged">
+            <h3 className="text-[length:var(--wariba-font-size-label-md)] font-semibold uppercase tracking-[0.08em] text-[color:var(--wariba-text-tertiary)]">
+              Ce qui reste identique
+            </h3>
+            <dl className="mt-3 grid gap-0 rounded-[10px] border border-[color:var(--warix-border-subtle)] px-3.5">
+              {unchanged.map((row) => (
+                <div
+                  key={row.key}
+                  className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-[color:var(--warix-border-subtle)] py-3 last:border-0"
+                >
+                  <dt className="text-[color:var(--wariba-text-secondary)]">{row.label}</dt>
+                  <dd>
+                    <PerformanceSide row={row} />
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ) : null}
+      </div>
     </section>
+  );
+}
+
+/**
+ * On a phone the Performance column is the answer; the ONE column is only
+ * needed when Performance drops the rule entirely, and then the honest thing
+ * to show is that it no longer applies.
+ */
+function PerformanceSide({ row }: { row: RuleComparisonItem }) {
+  return row.performance.applicable ? (
+    <span className="wariba-data font-semibold text-[color:var(--wariba-text-primary)]">
+      {row.performance.displayValue}
+    </span>
+  ) : (
+    <span className="text-[color:var(--wariba-text-tertiary)]">Ne s’applique plus</span>
+  );
+}
+
+/**
+ * A9 — four phases, not one queue.
+ *
+ * Only phase one can carry a checkmark here: the account exists and, once the
+ * rules are acknowledged, it can trade. Everything below is either a condition
+ * nothing has measured yet or work WARIBA has not started, and marking those
+ * would be a prediction dressed as a fact.
+ */
+function PayoutPath({ handoff }: { handoff: EvaluationToPerformanceHandoffDTO }) {
+  if (handoff.payoutPath.length === 0) return null;
+  return (
+    <Surface className="p-5 sm:p-6" data-testid="performance-payout-path">
+      <SurfaceTitle>Votre chemin vers un payout</SurfaceTitle>
+      <div className="mt-4 grid gap-5 sm:grid-cols-2">
+        {handoff.payoutPath.map((phase, phaseIndex) => (
+          <section key={phase.key} data-payout-phase={phase.key}>
+            <h3 className="flex items-baseline gap-2 text-[length:var(--wariba-font-size-label-md)] font-semibold text-[color:var(--wariba-text-primary)]">
+              <span className="wariba-data text-[color:var(--wariba-text-tertiary)]">
+                {phaseIndex + 1}
+              </span>
+              {phase.title}
+            </h3>
+            <ul className="mt-2 grid gap-1.5">
+              {phase.steps.map((step) => (
+                <li
+                  key={step.key}
+                  className="flex items-start gap-2.5 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="mt-[3px] flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] leading-none"
+                    style={
+                      step.done
+                        ? {
+                            background: 'var(--wariba-accent-emerald)',
+                            color: 'var(--wariba-color-ink-950)',
+                          }
+                        : { border: '1px solid var(--warix-border-strong)', color: 'transparent' }
+                    }
+                  >
+                    ✓
+                  </span>
+                  <span
+                    className={step.done ? 'text-[color:var(--wariba-text-primary)]' : undefined}
+                  >
+                    {step.label}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+    </Surface>
+  );
+}
+
+/**
+ * A3 — a successful evaluation, seen from the other side.
+ *
+ * Once the Performance account exists and its rules have been read, the
+ * evaluation is history: it cannot be traded, its budgets are no longer being
+ * spent, and the only thing a trader needs from it is the result and the way
+ * through to the account that replaced it. Rendering its live risk budgets and
+ * an objective progress bar told them the opposite.
+ */
+export function EvaluationArchive({ handoff }: { handoff: EvaluationToPerformanceHandoffDTO }) {
+  const evaluation = handoff.evaluationAccount;
+  const performance = handoff.performanceAccount;
+  const passedAt = handoff.timeline.find((event) => event.key === 'passed');
+
+  return (
+    <div
+      className="mx-auto flex w-full max-w-3xl flex-col gap-5"
+      data-testid="evaluation-archive"
+      data-account-tradable="false"
+    >
+      <Surface tone="emerald" className="flex flex-col gap-4 p-6 sm:p-8">
+        <div className="flex items-center gap-3 text-[color:var(--wariba-accent-emerald)]">
+          <span
+            aria-hidden="true"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--wariba-accent-emerald-wash)]"
+          >
+            <HubIcon role="success" size={20} active />
+          </span>
+          <p className="text-[length:var(--wariba-font-size-label-md)] font-bold uppercase tracking-[0.09em]">
+            Évaluation réussie
+          </p>
+        </div>
+        <div>
+          <p className="wariba-data text-[length:var(--wariba-font-size-heading-md)] font-semibold text-[color:var(--wariba-text-primary)]">
+            {evaluation.publicId}
+          </p>
+          {passedAt ? (
+            <p className="wariba-data mt-1 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-tertiary)]">
+              Terminée le {passedAt.timestampLabel}
+            </p>
+          ) : null}
+        </div>
+        {evaluation.finalResultFormatted ? (
+          <div className="border-t border-[color:var(--warix-border-subtle)] pt-4">
+            <p className="text-[length:var(--wariba-font-size-label-sm)] uppercase tracking-[0.08em] text-[color:var(--wariba-text-tertiary)]">
+              Résultat final
+            </p>
+            <p
+              className="wariba-data mt-1 text-[length:var(--wariba-font-size-heading-lg)] font-bold text-[color:var(--wariba-accent-emerald)]"
+              data-testid="evaluation-final-result"
+            >
+              {evaluation.finalResultFormatted}
+            </p>
+          </div>
+        ) : null}
+      </Surface>
+
+      {performance ? (
+        <Surface className="flex flex-col gap-4 p-5 sm:p-6" data-testid="evaluation-successor">
+          <SurfaceTitle>A donné naissance à</SurfaceTitle>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-[length:var(--wariba-font-size-label-sm)] uppercase tracking-[0.08em] text-[color:var(--wariba-text-tertiary)]">
+                WARIBA Performance
+              </p>
+              <p className="wariba-data mt-1 text-[length:var(--wariba-font-size-heading-sm)] font-semibold text-[color:var(--wariba-text-primary)]">
+                {performance.publicId}
+              </p>
+              <p className="wariba-data mt-1 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
+                {formatNominal(performance.nominalAmount, performance.currency)}
+              </p>
+            </div>
+            <StatusPill tone={performance.tradable ? 'success' : 'progress'}>
+              {performance.statusLabel}
+            </StatusPill>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <ActionLink href={`/hub?account=${performance.id}`} icon="chevron">
+              Voir mon compte Performance
+            </ActionLink>
+            <ActionLink
+              href={`/comptes/${evaluation.publicId}/bienvenue-performance`}
+              variant="ghost"
+            >
+              Voir l’historique de l’évaluation
+            </ActionLink>
+          </div>
+        </Surface>
+      ) : null}
+    </div>
   );
 }
 
@@ -199,6 +398,60 @@ export function PerformanceHandoff({
             <p className="mt-4 max-w-[60ch] text-[length:var(--wariba-font-size-body-md)] leading-relaxed text-[color:var(--wariba-text-secondary)]">
               {copy.description}
             </p>
+
+            {/*
+             * A5/A17 — the decision lives in the first viewport.
+             *
+             * The ready state's only job is "open WariX with the new account",
+             * and that button used to sit below the rule comparison, the
+             * buffer panel, the payout path and the full rule list — two to
+             * three thousand pixels of reading on a phone before the trader
+             * reached the one control the screen exists for.
+             */}
+            {ready && performance ? (
+              <div
+                className="mt-7 flex flex-col gap-2.5 sm:flex-row sm:items-center"
+                data-testid="performance-ready-actions"
+              >
+                <ActionLink href={`/trade?account=${performance.id}`} icon="warix" size="lg">
+                  Ouvrir WariX
+                </ActionLink>
+                <ActionLink
+                  href={`/comptes/${performance.publicId}/regles`}
+                  variant="secondary"
+                  size="lg"
+                >
+                  Voir mes règles
+                </ActionLink>
+              </div>
+            ) : null}
+
+            {onboarding && performance ? (
+              <form
+                action={acknowledgePerformanceRulesAction}
+                className="mt-7 flex flex-col gap-4"
+                data-testid="performance-rules-acknowledgement"
+              >
+                <input type="hidden" name="accountPublicId" value={performance.publicId} />
+                <label className="flex max-w-[52ch] cursor-pointer items-start gap-3 text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-text-primary)]">
+                  <input
+                    className="mt-0.5 h-5 w-5 shrink-0 accent-[color:var(--wariba-accent-indigo)]"
+                    type="checkbox"
+                    name="acknowledged"
+                    value="yes"
+                    required
+                  />
+                  <span>J’ai pris connaissance des règles de mon compte WARIBA Performance.</span>
+                </label>
+                <Button
+                  type="submit"
+                  className="min-h-11 self-start"
+                  data-testid="performance-rules-submit"
+                >
+                  Continuer vers mon compte Performance
+                </Button>
+              </form>
+            ) : null}
           </div>
 
           <div className="border-t border-[color:var(--warix-border-subtle)] bg-[color:var(--warix-surface-raised)] p-6 lg:border-l lg:border-t-0 lg:p-7">
@@ -276,8 +529,8 @@ export function PerformanceHandoff({
               <Surface className="p-5 sm:p-6" data-testid="performance-buffer">
                 <SurfaceTitle>Le buffer permanent</SurfaceTitle>
                 <p className="mt-3 text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-text-secondary)]">
-                  Le buffer reste dans votre compte. Seul le montant autorisé au-dessus du niveau
-                  protégé peut être demandé.
+                  Le buffer reste dans votre compte. Seule la partie autorisée au-dessus du seuil
+                  peut être demandée.
                 </p>
                 <div className="mt-5 overflow-hidden rounded-[10px] border border-[color:var(--warix-border-subtle)]">
                   <div className="h-2 bg-[color:var(--wariba-accent-indigo)]" />
@@ -291,8 +544,14 @@ export function PerformanceHandoff({
                       </dd>
                     </div>
                     <div>
+                      {/*
+                       * A8 — "seuil du buffer", never "plancher". The floor a
+                       * trader must not fall through is the Maximum Loss one,
+                       * and it ends the account; this level only decides which
+                       * part of a gain can be requested.
+                       */}
                       <dt className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
-                        Niveau protégé
+                        Seuil du buffer
                       </dt>
                       <dd className="wariba-data mt-1 font-semibold">
                         {handoff.buffer.floorFormatted}
@@ -303,30 +562,7 @@ export function PerformanceHandoff({
               </Surface>
             ) : null}
 
-            <Surface className="p-5 sm:p-6" data-testid="performance-payout-path">
-              <SurfaceTitle>Votre chemin vers un payout</SurfaceTitle>
-              <ol className="mt-4 grid gap-0">
-                {handoff.payoutPath.map((step, index) => (
-                  <li key={step.key} className="relative flex min-h-11 gap-3 pb-3 last:pb-0">
-                    {index < handoff.payoutPath.length - 1 ? (
-                      <span
-                        aria-hidden="true"
-                        className="absolute bottom-0 left-[13px] top-7 w-px bg-[color:var(--warix-border-subtle)]"
-                      />
-                    ) : null}
-                    <span
-                      aria-hidden="true"
-                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[color:var(--warix-border-strong)] bg-[color:var(--warix-surface-raised)] text-[length:var(--wariba-font-size-label-sm)]"
-                    >
-                      {index === 0 ? '✓' : index + 1}
-                    </span>
-                    <span className="pt-1 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
-                      {step.label}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            </Surface>
+            <PayoutPath handoff={handoff} />
           </div>
 
           <Surface className="p-5 sm:p-6" data-testid="performance-rules-list">
@@ -352,57 +588,6 @@ export function PerformanceHandoff({
               Version attachée : {performance.policyVersion}
             </p>
           </Surface>
-
-          {onboarding ? (
-            <form
-              action={acknowledgePerformanceRulesAction}
-              className="rounded-[14px] border border-[color:var(--wariba-accent-emerald-edge)] bg-[color:var(--wariba-accent-emerald-wash)] p-5 sm:p-6"
-              data-testid="performance-rules-acknowledgement"
-            >
-              <input type="hidden" name="accountPublicId" value={performance.publicId} />
-              <label className="flex cursor-pointer items-start gap-3 text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-text-primary)]">
-                <input
-                  className="mt-0.5 h-5 w-5 shrink-0 accent-[color:var(--wariba-accent-indigo)]"
-                  type="checkbox"
-                  name="acknowledged"
-                  value="yes"
-                  required
-                />
-                <span>J’ai pris connaissance des règles de mon compte WARIBA Performance.</span>
-              </label>
-              <Button
-                type="submit"
-                className="mt-5 min-h-11"
-                data-testid="performance-rules-submit"
-              >
-                Continuer vers mon compte Performance
-              </Button>
-            </form>
-          ) : null}
-
-          {ready ? (
-            <div
-              className="flex flex-col gap-3 rounded-[14px] border border-[color:var(--wariba-accent-emerald-edge)] bg-[color:var(--wariba-accent-emerald-wash)] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6"
-              data-testid="performance-ready-actions"
-            >
-              <div>
-                <p className="font-semibold text-[color:var(--wariba-text-primary)]">
-                  Votre compte WARIBA Performance est prêt.
-                </p>
-                <p className="mt-1 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
-                  WariX utilisera {performance.publicId}.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <ActionLink href={`/trade?account=${performance.id}`} icon="warix">
-                  Ouvrir WariX
-                </ActionLink>
-                <ActionLink href={`/comptes/${performance.publicId}/regles`} variant="secondary">
-                  Voir mes règles
-                </ActionLink>
-              </div>
-            </div>
-          ) : null}
         </>
       ) : (
         <div className="flex flex-wrap gap-2">
@@ -422,7 +607,7 @@ export function PerformanceHandoff({
       )}
 
       {handoff.timeline.length > 0 ? (
-        <Surface className="p-5 sm:p-6">
+        <Surface className="p-5 sm:p-6" data-testid="performance-timeline">
           <SurfaceTitle>Historique du passage</SurfaceTitle>
           <ol className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {handoff.timeline.map((event) => (

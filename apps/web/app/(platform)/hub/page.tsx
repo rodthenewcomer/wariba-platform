@@ -32,7 +32,7 @@ import { PayoutSummary } from './PayoutSummary';
 import { QuickActions } from './QuickActions';
 import { RecentActivity } from './RecentActivity';
 import { quickActionsFor } from './dashboard-actions';
-import { PerformanceHandoff } from '../comptes/[publicId]/PerformanceHandoff';
+import { EvaluationArchive, PerformanceHandoff } from '../comptes/[publicId]/PerformanceHandoff';
 
 export const dynamic = 'force-dynamic';
 
@@ -181,11 +181,25 @@ export default async function HubPage({
       />
     ) : null;
 
+  /*
+   * A3/A6 — a passed evaluation is history, and history is not a dashboard.
+   *
+   * While the handoff is still running the trader needs the transition screen.
+   * Once the Performance account exists and its rules have been read, the
+   * evaluation has no budgets left to spend and no objective left to reach;
+   * what it has is a result and a successor. Rendering the full handoff — or
+   * worse, the live mission checklist below — kept presenting a finished,
+   * non-tradable account as the one the trader is working in.
+   */
   if (activeAccount.status === 'passed' && handoff) {
     return (
       <div className="flex flex-col gap-5">
         {switcher}
-        <PerformanceHandoff handoff={handoff} />
+        {handoff.stage === 'performance_ready' ? (
+          <EvaluationArchive handoff={handoff} />
+        ) : (
+          <PerformanceHandoff handoff={handoff} />
+        )}
       </div>
     );
   }
@@ -382,6 +396,7 @@ export default async function HubPage({
                   maximumLossFloorFormatted: formatUsd(risk.amounts.maximumLossFloor),
                   binding: risk.room.binding,
                   objectivePercent: mission.available ? mission.progressPercent : null,
+                  objectiveLabel: mission.available ? mission.progressLabel : null,
                   capturedAt: command.capturedAt,
                 }}
                 /*
@@ -478,6 +493,8 @@ export default async function HubPage({
                       : 'Mission évaluation'
                   }
                   title={mission.title}
+                  progressLabel={mission.progressLabel}
+                  progressDetail={mission.progressDetail}
                   progressPercent={mission.progressPercent}
                   conditions={mission.conditions}
                   footer={

@@ -1,6 +1,11 @@
 import Decimal from 'decimal.js';
 import { computePayoutBufferFloor, computePerformanceDayThreshold } from '@wariba/domain';
-import { loadPerformanceRulesAcknowledgement, loadPolicyById, type Db } from '@wariba/database';
+import {
+  loadAccountBalanceProjection,
+  loadPerformanceRulesAcknowledgement,
+  loadPolicyById,
+  type Db,
+} from '@wariba/database';
 import type { EvaluationOnePolicyParameters, PerformancePolicyParameters } from '@wariba/policies';
 import { accountStatusLabel } from './account-status-labels';
 
@@ -30,6 +35,15 @@ export interface RuleComparisonItem {
   evaluation: { applicable: boolean; displayValue: string | null };
   performance: { applicable: boolean; displayValue: string | null };
   changed: boolean;
+  /**
+   * A7 — which half of the comparison this row belongs to.
+   *
+   * `new` is a rule Performance introduces or changes; `unchanged` is one a
+   * trader already lives under and does not need to re-read. Ten near-identical
+   * cards on a phone is how a trader stops reading the three rows that actually
+   * differ.
+   */
+  group: 'new' | 'unchanged';
 }
 
 export interface PerformanceRuleItem {
@@ -42,6 +56,14 @@ export interface PerformanceRuleItem {
 export interface PayoutPathStep {
   key: string;
   label: string;
+  /** Only ever true for a fact the platform already holds. Never a prediction. */
+  done: boolean;
+}
+
+export interface PayoutPathPhase {
+  key: 'account' | 'eligibility' | 'request' | 'wariba';
+  title: string;
+  steps: readonly PayoutPathStep[];
 }
 
 export interface HandoffTimelineItem {
@@ -62,6 +84,11 @@ export interface EvaluationToPerformanceHandoffDTO {
     policyVersionId: string;
     policyVersion: string;
     passedAt: string | null;
+    /**
+     * The evaluation's own final figure, for the archive card. `null` while the
+     * evaluation is still running — a result exists only once it is final.
+     */
+    finalResultFormatted: string | null;
   };
   performanceAccount: {
     id: string;
@@ -83,7 +110,7 @@ export interface EvaluationToPerformanceHandoffDTO {
   };
   ruleComparison: readonly RuleComparisonItem[];
   performanceRules: readonly PerformanceRuleItem[];
-  payoutPath: readonly PayoutPathStep[];
+  payoutPath: readonly PayoutPathPhase[];
   buffer: {
     rateFormatted: string;
     amountFormatted: string;
@@ -122,12 +149,21 @@ function payouts(value: number | null | undefined): string | null {
   return `${value} ${value === 1 ? 'payout' : 'payouts'}`;
 }
 
+/**
+ * A4 — one convention, stated.
+ *
+ * Every lifecycle instant in this product is stored and reasoned about in UTC.
+ * Rendering it in UTC while printing it as though it were the reader's local
+ * clock is how "24 août 02:57" ends up sitting above "25 août 02:56" with no
+ * way for the reader to tell which zone either belongs to. The suffix is not
+ * decoration; it is the difference between a timestamp and a guess.
+ */
 function timestamp(date: Date): string {
-  return date.toLocaleString('fr-FR', {
+  return `${date.toLocaleString('fr-FR', {
     dateStyle: 'medium',
     timeStyle: 'short',
     timeZone: 'UTC',
-  });
+  })} UTC`;
 }
 
 function side(applicable: boolean, value: string | null) {
@@ -138,7 +174,7 @@ function comparison(
   one: EvaluationOnePolicyParameters,
   performance: PerformancePolicyParameters,
 ): RuleComparisonItem[] {
-  const rows: RuleComparisonItem[] = [
+  const rows: Omit<RuleComparisonItem, 'group'>[] = [
     {
       key: 'profit_target',
       label: 'Objectif de profit',
@@ -213,7 +249,9 @@ function comparison(
       changed: true,
     },
   ];
-  return rows;
+  // A rule is "new" when Performance introduces it, drops it, or moves its
+  // number. Everything else is a rule the trader already lives under.
+  return rows.map((row) => ({ ...row, group: row.changed ? 'new' : 'unchanged' }));
 }
 
 function performanceRules(
@@ -266,6 +304,79 @@ function performanceRules(
   ];
 }
 
+/**
+ * A9 — the road to a payout, in the four phases it actually has.
+ *
+ * The nine-item list this replaces ran account state, trading behaviour,
+ * eligibility conditions, a trader action and WARIBA's own processing together
+ * as though they were one queue a trader walks down. They are not the same kind
+ * of thing: the first two are already true, the middle group are conditions
+ * that can be met in any order, the third is an action only the trader takes,
+ * and the last is work only WARIBA does. Grouping them says which is which.
+ *
+ * A10 — "Examen de la demande" here, deliberately not "WARIBA Review". That
+ * name belongs to the programme state a Performance account reaches after its
+ * published number of payout cycles; using it for the routine review of every
+ * request made one name mean two unrelated things.
+ *
+ * Nothing below phase one is ever marked done. At this point in the lifecycle
+ * the platform holds no cycle progress for the account, and a checkmark on a
+ * condition nobody has measured is a claim, not a fact.
+ */
+function payoutPathPhases(
+  performance: PerformancePolicyParameters,
+  rulesAcknowledged: boolean,
+): PayoutPathPhase[] {
+  const eligibility: PayoutPathStep[] = [
+    ...(performance.performance_days_required_per_payout > 0
+      ? [
+          {
+            key: 'days',
+            label: `Remplir les ${days(performance.performance_days_required_per_payout) ?? 'journées'} Performance du cycle`,
+            done: false,
+          },
+        ]
+      : []),
+    ...(new Decimal(performance.permanent_buffer_rate).isPositive()
+      ? [{ key: 'buffer', label: 'Construire le buffer permanent', done: false }]
+      : []),
+    ...(new Decimal(performance.best_day_max_ratio).isPositive()
+      ? [{ key: 'best_day', label: 'Respecter la règle du Meilleur Jour', done: false }]
+      : []),
+    { key: 'risk', label: 'Respecter les règles de risque', done: false },
+  ];
+
+  return [
+    {
+      key: 'account',
+      title: 'Votre compte',
+      steps: [
+        { key: 'created', label: 'Compte Performance créé', done: true },
+        { key: 'tradable', label: 'Trading autorisé', done: rulesAcknowledged },
+      ],
+    },
+    { key: 'eligibility', title: 'Devenir éligible', steps: eligibility },
+    {
+      key: 'request',
+      title: 'Demander votre payout',
+      steps: [
+        { key: 'available', label: 'Un montant devient disponible', done: false },
+        { key: 'identity', label: 'Vérification d’identité complétée', done: false },
+        { key: 'submit', label: 'Envoyer la demande', done: false },
+      ],
+    },
+    {
+      key: 'wariba',
+      title: 'Traitement WARIBA',
+      steps: [
+        { key: 'review', label: 'Examen de la demande', done: false },
+        { key: 'decision', label: 'Décision', done: false },
+        { key: 'payment', label: 'Paiement', done: false },
+      ],
+    },
+  ];
+}
+
 export async function buildEvaluationToPerformanceHandoff(
   db: Db,
   params:
@@ -310,7 +421,7 @@ export async function buildEvaluationToPerformanceHandoff(
           .where('user_id', '=', params.userId)
           .executeTakeFirst();
 
-  const [objectiveTransition, passTransition, latestFinalized, evaluationPolicy] =
+  const [objectiveTransition, passTransition, finalizedSnapshots, evaluationPolicy] =
     await Promise.all([
       db
         .selectFrom('app.account_state_transitions')
@@ -326,13 +437,25 @@ export async function buildEvaluationToPerformanceHandoff(
         .where('to_status', '=', 'passed')
         .orderBy('occurred_at', 'desc')
         .executeTakeFirst(),
+      /*
+       * A4 — the finalization that closed the day the objective was reached.
+       *
+       * This used to take the *latest* finalized snapshot on the account,
+       * whatever day it belonged to. On an account whose objective was reached
+       * after an earlier day had already been finalized, that produced a
+       * timeline reading "Journée clôturée 24 août" above "Objectif atteint
+       * 25 août" — an order that cannot happen in the causal chain the labels
+       * describe. Ordering ascending and requiring the snapshot to sit at or
+       * after the objective instant asks for the right row instead of
+       * re-sorting a wrong one.
+       */
       db
         .selectFrom('app.account_daily_snapshots')
         .select('finalized_at')
         .where('account_id', '=', evaluation.id)
         .where('status', '=', 'finalized')
-        .orderBy('finalized_at', 'desc')
-        .executeTakeFirst(),
+        .orderBy('finalized_at', 'asc')
+        .execute(),
       loadPolicyById(db, evaluation.policy_version_id),
     ]);
 
@@ -357,6 +480,19 @@ export async function buildEvaluationToPerformanceHandoff(
         accountId: performance.id,
       })
     : null;
+
+  /*
+   * A3 — a finished evaluation is an archive, and an archive states its
+   * result. Read from the same program-eligible projection the risk engine
+   * uses, never recomputed here, and only once the evaluation is final: a
+   * running account has a balance, not a result.
+   */
+  const evaluationFinalResult =
+    evaluation.status === 'passed'
+      ? new Decimal(
+          (await loadAccountBalanceProjection(db, evaluation.id)).programEligibleBalance,
+        ).minus(evaluation.nominal_balance)
+      : null;
   if (
     acknowledgement &&
     performance &&
@@ -368,13 +504,25 @@ export async function buildEvaluationToPerformanceHandoff(
   }
 
   const objectiveAt = objectiveTransition?.occurred_at ?? null;
-  const finalizedAt = latestFinalized?.finalized_at ?? null;
+  /*
+   * Fail closed rather than show a finalization that predates the objective.
+   * If no finalized day sits at or after the objective, the day that decides
+   * this evaluation has not closed yet — and the honest timeline is one entry
+   * shorter, not one entry out of order.
+   */
+  const finalizedAt =
+    objectiveAt === null
+      ? null
+      : (finalizedSnapshots.find(
+          (snapshot) =>
+            snapshot.finalized_at !== null &&
+            snapshot.finalized_at.getTime() >= objectiveAt.getTime(),
+        )?.finalized_at ?? null);
   const passedAt = passTransition?.occurred_at ?? null;
+  // `finalizedAt` is already constrained to sit at or after the objective, so
+  // its mere presence is the "the deciding day has closed" signal.
   const isFinalizing =
-    evaluation.status === 'pass_pending' &&
-    objectiveAt !== null &&
-    finalizedAt !== null &&
-    finalizedAt.getTime() >= objectiveAt.getTime();
+    evaluation.status === 'pass_pending' && objectiveAt !== null && finalizedAt !== null;
 
   let stage: EvaluationPerformanceHandoffStage;
   if (evaluation.status === 'pass_pending') {
@@ -448,6 +596,9 @@ export async function buildEvaluationToPerformanceHandoff(
       policyVersionId: evaluation.policy_version_id,
       policyVersion: evaluationPolicy.semanticVersion,
       passedAt: passedAt?.toISOString() ?? null,
+      finalResultFormatted: evaluationFinalResult
+        ? `${evaluationFinalResult.isPositive() ? '+' : ''}${money(evaluationFinalResult.toFixed(2), evaluation.currency)}`
+        : null,
     },
     performanceAccount:
       performance && performancePolicy
@@ -472,25 +623,7 @@ export async function buildEvaluationToPerformanceHandoff(
     },
     ruleComparison,
     performanceRules: rules,
-    payoutPath: perf
-      ? [
-          { key: 'created', label: 'Compte Performance créé' },
-          { key: 'trade', label: 'Trader en respectant les règles' },
-          ...(perf.performance_days_required_per_payout > 0
-            ? [{ key: 'days', label: 'Remplir les journées Performance du cycle' }]
-            : []),
-          ...(new Decimal(perf.best_day_max_ratio).isPositive()
-            ? [{ key: 'best_day', label: 'Respecter la règle du Meilleur Jour' }]
-            : []),
-          ...(new Decimal(perf.permanent_buffer_rate).isPositive()
-            ? [{ key: 'buffer', label: 'Construire le buffer permanent' }]
-            : []),
-          { key: 'eligible', label: 'Rendre une demande disponible' },
-          { key: 'request', label: 'Envoyer la demande de payout' },
-          { key: 'review', label: 'Passer par WARIBA Review' },
-          { key: 'approved', label: 'Recevoir la décision' },
-        ]
-      : [],
+    payoutPath: perf ? payoutPathPhases(perf, acknowledgement !== null) : [],
     buffer:
       perf && performance && bufferAmount && bufferFloor
         ? {

@@ -2,6 +2,10 @@
 
 import { useState } from 'react';
 import { Alert, Button, Text } from '@wariba/ui';
+import {
+  identityEvidenceRequirement,
+  type IdentityDecisionStatus,
+} from '@wariba/application/presentation';
 import { assignIdentityToSelfAction, updateIdentityAction } from '../actions';
 
 export function IdentityReviewActions({
@@ -23,14 +27,24 @@ export function IdentityReviewActions({
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [nextStatus, setNextStatus] = useState<
-    'under_review' | 'needs_information' | 'verified' | 'unable_to_verify'
-  >('under_review');
+  const [nextStatus, setNextStatus] = useState<IdentityDecisionStatus>('under_review');
   const [reason, setReason] = useState('');
   const [message, setMessage] = useState('');
   const [evidence, setEvidence] = useState('');
   const decision = nextStatus === 'verified' || nextStatus === 'unable_to_verify';
   const allowed = decision ? canDecide : canReview;
+  /*
+   * B2 — the same contract the command enforces, so the button and the server
+   * cannot disagree about what a decision needs behind it. A refusal may stand
+   * on a specific written reason; a verification may not.
+   */
+  const requirement = identityEvidenceRequirement(nextStatus);
+  const evidenceMissing =
+    requirement === 'required'
+      ? evidence.trim().length === 0
+      : requirement === 'required_or_detailed_reason'
+        ? evidence.trim().length === 0 && reason.trim().length < 40
+        : false;
   const run = async (action: () => Promise<{ error?: string }>) => {
     setError(null);
     setPending(true);
@@ -106,7 +120,12 @@ export function IdentityReviewActions({
         />
       </label>
       <label className="flex flex-col gap-1 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]">
-        Référence de preuve externe {nextStatus === 'verified' ? '(requise)' : '(facultative)'}
+        Référence de preuve externe{' '}
+        {requirement === 'required'
+          ? '(requise)'
+          : requirement === 'required_or_detailed_reason'
+            ? '(requise, ou motif détaillé)'
+            : '(facultative)'}
         <input
           value={evidence}
           onChange={(event) => setEvidence(event.target.value)}
@@ -122,7 +141,7 @@ export function IdentityReviewActions({
             !allowed ||
             reason.trim().length < 10 ||
             message.trim().length < 10 ||
-            (nextStatus === 'verified' && !evidence.trim())
+            evidenceMissing
           }
           onClick={() =>
             void run(() =>

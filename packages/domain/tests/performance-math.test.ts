@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   computePayoutBufferFloor,
   computeEligibleExcess,
+  computeBufferBuildProgress,
   isPayoutBufferReached,
   computePerformanceDayThreshold,
   isPerformanceDayQualified,
@@ -248,5 +249,76 @@ describe('the payout formula — PERF-024/027/028/029/030', () => {
       expect(new Decimal(traderNetCash).lessThanOrEqualTo(approvedGrossBase)).toBe(true);
       expect(new Decimal(traderNetCash).greaterThanOrEqualTo(0)).toBe(true);
     }
+  });
+});
+
+/*
+ * Phase 3.3.2 A1 — buffer build progress.
+ *
+ * The defect this replaces divided the realized balance by the buffer floor
+ * (10 000 / 11 000 = 91 %) and showed the result as payout progress. A brand
+ * new Performance account has built none of its buffer, so the only truthful
+ * number it can show is zero.
+ */
+describe('computeBufferBuildProgress', () => {
+  const fresh = {
+    realizedBalance: '10000.00',
+    nominalBalance: '10000.00',
+    bufferFloor: '11000.00',
+  };
+
+  it('reports zero on an account that has not traded', () => {
+    expect(computeBufferBuildProgress(fresh)).toEqual({
+      requiredAmount: '1000.00',
+      builtAmount: '0.00',
+      remainingAmount: '1000.00',
+      percent: 0,
+    });
+  });
+
+  it('never reports the balance/floor ratio as progress', () => {
+    expect(computeBufferBuildProgress(fresh).percent).not.toBe(91);
+  });
+
+  it('measures progress from the nominal balance, not from zero', () => {
+    expect(computeBufferBuildProgress({ ...fresh, realizedBalance: '10250.00' })).toEqual({
+      requiredAmount: '1000.00',
+      builtAmount: '250.00',
+      remainingAmount: '750.00',
+      percent: 25,
+    });
+  });
+
+  it('clamps a drawdown below nominal to zero rather than a negative bar', () => {
+    expect(computeBufferBuildProgress({ ...fresh, realizedBalance: '9400.00' })).toEqual({
+      requiredAmount: '1000.00',
+      builtAmount: '0.00',
+      remainingAmount: '1000.00',
+      percent: 0,
+    });
+  });
+
+  it('clamps at the floor — excess above it is eligible cash, not more buffer', () => {
+    expect(computeBufferBuildProgress({ ...fresh, realizedBalance: '12500.00' })).toEqual({
+      requiredAmount: '1000.00',
+      builtAmount: '1000.00',
+      remainingAmount: '0.00',
+      percent: 100,
+    });
+  });
+
+  it('treats a policy with no permanent buffer as already satisfied', () => {
+    expect(
+      computeBufferBuildProgress({
+        realizedBalance: '10000.00',
+        nominalBalance: '10000.00',
+        bufferFloor: '10000.00',
+      }),
+    ).toEqual({
+      requiredAmount: '0.00',
+      builtAmount: '0.00',
+      remainingAmount: '0.00',
+      percent: 100,
+    });
   });
 });

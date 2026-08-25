@@ -294,6 +294,8 @@ export interface CycleProgress {
   cycleStatus: PerformanceCycle['status'];
   /** The program-eligible realized balance this progress was computed from — lets a UI show "how close" even below the floor, which eligibleExcess alone (clamped to 0) cannot. */
   realizedBalance: string;
+  /** The account's nominal balance — the point buffer building starts from, not zero. */
+  nominalBalance: string;
   bufferFloor: string;
   eligibleExcess: string;
   bufferReached: boolean;
@@ -372,6 +374,7 @@ export async function evaluateCycleProgress(trx: Db, accountId: string): Promise
     cycleNumber: cycle.cycleNumber,
     cycleStatus: cycle.status,
     realizedBalance: projection.programEligibleBalance,
+    nominalBalance: account.nominal_balance,
     bufferFloor,
     eligibleExcess: computeEligibleExcess({
       realizedBalance: projection.programEligibleBalance,

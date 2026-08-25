@@ -247,6 +247,7 @@ export {
   type HandoffRuleKey,
   type HandoffTimelineItem,
   type PayoutPathStep,
+  type PayoutPathPhase,
   type PerformanceRuleItem,
   type RuleComparisonItem,
 } from './evaluation-performance-handoff';
@@ -611,3 +612,11 @@ export {
   type ProcessPaymentWebhookEventParams,
   type ProcessPaymentWebhookEventResult,
 } from './commerce';
+
+export {
+  assertIdentityEvidenceSufficient,
+  identityEvidenceRequirement,
+  IdentityEvidenceError,
+  type IdentityDecisionStatus,
+  type IdentityEvidenceRequirement,
+} from './identity-evidence';

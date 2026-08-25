@@ -256,6 +256,7 @@ async function buildPerformanceProgress(
       cycleNumber: progress.cycleNumber,
       cycleStatus: progress.cycleStatus,
       realizedBalance: progress.realizedBalance,
+      nominalBalance: progress.nominalBalance,
       bufferFloor: progress.bufferFloor,
       eligibleExcess: progress.eligibleExcess,
       bufferReached: progress.bufferReached,

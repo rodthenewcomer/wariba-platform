@@ -1,4 +1,8 @@
-import { parseAndVerifyPolicy, type LoadedPolicy } from '@wariba/policies';
+import {
+  parseAndVerifyPolicy,
+  type EvaluationOnePolicyParameters,
+  type LoadedPolicy,
+} from '@wariba/policies';
 import type { Db } from './client';
 
 /**
@@ -41,4 +45,17 @@ export async function loadPolicyById(trx: Db, policyVersionId: string): Promise<
     .executeTakeFirstOrThrow(() => new Error(`Policy version ${policyVersionId} not found.`));
 
   return parseAndVerifyPolicy(row, { strict: true });
+}
+
+/**
+ * The WARIBA ONE sibling of performance.ts's `asPerformancePolicy` —
+ * runtime-checked narrowing so a caller that is only ever handed an
+ * Evaluation policy can read `profit_target_rate` without a bare cast, and
+ * fails loudly rather than silently if it is ever handed the other program.
+ */
+export function asEvaluationOnePolicy(policy: LoadedPolicy): EvaluationOnePolicyParameters {
+  if (policy.program !== 'WARIBA_ONE') {
+    throw new Error(`Expected a WARIBA_ONE policy, got ${policy.program}.`);
+  }
+  return policy.parameters as EvaluationOnePolicyParameters;
 }

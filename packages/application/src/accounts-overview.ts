@@ -28,9 +28,18 @@ export interface AccountOverviewDetail {
   dailyLossRemainingFormatted: string;
   maximumLossRemainingFormatted: string;
   health: AccountHealthView;
-  /** Objective progress, 0-100. `null` on accounts with no mission. */
+  /**
+   * Mission progress, 0-100. `null` on accounts with no mission.
+   *
+   * What it measures differs by program — the profit objective on WARIBA ONE,
+   * the permanent buffer on Performance — so the label travels with it. A card
+   * that hardcodes "Objectif" reports a rule a Performance account does not
+   * have.
+   */
   progressPercent: number | null;
-  objectiveDetail: string | null;
+  progressLabel: string | null;
+  /** "612 / 1 000 USD" — the figures behind the percentage. */
+  progressDetail: string | null;
   consistencyLabel: string | null;
   /**
    * Remaining room on each budget, 0-100.
@@ -156,7 +165,8 @@ export async function buildAccountsOverview(
             health,
             room: risk.room,
             progressPercent: mission.available ? mission.progressPercent : null,
-            objectiveDetail: mission.available ? (mission.conditions[0]?.detail ?? null) : null,
+            progressLabel: mission.available ? mission.progressLabel : null,
+            progressDetail: mission.available ? mission.progressDetail : null,
             consistencyLabel: mission.available
               ? (mission.conditions.find((condition) => condition.label === 'Consistance')
                   ?.detail ?? null)

@@ -272,6 +272,9 @@ export interface AccountTelemetry {
   riskStatus: AccountRiskView['status'];
   openPositionCount: number;
   progressPercent: number | null;
+  /** What that percentage measures on this account — "Objectif de profit" or "Buffer à construire". */
+  progressLabel: string | null;
+  progressDetail: string | null;
   nextResetAt: string;
   capturedAt: string;
 }
@@ -306,6 +309,8 @@ export async function buildAccountTelemetry(
     riskStatus: risk.status,
     openPositionCount: positions.length,
     progressPercent: mission.available ? mission.progressPercent : null,
+    progressLabel: mission.available ? mission.progressLabel : null,
+    progressDetail: mission.available ? mission.progressDetail : null,
     nextResetAt: risk.nextResetAt,
     capturedAt: now.toISOString(),
   };

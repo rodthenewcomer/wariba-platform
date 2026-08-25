@@ -437,7 +437,7 @@ export {
   type PositionProtectionTrigger,
   type TriggeredPositionProtection,
 } from './position-protections';
-export { loadPublishedPolicy, loadPolicyById } from './policy';
+export { loadPublishedPolicy, loadPolicyById, asEvaluationOnePolicy } from './policy';
 export { loadAccountBalanceProjection, type AccountBalanceProjection } from './program-eligibility';
 export {
   reconstructAccountFinancialState,

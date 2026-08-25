@@ -26,12 +26,18 @@ export interface ChecklistCondition {
 export function MissionChecklist({
   title,
   eyebrow,
+  progressLabel,
+  progressDetail,
   progressPercent,
   conditions,
   footer,
 }: {
   title: string;
   eyebrow: string;
+  /** What the bar measures — "Objectif de profit", "Buffer à construire". */
+  progressLabel: string;
+  /** The two figures behind the percentage, e.g. "0 / 1 000 USD". */
+  progressDetail: string;
   progressPercent: number;
   conditions: readonly ChecklistCondition[];
   footer?: ReactNode;
@@ -56,9 +62,22 @@ export function MissionChecklist({
         </span>
       </div>
 
+      {/*
+       * A bare percentage is not a fact a trader can check. Naming the measure
+       * and printing the two figures it came from is what makes "0 %" on a new
+       * Performance account readable as "no buffer built yet" rather than as a
+       * number the page might have invented.
+       */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-[length:var(--wariba-font-size-label-sm)]">
+        <span className="text-[color:var(--wariba-text-tertiary)]">{progressLabel}</span>
+        <span className="wariba-data text-[color:var(--wariba-text-secondary)]">
+          {progressDetail}
+        </span>
+      </div>
+
       <ProgressBar
         percent={progressPercent}
-        label={title}
+        label={progressLabel}
         tone={complete ? 'emerald' : 'indigo'}
         height={8}
       />

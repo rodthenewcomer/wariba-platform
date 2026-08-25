@@ -1452,14 +1452,31 @@ body {
   }
 }
 
-/* Reduced motion — Design System §41.2 */
+/*
+ * Reduced motion — Design System §41.2
+ *
+ * The delays matter as much as the durations, and leaving them out was a real
+ * hole. Staggered entrances such as `.help-visual-node` run with
+ * `animation-fill-mode: both`, so during their delay the element holds the
+ * `from` keyframe — `opacity: 0`. Collapsing the duration to 1 ms while
+ * leaving a 275 ms delay in place means a reader who asked for no motion still
+ * spends 275 ms looking at invisible text, and any tool that samples the page
+ * in that window measures a colour the design never specified: axe read
+ * `--wariba-color-bone-50` as `#363940` and reported a 1.56:1 contrast failure
+ * against a token that measures 14:1 at rest.
+ *
+ * Zeroing the delays makes "reduced motion" mean what it says: the resting
+ * state, immediately, with nothing to wait for.
+ */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: var(--wariba-motion-duration-reduced, 1ms) !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: var(--wariba-motion-duration-reduced, 1ms) !important;
+    transition-delay: 0ms !important;
     scroll-behavior: auto !important;
   }
 }

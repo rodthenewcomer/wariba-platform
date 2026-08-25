@@ -29,6 +29,52 @@ export function computeEligibleExcess(params: {
   return Decimal.max(0, excess).toFixed(2);
 }
 
+export interface BufferBuildProgress {
+  /** The buffer the policy asks this account to build: floor - nominal. */
+  requiredAmount: string;
+  /** How much of it exists today, clamped to [0, requiredAmount]. */
+  builtAmount: string;
+  remainingAmount: string;
+  /** 0-100. `100` when the policy asks for no buffer at all. */
+  percent: number;
+}
+
+/**
+ * PERF-023/024 — how far an account is through *building* its permanent
+ * buffer, measured from the nominal balance rather than from zero.
+ *
+ * The distinction is the whole point. `realizedBalance / bufferFloor` is a
+ * ratio between two numbers that both start large, so a Performance account
+ * that has never placed a trade reads 10 000 / 11 000 = 91 % — a number that
+ * looks like it is nearly through something when nothing has happened. The
+ * buffer a trader has actually built is the profit above nominal, and on a new
+ * account that is zero.
+ *
+ * Excess above the floor is not more buffer; it is eligible cash
+ * (`computeEligibleExcess`), so this clamps at 100 % rather than running on.
+ */
+export function computeBufferBuildProgress(params: {
+  realizedBalance: string;
+  nominalBalance: string;
+  bufferFloor: string;
+}): BufferBuildProgress {
+  const required = Decimal.max(0, new Decimal(params.bufferFloor).minus(params.nominalBalance));
+  const built = Decimal.min(
+    required,
+    Decimal.max(0, new Decimal(params.realizedBalance).minus(params.nominalBalance)),
+  );
+  return {
+    requiredAmount: required.toFixed(2),
+    builtAmount: built.toFixed(2),
+    remainingAmount: required.minus(built).toFixed(2),
+    // A policy that asks for no buffer has nothing left to build, which is
+    // complete — not 0/0 rendered as "0 %" on a condition that already holds.
+    percent: required.isZero()
+      ? 100
+      : Math.min(100, Math.max(0, Math.round(built.dividedBy(required).times(100).toNumber()))),
+  };
+}
+
 /** PERF-024: eligibility-only — never withdrawable below the floor, distinct from a Maximum Loss breach. */
 export function isPayoutBufferReached(params: {
   realizedBalance: string;

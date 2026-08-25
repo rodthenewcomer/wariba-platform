@@ -84,6 +84,23 @@ async function openVisual(page: Page, id: string, path: string) {
   return visual;
 }
 
+/**
+ * Waits for the page to stop changing, rather than for a number of
+ * milliseconds to elapse.
+ *
+ * Fonts and running animations both alter what a contrast checker measures, so
+ * "wait 250 ms and hope" is a race that passes on a fast machine and fails on a
+ * loaded one. `document.fonts.ready` and `getAnimations()` are the real state.
+ */
+async function settled(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await Promise.all(
+      document.getAnimations().map((animation) => animation.finished.catch(() => undefined)),
+    );
+  });
+}
+
 async function assertMobileReadable(page: Page, id: string) {
   const visual = page.locator(`[data-help-visual="${id}"]`);
   const viewport = page.viewportSize();
@@ -160,8 +177,26 @@ test.describe('@help @help-p0-clarity preuves de clôture visuelle', () => {
     test.setTimeout(300_000);
     await page.setViewportSize({ width: 390, height: 1000 });
 
+    /*
+     * Reduced motion first, and for the whole run.
+     *
+     * These visuals enter on a staggered fade. axe composites `opacity` into
+     * the colour it measures, so sampling the page mid-fade reports the
+     * *transition* rather than the design: `--wariba-color-bone-50` (14:1 at
+     * rest) was read as `#363940` and failed at 1.56:1. That is not a palette
+     * defect and no token change could have fixed it.
+     *
+     * `reducedMotion: 'reduce'` is also the honest thing to assert against: it
+     * is the state a reader who asked for no motion actually gets, and after
+     * the delay fix in globals.css it is the resting state immediately, with
+     * nothing left to settle. Waiting on a timer instead would only move the
+     * race, not remove it.
+     */
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+
     for (const [id, path] of VISUALS.filter(([candidate]) => MODIFIED.has(candidate))) {
       await openVisual(page, id, path);
+      await settled(page);
       const accessibility = await new AxeBuilder({ page }).analyze();
       const blocking = accessibility.violations.filter(
         (violation) => violation.impact === 'critical' || violation.impact === 'serious',
@@ -169,12 +204,16 @@ test.describe('@help @help-p0-clarity preuves de clôture visuelle', () => {
       expect(blocking, `${id}: ${JSON.stringify(blocking, null, 2)}`).toHaveLength(0);
     }
 
-    await page.emulateMedia({ reducedMotion: 'reduce' });
     await openVisual(page, 'HLP-VIS-002', '/aide/risque-regles/trailing-eod');
     const animated = page.locator('.help-visual .help-visual-node').first();
-    expect(await animated.evaluate((node) => getComputedStyle(node).animationDuration)).toBe(
-      '0.001s',
-    );
+    const motion = await animated.evaluate((node) => {
+      const style = getComputedStyle(node);
+      return { duration: style.animationDuration, delay: style.animationDelay };
+    });
+    expect(motion.duration).toBe('0.001s');
+    // The delay is half the contract: a 275 ms wait on an element held at
+    // `opacity: 0` by `animation-fill-mode: both` is motion by another name.
+    expect(motion.delay).toBe('0s');
     await expect(page.getByText('Il ne redescend plus')).toBeVisible();
   });
 });

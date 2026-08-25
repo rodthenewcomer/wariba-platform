@@ -1,4 +1,5 @@
 import Decimal from 'decimal.js';
+import { computeBufferBuildProgress } from '@wariba/domain';
 import {
   evaluateCycleProgress,
   evaluatePayoutEligibility,
@@ -87,11 +88,15 @@ export interface PayoutCycleProgress {
   cycleNumber: number;
   /** Withdrawable now: realised balance above the permanent buffer floor. */
   availableFormatted: string;
-  /** The floor itself, which never becomes withdrawable. */
+  /** The level itself, which never becomes withdrawable. */
   bufferFloorFormatted: string;
-  /** Realised balance, so a trader below the floor can still see how close. */
+  /** Realised balance, so a trader below the level can still see how close. */
   realizedBalanceFormatted: string;
-  /** 0-100 toward the buffer floor. 100 once the excess is positive. */
+  /** How much of the buffer exists today, e.g. "250 USD". */
+  bufferBuiltFormatted: string;
+  /** How much the policy asks for in total, e.g. "1 000 USD". */
+  bufferRequiredFormatted: string;
+  /** 0-100 of the buffer *built*, measured from the nominal balance. */
   bufferProgressPercent: number;
   performanceDaysCompleted: number;
   performanceDaysRequired: number;
@@ -108,7 +113,7 @@ export const PAYOUT_BLOCKING_REASON: Record<PayoutRejectionCode, string> = {
   account_not_active: 'Ce compte n’est pas actif.',
   no_active_cycle: 'Aucun cycle en cours — votre dossier est chez WARIBA Review.',
   buffer_not_reached:
-    'Votre solde n’a pas encore dépassé le plancher du buffer permanent. Seul l’excédent est disponible.',
+    'Votre solde n’a pas encore dépassé le seuil du buffer permanent. Seule la partie au-dessus est disponible.',
   performance_days_incomplete: 'Il vous manque des Performance Days sur ce cycle.',
   consistency_non_compliant:
     'Votre meilleure journée dépasse la limite de consistance. Répartissez le profit sur d’autres journées.',
@@ -162,23 +167,34 @@ export async function buildPayoutLifecycle(
     evaluateCycleProgress(db, params.accountId).catch(() => null),
   ]);
 
-  const cycle: PayoutCycleProgress | null = progress
-    ? {
-        cycleNumber: progress.cycleNumber,
-        availableFormatted: formatUsd(progress.eligibleExcess),
-        bufferFloorFormatted: formatUsd(progress.bufferFloor),
-        realizedBalanceFormatted: formatUsd(progress.realizedBalance),
-        /*
-         * Progress toward the floor, not toward an arbitrary target. A trader
-         * below the buffer has nothing withdrawable, and this is the only
-         * figure that tells them how far off they are — `eligibleExcess` is
-         * clamped to zero and cannot.
-         */
-        bufferProgressPercent: bufferProgress(progress.realizedBalance, progress.bufferFloor),
-        performanceDaysCompleted: progress.performanceDaysCompleted,
-        performanceDaysRequired: progress.performanceDaysRequired,
-      }
+  /*
+   * A1 — how much of the buffer has been *built*, measured from the nominal
+   * balance. `realizedBalance / bufferFloor` put an untraded account at 91 %,
+   * which is the shape of a nearly-finished job rather than of one that has
+   * not started.
+   */
+  const buffer = progress
+    ? computeBufferBuildProgress({
+        realizedBalance: progress.realizedBalance,
+        nominalBalance: progress.nominalBalance,
+        bufferFloor: progress.bufferFloor,
+      })
     : null;
+
+  const cycle: PayoutCycleProgress | null =
+    progress && buffer
+      ? {
+          cycleNumber: progress.cycleNumber,
+          availableFormatted: formatUsd(progress.eligibleExcess),
+          bufferFloorFormatted: formatUsd(progress.bufferFloor),
+          realizedBalanceFormatted: formatUsd(progress.realizedBalance),
+          bufferBuiltFormatted: formatUsd(buffer.builtAmount),
+          bufferRequiredFormatted: formatUsd(buffer.requiredAmount),
+          bufferProgressPercent: buffer.percent,
+          performanceDaysCompleted: progress.performanceDaysCompleted,
+          performanceDaysRequired: progress.performanceDaysRequired,
+        }
+      : null;
 
   const kyc = kycView(deriveKycState({ verified: params.kycVerified }));
 
@@ -269,13 +285,6 @@ function formatUsd(amount: string): string {
     .toDecimalPlaces(2)
     .toNumber()
     .toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
-}
-
-function bufferProgress(realizedBalance: string, bufferFloor: string): number {
-  const floor = new Decimal(bufferFloor);
-  if (floor.lessThanOrEqualTo(0)) return 100;
-  const ratio = new Decimal(realizedBalance).dividedBy(floor).times(100).toNumber();
-  return Math.min(100, Math.max(0, Math.round(ratio)));
 }
 
 function fromRequestStatus(status: string, kyc: KycView): PayoutLifecycleView {

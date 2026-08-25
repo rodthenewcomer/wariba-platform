@@ -54,7 +54,6 @@ export default async function IdentityVerificationPage({
   // Verification is recorded per account; the trader experiences it once. If
   // any account carries it, they are verified.
   const verified = accounts.some((account) => account.kycSandboxVerified);
-  const view = kycView(deriveKycState({ verified }));
   const performanceAccount = accounts.find(
     (account) => account.programType === 'WARIBA_PERFORMANCE',
   );
@@ -62,6 +61,16 @@ export default async function IdentityVerificationPage({
     latestReview && ['requested', 'under_review', 'needs_information'].includes(latestReview.status)
       ? latestReview
       : null;
+  /*
+   * B1 — one state, derived from the case that actually exists.
+   *
+   * The state used to be derived from the account flag alone, so a trader with
+   * a file already under review was greeted with "Vérification requise" and,
+   * further down, told to contact support to trigger a verification that had
+   * been triggered days earlier. The header and the steps now read from the
+   * same fact.
+   */
+  const view = kycView(deriveKycState({ verified, reviewStatus: liveReview?.status ?? null }));
   const reviewLabel = latestReview
     ? {
         requested: 'Demande reçue',
@@ -84,9 +93,20 @@ export default async function IdentityVerificationPage({
     {
       title: 'Vérifier votre identité',
       done: verified,
+      /*
+       * The instruction depends on the state, because in two of the three
+       * states there is no instruction to give. Telling a trader whose case is
+       * already open to go and open it is the contradiction this replaces.
+       */
       detail: KYC_PROVIDER_INTEGRATED
         ? 'Vous serez redirigé vers notre prestataire de vérification.'
-        : 'La vérification est réalisée par l’équipe WARIBA pendant la bêta privée. Contactez le support pour la déclencher.',
+        : verified
+          ? 'La vérification est terminée. Aucune action supplémentaire n’est nécessaire.'
+          : liveReview
+            ? liveReview.status === 'needs_information'
+              ? 'L’équipe WARIBA a besoin d’une information supplémentaire. Répondez depuis votre demande de support.'
+              : 'Votre dossier est chez l’équipe WARIBA. Vous n’avez rien à faire pour le moment.'
+            : 'La vérification est réalisée par l’équipe WARIBA pendant la bêta privée. Lancez-la depuis le bouton ci-dessus.',
     },
     {
       title: 'Demander votre payout',

@@ -57,6 +57,8 @@ export interface LiveTelemetryProps {
     maximumLossFloorFormatted: string;
     binding: 'daily' | 'maximum';
     objectivePercent: number | null;
+    /** "Objectif de profit" on WARIBA ONE, "Buffer à construire" on Performance. */
+    objectiveLabel: string | null;
     capturedAt: string;
   };
   /** §11 — a full bar on an untested account stays neutral, not green. */
@@ -113,6 +115,7 @@ export function LiveTelemetry({
     maximumRemainingPercent: number;
     binding: 'daily' | 'maximum';
     objectivePercent: number | null;
+    objectiveLabel: string | null;
   } = telemetry
     ? {
         balance: Number.parseFloat(telemetry.balance),
@@ -125,6 +128,7 @@ export function LiveTelemetry({
         maximumRemainingPercent: telemetry.room.maximumRemainingPercent,
         binding: telemetry.room.binding,
         objectivePercent: telemetry.progressPercent,
+        objectiveLabel: telemetry.progressLabel,
       }
     : {
         balance: initial.balance,
@@ -137,6 +141,7 @@ export function LiveTelemetry({
         maximumRemainingPercent: initial.maximumRemainingPercent,
         binding: initial.binding,
         objectivePercent: initial.objectivePercent,
+        objectiveLabel: initial.objectiveLabel,
       };
 
   /*
@@ -166,10 +171,15 @@ export function LiveTelemetry({
             hint: `${current.maximumRemainingPercent} % du budget`,
           },
         ]),
-    ...(current.objectivePercent !== null
+    /*
+     * The label is the mission's, not this component's. A Performance account
+     * measures its permanent buffer here; calling that "Objectif" describes a
+     * profit target its policy explicitly does not apply.
+     */
+    ...(current.objectivePercent !== null && current.objectiveLabel
       ? [
           {
-            label: 'Objectif',
+            label: current.objectiveLabel,
             value: `${current.objectivePercent} %`,
             hint: null,
           },
