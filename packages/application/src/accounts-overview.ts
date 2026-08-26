@@ -1,4 +1,6 @@
-import type { Db } from '@wariba/database';
+import Decimal from 'decimal.js';
+import { loadAccountBalanceProjection, type Db } from '@wariba/database';
+import { accountStatusLabel } from './account-status-labels';
 import { listAccountsForUser, type AccountSummaryDTO } from './accounts-list';
 import { buildAccountRiskView, type AccountRiskView } from './risk-view';
 import { buildAccountMissionView } from './mission-view';
@@ -57,10 +59,37 @@ export interface AccountOverviewDetail {
   hasViolation: boolean;
 }
 
+/**
+ * What a finished evaluation has instead of a dashboard.
+ *
+ * A passed WARIBA ONE account is not being measured against anything any more:
+ * its objective is settled, its budgets are not being spent, and it cannot be
+ * traded. What a trader needs from it is the result and the way through to the
+ * account that replaced it — so that is what the card is given, and the live
+ * figures are not built at all rather than built and hidden.
+ */
+function formatUsd(amount: string): string {
+  return `${Math.round(Number.parseFloat(amount)).toLocaleString('fr-FR')} USD`;
+}
+
+export interface AccountArchiveView {
+  /** Signed, e.g. "+1 000 USD". `null` when the projection cannot be read. */
+  finalResultFormatted: string | null;
+  /** "25 août 2026", from the transition that recorded the pass. */
+  completedAtLabel: string | null;
+  performanceAccountId: string | null;
+  performanceAccountPublicId: string | null;
+  /** The child's own lifecycle label, e.g. "Compte Performance actif". */
+  performanceStatusLabel: string | null;
+  performanceTradable: boolean;
+}
+
 export interface AccountOverviewItem {
   account: AccountSummaryDTO;
   lifecycle: AccountLifecycleView;
   detail: AccountOverviewDetail | null;
+  /** Set only for a passed evaluation. Mutually exclusive with `detail`. */
+  archive: AccountArchiveView | null;
 }
 
 export type AccountFilter = 'all' | 'evaluation' | 'review' | 'funded' | 'failed' | 'closed';
@@ -111,6 +140,61 @@ export async function buildAccountsOverview(
             programType: account.programType,
           }),
           detail: null,
+          archive: null,
+        };
+      }
+
+      /*
+       * A passed evaluation short-circuits before any live view is built.
+       *
+       * `buildAccountRiskView` would happily return budgets for it — the rows
+       * are still there — and the card would then show "Perte quotidienne
+       * restante 100 %" beside "Évaluation réussie", which reads as an account
+       * a trader can still lose. The result and the successor are the facts
+       * that survive; nothing else is asked for.
+       */
+      if (account.programType === 'WARIBA_ONE' && account.status === 'passed') {
+        const child = accounts.find(
+          (candidate) => candidate.sourceEvaluationAccountId === account.id,
+        );
+        const [projection, passedTransition] = await Promise.all([
+          loadAccountBalanceProjection(db, account.id).catch(() => null),
+          db
+            .selectFrom('app.account_state_transitions')
+            .select('occurred_at')
+            .where('account_id', '=', account.id)
+            .where('to_status', '=', 'passed')
+            .orderBy('occurred_at', 'desc')
+            .executeTakeFirst()
+            .catch(() => undefined),
+        ]);
+        const result = projection
+          ? new Decimal(projection.programEligibleBalance).minus(account.nominalBalance)
+          : null;
+        return {
+          account,
+          lifecycle: deriveAccountLifecycle({
+            accountStatus: account.status,
+            programType: account.programType,
+          }),
+          detail: null,
+          archive: {
+            finalResultFormatted: result
+              ? `${result.isNegative() ? '' : '+'}${formatUsd(result.toFixed(2))}`
+              : null,
+            completedAtLabel: passedTransition
+              ? passedTransition.occurred_at.toLocaleDateString('fr-FR', {
+                  day: '2-digit',
+                  month: 'long',
+                  year: 'numeric',
+                  timeZone: 'UTC',
+                })
+              : null,
+            performanceAccountId: child?.id ?? null,
+            performanceAccountPublicId: child?.publicId ?? null,
+            performanceStatusLabel: child ? accountStatusLabel(child.status) : null,
+            performanceTradable: child?.status === 'active',
+          },
         };
       }
 
@@ -181,6 +265,7 @@ export async function buildAccountsOverview(
               : null,
             hasViolation: risk.violations.length > 0,
           },
+          archive: null,
         };
       } catch {
         /*
@@ -195,6 +280,7 @@ export async function buildAccountsOverview(
             programType: account.programType,
           }),
           detail: null,
+          archive: null,
         };
       }
     }),

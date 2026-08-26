@@ -267,4 +267,64 @@ test.describe('@critical @handoff vérité produit du passage Evaluation → Per
       ).toBe(true);
     }
   });
+  /**
+   * The accounts list must agree with the Hub about a finished evaluation.
+   *
+   * The Hub archive landed in Phase 3.3.2; `/comptes` did not, so the card kept
+   * drawing an objective bar and two remaining-loss meters beside "Évaluation
+   * réussie" — an account the trader could still read as losable. This asserts
+   * the state, not the wording: what must be absent is *active-account*
+   * presentation, and what must be present is the successor.
+   */
+  test('une évaluation réussie ne se présente plus comme un compte négociable dans /comptes', async ({
+    page,
+  }) => {
+    await sessions.actAs(page, owner.email);
+    await page.goto('/comptes');
+
+    const evaluationCard = page
+      .getByTestId('account-card')
+      .filter({ hasText: facts.evaluationAccountId ? 'WARIBA ONE' : 'WARIBA ONE' })
+      .filter({ hasText: 'Évaluation réussie' });
+    await expect(evaluationCard).toHaveCount(1);
+    await expect(evaluationCard).toHaveAttribute('data-lifecycle', 'passed');
+
+    // The archive body renders, and the live one does not.
+    await expect(evaluationCard.getByTestId('account-card-archive')).toBeVisible();
+    for (const active of [
+      'Objectif de profit',
+      'Perte quotidienne restante',
+      'Perte maximale restante',
+      'Journées clôturées',
+    ]) {
+      await expect(evaluationCard.getByText(active)).toHaveCount(0);
+    }
+    await expect(evaluationCard.getByRole('progressbar')).toHaveCount(0);
+    await expect(evaluationCard.getByRole('link', { name: 'Ouvrir WariX' })).toHaveCount(0);
+
+    // The successor is named, and it is the primary way out.
+    const successor = evaluationCard.getByTestId('account-card-successor');
+    await expect(successor).toContainText(facts.performanceAccountPublicId);
+    await expect(
+      evaluationCard.getByRole('link', { name: 'Voir mon compte Performance' }),
+    ).toHaveAttribute('href', `/hub?account=${facts.performanceAccountId}`);
+  });
+
+  test('@mobile la carte archivée tient à 320 et 390 sans déborder', async ({ page }) => {
+    await sessions.actAs(page, owner.email);
+
+    for (const width of [320, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto('/comptes');
+      const card = page.getByTestId('account-card').filter({ hasText: 'Évaluation réussie' });
+      await expect(card.getByTestId('account-card-archive')).toBeVisible();
+      await expect(card.getByRole('progressbar')).toHaveCount(0);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+        `${width}px: débordement horizontal`,
+      ).toBe(true);
+    }
+  });
 });
