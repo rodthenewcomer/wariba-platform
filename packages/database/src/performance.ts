@@ -111,6 +111,11 @@ export async function activatePerformanceAccountInTransaction(
       policy_version_id: policyVersion.id,
       symbol_spec_set_id: symbolSpecSet.id,
       activated_at: timestamp,
+      // Same clock as the pass that spawned it — `created_at` would otherwise
+      // default to the database's transaction start, and the last link of
+      // `passedAt <= performanceCreatedAt` would be measured against a
+      // different clock from the one that stamped the pass.
+      created_at: timestamp,
     })
     .onConflict((oc) => oc.column('source_evaluation_account_id').doNothing())
     .returning(['id', 'public_id', 'status'])

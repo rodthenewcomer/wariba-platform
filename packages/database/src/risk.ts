@@ -298,6 +298,19 @@ export async function evaluateAndApplyAccountRiskInTransaction(
         from_status: persistedStatus,
         to_status: targetStatus,
         reason: reasonForTransition(persistedStatus, targetStatus),
+        // The operation's own clock, not the column default.
+        //
+        // `occurred_at` defaults to `now()`, which is the *database's* clock at
+        // the transaction's start. Every other write in this same causal
+        // operation — the account's `updated_at` above, the outbox event below,
+        // the snapshot this finalization closes — is stamped `params.now`, the
+        // application's. Leaving this one to the default put a single causal
+        // sequence on two clocks, and the recorded order of "the day was
+        // finalized" and "the account passed" was then decided by the skew
+        // between them: measured at ~65ms here, inverting 20 runs out of 20.
+        // The trader's timeline is rendered from these rows, so an inverted
+        // pair is an impossible history, not a cosmetic detail.
+        occurred_at: params.now,
       })
       .returning('id')
       .executeTakeFirstOrThrow();

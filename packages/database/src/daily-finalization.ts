@@ -281,6 +281,9 @@ async function finalizeElapsedDailyBoundaryInTransaction(
         from_status: 'soft_locked',
         to_status: 'active',
         reason: 'daily_loss_limit_reset',
+        // This reset belongs to the boundary being crossed, so it is stamped
+        // with the same `now` as the snapshot that closed the day.
+        occurred_at: now,
       })
       .execute();
   }
