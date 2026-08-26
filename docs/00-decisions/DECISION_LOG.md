@@ -7,7 +7,7 @@ language: "fr-FR"
 brand: "WARIBA"
 domain: "wariba.app"
 owner: "WARIBA Leadership, Product, Risk, Engineering & Operations"
-last_updated: "2026-08-22"
+last_updated: "2026-08-25"
 ---
 
 # WARIBA Decision Log v1.0
@@ -226,6 +226,8 @@ Révision:
 | ONE-022 | `LOCKED` | Best Day Rule portée à 50 %, non-breach et bloquante uniquement pour le passage. | Contrôle de concentration. |
 | ONE-023 | `LOCKED` | Aucun minimum de jours en Evaluation. | La Best Day Rule contrôle la concentration sans délai artificiel. |
 | ONE-024 | `LOCKED` | Suppression des journées qualifiées en Evaluation. | Élimination d’une règle devenue redondante. |
+| ONE-025 | `LOCKED` | **L'autorité de passage reste automatique.** Lorsque les conditions canoniques sont satisfaites, le moteur finalise `pass_pending → passed` et crée le compte WARIBA Performance dans la même transaction. La revue Control intervient après ce résultat : un opérateur Risk/Compliance peut marquer le dossier revu ou signaler un doute d'intégrité, mais ne peut ni approuver, ni refuser, ni retarder le passage, ni saisir ou recalculer une valeur financière. | WARIBA ne soumet pas chaque réussite à une décision discrétionnaire. L'état opérateur (`reviewed` ou `integrity_escalated`) est un suivi d'audit/exception séparé du lifecycle et ne modifie ni compte, ni résultat Risk, ni création Performance. `PASS_REVIEW_ACTION_BLOCKED_BY_PRODUCT_DECISION = no` signifie que ces seules actions opérationnelles sont autorisées ; il n'existe toujours aucune permission `pass_review.decide`. |
+| ONE-026 | `LOCKED` | Atteindre l'objectif pendant une session place l'Evaluation en `pass_pending`, sans déclarer la réussite et sans retirer le droit de trader. **Seule la finalisation quotidienne autoritative** peut ensuite produire `passed`; un trade, une relance ou une revue Control ne peut pas finaliser le passage. | Empêche un passage intraday prématuré et explique au trader qu'il doit continuer à respecter toutes les règles jusqu'à la clôture. La distinction UX `objective_reached` / `under_review` reste une projection de la finalisation, pas un second moteur de risque. |
 
 ---
 
@@ -268,6 +270,8 @@ Révision:
 | PERF-033 | `LOCKED` | Maximum Loss Performance : 10 % EOD trailing. | Même modèle de plancher versionné que l’Evaluation. |
 | PERF-034 | `LOCKED` | Best Day Rule : 50 % par cycle, non-breach. | Contrôle de concentration avant payout. |
 | PERF-035 | `LOCKED` | Aucun minimum général de jours en Performance hors cinq Performance Days par payout. | Éviter un délai artificiel distinct de la preuve requise. |
+| PERF-036 | `LOCKED` | Le compte Performance est créé actif avec sa policy publiée attachée, mais son **premier trade** reste bloqué jusqu'à une reconnaissance de lecture immuable de cette version. Le serveur dérive le trader, le compte et la policy ; une reconnaissance ne peut ni choisir ni modifier les règles. | Rend le changement ONE → Performance explicite sans transformer la lecture en approbation financière, sans retarder le provisioning et sans confier une mutation de policy au navigateur. Un retry retourne la preuve existante. |
+| PERF-037 | `LOCKED` | **La progression affichée sur un compte Performance est la construction du buffer**, mesurée depuis le solde nominal : `construit = max(0, solde éligible − nominal)`, `requis = plancher du buffer − nominal`, bornée à 100 %. Aucune surface ne peut présenter `solde ÷ plancher` comme une progression, et un compte Performance n'affiche aucun objectif de profit — sa policy n'en publie pas. Les deux montants d'où vient le pourcentage sont affichés à côté de lui. | `10 000 ÷ 11 000 = 91 %` faisait lire « presque terminé » sur un compte qui n'avait jamais passé un ordre. Un pourcentage ne peut décrire que quelque chose que le trader a réellement fait ; sinon la valeur canonique est zéro. Le calcul vit dans `@wariba/domain` (`computeBufferBuildProgress`) pour que le Hub, la liste des comptes et le Payout Center ne puissent pas diverger. |
 
 ---
 
@@ -394,6 +398,14 @@ Révision:
 | UX-TRADING-007 | `LOCKED` | Toutes les mutations de trading restent server-authoritative et idempotentes, y compris la réduction de risque mise en file pendant une donnée de marché obsolète (`app.position_reduction_queue`), exécutée une seule fois sur le premier prix à jour. | Réduire l’exposition doit rester possible pendant une donnée obsolète, sans jamais exécuter contre un ancien prix ni dupliquer l’exécution. |
 | UX-TRADING-008 | `LOCKED` | L’interaction de WariX peut s’inspirer de terminaux établis, mais son langage visuel (couleurs, espacement, icônes, typographie, formes) reste original — jetons `--wariba-chart-*`/`--wariba-status-*` existants uniquement. | Positionnement de marque distinct ; aucune copie visuelle d’une autre plateforme. |
 | UX-TRADING-009 | `LOCKED` | Prompt 7 Appendice 07-D — le menu contextuel du graphique propose désormais dynamiquement les types d'ordre en attente réellement valides au prix cliqué (jamais plus de deux des quatre : Achat/Vente Limite/Stop, selon la position du prix par rapport au bid/ask courant) et « Créer une alerte ici » (toujours proposé, sans contrainte directionnelle). Les ordres en attente et les alertes actives sur le symbole affiché apparaissent comme des lignes de prix natives avec une poignée glissable interactive (même mécanisme que les lignes SL/TP de 07-C — `series.createPriceLine` pour le trait, overlay HTML pour l'interactivité), chacune avec sa propre alternative non-glissée (flèches clavier, bouton « Gérer »). Un centre de notifications accessible depuis l'en-tête liste l'historique des alertes déclenchées (marquage lu) et gère les alertes existantes (activer/désactiver/supprimer/créer). | Remplace UX-TRADING-003, dont la justification (« aucun ordre en attente ni alerte n'existe ») n'est plus vraie après cet appendice. |
+| UX-SUPPORT-001 | `LOCKED` | Phase 3.2 — `/support` est **une seule route canonique** servant deux publics : la Constitution la liste à la fois dans les routes publiques et dans celles du Trader Hub (§6), et Next.js ne résout qu'une page par chemin. La route vit hors des groupes `(public)` et `(platform)` ; son layout choisit la coque selon la session (`PublicChrome` pour un visiteur, `HubShell` pour un trader connecté). Le sous-arbre `/support/` est protégé par le middleware ; `/support` lui-même reste public. | Résout la contradiction sans dupliquer le système de tickets et supprime le seul `PLACEBO_STATUS_UI` de l'audit : l'entrée Support du Hub ne pointe plus vers une page marketing. |
+| UX-SUPPORT-002 | `LOCKED` | Phase 3.2/3.3 — **aucune réversion de breach n'est offerte**. `evaluation_account` ne prévoit aucune transition sortante depuis `breached` : le compte original, sa violation, son seuil, sa valeur observée, ses transitions, fills, snapshots et écritures ledger restent terminaux et immuables. Une correction autorisée ne touche aucun de ces enregistrements ; elle s'exécute uniquement par l'action compensatoire définie dans `UX-SUPPORT-004`. | Le compte original doit rester une preuve indépendante. Corriger l'effet commercial d'une erreur ne transforme jamais l'événement historique en événement qui n'aurait pas existé. |
+| UX-SUPPORT-003 | `LOCKED` | Phase 3.2 — `app.ticket_messages` est **append-only en base**, pas par convention : un trigger refuse tout `UPDATE`, et refuse un `DELETE` tant que la demande parente existe (une suppression en cascade depuis la demande reste permise). | Trader et opérateur atteignent la table par la même connexion de service ; une vérification en code applicatif ne protège rien qu'un bug applicatif ne puisse défaire. « Le staff ne peut pas réécrire silencieusement un message trader » devient une garantie de base de données. |
+| UX-SUPPORT-004 | `LOCKED` | **La correction d'une décision terminale erronée est une action compensatoire.** Risk/Compliance peut enregistrer `correction_required`; pour une Evaluation privée-bêta sans conséquence financière, une commande idempotente crée exactement un nouveau compte WARIBA ONE sans achat, de même trader, nominal, devise, policy acceptée et jeu de symboles, avec un nouvel identifiant et son propre lifecycle. Le lien unique `source_contestation_id` empêche tout second remplacement. Après création, le dossier devient `decision_corrected`; l'ancien compte reste `breached` et consultable. | Aucun PnL, solde historique ou entitlement n'est copié : le nouveau compte reçoit uniquement son solde nominal initial autoritatif. Tout compte Performance, payout/entitlement présent ou autre conséquence monétaire est envoyé vers `finance_compliance_review`; aucune compensation financière, aucun crédit et aucun rail réel ne sont autorisés. Le trader voit « Correction en préparation » puis « Décision corrigée », jamais les identifiants internes. `DISPUTE_REMEDIATION_PRODUCT_DECISION_REQUIRED = no`. |
+| UX-HELP-001 | `LOCKED` | Le contenu du Centre d'aide vit dans un **registre typé du repository** (`apps/web/content/help`), validé par Zod, avec slug unique, liens connexes résolus et index de recherche construit au build. Aucune table `help_articles`, aucun CMS pour la bêta. | `HELP_ARTICLE_DATABASE = deferred`. La bêta n'était pas bloquée par l'impossibilité d'éditer l'aide sans déploiement, mais par son absence. Le registre apporte tout ce qu'une table aurait apporté sauf l'édition tardive. `POS-146.01` reste `PARTIAL` tant que la persistance manque. |
+| UX-HELP-002 | `LOCKED` | **Aucune valeur de règle vivante n'est écrite en prose** dans un article. Les articles interpolent `{{fact:…}}` ou portent un bloc `ruleTable` ; les deux lisent `app.policy_versions` pour la version en vigueur. Un paramètre absent de la policy publiée s'affiche « non publié », jamais une valeur plausible. Les exemples pédagogiques peuvent porter des chiffres et sont étiquetés comme illustrations à chaque rendu. | Évite qu'un pourcentage vive dans quatre composants et diverge le jour où la policy change. Vérifié par un test qui parcourt le corpus publié et refuse toute occurrence de `%` hors bloc lié à la policy. |
+| UX-HELP-003 | `LOCKED` | Un article dont la décision est encore ouverte est **rédigé, conservé dans le registre et jamais servi** (`draft_policy` / `draft_provider`), et doit nommer la décision qui le débloque. Aucun placeholder « bientôt disponible » dans la navigation. | Un article que personne n'a écrit est une absence qu'aucun test ne voit ; un article écrit et retenu est une décision auditable. Dix articles sont dans cet état ; l'E2E vérifie qu'ils renvoient 404. |
+
 
 ---
 
@@ -462,6 +474,7 @@ Révision:
 | POLICY-GOV-001 | `LOCKED` | La version de politique **en vigueur** est celle que `loadPublishedPolicy` résout : `status = 'published'`, la plus récente par `created_at`. Jamais la ligne la plus récente, jamais la version sémantique la plus haute, jamais « `retired_at` est nul ». | Découvert pendant le jalon 5 du Prompt 09 : `app.policy_versions` contient réellement **deux** lignes `published` pour `WARIBA_ONE` (1.1.0 et 1.1.1), toutes deux avec `retired_at` nul. Une règle d'affichage « publiée et non retirée » annoncerait donc deux politiques en vigueur simultanément. Control réutilise la règle du moteur au lieu d'en inventer une seconde qui pourrait le contredire. |
 | POLICY-GOV-002 | `OPEN` | Les lignes de politique `status = 'retired'` seedées en v1.0.0 (`WARIBA_ONE` et `WARIBA_PERFORMANCE`) ont `retired_at` nul : le statut du cycle de vie et l'horodatage de retrait se contredisent en base. | Observation d'audit du jalon 5, **non corrigée** : les Policies sont en lecture seule sous le Prompt 09 et aucune opération canonique de mutation de politique n'existe. Control affiche les deux champs séparément et n'en déduit jamais l'un depuis l'autre. À trancher par la gouvernance : soit `retired_at` est renseigné rétroactivement par migration, soit `status` seul fait foi et `retired_at` devient purement informatif. |
 | UX-NAV-002 | `LOCKED` | WariX applique la convention UX-NAV-001 : `/trade?account=<id>` est résolu **côté serveur** à partir de `listAccountsForUser` (l'utilisateur authentifié), et le changement de compte est une ancre `<a>` ordinaire, jamais `router.push()` ni `next/link`. | Jalon W1 de la WariX Workstation 2026. Le compte n'était pas sélectionnable depuis WariX (`getLatestAccountForUser` imposait le plus récent). Un identifiant appartenant à un autre trader n'apparaît pas dans la liste passée au résolveur : il ne peut donc pas être chargé, et retombe sur le compte par défaut du trader — même règle d'ordonnancement canonique que le Hub, jamais une seconde définition de « dernier » ou « actif ». Un changement de compte ouvre une nouvelle session WebSocket : une transition SPA pourrait conserver un contexte périmé. |
+| UX-NAV-003 | `LOCKED` | Les frontières critiques authentifiées de Phase 3.3 utilisent une navigation document complète : files Control vers dossiers et retours, listes de comptes vers détails, ainsi que destination canonique après acknowledgement Performance, création Support, réponse Support, contestation et demande d'identité. La commande serveur se termine une seule fois avant `window.location.assign`; le serveur reste autoritatif et le client n'invente aucun succès. | Phase 3.3.3 a reproduit le défaut sur le serveur standalone : file Support vers détail 14/20, détail vers retour 1/20, redirection de Server Action sur le même pathname 13/20, alors que les mutations répondaient 20/20. Les traces montrent une réponse RSC HTTP 200 ensuite marquée `net::ERR_ABORTED`, avant que l'URL et l'arbre rendu soient validés. La même destination en navigation document a réussi 20/20. Cette décision contient le défaut du routeur App sans prétendre corriger Next.js : une seule couche possède la navigation, aucun délai, retry, double mutation ou reload n'est ajouté, et les ancres gardent clavier, nouvel onglet et copie du lien. |
 | UX-WARIX-001 | `LOCKED` | Le programme affiché dans WariX provient de l'état autoritatif du compte (`AccountSummaryDTO.programType` / `AccountSnapshot.programType`), jamais d'une littérale, du solde, de la présence d'un payout, de l'URL ou du CSS. | Audit W0 §3A.4 : `TradeHeaderPanel` passait `program="WARIBA ONE"` en dur, donc un compte `WARIBA_PERFORMANCE` était mal étiqueté dans le terminal, et la page vide de `/trade` affirmait « compte WARIBA ONE actif » pour tout contexte. Évaluation et Performance ne doivent jamais être confondues. Les libellés vivent dans un seul module partagé par le Hub et WariX. |
 | UX-WARIX-002 | `LOCKED` | Le graphique WariX est dimensionné par son conteneur via `ResizeObserver`, en appliquant **largeur et hauteur**. Aucune hauteur littérale ne subsiste comme géométrie effective. | Audit W0 §3C : `createChart` fixait `height: 360` et le handler `window.resize` n'appliquait que la largeur — le canvas mesurait 332 px à 1366×768 **comme** à 2560×1440. Un `ResizeObserver` sur le conteneur est le seul mécanisme qui voit aussi les changements provoqués par la grille (dock, tiroir navigateur, rotation, apparition d'une barre de défilement) sans redimensionnement de fenêtre. Tout redimensionnement rafraîchit la géométrie des overlays, dont les coordonnées dépendent de la hauteur en pixels de l'échelle de prix. |
 | UX-WARIX-003 | `LOCKED` | Aucun tick de marché n'est souscrit à la racine de WariX. Les consommateurs légitimes sont l'espace graphique, la surface d'exécution, la ligne de marché concernée et le contenu Positions dont le P&L live en dépend. | Audit W0 §3P : `TradeClient` appelait `useTick(tickStore, selectedSymbol)` en tête d'un composant de 1 709 lignes, donc chaque tick réconciliait le dock, les six dialogues, le ticket et l'enveloppe du graphique. La correction est la propriété de la souscription, pas `memo()` : les dialogues fermés ne sont plus montés du tout, ce qui supprime aussi leur souscription. Vérifié par comptage de rendus déterministe. |
@@ -487,6 +500,8 @@ Révision:
 | UX-HUB-008 | `LOCKED` | `@wariba/application` expose un sous-chemin **`/presentation`** contenant uniquement des modules sans I/O. Un composant client importe depuis ce sous-chemin ; importer depuis le barrel principal est une erreur de build. | Phase 2 Product OS. Le barrel réexporte les read models, qui importent `@wariba/database`, qui importe `pg` : un `'use client'` qui touche le barrel embarque un pilote Postgres dans le bundle navigateur et le build échoue sur `Can't resolve 'fs'`. Le sous-chemin rend la frontière explicite plutôt que découverte par un message webpack. |
 | UX-HUB-009 | `LOCKED` | La vérification d'identité est **un état produit et une frontière**, jamais un flux simulé. WARIBA ne reçoit aucune pièce : `KYC_PROVIDER_INTEGRATED = false`, `reachableKycStates()` = `not_started` \| `verified`, et l'écran ne contient ni champ fichier ni mention de document. | Phase 2 Product OS §15. L'union des six états est le contrat qu'un prestataire externe remplira ; construire dès maintenant le vocabulaire évite que son intégration soit une réécriture d'UI. Prétendre que les états intermédiaires se produisent déjà serait un flux fabriqué — pire qu'un flux absent. |
 | UX-HUB-010 | `LOCKED` | Aucune destination « Récompenses / Réussites » ni « Notifications » n'est exposée tant qu'aucune table, aucun critère et aucune attribution n'existent. | Phase 2 Product OS §3/§27. Un trophée en barre latérale menant à une page vide — ou pire, à des jalons fabriqués — est exactement la progression manufacturée que ce produit refuse partout ailleurs. Elles reviennent quand il y aura quelque chose à décerner. |
+| UX-HUB-011 | `LOCKED` | Le handoff Evaluation → Performance est porté par la relation canonique parent/enfant : l'Evaluation réussie reste consultable et non tradable, le compte Performance est l'unique destination WariX, et l'onboarding compare les deux policies réellement attachées avant d'enregistrer la lecture. | Le trader et le support doivent pouvoir retrouver le parcours sans recopier d'identifiant ni interpréter un statut brut. Les écrans d'onboarding et de règles sont spécifiques au compte ; aucune valeur financière n'est saisie ou recalculée dans l'UI. |
+| UX-HUB-012 | `LOCKED` | Une fois le compte Performance créé et ses règles lues, **l'Evaluation réussie se rend comme une archive** — résultat final, lien vers le compte successeur, aucun budget de risque actif, aucune entrée d'ordre — et le **compte courant par défaut devient le compte Performance**. L'Evaluation reste atteignable par son propre identifiant. La chronologie du passage porte une convention temporelle unique et explicite (UTC nommé), et la finalisation retenue est celle qui a clôturé la journée de l'objectif, jamais la plus récente du compte. | Un compte terminé qui affiche des budgets vivants et une barre de progression dit au trader qu'il y trade encore. Et une chronologie où « Journée clôturée » précède « Objectif atteint » n'est pas une imprécision d'affichage : c'est une séquence impossible, produite en lisant le dernier instantané finalisé au lieu de celui qui a produit le résultat. |
 
 ---
 
@@ -521,6 +536,8 @@ Révision:
 | ENG-030 | `LOCKED` | Les chiffres temps réel de Guardian/Risk Ribbon (equity, DLL restante, Maximum Loss restante) sont rafraîchis par une re-diffusion serveur périodique (~4 s) tant qu'un compte a au moins une position ouverte, jamais par un recalcul côté client. | `buildAccountSnapshot` calculait déjà ces valeurs avec le prix courant mais seulement à la (re)connexion ou après un ordre ; rester server-authoritative (ENG-002) plutôt que dupliquer la formule en client. |
 | ENG-031 | `LOCKED` | Le scope "Notifications" du Hub (Prompt 06 #12) est servi par `recent_activity_view` (transitions d'état + violations de risque + exécutions) plutôt que par une table de notifications dédiée. | Aucune table de notifications n'existe et en construire une (avec statut lu/non-lu) serait un chantier séparé. Chaque événement pertinent pour un trader a déjà une ligne réelle dans une de ces trois tables — pas de nouvelle infrastructure, pas de donnée inventée. Réduction de scope assumée, décidée avec Rod (2026-08-04). Numéroté ENG-031 (pas ENG-029) lors de la fusion avec `main` — ENG-029 était déjà pris par une décision WariX développée en parallèle sur une autre branche. |
 | ENG-032 | `LOCKED` | L'état d'affichage Hub « attention » (entre normal et soft lock) se déclenche à ≥ 70 % du budget de perte quotidienne utilisé, ou à ≤ 30 % du budget de perte maximale restant (`nominal_balance × maximum_loss_rate` comme dénominateur fixe). | Seuils d'affichage uniquement, dérivés de nombres déjà calculés par le moteur de risque — aucune nouvelle règle financière, pas de nouveau plancher. Nécessaire car le moteur de risque ne distingue aujourd'hui que normal (implicite) et soft-lock/breach (booléens), sans zone d'alerte intermédiaire. Décidé avec Rod (2026-08-04). Numéroté ENG-032 (pas ENG-030) pour la même raison qu'ENG-031. |
+| ENG-033 | `LOCKED` | Toute file opérateur mutable porte une affectation serveur et une version optimiste. L'identité de l'opérateur vient de la session Control ; chaque commande verrouille le dossier, vérifie la version et refuse une soumission périmée avant d'écrire l'action et son audit dans la même transaction. | Deux opérateurs ne doivent ni s'écraser silencieusement ni pouvoir choisir l'identité de l'acteur depuis le navigateur. Phase 3.3 applique ce contrat à Support, Contestations et Identité. |
+| ENG-034 | `LOCKED` | **La preuve exigée dépend de l'action.** Faire avancer un dossier d'identité ou demander une information complémentaire n'exige aucune référence externe ; enregistrer une **vérification positive** en exige une ; un **refus** exige une référence externe ou un motif écrit suffisamment précis. Le contrat est pur, partagé par le formulaire Control et la commande, et vérifié par la commande. | Une vérification positive écrit `trading_accounts.kyc_sandbox_verified`, le drapeau que lit chaque contrôle de payout. Sans provenance, c'est une affirmation qu'aucun examen, audit ou contestation ultérieurs ne peuvent vérifier. Le formulaire l'exigeait déjà, la commande ne l'exigeait pas : la règle vivait dans la moitié qu'un navigateur peut contourner. |
 
 ---
 
@@ -728,6 +745,75 @@ trading manuel ni à la règle d'éligibilité de profit à 60 secondes (TRD-033
 ---
 
 # 26. Historique des versions
+
+## v1.32 — 2026-08-25
+
+Phase 3.3.2 — clôture vérité produit. `PERF-037` remplace la progression
+inventée d'un compte Performance neuf par la construction réelle du buffer et
+retire l'objectif de profit d'un programme qui n'en publie pas. `UX-HUB-012`
+fait de l'Evaluation réussie une archive, rend le compte Performance courant
+par défaut et impose une chronologie causalement possible et datée. `ENG-034`
+lie l'exigence de provenance à l'action d'identité plutôt qu'à toutes. Aucune
+décision de risque, de finalisation ou de provisioning n'est rouverte.
+
+## v1.31 — 2026-08-24
+
+Phase 3.3.1 — fermeture du handoff Evaluation → Performance. `ONE-026`
+réserve le passage à la finalisation quotidienne ; `PERF-036` rend la lecture
+de la policy Performance attachée obligatoire avant le premier trade sans en
+faire une approbation financière ; `UX-HUB-011` verrouille la relation
+parent/enfant comme source du parcours Trader, Support et Control. Le
+provisioning reste atomique et exactement une fois sous `PERF-020`.
+
+## v1.30 — 2026-08-24
+
+Clôture décisionnelle Phase 3.3. `ONE-025` confirme le passage automatique et
+autorise uniquement les états opérateur postérieurs `reviewed` et
+`integrity_escalated`, sans gate ni calcul Control. `UX-SUPPORT-004` autorise
+une compensation idempotente pour une Evaluation terminale erronée : nouveau
+compte nominal lié de façon unique à la contestation, ancien compte et preuves
+inchangés. Toute exposition Performance/payout/argent reste fail-closed vers
+Finance/Compliance.
+
+## v1.29 — 2026-08-24
+
+Phase 3.3 — Operator Closure. WARIBA Control obtient une vue d'ensemble fondée
+sur les files réelles, une file de passage en lecture des résultats du moteur,
+une file d'identité pour le workflow manuel existant, et une affectation
+versionnée sur Support, Contestations et Identité. `ENG-033` verrouille le
+contrat de concurrence. Deux décisions restent explicitement ouvertes :
+`ONE-025` pour l'autorité humaine sur le passage Evaluation → Performance, et
+`UX-SUPPORT-004` pour une remédiation compensatoire sans réécriture du breach.
+`UX-HUB-009` reste inchangée : aucun provider KYC, aucune pièce d'identité et
+aucun faux état provider.
+
+## v1.28 — 2026-08-24
+
+Centre d'aide WARIBA — 87 articles rédigés, 77 servis, couvrant l'intégralité du
+catalogue défini par le Content Master. Registre typé validé au build, recherche
+classée et insensible aux accents partagée entre `/aide` public et le Support
+authentifié, mapping reason code → article sur les 8 codes de règle du moteur de
+risque, et liaison des valeurs de règle à `app.policy_versions`. Trois décisions
+nouvelles : `UX-HELP-001` (contenu dans le repository), `UX-HELP-002` (aucune
+valeur de règle en dur) et `UX-HELP-003` (brouillons rédigés mais retenus).
+Trois réconciliations faites contre le code plutôt que contre la spécification :
+aucune règle d'inactivité chiffrée (absente de la policy publiée), deux
+indicateurs WariX et non sept, et aucune redirection vers `/status` tant que la
+page n'existe pas.
+
+## v1.27 — 2026-08-23
+
+Phase 3.2 — Support + Contestations, satisfaisant `UX-010` `LOCKED`
+(« Support et contestation intégrés au produit »), le domaine le plus faible de
+l'audit Product OS Master (Support 6 %, Disputes 0 %). Trois tables
+(`app.support_tickets`, `app.ticket_messages`, `app.contestations`), RLS
+propriétaire, sept permissions granulaires (`support.*`, `dispute.*`), deux
+files opérateur dans WARIBA Control. Trois décisions nouvelles :
+`UX-SUPPORT-001` (une route `/support`, deux publics), `UX-SUPPORT-002` (aucune
+réversion de breach — fail closed) et `UX-SUPPORT-003` (conversation
+append-only garantie par trigger). Restent déférés et non comptés comme faits :
+pièces jointes (`SEC-008`), persistance des articles d'aide, centre de
+notifications (`ENG-031` + `UX-HUB-010`).
 
 ## v1.26 — 2026-08-22
 

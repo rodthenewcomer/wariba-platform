@@ -1,18 +1,33 @@
 export interface ConsistencyMeterProps {
-  /** 0–100+, already computed: bestDay / totalProfit. */
+  /** 0–100+, already computed: bestDay / sum of the POSITIVE days. */
   ratioPercent: number;
   limitPercent: number;
   /** Already formatted, e.g. "320 USD". */
   bestDayFormatted: string;
+  /**
+   * The sum of the winning days — NOT total realized profit, whatever the
+   * name suggests. Callers pass `positiveDaysProfitSum`; the name is the
+   * v1.0 denominator's and has outlived the rule it described.
+   */
   totalProfitFormatted: string;
   /** Present only when ratioPercent > limitPercent — profit needed for compliance without reducing the best day. */
   requiredProfitFormatted?: string;
 }
 
 /**
- * Design System §25.4 — Rulebook §15: exceeding the 40% limit is never a breach,
+ * Design System §25.4 — Rulebook §15: exceeding the limit is never a breach,
  * only a hold on eligibility. The track never turns to a "violation" red — it's
  * "waiting for compliance" framing per UX Architecture §21.4.
+ *
+ * `limitPercent` is a prop rather than a constant because the ratio lives in
+ * the published policy; the comment above used to name a figure of its own,
+ * which is how a component ends up disagreeing with the rule it draws.
+ *
+ * The heading reads « Meilleur Jour », the rule's name in the policy the risk
+ * engine enforces. « Consistance » was the v1.0 name and survived here after
+ * the rule itself was superseded (see computeBestDayRatio, which notes the
+ * old denominator); a trader reading the Help Center finds « Meilleur Jour »
+ * and must find the same words on the screen it describes.
  */
 export function ConsistencyMeter({
   ratioPercent,
@@ -28,7 +43,7 @@ export function ConsistencyMeter({
     <div className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between">
         <span className="text-[length:var(--wariba-font-size-label-md)] font-semibold text-[color:var(--wariba-text-primary)]">
-          Consistance
+          Meilleur Jour
         </span>
         <span
           className={`wariba-data text-[length:var(--wariba-font-size-data-md)] font-medium ${
@@ -65,15 +80,17 @@ export function ConsistencyMeter({
           Meilleure journée&nbsp;<span className="wariba-data">{bestDayFormatted}</span>
         </span>
         <span>
-          Profit total&nbsp;<span className="wariba-data">{totalProfitFormatted}</span>
+          Journées gagnantes&nbsp;<span className="wariba-data">{totalProfitFormatted}</span>
         </span>
       </div>
 
       {!compliant && requiredProfitFormatted ? (
         <p className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
-          Compte non conforme : continuez à trader jusqu&apos;à un ratio ≤ {limitPercent}%. Profit
-          total requis pour conformité (sans réduire la meilleure journée)&nbsp;:{' '}
-          <span className="wariba-data">{requiredProfitFormatted}</span>.
+          Votre meilleure journée pèse encore trop lourd — ce n&apos;est pas un dépassement, et
+          votre compte n&apos;est pas en danger. Elle doit descendre à {limitPercent}&nbsp;% de vos
+          journées gagnantes. Sans rien retirer à votre meilleure journée, il vous manque{' '}
+          <span className="wariba-data">{requiredProfitFormatted}</span> de gains sur d&apos;autres
+          journées.
         </p>
       ) : null}
     </div>

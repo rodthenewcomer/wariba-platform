@@ -39,7 +39,7 @@ const DIFFERENTIATORS = [
   {
     icon: <ShieldIcon />,
     title: 'Des règles versionnées, jamais réécrites',
-    body: 'La policy acceptée à l’activation reste attachée à votre compte. Aucune règle n’est modifiée rétroactivement après coup.',
+    body: 'Les règles que vous acceptez à l’activation restent attachées à votre compte. Aucune n’est modifiée après coup.',
   },
 ] as const;
 
@@ -246,8 +246,8 @@ export default async function HomePage() {
                 Des règles lisibles avant de commencer.
               </h2>
               <p className="mt-5 text-[length:var(--wariba-font-size-body-md)] text-[color:var(--wariba-color-ink-200)]">
-                Chaque compte conserve la version de policy acceptée. Une policy publiée n’est
-                jamais réécrite rétroactivement.
+                Chaque compte garde la version de règles acceptée le jour de son activation. Une
+                version publiée n’est jamais réécrite.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -317,8 +317,8 @@ export default async function HomePage() {
               Le risque reste visible avant la performance.
             </h2>
             <p className="mt-5 text-[length:var(--wariba-font-size-body-lg)] leading-[var(--wariba-line-height-body-lg)] text-[color:var(--wariba-color-ink-600)]">
-              WariX affiche le contexte du compte, la policy appliquée, les limites restantes et la
-              prochaine action utile — jamais un chiffre isolé.
+              WariX affiche le contexte du compte, les règles qui s’y appliquent, les limites
+              restantes et la prochaine action utile — jamais un chiffre isolé.
             </p>
             <Link href="/warix" className={buttonClassNames({ size: 'lg', className: 'mt-8' })}>
               Découvrir WariX

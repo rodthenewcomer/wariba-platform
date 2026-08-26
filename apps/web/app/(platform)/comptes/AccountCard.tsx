@@ -28,14 +28,121 @@ import {
  * the four a trader compares across accounts. Consistency and trading days
  * belong on the account's own dashboard, where there is room to explain them.
  */
+/**
+ * A finished evaluation, told as a result and a successor.
+ *
+ * What is deliberately absent: the objective bar, the two remaining-loss
+ * meters, the session figures and any way to trade this account. All four
+ * still had rows behind them — the risk view answers happily for a passed
+ * account — and rendering them put "Perte quotidienne restante 100 %" and a
+ * progress bar beside "Évaluation réussie", which reads as an account the
+ * trader can still lose. The read model no longer builds them for this state,
+ * so there is nothing here to hide.
+ *
+ * Every figure below is canonical or omitted. A result the projection could
+ * not produce is left out rather than shown as a zero, and no Performance
+ * account is implied until one exists.
+ */
+function ArchiveBody({
+  account,
+  archive,
+}: {
+  account: AccountOverviewItem['account'];
+  archive: NonNullable<AccountOverviewItem['archive']>;
+}) {
+  return (
+    <div className="flex flex-col gap-4" data-testid="account-card-archive">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[color:var(--warix-border-subtle)] pt-4">
+        <div>
+          <dt className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
+            Montant du compte
+          </dt>
+          <dd className="wariba-data mt-0.5 text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-text-primary)]">
+            {formatNominal(account.nominalBalance, account.nominalCurrency)}
+          </dd>
+        </div>
+        {archive.completedAtLabel ? (
+          <div>
+            <dt className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
+              Terminée le
+            </dt>
+            <dd className="wariba-data mt-0.5 text-[length:var(--wariba-font-size-body-sm)] font-medium text-[color:var(--wariba-text-primary)]">
+              {archive.completedAtLabel}
+            </dd>
+          </div>
+        ) : null}
+      </div>
+
+      {archive.finalResultFormatted ? (
+        <div className="border-t border-[color:var(--warix-border-subtle)] pt-4">
+          <p className="text-[length:var(--wariba-font-size-label-sm)] uppercase tracking-[0.08em] text-[color:var(--wariba-text-tertiary)]">
+            Résultat final
+          </p>
+          {/* Emerald means a gain. A flat or negative result is reported in
+              the ordinary text colour rather than dressed as one. */}
+          <p
+            className="wariba-data mt-1 text-[length:var(--wariba-font-size-heading-sm)] font-bold"
+            style={{
+              color:
+                archive.finalResultSign === 'positive'
+                  ? 'var(--wariba-accent-emerald)'
+                  : 'var(--wariba-text-primary)',
+            }}
+            data-testid="account-card-final-result"
+            data-result-sign={archive.finalResultSign ?? 'unknown'}
+          >
+            {archive.finalResultFormatted}
+          </p>
+        </div>
+      ) : null}
+
+      <div className="border-t border-[color:var(--warix-border-subtle)] pt-4">
+        {archive.performanceAccountPublicId ? (
+          <div data-testid="account-card-successor">
+            <p className="text-[length:var(--wariba-font-size-label-sm)] uppercase tracking-[0.08em] text-[color:var(--wariba-text-tertiary)]">
+              Votre compte Performance
+            </p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              <span className="wariba-data text-[length:var(--wariba-font-size-body-md)] font-semibold text-[color:var(--wariba-text-primary)]">
+                {archive.performanceAccountPublicId}
+              </span>
+              {archive.performanceStatusLabel ? (
+                <StatusPill tone={archive.performanceTradable ? 'success' : 'progress'} size="sm">
+                  {archive.performanceStatusLabel}
+                </StatusPill>
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          /*
+           * No child yet. Say what is true — the evaluation is still passed and
+           * nothing is expected of the trader — rather than implying an account
+           * that does not exist.
+           */
+          <p
+            className="text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-text-secondary)]"
+            data-testid="account-card-provisioning"
+          >
+            Votre compte Performance est en préparation. Vous n’avez rien à faire pour le moment.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function AccountCard({ item }: { item: AccountOverviewItem }) {
-  const { account, lifecycle, detail } = item;
+  const { account, lifecycle, detail, archive } = item;
 
   const actions: { label: string; href: string; variant: 'primary' | 'secondary' | 'danger' }[] =
     [];
 
   if (lifecycle.tradable) {
-    actions.push({ label: 'Ouvrir WariX', href: '/trade', variant: 'primary' });
+    actions.push({
+      label: 'Ouvrir WariX',
+      href: `/trade?account=${account.id}`,
+      variant: 'primary',
+    });
   }
   if (lifecycle.state === 'funded_active') {
     actions.push({
@@ -57,6 +164,20 @@ export function AccountCard({ item }: { item: AccountOverviewItem }) {
       label: 'Voir le détail',
       href: `/hub?account=${account.id}`,
       variant: 'secondary',
+    });
+  }
+  /*
+   * A finished evaluation points at its successor.
+   *
+   * The primary action on an archived card is the account the trader actually
+   * works in now — not a rules page about it, and never WariX on the
+   * evaluation, which is no longer tradable.
+   */
+  if (lifecycle.state === 'passed' && archive?.performanceAccountId) {
+    actions.push({
+      label: 'Voir mon compte Performance',
+      href: `/hub?account=${archive.performanceAccountId}`,
+      variant: 'primary',
     });
   }
 
@@ -91,21 +212,23 @@ export function AccountCard({ item }: { item: AccountOverviewItem }) {
         <StatusPill tone={lifecycle.tone}>{lifecycle.label}</StatusPill>
       </div>
 
-      {detail ? (
+      {archive ? (
+        <ArchiveBody account={account} archive={archive} />
+      ) : detail ? (
         <>
-          {detail.progressPercent !== null ? (
+          {detail.progressPercent !== null && detail.progressLabel ? (
             <div>
               <div className="flex items-baseline justify-between gap-3">
                 <span className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
-                  Objectif
+                  {detail.progressLabel}
                 </span>
                 <span className="wariba-data text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]">
-                  {detail.objectiveDetail ?? `${detail.progressPercent} %`}
+                  {detail.progressDetail ?? `${detail.progressPercent} %`}
                 </span>
               </div>
               <ProgressBar
                 percent={detail.progressPercent}
-                label="Progression vers l’objectif"
+                label={detail.progressLabel}
                 tone={detail.progressPercent >= 100 ? 'emerald' : 'indigo'}
                 className="mt-2"
               />
@@ -128,7 +251,7 @@ export function AccountCard({ item }: { item: AccountOverviewItem }) {
             {[
               { label: 'Solde', value: detail.balanceFormatted },
               ...(detail.consistencyLabel
-                ? [{ label: 'Consistance', value: detail.consistencyLabel }]
+                ? [{ label: 'Meilleur Jour', value: detail.consistencyLabel }]
                 : []),
               ...(detail.tradingDays === null
                 ? []
@@ -188,9 +311,30 @@ export function AccountCard({ item }: { item: AccountOverviewItem }) {
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[color:var(--warix-border-subtle)] pt-4">
-        <span className="wariba-data truncate text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
-          {account.publicId}
-        </span>
+        <div className="min-w-0 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
+          <span className="wariba-data block truncate">{account.publicId}</span>
+          {account.sourceEvaluationPublicId ? (
+            <span className="mt-1 block">
+              Issu de{' '}
+              <a
+                className="wariba-data underline-offset-4 hover:underline"
+                href={`/hub?account=${account.sourceEvaluationAccountId ?? ''}`}
+              >
+                {account.sourceEvaluationPublicId}
+              </a>
+            </span>
+          ) : account.performanceAccountPublicId && !archive ? (
+            <span className="mt-1 block">
+              Compte créé :{' '}
+              <a
+                className="wariba-data underline-offset-4 hover:underline"
+                href={`/comptes/${account.performanceAccountPublicId}/bienvenue-performance`}
+              >
+                {account.performanceAccountPublicId}
+              </a>
+            </span>
+          ) : null}
+        </div>
         <div className="flex flex-wrap gap-2">
           {actions.map((action) => (
             <ActionLink

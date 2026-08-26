@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   activateEvaluationAccount,
   activatePerformanceAccountInTransaction,
+  acknowledgePerformanceRules,
   closePosition,
   createDbClient,
   createPayoutRequestInTransaction,
@@ -122,6 +123,7 @@ async function deleteAccountRows(db: Db, accountId: string): Promise<void> {
 
   await db.deleteFrom('app.position_reduction_queue').where('account_id', '=', accountId).execute();
   await db.deleteFrom('app.pending_orders').where('account_id', '=', accountId).execute();
+  await db.deleteFrom('app.identity_review_cases').where('account_id', '=', accountId).execute();
   await db.deleteFrom('app.payout_requests').where('account_id', '=', accountId).execute();
   await db.deleteFrom('app.fills').where('account_id', '=', accountId).execute();
   await db.deleteFrom('app.trade_orders').where('account_id', '=', accountId).execute();
@@ -135,6 +137,10 @@ async function deleteAccountRows(db: Db, accountId: string): Promise<void> {
     .execute();
   await db.deleteFrom('app.performance_review_cases').where('account_id', '=', accountId).execute();
   await db.deleteFrom('app.performance_cycles').where('account_id', '=', accountId).execute();
+  await db
+    .deleteFrom('app.performance_rule_acknowledgements')
+    .where('account_id', '=', accountId)
+    .execute();
   for (const position of positions) {
     await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', position.id).execute();
   }
@@ -147,7 +153,7 @@ async function deleteAccountRows(db: Db, accountId: string): Promise<void> {
 
 export async function seedPayoutAccount(
   environment: PayoutFixtureEnvironment,
-  options: { createPendingRequest?: boolean } = {},
+  options: { createPendingRequest?: boolean; kycVerified?: boolean } = {},
 ): Promise<PayoutAccountFixture> {
   const db = createDbClient(environment.databaseUrl);
   const email = `e2e-payout-${Date.now()}-${randomUUID().slice(0, 8)}@wariba-test.invalid`;
@@ -198,15 +204,28 @@ export async function seedPayoutAccount(
       nominalBalance: productVersion.nominal_balance,
       currency: productVersion.nominal_currency,
     });
+    // This fixture starts at the Performance boundary; the real provisioning
+    // command now refuses an Evaluation that has not canonically passed.
+    await db
+      .updateTable('app.trading_accounts')
+      .set({ status: 'passed' })
+      .where('id', '=', evaluationAccount.id)
+      .execute();
     const performanceAccount = await activatePerformanceAccountInTransaction(db, {
       evaluationAccountId: evaluationAccount.id,
+    });
+    await acknowledgePerformanceRules(db, {
       userId,
-      nominalBalance: productVersion.nominal_balance,
-      currency: productVersion.nominal_currency,
+      accountId: performanceAccount.id,
+      correlationId: randomUUID(),
+      now: new Date(),
     });
     await db
       .updateTable('app.trading_accounts')
-      .set({ kyc_sandbox_verified: true, payout_method_sandbox_configured: true })
+      .set({
+        kyc_sandbox_verified: options.kycVerified ?? true,
+        payout_method_sandbox_configured: true,
+      })
       .where('id', '=', performanceAccount.id)
       .execute();
 

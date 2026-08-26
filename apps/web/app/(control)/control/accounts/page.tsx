@@ -11,7 +11,7 @@ import {
   type AccountSearchParams,
   type ControlAccountRow,
 } from '@wariba/application';
-import Link from 'next/link';
+import { ControlDocumentLink as Link } from '../../ControlDocumentLink';
 import { requireControlArea } from '../../../../lib/staff-auth';
 import { getDb } from '../../../../lib/db';
 

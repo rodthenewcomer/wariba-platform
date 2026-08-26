@@ -163,6 +163,10 @@ describeIfDb('risk engine — real database', () => {
       await db.deleteFrom('app.account_state_transitions').where('account_id', '=', id).execute();
       await db.deleteFrom('app.performance_cycles').where('account_id', '=', id).execute();
       await db.deleteFrom('app.performance_review_cases').where('account_id', '=', id).execute();
+      await db
+        .deleteFrom('app.performance_rule_acknowledgements')
+        .where('account_id', '=', id)
+        .execute();
       const account = await db
         .selectFrom('app.trading_accounts')
         .select('source_purchase_order_id')
@@ -490,31 +494,43 @@ describeIfDb('risk engine — real database', () => {
 
     // Now both days are finalized: Best Day ratio is 529.20/1058.40 = 0.50,
     // exactly compliant, and realized profit (1058.40) clears the 1000 target.
-    const firstEvaluation = await evaluateAndApplyAccountRisk(db, {
+    const intradayEvaluation = await evaluateAndApplyAccountRisk(db, {
       accountId,
       now: dayThree,
       marketBySymbol: ALL_MARKETS,
-      triggerEventType: 'daily_finalization',
+      triggerEventType: 'trade_order',
       triggerEventId: randomUUID(),
     });
-    expect(firstEvaluation.previousStatus).toBe('active');
-    expect(firstEvaluation.newStatus).toBe('pass_pending');
-    expect(firstEvaluation.result.bestDay.ratio).toBe('0.5000');
-    expect(firstEvaluation.result.eligibility.passEligible).toBe(true);
+    expect(intradayEvaluation.previousStatus).toBe('active');
+    expect(intradayEvaluation.newStatus).toBe('pass_pending');
+    expect(intradayEvaluation.result.bestDay.ratio).toBe('0.5000');
+    expect(intradayEvaluation.result.eligibility.passEligible).toBe(true);
 
-    // The next trigger (in production, the daily worker's next cycle)
-    // auto-finalizes — V1 has no manual review gate to wait on.
-    const secondEvaluation = await evaluateAndApplyAccountRisk(db, {
+    // A manual/Control re-evaluation is observational. It cannot turn a
+    // currently reached target into a definitive pass.
+    const manualEvaluation = await evaluateAndApplyAccountRisk(db, {
       accountId,
       now: dayThree,
       marketBySymbol: ALL_MARKETS,
       triggerEventType: 'manual_review',
       triggerEventId: randomUUID(),
     });
-    expect(secondEvaluation.previousStatus).toBe('pass_pending');
-    expect(secondEvaluation.newStatus).toBe('passed');
-    expect(secondEvaluation.result.bestDay.ratio).toBe('0.5000');
-    expect(secondEvaluation.result.eligibility.passEligible).toBe(true);
+    expect(manualEvaluation.previousStatus).toBe('pass_pending');
+    expect(manualEvaluation.newStatus).toBe('pass_pending');
+
+    // Only the authoritative daily-finalization trigger makes the result
+    // definitive and provisions Performance in that same transaction.
+    const finalEvaluation = await evaluateAndApplyAccountRisk(db, {
+      accountId,
+      now: dayThree,
+      marketBySymbol: ALL_MARKETS,
+      triggerEventType: 'daily_finalization',
+      triggerEventId: randomUUID(),
+    });
+    expect(finalEvaluation.previousStatus).toBe('pass_pending');
+    expect(finalEvaluation.newStatus).toBe('passed');
+    expect(finalEvaluation.result.bestDay.ratio).toBe('0.5000');
+    expect(finalEvaluation.result.eligibility.passEligible).toBe(true);
 
     const finalAccount = await db
       .selectFrom('app.trading_accounts')
@@ -609,14 +625,16 @@ describeIfDb('risk engine — real database', () => {
     });
     await finalizeDailyBoundaryForAccount(db, { accountId, clock: () => dayThree });
 
-    // No Performance account exists yet — pass_pending isn't 'passed'.
-    await evaluateAndApplyAccountRisk(db, {
+    // A non-finalization trigger may surface target reached, but cannot pass
+    // the account or create its Performance child.
+    const pendingEvaluation = await evaluateAndApplyAccountRisk(db, {
       accountId,
       now: dayThree,
       marketBySymbol: ALL_MARKETS,
-      triggerEventType: 'daily_finalization',
+      triggerEventType: 'trade_order',
       triggerEventId: randomUUID(),
     });
+    expect(pendingEvaluation.newStatus).toBe('pass_pending');
     const beforePass = await db
       .selectFrom('app.trading_accounts')
       .select('id')
@@ -624,15 +642,25 @@ describeIfDb('risk engine — real database', () => {
       .execute();
     expect(beforePass).toHaveLength(0);
 
-    // The transaction that actually finalizes pass_pending -> passed.
-    const passingEvaluation = await evaluateAndApplyAccountRisk(db, {
-      accountId,
-      now: dayThree,
-      marketBySymbol: ALL_MARKETS,
-      triggerEventType: 'manual_review',
-      triggerEventId: randomUUID(),
-    });
-    expect(passingEvaluation.newStatus).toBe('passed');
+    // The daily-finalization transaction alone finalizes pass_pending ->
+    // passed and creates the child.
+    const concurrentFinalizations = await Promise.all([
+      evaluateAndApplyAccountRisk(db, {
+        accountId,
+        now: dayThree,
+        marketBySymbol: ALL_MARKETS,
+        triggerEventType: 'daily_finalization',
+        triggerEventId: randomUUID(),
+      }),
+      evaluateAndApplyAccountRisk(db, {
+        accountId,
+        now: dayThree,
+        marketBySymbol: ALL_MARKETS,
+        triggerEventType: 'daily_finalization',
+        triggerEventId: randomUUID(),
+      }),
+    ]);
+    expect(concurrentFinalizations.some((outcome) => outcome.newStatus === 'passed')).toBe(true);
 
     const performanceAccount = await db
       .selectFrom('app.trading_accounts')
@@ -675,6 +703,24 @@ describeIfDb('risk engine — real database', () => {
     // numeric(20,8) — same right-padded shape activation.integration.test.ts
     // already asserts for the Evaluation account's own initial_balance entry.
     expect(initialLedgerEntry.amount).toBe('10000.00000000');
+
+    const handoffEvents = await db
+      .selectFrom('app.outbox_events')
+      .select(['aggregate_id', 'event_type'])
+      .where('event_type', 'in', [
+        'evaluation_objective_reached',
+        'evaluation_passed',
+        'performance_provisioning_started',
+        'performance_account_created',
+      ])
+      .where('aggregate_id', 'in', [accountId, performanceAccount.id])
+      .execute();
+    expect(handoffEvents.map((event) => event.event_type).sort()).toEqual([
+      'evaluation_objective_reached',
+      'evaluation_passed',
+      'performance_account_created',
+      'performance_provisioning_started',
+    ]);
 
     // PERF-020 "une seule relation" — a further evaluation of the
     // already-passed account (e.g. a stray retry) must not spawn a

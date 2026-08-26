@@ -25,7 +25,11 @@ export type ControlAreaId =
   | 'accounts'
   | 'trading'
   | 'risk'
+  | 'pass-reviews'
+  | 'identity-reviews'
   | 'payouts'
+  | 'support'
+  | 'contestations'
   | 'market-operations'
   | 'incidents'
   | 'treasury'
@@ -49,12 +53,35 @@ export interface ControlArea {
 }
 
 export const CONTROL_AREAS: readonly ControlArea[] = [
-  { id: 'overview', href: '/control', label: 'Overview', read: null },
-  { id: 'users', href: '/control/users', label: 'Users', read: 'account.view' },
-  { id: 'accounts', href: '/control/accounts', label: 'Accounts', read: 'account.view' },
+  { id: 'overview', href: '/control', label: 'Vue d’ensemble', read: null },
+  { id: 'users', href: '/control/users', label: 'Utilisateurs', read: 'account.view' },
+  { id: 'accounts', href: '/control/accounts', label: 'Comptes', read: 'account.view' },
   { id: 'trading', href: '/control/trading', label: 'Trading', read: 'account.view' },
-  { id: 'risk', href: '/control/integrity', label: 'Risk & Integrity', read: 'risk.view' },
+  { id: 'risk', href: '/control/integrity', label: 'Risque & intégrité', read: 'risk.view' },
+  {
+    id: 'pass-reviews',
+    href: '/control/pass-reviews',
+    label: 'Revues de passage',
+    read: 'pass_review.read',
+  },
+  {
+    id: 'identity-reviews',
+    href: '/control/identity',
+    label: 'Identité',
+    read: 'identity_review.read',
+  },
   { id: 'payouts', href: '/control/payouts', label: 'Payouts', read: 'payout.view' },
+  // Phase 3.2. Two areas rather than one: answering a question and deciding a
+  // dispute over a recorded breach are different jobs with different
+  // authorities, and a single "Support" menu entry would have put a risk
+  // reviewer's queue behind a support operator's permission.
+  { id: 'support', href: '/control/support', label: 'Support', read: 'support.read' },
+  {
+    id: 'contestations',
+    href: '/control/contestations',
+    label: 'Contestations',
+    read: 'dispute.read',
+  },
   {
     id: 'market-operations',
     href: '/control/market-operations',

@@ -24,6 +24,8 @@
     "typecheck": "turbo run typecheck",
     "test": "pnpm test:unit && pnpm test:integration && pnpm test:rls && pnpm test:e2e",
     "test:fast": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm boundaries:check && pnpm secrets:scan && pnpm test:unit",
+    "preflight": "node scripts/preflight.mjs",
+    "test:gate": "pnpm preflight && pnpm test:fast",
     "test:unit": "turbo run test:unit",
     "test:property": "pnpm --filter @wariba/domain exec vitest run tests/financial-invariants.property.test.ts",
     "test:unit:domain": "pnpm exec turbo run test:unit --filter=@wariba/domain --filter=@wariba/policies --filter=@wariba/application",
@@ -38,6 +40,8 @@
     "test:e2e:pending": "node scripts/run-test-gate.mjs DATABASE_URL SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY -- pnpm --filter @wariba/realtime test:e2e:pending",
     "test:e2e:payout": "node scripts/run-test-gate.mjs DATABASE_URL SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY -- pnpm --filter @wariba/web test:e2e:payout",
     "test:e2e:control": "node scripts/run-test-gate.mjs DATABASE_URL SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY -- pnpm --filter @wariba/web test:e2e:control",
+    "test:e2e:support": "node scripts/run-test-gate.mjs DATABASE_URL SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY -- pnpm --filter @wariba/web test:e2e:support",
+    "test:e2e:help": "node scripts/run-test-gate.mjs DATABASE_URL SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY -- pnpm --filter @wariba/web test:e2e:help",
     "test:e2e:mobile": "node scripts/run-test-gate.mjs DATABASE_URL SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY -- pnpm --filter @wariba/web test:e2e:mobile",
     "test:e2e:full": "node scripts/run-test-gate.mjs DATABASE_URL SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY -- sh -c 'pnpm --filter @wariba/realtime test:e2e:full && pnpm --filter @wariba/web test:e2e:full'",
     "test:rls": "pnpm test:rls:full",
@@ -54,7 +58,11 @@
     "boundaries:check": "node scripts/check-boundaries.mjs",
     "secrets:scan": "node scripts/secret-scan.mjs",
     "ci": "pnpm test:fast && pnpm build && pnpm db:test && pnpm test:integration:smoke && pnpm test:rls:smoke && pnpm test:e2e:smoke",
-    "db:keepalive": "pnpm --filter @wariba/database db:keepalive"
+    "db:keepalive": "pnpm --filter @wariba/database db:keepalive",
+    "test:certification:product": "node scripts/certification-server.mjs -- sh -c 'pnpm db:test && pnpm test:integration:full && pnpm test:rls:full && pnpm test:e2e:critical && pnpm test:recovery && pnpm test:failover && pnpm test:load'",
+    "test:certification:exhaustive": "node scripts/certification-server.mjs --no-build -- sh -c 'pnpm test:e2e:full && pnpm test:visual'",
+    "test:e2e:critical": "node scripts/run-test-gate.mjs DATABASE_URL SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY -- pnpm --filter @wariba/web test:e2e:critical",
+    "test:e2e:against-server": "node scripts/certification-server.mjs -- node scripts/run-test-gate.mjs DATABASE_URL SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY -- pnpm --filter @wariba/web test:e2e:full"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

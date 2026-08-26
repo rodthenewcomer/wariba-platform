@@ -147,16 +147,22 @@ export function PayoutSummary({
                 {cycle.bufferProgressPercent} %
               </span>
             </div>
+            {/*
+             * A1/A8 — the two figures behind the percentage are how much
+             * buffer exists and how much the policy asks for. Printing the
+             * balance over the threshold instead described a ratio that
+             * started at 91 % on an account that had built nothing.
+             */}
             <p className="wariba-data mt-1.5 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-primary)]">
-              {cycle.realizedBalanceFormatted}
+              {cycle.bufferBuiltFormatted}
               <span className="text-[color:var(--wariba-text-tertiary)]">
                 {' '}
-                / plancher {cycle.bufferFloorFormatted}
+                / {cycle.bufferRequiredFormatted}
               </span>
             </p>
             <ProgressBar
               percent={cycle.bufferProgressPercent}
-              label={`Buffer permanent — ${cycle.realizedBalanceFormatted} sur ${cycle.bufferFloorFormatted}`}
+              label={`Buffer permanent — ${cycle.bufferBuiltFormatted} sur ${cycle.bufferRequiredFormatted}`}
               tone={cycle.bufferProgressPercent >= 100 ? 'emerald' : 'indigo'}
               className="mt-2"
             />

@@ -10,6 +10,7 @@ import {
   staffRoleSatisfies,
   authorizeSensitiveStaffAction,
 } from '@wariba/application';
+import type { VarianceCoverage } from '@wariba/domain';
 import { requireStaffRole } from '../../../../lib/staff-auth';
 import { getDb } from '../../../../lib/db';
 
@@ -39,6 +40,38 @@ const runInputSchema = z.object({
 
 export interface ActuarialActionResult {
   error?: string;
+}
+
+/**
+ * The canonical comparison, in a shape that survives the Server Action
+ * boundary.
+ *
+ * Deliberately the record the server just wrote, not a client-side
+ * reconstruction of it: the panel renders exactly what the database holds, so
+ * what an operator sees immediately after the write and what they see after a
+ * reload are the same row by construction.
+ */
+export interface ActuarialVarianceDTO {
+  id: string;
+  scenarioRunId: string;
+  scenarioName: string;
+  scenarioVersion: number;
+  coverage: VarianceCoverage;
+  modelCohortSize: number;
+  actualSampleSize: number;
+  /** ISO 8601. Formatted for display by the panel, in UTC. */
+  executedAt: string;
+  metrics: readonly {
+    metric: string;
+    modelValue: string;
+    actualValue: string;
+    variance: string;
+    relativeVariance: string | null;
+  }[];
+}
+
+export interface RecordActuarialVarianceResult extends ActuarialActionResult {
+  variance?: ActuarialVarianceDTO;
 }
 
 async function requireActuarialStaff() {
@@ -127,7 +160,7 @@ const runIdSchema = z.string().uuid();
  */
 export async function recordActuarialVarianceAction(
   scenarioRunId: string,
-): Promise<ActuarialActionResult> {
+): Promise<RecordActuarialVarianceResult> {
   try {
     const session = await requireActuarialStaff();
     await authorizeSensitiveStaffAction(getDb(), {
@@ -136,14 +169,34 @@ export async function recordActuarialVarianceAction(
       permission: 'actuarial.modify',
       limit: 20,
     });
-    await recordActuarialVariance(getDb(), {
+    const run = await recordActuarialVariance(getDb(), {
       scenarioRunId: runIdSchema.parse(scenarioRunId),
       executedBy: session.userId,
       executedByRole: session.role,
       correlationId: randomUUID(),
     });
+    // Still revalidated: the history table and the validation banner are server
+    // -rendered from the same rows, and they must not lag behind the panel.
     revalidatePath('/control/actuarial');
-    return {};
+    return {
+      variance: {
+        id: run.id,
+        scenarioRunId: run.scenarioRunId,
+        scenarioName: run.scenarioName,
+        scenarioVersion: run.scenarioVersion,
+        coverage: run.coverage,
+        modelCohortSize: run.modelCohortSize,
+        actualSampleSize: run.actualSampleSize,
+        executedAt: run.executedAt.toISOString(),
+        metrics: run.metrics.map((metric) => ({
+          metric: metric.metric,
+          modelValue: metric.modelValue,
+          actualValue: metric.actualValue,
+          variance: metric.variance,
+          relativeVariance: metric.relativeVariance,
+        })),
+      },
+    };
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'Variance comparison failed.' };
   }

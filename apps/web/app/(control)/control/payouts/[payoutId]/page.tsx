@@ -119,7 +119,7 @@ export default async function ControlPayoutDetailPage({
           Valeurs persistées par le moteur de payout — jamais recalculées ici.
         </Text>
         <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Plancher de buffer" value={approval.bufferFloorAtRequest} />
+          <Field label="Seuil du buffer" value={approval.bufferFloorAtRequest} />
           <Field label="Excédent éligible" value={approval.eligibleExcessAtRequest} />
           <Field label="Plafond appliqué" value={approval.capApplied} />
           <Field label="Split trader" value={approval.traderSplitRate} />

@@ -34,8 +34,9 @@ export default function RiskDisclosurePage() {
             Les règles peuvent bloquer ou terminer un compte
           </h2>
           <p className="mt-3">
-            La DLL crée un soft lock. Le Maximum Loss est un hard breach. La Best Day Rule ne
-            termine pas le compte mais peut bloquer le passage ou un cycle de payout.
+            La perte quotidienne bloque vos nouvelles positions jusqu’au prochain reset, sans mettre
+            fin au compte. La perte maximale, elle, y met fin. La règle du Meilleur Jour ne termine
+            jamais un compte, mais elle peut retarder un passage ou un cycle de payout.
           </p>
         </section>
         <section>

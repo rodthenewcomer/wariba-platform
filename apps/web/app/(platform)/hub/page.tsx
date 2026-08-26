@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { ConsistencyMeter, OpenPositionsTable, Text } from '@wariba/ui';
 import {
   buildCommandCenterView,
+  buildEvaluationToPerformanceHandoff,
   buildOfferCatalog,
   deriveAccountLifecycle,
   listAccountsForUser,
@@ -31,6 +32,7 @@ import { PayoutSummary } from './PayoutSummary';
 import { QuickActions } from './QuickActions';
 import { RecentActivity } from './RecentActivity';
 import { quickActionsFor } from './dashboard-actions';
+import { EvaluationArchive, PerformanceHandoff } from '../comptes/[publicId]/PerformanceHandoff';
 
 export const dynamic = 'force-dynamic';
 
@@ -122,6 +124,49 @@ export default async function HubPage({
 
   const now = new Date();
 
+  const handoff =
+    activeAccount.status === 'pass_pending' ||
+    activeAccount.status === 'passed' ||
+    activeAccount.programType === 'WARIBA_PERFORMANCE'
+      ? await buildEvaluationToPerformanceHandoff(db, {
+          userId: user.id,
+          accountId: activeAccount.id,
+        }).catch(() => null)
+      : null;
+
+  if (
+    activeAccount.programType === 'WARIBA_PERFORMANCE' &&
+    activeAccount.status === 'active' &&
+    !handoff
+  ) {
+    return (
+      <div className="max-w-2xl">
+        <Surface className="p-6">
+          <SurfaceTitle>Compte Performance indisponible</SurfaceTitle>
+          <Text variant="body-sm" color="secondary" className="mt-3">
+            Le lien avec votre évaluation d’origine ne peut pas être vérifié. Aucun accès au trading
+            n’est accordé tant que cette vérification n’est pas terminée.
+          </Text>
+          <div className="mt-5">
+            <ActionLink href="/support/nouveau">Contacter le support</ActionLink>
+          </div>
+        </Surface>
+      </div>
+    );
+  }
+
+  // Reading the account-specific rules is the mandatory bridge before the
+  // first Performance trade. It records no activation and changes no account
+  // fact; acknowledgement happens only on the explicit server action.
+  if (
+    activeAccount.programType === 'WARIBA_PERFORMANCE' &&
+    activeAccount.status === 'active' &&
+    handoff &&
+    !handoff.rulesAcknowledged
+  ) {
+    redirect(`/comptes/${activeAccount.publicId}/bienvenue-performance`);
+  }
+
   /*
    * The switcher earns its place only when there is something to switch
    * between. With one account it repeats the hero's first line and costs a
@@ -135,6 +180,29 @@ export default async function HubPage({
         basePath="/hub"
       />
     ) : null;
+
+  /*
+   * A3/A6 — a passed evaluation is history, and history is not a dashboard.
+   *
+   * While the handoff is still running the trader needs the transition screen.
+   * Once the Performance account exists and its rules have been read, the
+   * evaluation has no budgets left to spend and no objective left to reach;
+   * what it has is a result and a successor. Rendering the full handoff — or
+   * worse, the live mission checklist below — kept presenting a finished,
+   * non-tradable account as the one the trader is working in.
+   */
+  if (activeAccount.status === 'passed' && handoff) {
+    return (
+      <div className="flex flex-col gap-5">
+        {switcher}
+        {handoff.stage === 'performance_ready' ? (
+          <EvaluationArchive handoff={handoff} />
+        ) : (
+          <PerformanceHandoff handoff={handoff} />
+        )}
+      </div>
+    );
+  }
 
   const baseDetails: HeroDetail[] = [
     { label: copy.reference, value: activeAccount.publicId },
@@ -208,7 +276,10 @@ export default async function HubPage({
    */
   const missionAction = mission.available ? mission.nextAction : null;
   const heroAction =
-    missionAction ?? (lifecycle.tradable ? { label: copy.openWarix, href: '/trade' } : null);
+    missionAction ??
+    (lifecycle.tradable
+      ? { label: copy.openWarix, href: `/trade?account=${activeAccount.id}` }
+      : null);
 
   const details: HeroDetail[] = [
     ...(hub.activatedAtLabel ? [{ label: copy.activatedOn, value: hub.activatedAtLabel }] : []),
@@ -229,7 +300,7 @@ export default async function HubPage({
         {lifecycle.tradable ? (
           <div className="hidden sm:block">
             <ActionLink
-              href="/trade"
+              href={`/trade?account=${activeAccount.id}`}
               size="sm"
               variant="secondary"
               icon="warix"
@@ -258,10 +329,29 @@ export default async function HubPage({
                 ]
               : []
           }
+          /*
+           * Phase 3.2 — the breached account finally has a recourse.
+           *
+           * Until now a trader whose account was terminated could read the
+           * evidence and buy another one. §8 adds the third path the Product OS
+           * Master always required: contest the decision. It is the secondary
+           * action rather than the primary because buying again is what most
+           * traders do and contesting is what some need — but it is on the
+           * banner itself, not buried in Support, because the banner is where
+           * the trader is standing when they disagree.
+           *
+           * The link carries the account and nothing else. Which decisions are
+           * contestable is resolved server-side from the account's own recorded
+           * violations; the URL cannot nominate one.
+           */
           {...(lifecycle.state === 'breached'
             ? {
                 action: { label: 'Acheter un nouveau compte', href: '/comptes/nouveau' },
-                secondaryAction: { label: 'Voir le détail', href: '#activity' },
+                secondaryAction: {
+                  label: 'Ouvrir une contestation',
+                  href: `/support/contestations/nouvelle?account=${activeAccount.id}`,
+                },
+                tertiaryAction: { label: 'Voir le détail', href: '#activity' },
               }
             : {})}
         />
@@ -306,6 +396,7 @@ export default async function HubPage({
                   maximumLossFloorFormatted: formatUsd(risk.amounts.maximumLossFloor),
                   binding: risk.room.binding,
                   objectivePercent: mission.available ? mission.progressPercent : null,
+                  objectiveLabel: mission.available ? mission.progressLabel : null,
                   capturedAt: command.capturedAt,
                 }}
                 /*
@@ -402,6 +493,8 @@ export default async function HubPage({
                       : 'Mission évaluation'
                   }
                   title={mission.title}
+                  progressLabel={mission.progressLabel}
+                  progressDetail={mission.progressDetail}
                   progressPercent={mission.progressPercent}
                   conditions={mission.conditions}
                   footer={
@@ -413,7 +506,15 @@ export default async function HubPage({
                       ) : (
                         <span />
                       )}
-                      <ActionLink href="/programme#regles" variant="secondary" size="sm">
+                      <ActionLink
+                        href={
+                          isPerformanceAccount
+                            ? `/comptes/${activeAccount.publicId}/regles`
+                            : '/aide/wariba-one/regles-essentielles'
+                        }
+                        variant="secondary"
+                        size="sm"
+                      >
                         Voir les règles du programme
                       </ActionLink>
                     </div>
@@ -436,7 +537,15 @@ export default async function HubPage({
                     Votre progression réapparaîtra ici dès qu’un cycle sera ouvert sur ce compte.
                   </Text>
                   <div className="pt-1">
-                    <ActionLink href="/programme#regles" variant="secondary" size="sm">
+                    <ActionLink
+                      href={
+                        isPerformanceAccount
+                          ? `/comptes/${activeAccount.publicId}/regles`
+                          : '/aide/wariba-one/regles-essentielles'
+                      }
+                      variant="secondary"
+                      size="sm"
+                    >
                       Voir les règles du programme
                     </ActionLink>
                   </div>
@@ -471,6 +580,7 @@ export default async function HubPage({
                         triggerLabel="Voir le détail du risque"
                         violation={primaryViolation}
                         timestampLabel={activity[0]?.timestampLabel ?? risk.nextResetLabel}
+                        accountId={activeAccount.id}
                       />
                     ),
                   }

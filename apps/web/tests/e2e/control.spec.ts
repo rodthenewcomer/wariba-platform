@@ -12,13 +12,13 @@ import {
   seedStaffAuditEvents,
   deleteStaffAuditEvents,
   evaluateReserveStatus,
-  STAFF_E2E_TEST_PASSWORD,
   type Db,
   type PayoutAccountFixture,
   type PayoutFixtureEnvironment,
   type StaffAuditFixture,
   type StaffFixtureUser,
 } from '@wariba/test-utils';
+import { SessionPool } from './sessions';
 
 /**
  * Prompt 7 Appendix 07-B, gate 4/5 — /control's real authorization
@@ -26,55 +26,25 @@ import {
  * session experiences (not just the DB-level RLS covered by
  * packages/database/tests/staff-rls.integration.test.ts).
  */
-type BrowserCookies = Awaited<ReturnType<import('@playwright/test').BrowserContext['cookies']>>;
-
-/**
- * One real sign-in per fixture user, captured once in beforeAll.
+/*
+ * Sessions come from the shared pool (tests/e2e/sessions.ts).
  *
- * Supabase caps sign-ins at `sign_in_sign_ups = 30` per five minutes per IP
- * (supabase/config.toml). This spec exercises ~50 role checks; authenticating
- * for each one exceeded that limit and GoTrue started rejecting logins, which
- * surfaced as a login that never reached /hub — indistinguishable from an
- * authorization failure, and moving from test to test as the suite's timing
- * shifted. The limit is a real protection and is not raised here: the suite
- * simply stops asking for 50 sessions when it needs six.
+ * The capture-once-reuse-many pattern was invented here, to stop this suite's
+ * ~50 role checks exhausting Supabase's `sign_in_sign_ups` limit and producing
+ * failures that read as authorization bugs. It now lives in one module so the
+ * Support suites inherit it instead of rediscovering the same limit.
  */
-const sessions = new Map<string, BrowserCookies>();
+const sessions = new SessionPool();
 
 async function captureSession(
   browser: import('@playwright/test').Browser,
   email: string,
 ): Promise<void> {
-  const context = await browser.newContext();
-  try {
-    const page = await context.newPage();
-    await page.goto('/login');
-    await page.getByLabel('Adresse e-mail').fill(email);
-    await page.getByLabel('Mot de passe', { exact: true }).fill(STAFF_E2E_TEST_PASSWORD);
-    await page.getByRole('button', { name: 'Se connecter' }).click();
-    await page.waitForURL('**/hub', { timeout: 30_000 });
-
-    // Landing on /hub is not proof the session is usable by the next
-    // navigation: the redirect can complete before the auth cookie is
-    // committed to the jar. Waiting for the cookie is a real state check —
-    // it is the thing every later request will actually carry.
-    await expect
-      .poll(async () => (await context.cookies()).some((c) => c.name.includes('auth-token')), {
-        timeout: 15_000,
-      })
-      .toBe(true);
-    sessions.set(email, await context.cookies());
-  } finally {
-    await context.close();
-  }
+  await sessions.captureStaff(browser, email);
 }
 
-/** Adopts a captured session. No network sign-in, so no rate-limit budget. */
 async function actAs(page: import('@playwright/test').Page, email: string): Promise<void> {
-  const cookies = sessions.get(email);
-  if (!cookies) throw new Error(`No captured session for ${email}.`);
-  await page.context().clearCookies();
-  await page.context().addCookies(cookies);
+  await sessions.actAs(page, email);
 }
 
 test.describe('WariX Control — role-based authorization', { tag: ['@control'] }, () => {
@@ -163,7 +133,7 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
 
     await page.goto('/control');
     await expect(page).toHaveURL(/\/control$/);
-    await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Vue d’ensemble' })).toBeVisible();
 
     await page.goto('/control/users');
     await expect(page).toHaveURL(/\/control\/users$/);
@@ -282,12 +252,19 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     await page.goto('/control');
 
     const nav = page.getByRole('navigation').first();
-    await expect(nav.getByRole('link', { name: 'Users' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Utilisateurs' })).toBeVisible();
     // Menu filtering is usability, not the boundary — but it must still not
     // advertise a surface this role would be refused at.
     await expect(nav.getByRole('link', { name: 'Audit' })).toHaveCount(0);
     await expect(nav.getByRole('link', { name: 'Treasury' })).toHaveCount(0);
     await expect(nav.getByRole('link', { name: 'Team Access' })).toHaveCount(0);
+
+    // Phase 3.2 — support holds `support.read` and `dispute.read`, so both new
+    // areas are advertised. Reading a contestation is first-line work;
+    // deciding one is not, and that split is enforced at the actions rather
+    // than by hiding the queue.
+    await expect(nav.getByRole('link', { name: 'Support' })).toBeVisible();
+    await expect(nav.getByRole('link', { name: 'Contestations' })).toBeVisible();
   });
 
   test('the audit trail is read-only — no mutating control is offered @control', async ({
@@ -462,13 +439,13 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     await page.goto(`/control/accounts/${payoutAccount.accountId}`);
 
     // Authorized sections are present...
-    await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Vue d’ensemble' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Trading' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Payout' })).toBeVisible();
 
     // ...and the rest were never queried, so nothing renders for them. This
     // asserts the server response, not a hidden tab.
-    await expect(page.getByRole('heading', { name: 'Risk & Integrity' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Risque & intégrité' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Réconciliation financière' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Incidents' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Audit' })).toHaveCount(0);
@@ -501,8 +478,8 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     await page.goto(
       `/control/accounts/${payoutAccount.accountId}?section=risk&sections=all&reconciliation=1`,
     );
-    await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Risk & Integrity' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Vue d’ensemble' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Risque & intégrité' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Réconciliation financière' })).toHaveCount(0);
   });
 
@@ -511,9 +488,9 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
     await page.goto(`/control/accounts/${payoutAccount.accountId}`);
 
     for (const heading of [
-      'Overview',
+      'Vue d’ensemble',
       'Trading',
-      'Risk & Integrity',
+      'Risque & intégrité',
       'Payout',
       'Réconciliation financière',
       'Incidents',
@@ -1198,6 +1175,12 @@ test.describe('WariX Control — role-based authorization', { tag: ['@control'] 
       '/control/trading',
       '/control/integrity',
       '/control/payouts',
+      // Phase 3.2 — the two areas Support + Contestations added. Listed here
+      // for the same reason the rest are: the property this test asserts is
+      // about the whole navigation, and an area missing from the list is an
+      // area the property silently stops covering.
+      '/control/support',
+      '/control/contestations',
       '/control/market-operations',
       '/control/incidents',
       '/control/treasury',
@@ -1308,7 +1291,7 @@ test.describe('WariX Control — mobile', { tag: ['@control', '@mobile'] }, () =
   test('Control navigation is reachable on a phone', async ({ page }) => {
     await actAs(page, adminStaff.email);
     await page.goto('/control');
-    await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Vue d’ensemble' })).toBeVisible();
     // Every authorized area must be navigable without a pointer-only affordance.
     const nav = page.getByRole('navigation');
     await expect(nav.first()).toBeVisible();

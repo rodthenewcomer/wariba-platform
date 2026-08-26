@@ -90,7 +90,9 @@ async function openTrade(page: import('@playwright/test').Page) {
   const ticketTrigger = page.getByRole('button', { name: /^Trader EURUSD$/ });
   await expect(ticketTrigger).toBeVisible({ timeout: 30_000 });
   await expect(ticketTrigger).toBeEnabled();
-  await expect(page.getByTestId('mobile-market-trigger')).not.toContainText('— / —', {
+  // The phone's symbol control is the chart toolbar's, not a separate market
+  // bar trigger: `mobile-market-trigger` no longer exists.
+  await expect(page.getByTestId('chart-symbol-search-trigger')).toBeVisible({
     timeout: 30_000,
   });
 }
@@ -128,10 +130,30 @@ async function delayOrderResults(
   });
 }
 
+/**
+ * Waits until the chart has a price to answer with, then returns its group.
+ *
+ * The context menu is price-anchored: `handleContextMenuEvent` converts the
+ * click's Y into a price and, if the chart cannot yet give one, returns
+ * without opening anything. That is correct — a menu offering "Achat au marché
+ * @ —" would be worse — but it means a right-click fired before the price
+ * scale is populated silently does nothing, and the test then waits for a menu
+ * that was never going to appear. Measured at roughly one run in five.
+ *
+ * `chart-ohlc-legend` renders exactly when the chart holds bar data, which is
+ * the same condition the price lookup needs, so it is the signal rather than a
+ * guess at how long the chart takes.
+ */
+async function chartReadyForPrice(page: import('@playwright/test').Page, symbol = 'EURUSD') {
+  const chart = page.getByRole('group', { name: `Graphique ${symbol}` });
+  await expect(chart).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('chart-ohlc-legend')).toBeVisible({ timeout: 30_000 });
+  return chart;
+}
+
 async function openTouchChartMenu(page: import('@playwright/test').Page) {
-  const chart = page.getByRole('group', { name: 'Graphique EURUSD' });
+  const chart = await chartReadyForPrice(page);
   await chart.scrollIntoViewIfNeeded();
-  await expect(chart).toBeVisible();
   await expect(chart.locator('canvas').first()).toBeVisible();
 
   const box = await chart.boundingBox();
@@ -160,6 +182,32 @@ async function openTouchChartMenu(page: import('@playwright/test').Page) {
     await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await session.detach();
   }
+}
+
+/**
+ * Opens the Markets drawer and picks a symbol, the way a trader does.
+ *
+ * The catalogue used to be a permanent column, so a bare `getByText('GBPUSD')`
+ * found it. The W2/VX1 pass moved it into the Markets utility drawer, which is
+ * closed until asked for — so the loose locator started resolving to whatever
+ * else happened to print the symbol (a positions cell, a hidden mobile sheet)
+ * and then hung waiting for that to become clickable. Going through the drawer
+ * and clicking the row's own button is both the real path and an unambiguous
+ * one.
+ */
+async function selectSymbol(page: import('@playwright/test').Page, symbol: string) {
+  await page.getByTestId('utility-markets').click();
+  const navigator = page.getByTestId('market-navigator').first();
+  await expect(navigator).toBeVisible();
+  const row = navigator.getByRole('button', { name: new RegExp(`^${symbol}`) });
+  await expect(row).toBeVisible();
+  await row.click();
+  // The chart is the surface that proves the selection landed. The execution
+  // header lives in the Trade drawer, which the Markets drawer has replaced on
+  // screen — a caller that needs it opens that drawer itself.
+  await expect(page.getByRole('group', { name: `Graphique ${symbol}` })).toBeVisible();
+  await page.getByTestId('utility-markets').click();
+  return row;
 }
 
 test.describe('WariX order lifecycle', { tag: ['@trade'] }, () => {
@@ -328,7 +376,8 @@ test.describe('WariX Close All', { tag: ['@trade'] }, () => {
     await page.getByRole('tab', { name: 'Positions' }).click();
     await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toBeVisible();
 
-    await page.getByText('GBPUSD').first().click();
+    await selectSymbol(page, 'GBPUSD');
+    await page.getByTestId('utility-trade').click();
     await expect(page.getByTestId('execution-market-header')).toContainText('GBPUSD');
     await page.getByRole('button', { name: 'Sell' }).first().click();
 
@@ -370,14 +419,34 @@ test.describe('WariX reconnection', { tag: ['@trade', '@recovery'] }, () => {
     await openTrade(page);
 
     await expect.poll(() => routedSockets.length).toBe(1);
+    const chip = page.getByTestId('workstation-connection');
+
+    /*
+     * `data-connection`, not the words.
+     *
+     * VX1-C.1 §3 deliberately took `CONNECTÉ`, `Hors ligne` and `Reconnexion…`
+     * out of the header: a label that is almost always true spent header width
+     * on nothing, and a degraded feed was being announced three times over. The
+     * sentence survives as the tooltip and the accessible name, and the
+     * component's own note says `data-connection` "keeps exactly the three
+     * values it has always published, so every existing check still reads the
+     * same state it did before". This is that check.
+     *
+     * It is also the better contract: a transient string that a fast reconnect
+     * can outrun is not something a test can require to be *seen*, whereas the
+     * account leaving and regaining a healthy feed is exactly what matters.
+     */
     await routedSockets[0]!.close({ code: 1012, reason: 'recovery test' });
-    await expect(page.getByText('Reconnexion…').first()).toBeVisible({ timeout: 15_000 });
+    await expect(chip).not.toHaveAttribute('data-connection', 'open', { timeout: 15_000 });
+    await expect(chip).toHaveAccessibleName(
+      /Reconnexion au flux|Flux hors ligne|Données retardées/,
+    );
 
     // The socket drop doesn't mean failure — RealtimeClient reconnects and
-    // resubscribes on its own; the UI settles back to "Connecté" without
-    // any user action. Generous timeout: reconnect backoff plus a full
-    // snapshot re-fetch can stack to well past 10s in this environment.
-    await expect(page.getByText('Connecté')).toBeVisible({ timeout: 40_000 });
+    // resubscribes on its own; the feed returns without any user action.
+    // Generous timeout: reconnect backoff plus a full snapshot re-fetch can
+    // stack to well past 10s in this environment.
+    await expect(chip).toHaveAttribute('data-connection', 'open', { timeout: 40_000 });
   });
 });
 
@@ -439,10 +508,16 @@ test.describe('WariX keyboard access', { tag: ['@trade', '@accessibility'] }, ()
     await login(page, tradeAccount.email, tradeAccount.password);
     await openTrade(page);
 
-    const xauusdRow = page.getByRole('button', { name: /XAUUSD/ }).first();
+    await page.getByTestId('utility-markets').click();
+    const navigator = page.getByTestId('market-navigator').first();
+    await expect(navigator).toBeVisible();
+    const xauusdRow = navigator.getByRole('button', { name: /^XAUUSD/ });
     await xauusdRow.focus();
     await page.keyboard.press('Enter');
     await expect(xauusdRow).toHaveAttribute('aria-current', 'true');
+    await expect(page.getByRole('group', { name: 'Graphique XAUUSD' })).toBeVisible();
+    // And the execution context follows, once its own drawer is in front.
+    await page.getByTestId('utility-trade').click();
     await expect(page.getByTestId('execution-market-header')).toContainText('XAUUSD');
   });
 });
@@ -506,7 +581,7 @@ test.describe('WariX chart context menu', { tag: ['@trade'] }, () => {
     // TradingView attribution link) is an ancestor of every canvas it
     // holds, so a right-click here is a stable, correct target regardless
     // of internal stacking order.
-    const chartCanvas = page.getByRole('group', { name: 'Graphique EURUSD' });
+    const chartCanvas = await chartReadyForPrice(page);
     await chartCanvas.click({ button: 'right' });
 
     const menu = page.getByRole('menu');
@@ -518,7 +593,8 @@ test.describe('WariX chart context menu', { tag: ['@trade'] }, () => {
     await expect(menu.getByText(/^Prix /)).toBeVisible();
     await expect(menu.getByRole('menuitem', { name: 'Achat au marché' })).toBeVisible();
     await expect(menu.getByRole('menuitem', { name: 'Vente au marché' })).toBeVisible();
-    // Appendix 07-D — "Créer une alerte ici" is always offered, and one or
+    // Appendix 07-D — the alert action is always offered (its label carries the
+    // clicked price, §19), and one or
     // two of the four Buy/Sell Limit/Stop suggestions are valid for any
     // given clicked price relative to the live bid/ask
     // (isPendingOrderCreationPriceValid, @wariba/domain): normally exactly
@@ -529,7 +605,7 @@ test.describe('WariX chart context menu', { tag: ['@trade'] }, () => {
     // sandbox's live feed, not a bug. Never zero, never all four either
     // way. Which ones depends on where this click landed at that instant,
     // so this only asserts the count is in range, not which labels.
-    await expect(menu.getByRole('menuitem', { name: 'Créer une alerte ici' })).toBeVisible();
+    await expect(menu.getByRole('menuitem', { name: /^Créer une alerte @ / })).toBeVisible();
     const pendingOrderLabels = ['Buy Limit ici', 'Sell Limit ici', 'Buy Stop ici', 'Sell Stop ici'];
     let visiblePendingSuggestions = 0;
     for (const label of pendingOrderLabels) {
@@ -560,7 +636,7 @@ test.describe('WariX chart context menu', { tag: ['@trade'] }, () => {
     await login(page, tradeAccount.email, tradeAccount.password);
     await openTrade(page);
 
-    const chartCanvas = page.getByRole('group', { name: 'Graphique EURUSD' });
+    const chartCanvas = await chartReadyForPrice(page);
     await chartCanvas.click({ button: 'right' });
     await expect(page.getByRole('menu')).toBeVisible();
     await page.keyboard.press('Escape');
@@ -585,7 +661,7 @@ test.describe('WariX chart context menu', { tag: ['@trade'] }, () => {
     await page.getByRole('tab', { name: 'Positions' }).click();
     await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toBeVisible();
 
-    const chartCanvas = page.getByRole('group', { name: 'Graphique EURUSD' });
+    const chartCanvas = await chartReadyForPrice(page);
     await chartCanvas.click({ button: 'right' });
     const menu = page.getByRole('menu');
     await expect(menu.getByRole('menuitem', { name: 'Ajouter un Stop Loss' })).toBeVisible();
@@ -623,7 +699,7 @@ test.describe('WariX mobile chart context menu', { tag: ['@trade', '@mobile'] },
     const sheet = await openTouchChartMenu(page);
     await expect(sheet.getByRole('menuitem', { name: 'Achat au marché' })).toBeVisible();
     await expect(sheet.getByRole('menuitem', { name: 'Vente au marché' })).toBeVisible();
-    await expect(sheet.getByRole('menuitem', { name: 'Créer une alerte ici' })).toBeVisible();
+    await expect(sheet.getByRole('menuitem', { name: /^Créer une alerte @ / })).toBeVisible();
 
     const pendingOrderLabels = ['Buy Limit ici', 'Sell Limit ici', 'Buy Stop ici', 'Sell Stop ici'];
     let visiblePendingSuggestions = 0;

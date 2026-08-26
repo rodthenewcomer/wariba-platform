@@ -32,13 +32,13 @@ export function QuickActions({ actions }: { actions: readonly QuickAction[] }) {
   return (
     <Surface data-testid="quick-actions" className="flex flex-col gap-4 p-5 sm:p-6">
       <SurfaceTitle>Actions rapides</SurfaceTitle>
-      <ul className="grid gap-2 sm:grid-cols-2">
+      <ul className="grid min-w-0 gap-2 sm:grid-cols-2">
         {actions.map((action) => (
-          <li key={`${action.href}-${action.label}`}>
+          <li key={`${action.href}-${action.label}`} className="min-w-0">
             <Link
               href={action.href}
               className={[
-                'group flex min-h-[56px] w-full items-center gap-3 rounded-[10px] border px-3.5 py-2.5',
+                'group flex min-h-[56px] min-w-0 w-full max-w-full items-center gap-3 rounded-[10px] border px-3.5 py-2.5',
                 'transition-[background-color,border-color] duration-[var(--wariba-component-workstation-motion-interaction)]',
                 'focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2',
                 'focus-visible:outline-[color:var(--wariba-border-focus)] motion-reduce:transition-none',

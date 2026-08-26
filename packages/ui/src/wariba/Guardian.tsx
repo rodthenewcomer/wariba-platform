@@ -38,7 +38,8 @@ function statLine(label: string, value: string) {
 /**
  * UX Architecture §22.8 / Rulebook §9.5 / DECISION_LOG PROD-011 (LOCKED) —
  * Guardian is deterministic. It shows impact potentiel, marge, exposition,
- * DLL restante, Maximum Loss restante, concentration informative, prix
+ * perte quotidienne restante, perte maximale restante, concentration
+ * informative, prix
  * périmé, restriction news/weekend. It never says "Achetez", "Vendez",
  * "Setup fort", or a win probability — there is no such copy anywhere in
  * this component, by design, not by omission.
@@ -73,7 +74,7 @@ export function Guardian({
           Impact potentiel — {symbol} {quantityFormatted}
         </span>
         {statLine('Marge estimée', marginEstimatedFormatted)}
-        {statLine('DLL restante', dailyLossRemainingFormatted)}
+        {statLine('Perte quotidienne restante', dailyLossRemainingFormatted)}
         {statLine('Perte max. restante', maximumLossRemainingFormatted)}
       </div>
 

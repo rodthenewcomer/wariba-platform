@@ -187,6 +187,8 @@ export interface AccountOverviewSection {
   payoutMethodSandboxConfigured: boolean;
   activatedAt: Date | null;
   createdAt: Date;
+  sourceEvaluation: { id: string; publicId: string } | null;
+  performanceChild: { id: string; publicId: string } | null;
 }
 
 export interface AccountTradingSection {
@@ -321,6 +323,14 @@ export async function loadControlAccountDetail(
   // show, so there is nothing to query either.
   const account = await db
     .selectFrom('app.trading_accounts')
+    .leftJoin(
+      'app.trading_accounts as source_evaluation',
+      'source_evaluation.id',
+      'app.trading_accounts.source_evaluation_account_id',
+    )
+    .leftJoin('app.trading_accounts as performance_child', (join) =>
+      join.onRef('performance_child.source_evaluation_account_id', '=', 'app.trading_accounts.id'),
+    )
     .leftJoin('auth.users', 'auth.users.id', 'app.trading_accounts.user_id')
     .innerJoin(
       'app.policy_versions',
@@ -343,6 +353,10 @@ export async function loadControlAccountDetail(
       'app.trading_accounts.payout_method_sandbox_configured',
       'app.trading_accounts.activated_at',
       'app.trading_accounts.created_at',
+      'source_evaluation.id as source_evaluation_id',
+      'source_evaluation.public_id as source_evaluation_public_id',
+      'performance_child.id as performance_child_id',
+      'performance_child.public_id as performance_child_public_id',
       'app.policy_versions.semantic_version as policy_version',
       'app.policy_versions.status as policy_status',
     ])
@@ -368,6 +382,20 @@ export async function loadControlAccountDetail(
       payoutMethodSandboxConfigured: account.payout_method_sandbox_configured,
       activatedAt: account.activated_at,
       createdAt: account.created_at,
+      sourceEvaluation:
+        account.source_evaluation_id && account.source_evaluation_public_id
+          ? {
+              id: account.source_evaluation_id,
+              publicId: account.source_evaluation_public_id,
+            }
+          : null,
+      performanceChild:
+        account.performance_child_id && account.performance_child_public_id
+          ? {
+              id: account.performance_child_id,
+              publicId: account.performance_child_public_id,
+            }
+          : null,
     };
   }
 

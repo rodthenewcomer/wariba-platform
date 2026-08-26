@@ -6,7 +6,6 @@ import {
   CircleQuestionMark,
   ClipboardCheck,
   LayoutList,
-  Signal,
   Timeline,
   type LucideProps,
 } from 'lucide-react';
@@ -104,7 +103,18 @@ interface WariXMarketFeedIconProps extends WarixSymbolProps {
   state: MarketFeedState;
 }
 
-/** Header-only connectivity state. It is deliberately not a destination. */
+/**
+ * Header-only connectivity state. It is deliberately not a destination.
+ *
+ * Three ascending bars, drawn here rather than imported, because the state is
+ * carried by *how many are lit* (VX1-C.1 §3) and by the ambient sweep across
+ * them (VX1-D §13) — behaviour `globals.css` styles by the per-bar classes
+ * below. VX1-F.1 swept the destination icons onto lucide and took this one
+ * with them; a single `Signal` glyph has no bars to light or stagger, so the
+ * stylesheet stopped matching anything and the feed's state collapsed onto
+ * colour alone, while this file's own callers went on documenting bars.
+ * Restored so the code, its stylesheet and its comments describe one product.
+ */
 export function WariXMarketFeedIcon({
   className = '',
   size = 20,
@@ -113,16 +123,34 @@ export function WariXMarketFeedIcon({
 }: WariXMarketFeedIconProps) {
   const resolvedSize = resolveSize(size);
   return (
-    <Signal
-      {...props}
+    <svg
       aria-hidden="true"
       className={`warix-market-feed-icon warix-market-feed-icon--${state} ${className}`.trim()}
       data-market-feed-state={state}
+      fill="none"
       focusable="false"
       height={resolvedSize}
       role="presentation"
-      strokeWidth={2}
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.75"
+      viewBox="0 0 24 24"
       width={resolvedSize}
-    />
+      {...props}
+    >
+      <path
+        className="warix-market-feed-icon__bar warix-market-feed-icon__bar--one"
+        d="M5.5 15.75v2.75"
+      />
+      <path
+        className="warix-market-feed-icon__bar warix-market-feed-icon__bar--two"
+        d="M12 10.5v8"
+      />
+      <path
+        className="warix-market-feed-icon__bar warix-market-feed-icon__bar--three"
+        d="M18.5 5.5v13"
+      />
+    </svg>
   );
 }

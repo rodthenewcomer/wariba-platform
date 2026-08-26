@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDbClient, type Db } from '../src/client';
 import { activateEvaluationAccount } from '../src/activation';
 import { activatePerformanceAccountInTransaction, loadActiveCycle } from '../src/performance';
+import { acknowledgePerformanceRules } from '../src/performance-onboarding';
 
 /**
  * Appendix 08-A — payout row-level-security regression.
@@ -50,6 +51,8 @@ describeIfDb('payout requests — row level security (real database)', () => {
   let userB: string;
   let payoutA: string;
   let payoutB: string;
+  let acknowledgementA: string;
+  let acknowledgementB: string;
   const cleanupUserIds: string[] = [];
   const cleanupAccountIds: string[] = [];
 
@@ -69,7 +72,9 @@ describeIfDb('payout requests — row level security (real database)', () => {
   };
 
   /** A performance account with one pending payout request, created server-side. */
-  const createPayoutFor = async (userId: string): Promise<string> => {
+  const createPayoutFor = async (
+    userId: string,
+  ): Promise<{ payoutId: string; acknowledgementId: string }> => {
     const productVersion = await db
       .selectFrom('app.product_versions')
       .innerJoin('app.products', 'app.products.id', 'app.product_versions.product_id')
@@ -99,13 +104,21 @@ describeIfDb('payout requests — row level security (real database)', () => {
       currency: productVersion.nominal_currency,
     });
     cleanupAccountIds.push(evaluation.id);
+    await db
+      .updateTable('app.trading_accounts')
+      .set({ status: 'passed' })
+      .where('id', '=', evaluation.id)
+      .execute();
     const performance = await activatePerformanceAccountInTransaction(db, {
       evaluationAccountId: evaluation.id,
-      userId,
-      nominalBalance: productVersion.nominal_balance,
-      currency: productVersion.nominal_currency,
     });
     cleanupAccountIds.push(performance.id);
+    const acknowledgement = await acknowledgePerformanceRules(db, {
+      userId,
+      accountId: performance.id,
+      correlationId: randomUUID(),
+      now: new Date(),
+    });
     const cycle = await loadActiveCycle(db, performance.id);
     const request = await db
       .insertInto('app.payout_requests')
@@ -123,20 +136,28 @@ describeIfDb('payout requests — row level security (real database)', () => {
       })
       .returning('id')
       .executeTakeFirstOrThrow();
-    return request.id;
+    return { payoutId: request.id, acknowledgementId: acknowledgement.id };
   };
 
   beforeAll(async () => {
     db = createDbClient(DATABASE_URL as string);
     userA = await createTestUser(`payout-rls-a-${randomUUID()}@wariba-test.invalid`);
     userB = await createTestUser(`payout-rls-b-${randomUUID()}@wariba-test.invalid`);
-    payoutA = await createPayoutFor(userA);
-    payoutB = await createPayoutFor(userB);
+    const fixtureA = await createPayoutFor(userA);
+    const fixtureB = await createPayoutFor(userB);
+    payoutA = fixtureA.payoutId;
+    payoutB = fixtureB.payoutId;
+    acknowledgementA = fixtureA.acknowledgementId;
+    acknowledgementB = fixtureB.acknowledgementId;
   }, 60000);
 
   afterAll(async () => {
     for (const id of cleanupAccountIds) {
       await db.deleteFrom('app.payout_requests').where('account_id', '=', id).execute();
+      await db
+        .deleteFrom('app.performance_rule_acknowledgements')
+        .where('account_id', '=', id)
+        .execute();
       await db.deleteFrom('app.performance_cycles').where('account_id', '=', id).execute();
       await db.deleteFrom('app.trading_ledger_entries').where('account_id', '=', id).execute();
       await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', id).execute();
@@ -247,6 +268,32 @@ describeIfDb('payout requests — row level security (real database)', () => {
     await expect(
       asRole(db, 'anon', null, (trx) =>
         trx.selectFrom('app.payout_requests').select('id').execute(),
+      ),
+    ).rejects.toThrow(/permission denied/);
+  });
+
+  it('Performance acknowledgement evidence is unreadable and immutable from browser roles', async () => {
+    await expect(
+      asRole(db, 'authenticated', userA, (trx) =>
+        trx
+          .selectFrom('app.performance_rule_acknowledgements')
+          .select('id')
+          .where('id', 'in', [acknowledgementA, acknowledgementB])
+          .execute(),
+      ),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      asRole(db, 'authenticated', userA, (trx) =>
+        trx
+          .updateTable('app.performance_rule_acknowledgements')
+          .set({ source: 'performance_onboarding' })
+          .where('id', '=', acknowledgementA)
+          .execute(),
+      ),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      asRole(db, 'anon', null, (trx) =>
+        trx.selectFrom('app.performance_rule_acknowledgements').select('id').execute(),
       ),
     ).rejects.toThrow(/permission denied/);
   });

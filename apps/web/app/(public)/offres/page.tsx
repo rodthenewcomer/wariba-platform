@@ -114,7 +114,7 @@ export default async function OffersPage() {
             {[
               ['Prix final', 'Figé en FCFA au checkout'],
               ['Prix fondateur', 'Réservé aux prochaines cohortes activées'],
-              ['Policy', 'Version acceptée et attachée au compte'],
+              ['Règles', 'La version acceptée reste attachée au compte'],
             ].map(([label, value]) => (
               <div key={label}>
                 <Text variant="label-sm" className="text-[color:var(--wariba-color-ink-300)]">

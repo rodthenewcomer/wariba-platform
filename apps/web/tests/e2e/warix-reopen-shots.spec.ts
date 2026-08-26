@@ -87,16 +87,19 @@ test.describe('WX1 reopen renders', { tag: ['@warix-reopen'] }, () => {
     await shot('desktop-1440-flyout-fibonacci');
     await page.keyboard.press('Escape');
 
-    await page.getByTestId('chart-tool-family-shapes').click();
-    await expect(page.getByTestId('chart-tool-flyout-shapes')).toBeVisible();
+    /*
+     * `shapes` became four families, and `measure` left the rail.
+     *
+     * The catalogue was a single "shapes" drawer; it is now `channels`,
+     * `brushes`, `annotations` and `markers`, each with its own flyout, and
+     * `DrawingToolRail` deliberately filters `measure` out of the analysis
+     * families. The evidence this captures is "a family flyout opens and
+     * draws", so it captures one of the families that actually exists.
+     */
+    await page.getByTestId('chart-tool-family-channels').click();
+    await expect(page.getByTestId('chart-tool-flyout-channels')).toBeVisible();
     await settleLayer(page);
-    await shot('desktop-1440-flyout-shapes');
-    await page.keyboard.press('Escape');
-
-    await page.getByTestId('chart-tool-family-measure').click();
-    await expect(page.getByTestId('chart-tool-flyout-measure')).toBeVisible();
-    await settleLayer(page);
-    await shot('desktop-1440-flyout-measure');
+    await shot('desktop-1440-flyout-channels');
     await page.keyboard.press('Escape');
 
     // Visibility submenu.
@@ -171,8 +174,10 @@ test.describe('WX1 reopen renders', { tag: ['@warix-reopen'] }, () => {
       await expect(plot).toHaveAttribute('data-drawing-count', String(expectedCount));
     };
 
+    // `info_line` sits in Annotations, not Lines — the catalog groups it with
+    // the arrow and the marker it is used alongside.
     await draw(
-      'lines',
+      'annotations',
       'info_line',
       [
         { x: 0.26, y: 0.62 },
@@ -190,8 +195,9 @@ test.describe('WX1 reopen renders', { tag: ['@warix-reopen'] }, () => {
       ],
       2,
     );
+    // `rotated_rectangle` lives in `brushes` since the catalogue split.
     await draw(
-      'shapes',
+      'brushes',
       'rotated_rectangle',
       [
         { x: 0.57, y: 0.7 },
@@ -238,9 +244,9 @@ test.describe('WX1 reopen renders', { tag: ['@warix-reopen'] }, () => {
     await page.keyboard.press('Escape');
 
     await page.getByTestId('chart-tools-sheet-trigger').click();
-    await page.getByTestId('chart-tool-family-shapes').click();
+    await page.getByTestId('chart-tool-family-channels').click();
     await page.waitForTimeout(300);
-    await shot('mobile-390-tools-shapes');
+    await shot('mobile-390-tools-channels');
     await page.keyboard.press('Escape');
 
     await page.getByTestId('chart-tools-sheet-trigger').click();

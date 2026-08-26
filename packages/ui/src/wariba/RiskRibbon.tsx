@@ -81,7 +81,7 @@ export function RiskRibbon({
       />
 
       <span className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)]">
-        DLL restante&nbsp;
+        Perte quotidienne restante&nbsp;
         <span className="wariba-data font-medium text-[color:var(--wariba-text-primary)]">
           {dailyLossRemaining}
         </span>

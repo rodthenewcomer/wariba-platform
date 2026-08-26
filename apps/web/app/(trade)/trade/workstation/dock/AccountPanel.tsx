@@ -100,7 +100,7 @@ export const AccountPanel = memo(function AccountPanel({
             value={risk ? `${risk.target.current} / ${risk.target.required} USD` : '—'}
           />
           <Figure
-            label="DLL restant"
+            label="Perte quotidienne restante"
             value={risk ? `${risk.dailyLoss.remaining} USD` : '—'}
             tone={
               risk?.dailyLoss.softLockTriggered

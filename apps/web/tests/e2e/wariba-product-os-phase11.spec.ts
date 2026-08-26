@@ -245,8 +245,23 @@ test.describe('@phase11 dashboard hierarchy', () => {
       ['hub-07-320-fold', SIZES.small],
     ] as const) {
       await page.setViewportSize(size);
-      await page.waitForTimeout(400);
-      const box = await action.boundingBox();
+      /*
+       * Whichever call to action is actually on screen.
+       *
+       * The Hub carries two — the desktop one and `hub-next-action-mobile`,
+       * which the phone layout shows above the risk meters. Both are in the
+       * DOM and exactly one is ever visible, so asking the desktop one for its
+       * rectangle at 390px gets `null`: it is not hidden by accident, it is the
+       * wrong one at that width. The contract is that *the* next action is
+       * above the fold, not that a particular element is.
+       */
+      const visibleAction = page
+        .getByTestId('hub-next-action')
+        .or(page.getByTestId('hub-next-action-mobile'))
+        .filter({ visible: true })
+        .first();
+      await expect(visibleAction).toBeVisible();
+      const box = await visibleAction.boundingBox();
       expect(box).not.toBeNull();
       if (box) {
         // Entirely inside the first viewport — a trader should never have to
@@ -273,7 +288,9 @@ test.describe('@phase11 dashboard hierarchy', () => {
     await signIn(page, tradeAccount);
     await expect(page.getByTestId('account-hero')).toBeVisible();
 
-    const objective = await page.getByTestId('account-objective').boundingBox();
+    // The objective block is the mission checklist since the 2.5 command-centre
+    // pass; `account-objective` no longer exists.
+    const objective = await page.getByTestId('mission-checklist').boundingBox();
     const evolution = page.getByTestId('account-evolution');
     const evolutionEmpty = page.getByTestId('account-evolution-empty');
 

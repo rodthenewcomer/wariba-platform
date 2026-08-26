@@ -27,7 +27,7 @@ export default function TradeError({
       <WariXEmptyState
         tone="danger"
         title="WariX ne peut pas s’afficher"
-        description="Une erreur est survenue pendant le chargement. Vos positions et votre solde restent gérés côté serveur et ne sont pas affectés."
+        description="Une erreur est survenue pendant le chargement de cet écran. Vos positions et votre solde ne sont pas affectés : rien de ce qui est enregistré ne dépend de cet affichage."
         action={
           <div className="flex flex-col items-center gap-2 sm:flex-row">
             <Button variant="secondary" size="sm" onClick={reset}>

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import {
   deriveAccountLifecycle,
+  buildEvaluationToPerformanceHandoff,
   listAccountsForUser,
   type AccountSummaryDTO,
 } from '@wariba/application';
@@ -20,6 +21,7 @@ import { resolveWorkstationAccount } from './account-selection';
 import { TradeClient } from './TradeClient';
 import { WariXGate } from './WariXGate';
 import type { WorkstationAccountOption } from './workstation/WorkstationAccountSwitcher';
+import { trackEvent } from '../../../lib/analytics';
 
 // Live trading state (account, positions, WS URL) — never statically
 // cached from build time. Also avoids requiring runtime secrets at build
@@ -108,7 +110,22 @@ export default async function TradePage({
   const activeAccount = resolveWorkstationAccount(accounts, requestedAccountId);
   if (!activeAccount) redirect('/hub');
 
-  if (activeAccount.status !== 'active') {
+  if (activeAccount.status === 'passed' && activeAccount.performanceAccountId) {
+    return (
+      <WariXGate
+        title="Votre évaluation est réussie"
+        description={`Le trading continue désormais sur ${activeAccount.performanceAccountPublicId ?? 'votre compte Performance'}. Consultez ses règles avant votre premier trade.`}
+        meta={`WARIBA ONE · ${activeAccount.publicId} · Évaluation réussie`}
+        primary={{
+          label: 'Découvrir mes nouvelles règles',
+          href: `/comptes/${activeAccount.performanceAccountPublicId ?? activeAccount.publicId}/bienvenue-performance`,
+        }}
+        secondary={{ label: 'Retour au tableau de bord', href: `/hub?account=${activeAccount.id}` }}
+      />
+    );
+  }
+
+  if (activeAccount.status !== 'active' && activeAccount.status !== 'pass_pending') {
     /*
      * Program-accurate copy: the pre-W1 empty state asserted "compte WARIBA
      * ONE actif" for every account context, which is wrong for a
@@ -138,6 +155,31 @@ export default async function TradePage({
         }
       />
     );
+  }
+
+  if (activeAccount.programType === 'WARIBA_PERFORMANCE') {
+    const handoff = await buildEvaluationToPerformanceHandoff(db, {
+      userId: user.id,
+      accountId: activeAccount.id,
+    }).catch(() => null);
+    if (!handoff?.rulesAcknowledged) {
+      return (
+        <WariXGate
+          title="Prenez connaissance de vos règles Performance"
+          description="Votre compte est actif. Cette lecture est requise avant votre premier trade et ne modifie ni le compte ni ses règles."
+          meta={`WARIBA Performance · ${activeAccount.publicId}`}
+          primary={{
+            label: 'Voir mes règles',
+            href: `/comptes/${activeAccount.publicId}/bienvenue-performance`,
+          }}
+          secondary={{
+            label: 'Retour au tableau de bord',
+            href: `/hub?account=${activeAccount.id}`,
+          }}
+        />
+      );
+    }
+    trackEvent('performance_account_opened', { accountId: activeAccount.id });
   }
 
   return (

@@ -72,7 +72,7 @@ export function Launchpad({ catalog }: { catalog: OfferCatalog }) {
                 >
                   Choisir une évaluation
                 </ActionLink>
-                <ActionLink href="/programme#regles" variant="ghost" size="lg">
+                <ActionLink href="/aide/wariba-one/regles-essentielles" variant="ghost" size="lg">
                   Voir les règles
                 </ActionLink>
               </div>

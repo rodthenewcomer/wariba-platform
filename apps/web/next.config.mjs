@@ -1,5 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  /*
+   * Self-contained server output for containers.
+   *
+   * `standalone` traces the exact files the server needs and emits them with a
+   * minimal `node_modules`, which is what makes a pnpm *workspace* app
+   * deployable as an image at all — without it the runtime stage has to carry
+   * the whole monorepo and its symlinked packages. It changes nothing for a
+   * platform that builds Next itself; it only adds `.next/standalone`.
+   */
+  output: 'standalone',
   poweredByHeader: false,
   async headers() {
     return [

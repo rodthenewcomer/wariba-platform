@@ -79,6 +79,7 @@ export interface TradeCommandResult {
 
 const REJECTION = {
   ACCOUNT_NOT_ACTIVE: 'account_not_active',
+  PERFORMANCE_RULES_NOT_ACKNOWLEDGED: 'performance_rules_not_acknowledged',
   STALE_MARKET_DATA: 'stale_market_data',
   INVALID_QUANTITY: 'invalid_quantity',
   UNKNOWN_SYMBOL_SPEC: 'unknown_symbol_spec',
@@ -370,9 +371,32 @@ export async function openPositionInTransaction(
       now: params.now,
     });
 
-  if (account.status !== 'active') {
+  // `pass_pending` means the intraday objective is currently satisfied, not
+  // that the Evaluation has passed. Until daily finalization every rule still
+  // applies and trading permissions remain unchanged (Phase 3.3.1).
+  if (account.status !== 'active' && account.status !== 'pass_pending') {
     return reject(REJECTION.ACCOUNT_NOT_ACTIVE);
   }
+  if (account.program_type === 'WARIBA_PERFORMANCE') {
+    const acknowledgement = await trx
+      .selectFrom('app.performance_rule_acknowledgements')
+      .select('id')
+      .where('account_id', '=', account.id)
+      .where('policy_version_id', '=', account.policy_version_id)
+      .executeTakeFirst();
+    if (!acknowledgement) {
+      return reject(REJECTION.PERFORMANCE_RULES_NOT_ACKNOWLEDGED);
+    }
+  }
+
+  const isFirstPerformanceTrade =
+    account.program_type === 'WARIBA_PERFORMANCE' &&
+    !(await trx
+      .selectFrom('app.fills')
+      .select('id')
+      .where('account_id', '=', account.id)
+      .limit(1)
+      .executeTakeFirst());
 
   const exposureRejection = await findExposureIncreaseRejection(trx, account.id);
   if (exposureRejection) {
@@ -548,6 +572,24 @@ export async function openPositionInTransaction(
       occurred_at: params.now,
     })
     .execute();
+
+  if (isFirstPerformanceTrade) {
+    await trx
+      .insertInto('app.outbox_events')
+      .values({
+        aggregate_type: 'trading_account',
+        aggregate_id: account.id,
+        event_type: 'performance_first_trade',
+        payload: JSON.stringify({
+          accountId: account.id,
+          orderId: order.id,
+          positionId: position.id,
+          fillId: fill.id,
+        }),
+        occurred_at: params.now,
+      })
+      .execute();
+  }
 
   const riskOutcome = await evaluateAndApplyAccountRiskInTransaction(trx, {
     accountId: params.accountId,

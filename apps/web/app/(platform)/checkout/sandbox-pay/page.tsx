@@ -11,6 +11,22 @@ import { Alert, Button, Card, Text } from '@wariba/ui';
  * would use. The browser never marks a payment confirmed; see
  * app/api/v1/checkout/sandbox-pay/route.ts and the webhook handler.
  */
+/*
+ * Never prerendered.
+ *
+ * Every other route under `(platform)` sets this; this page was the one that
+ * did not, so it was the only page Next tried to render at build time — which
+ * runs the platform layout, which builds a Supabase server client, which
+ * validates the full server config. The consequence only appears when you try
+ * to containerise: the image build demanded APP_ENV, DATABASE_URL,
+ * SUPABASE_SERVICE_ROLE_KEY and the webhook secret as build inputs, and a build
+ * argument is readable in image history forever.
+ *
+ * It is also simply wrong for this page: a simulated PSP checkout is per-order
+ * and has nothing static to emit.
+ */
+export const dynamic = 'force-dynamic';
+
 export default function SandboxPayPage() {
   return (
     <Suspense fallback={null}>

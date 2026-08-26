@@ -75,7 +75,8 @@ export function Configurator({
                   WARIBA ONE · Évaluation
                 </p>
                 <p className="mt-1 text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-text-secondary)]">
-                  Atteignez l’objectif en respectant les règles pour débloquer un compte Funded.
+                  Atteignez l’objectif en respectant les règles pour débloquer un compte
+                  Performance.
                 </p>
               </div>
             </div>

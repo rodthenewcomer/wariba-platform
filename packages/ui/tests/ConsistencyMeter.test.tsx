@@ -15,7 +15,10 @@ describe('ConsistencyMeter', () => {
     );
     expect(screen.queryByText(/violation/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/breach/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/non conforme/)).toBeInTheDocument();
+    // « Compte non conforme » disait la même chose qu'un dépassement à qui
+    // lit vite. Le message dit maintenant ce qui est vrai — la journée pèse
+    // trop lourd — et le test tient sur cette phrase.
+    expect(screen.getByText(/pèse encore trop lourd/)).toBeInTheDocument();
   });
 
   it('shows no compliance disclaimer once the ratio is within the limit', () => {
@@ -27,6 +30,6 @@ describe('ConsistencyMeter', () => {
         totalProfitFormatted="800 USD"
       />,
     );
-    expect(screen.queryByText(/non conforme/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/pèse encore trop lourd/)).not.toBeInTheDocument();
   });
 });

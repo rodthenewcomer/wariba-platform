@@ -1,4 +1,6 @@
-import type { Db } from '@wariba/database';
+import Decimal from 'decimal.js';
+import { loadAccountBalanceProjection, type Db } from '@wariba/database';
+import { accountStatusLabel } from './account-status-labels';
 import { listAccountsForUser, type AccountSummaryDTO } from './accounts-list';
 import { buildAccountRiskView, type AccountRiskView } from './risk-view';
 import { buildAccountMissionView } from './mission-view';
@@ -28,9 +30,18 @@ export interface AccountOverviewDetail {
   dailyLossRemainingFormatted: string;
   maximumLossRemainingFormatted: string;
   health: AccountHealthView;
-  /** Objective progress, 0-100. `null` on accounts with no mission. */
+  /**
+   * Mission progress, 0-100. `null` on accounts with no mission.
+   *
+   * What it measures differs by program — the profit objective on WARIBA ONE,
+   * the permanent buffer on Performance — so the label travels with it. A card
+   * that hardcodes "Objectif" reports a rule a Performance account does not
+   * have.
+   */
   progressPercent: number | null;
-  objectiveDetail: string | null;
+  progressLabel: string | null;
+  /** "612 / 1 000 USD" — the figures behind the percentage. */
+  progressDetail: string | null;
   consistencyLabel: string | null;
   /**
    * Remaining room on each budget, 0-100.
@@ -48,10 +59,43 @@ export interface AccountOverviewDetail {
   hasViolation: boolean;
 }
 
+/**
+ * What a finished evaluation has instead of a dashboard.
+ *
+ * A passed WARIBA ONE account is not being measured against anything any more:
+ * its objective is settled, its budgets are not being spent, and it cannot be
+ * traded. What a trader needs from it is the result and the way through to the
+ * account that replaced it — so that is what the card is given, and the live
+ * figures are not built at all rather than built and hidden.
+ */
+function formatUsd(amount: string): string {
+  return `${Math.round(Number.parseFloat(amount)).toLocaleString('fr-FR')} USD`;
+}
+
+export interface AccountArchiveView {
+  /** Signed, e.g. "+1 000 USD". `null` when the projection cannot be read. */
+  finalResultFormatted: string | null;
+  /**
+   * How to read that number. Emerald belongs to a gain only: a flat result is
+   * not an achievement to colour, and the sign is decided here rather than by
+   * the card re-parsing a string it was handed already formatted.
+   */
+  finalResultSign: 'positive' | 'flat' | 'negative' | null;
+  /** "25 août 2026", from the transition that recorded the pass. */
+  completedAtLabel: string | null;
+  performanceAccountId: string | null;
+  performanceAccountPublicId: string | null;
+  /** The child's own lifecycle label, e.g. "Compte Performance actif". */
+  performanceStatusLabel: string | null;
+  performanceTradable: boolean;
+}
+
 export interface AccountOverviewItem {
   account: AccountSummaryDTO;
   lifecycle: AccountLifecycleView;
   detail: AccountOverviewDetail | null;
+  /** Set only for a passed evaluation. Mutually exclusive with `detail`. */
+  archive: AccountArchiveView | null;
 }
 
 export type AccountFilter = 'all' | 'evaluation' | 'review' | 'funded' | 'failed' | 'closed';
@@ -102,6 +146,68 @@ export async function buildAccountsOverview(
             programType: account.programType,
           }),
           detail: null,
+          archive: null,
+        };
+      }
+
+      /*
+       * A passed evaluation short-circuits before any live view is built.
+       *
+       * `buildAccountRiskView` would happily return budgets for it — the rows
+       * are still there — and the card would then show "Perte quotidienne
+       * restante 100 %" beside "Évaluation réussie", which reads as an account
+       * a trader can still lose. The result and the successor are the facts
+       * that survive; nothing else is asked for.
+       */
+      if (account.programType === 'WARIBA_ONE' && account.status === 'passed') {
+        const child = accounts.find(
+          (candidate) => candidate.sourceEvaluationAccountId === account.id,
+        );
+        const [projection, passedTransition] = await Promise.all([
+          loadAccountBalanceProjection(db, account.id).catch(() => null),
+          db
+            .selectFrom('app.account_state_transitions')
+            .select('occurred_at')
+            .where('account_id', '=', account.id)
+            .where('to_status', '=', 'passed')
+            .orderBy('occurred_at', 'desc')
+            .executeTakeFirst()
+            .catch(() => undefined),
+        ]);
+        const result = projection
+          ? new Decimal(projection.programEligibleBalance).minus(account.nominalBalance)
+          : null;
+        return {
+          account,
+          lifecycle: deriveAccountLifecycle({
+            accountStatus: account.status,
+            programType: account.programType,
+          }),
+          detail: null,
+          archive: {
+            finalResultFormatted: result
+              ? `${result.isNegative() ? '' : '+'}${formatUsd(result.toFixed(2))}`
+              : null,
+            finalResultSign: result
+              ? result.isZero()
+                ? 'flat'
+                : result.isNegative()
+                  ? 'negative'
+                  : 'positive'
+              : null,
+            completedAtLabel: passedTransition
+              ? passedTransition.occurred_at.toLocaleDateString('fr-FR', {
+                  day: '2-digit',
+                  month: 'long',
+                  year: 'numeric',
+                  timeZone: 'UTC',
+                })
+              : null,
+            performanceAccountId: child?.id ?? null,
+            performanceAccountPublicId: child?.publicId ?? null,
+            performanceStatusLabel: child ? accountStatusLabel(child.status) : null,
+            performanceTradable: child?.status === 'active',
+          },
         };
       }
 
@@ -156,7 +262,8 @@ export async function buildAccountsOverview(
             health,
             room: risk.room,
             progressPercent: mission.available ? mission.progressPercent : null,
-            objectiveDetail: mission.available ? (mission.conditions[0]?.detail ?? null) : null,
+            progressLabel: mission.available ? mission.progressLabel : null,
+            progressDetail: mission.available ? mission.progressDetail : null,
             consistencyLabel: mission.available
               ? (mission.conditions.find((condition) => condition.label === 'Consistance')
                   ?.detail ?? null)
@@ -171,6 +278,7 @@ export async function buildAccountsOverview(
               : null,
             hasViolation: risk.violations.length > 0,
           },
+          archive: null,
         };
       } catch {
         /*
@@ -185,6 +293,7 @@ export async function buildAccountsOverview(
             programType: account.programType,
           }),
           detail: null,
+          archive: null,
         };
       }
     }),

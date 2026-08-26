@@ -1,6 +1,6 @@
 import { Badge, Card, EmptyState, Text } from '@wariba/ui';
 import { authorizedAccountSections, loadControlAccountDetail } from '@wariba/application';
-import Link from 'next/link';
+import { ControlDocumentLink as Link } from '../../../ControlDocumentLink';
 import { notFound } from 'next/navigation';
 import { requireControlArea } from '../../../../../lib/staff-auth';
 import { getDb } from '../../../../../lib/db';
@@ -29,6 +29,35 @@ const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'danger' | 'neutral
   resolved: 'success',
   critical: 'danger',
   warning: 'warning',
+};
+
+const PROGRAM_LABEL: Record<string, string> = {
+  WARIBA_ONE: 'WARIBA ONE',
+  WARIBA_PERFORMANCE: 'WARIBA Performance',
+};
+
+const ACCOUNT_STATUS_LABEL: Record<string, string> = {
+  pending_activation: 'Activation en attente',
+  active: 'Actif',
+  soft_locked: 'Blocage temporaire',
+  pass_pending: 'Objectif atteint',
+  passed: 'Évaluation réussie',
+  breached: 'Compte terminé',
+  inactive: 'Inactif',
+  closed: 'Fermé',
+};
+
+const POLICY_STATUS_LABEL: Record<string, string> = {
+  draft: 'Brouillon',
+  published: 'Publiée',
+  retired: 'Retirée',
+};
+
+const CYCLE_STATUS_LABEL: Record<string, string> = {
+  active: 'actif',
+  frozen: 'gelé',
+  paid: 'payé',
+  closed: 'fermé',
 };
 
 function Field({ label, value }: { label: string; value: string }) {
@@ -85,7 +114,7 @@ export default async function ControlAccountDetailPage({
           href="/control/accounts"
           className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-link)]"
         >
-          ← Accounts
+          ← Comptes
         </Link>
         <Text as="h1" variant="heading-lg">
           {overview ? overview.publicId : 'Compte'}
@@ -95,11 +124,14 @@ export default async function ControlAccountDetailPage({
       {overview ? (
         <Card>
           <Text as="h2" variant="heading-sm">
-            Overview
+            Vue d’ensemble
           </Text>
           <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Field label="Identifiant public" value={overview.publicId} />
-            <Field label="Programme" value={overview.programType} />
+            <Field
+              label="Programme"
+              value={PROGRAM_LABEL[overview.programType] ?? overview.programType}
+            />
             <Field label="Nominal" value={`${overview.nominalBalance} ${overview.currency}`} />
             <div>
               <dt className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]">
@@ -107,26 +139,56 @@ export default async function ControlAccountDetailPage({
               </dt>
               <dd>
                 <Badge variant={STATUS_VARIANT[overview.status] ?? 'neutral'}>
-                  {overview.status}
+                  {ACCOUNT_STATUS_LABEL[overview.status] ?? overview.status}
                 </Badge>
               </dd>
             </div>
             <Field
               label="Version de politique"
-              value={`${overview.policyVersion} (${overview.policyStatus})`}
+              value={`${overview.policyVersion} · ${POLICY_STATUS_LABEL[overview.policyStatus] ?? overview.policyStatus}`}
             />
             <Field
-              label="KYC sandbox"
+              label="Identité (sandbox)"
               value={overview.kycSandboxVerified ? 'Vérifié' : 'Non vérifié'}
             />
             <Field
-              label="Méthode de payout"
+              label="Méthode de payout (sandbox)"
               value={overview.payoutMethodSandboxConfigured ? 'Configurée' : 'Absente'}
             />
             <Field
               label="Activé le"
               value={overview.activatedAt ? DATE.format(overview.activatedAt) : '—'}
             />
+            {overview.sourceEvaluation ? (
+              <div>
+                <dt className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]">
+                  Évaluation d’origine
+                </dt>
+                <dd>
+                  <Link
+                    className="wariba-data text-[color:var(--wariba-text-link)]"
+                    href={`/control/accounts/${overview.sourceEvaluation.id}`}
+                  >
+                    {overview.sourceEvaluation.publicId}
+                  </Link>
+                </dd>
+              </div>
+            ) : null}
+            {overview.performanceChild ? (
+              <div>
+                <dt className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]">
+                  Compte Performance créé
+                </dt>
+                <dd>
+                  <Link
+                    className="wariba-data text-[color:var(--wariba-text-link)]"
+                    href={`/control/accounts/${overview.performanceChild.id}`}
+                  >
+                    {overview.performanceChild.publicId}
+                  </Link>
+                </dd>
+              </div>
+            ) : null}
             <div>
               <dt className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]">
                 Titulaire
@@ -223,7 +285,7 @@ export default async function ControlAccountDetailPage({
       {risk ? (
         <Card>
           <Text as="h2" variant="heading-sm">
-            Risk &amp; Integrity
+            Risque &amp; intégrité
           </Text>
           <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Field label="Integrity hold" value={risk.integrityHold ? 'Actif' : 'Aucun'} />
@@ -289,7 +351,7 @@ export default async function ControlAccountDetailPage({
               label="Cycle courant"
               value={
                 payout.currentCycle
-                  ? `n°${payout.currentCycle.cycleNumber} (${payout.currentCycle.status})`
+                  ? `n°${payout.currentCycle.cycleNumber} (${CYCLE_STATUS_LABEL[payout.currentCycle.status] ?? payout.currentCycle.status})`
                   : '—'
               }
             />

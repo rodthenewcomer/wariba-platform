@@ -17,9 +17,6 @@ import { loadPolicyById, loadPublishedPolicy } from './policy';
 
 export interface ActivatePerformanceAccountParams {
   evaluationAccountId: string;
-  userId: string;
-  nominalBalance: string;
-  currency: string;
   now?: () => Date;
 }
 
@@ -49,6 +46,22 @@ export async function activatePerformanceAccountInTransaction(
 ): Promise<ActivatedPerformanceAccount> {
   const timestamp = params.now?.() ?? new Date();
 
+  // Reload the parent under the same account lock used by the risk command.
+  // Provisioning inputs are derived from this canonical row; no caller can
+  // nominate another trader, nominal or currency, and an active Evaluation
+  // cannot be turned into Performance by calling this helper directly.
+  const evaluation = await trx
+    .selectFrom('app.trading_accounts')
+    .select(['id', 'user_id', 'program_type', 'status', 'nominal_balance', 'currency'])
+    .where('id', '=', params.evaluationAccountId)
+    .forUpdate()
+    .executeTakeFirstOrThrow(
+      () => new Error('Source Evaluation account does not exist — Performance not created.'),
+    );
+  if (evaluation.program_type !== 'WARIBA_ONE' || evaluation.status !== 'passed') {
+    throw new Error('Performance requires a passed WARIBA ONE account.');
+  }
+
   const existing = await trx
     .selectFrom('app.trading_accounts')
     .select(['id', 'public_id', 'status'])
@@ -67,25 +80,64 @@ export async function activatePerformanceAccountInTransaction(
   const policyVersion = await loadPublishedPolicy(trx, 'WARIBA_PERFORMANCE');
   const symbolSpecSet = await loadLatestSandboxSymbolSpecSet(trx);
 
-  const publicId = `PERF-${params.nominalBalance.split('.')[0]}-${randomUUID().slice(0, 8).toUpperCase()}`;
+  await trx
+    .insertInto('app.outbox_events')
+    .values({
+      aggregate_type: 'trading_account',
+      aggregate_id: evaluation.id,
+      event_type: 'performance_provisioning_started',
+      payload: JSON.stringify({
+        sourceEvaluationAccountId: evaluation.id,
+        userId: evaluation.user_id,
+        performancePolicyVersionId: policyVersion.id,
+      }),
+      occurred_at: timestamp,
+    })
+    .execute();
+
+  const publicId = `PERF-${evaluation.nominal_balance.split('.')[0]}-${randomUUID().slice(0, 8).toUpperCase()}`;
 
   const account = await trx
     .insertInto('app.trading_accounts')
     .values({
       public_id: publicId,
-      user_id: params.userId,
+      user_id: evaluation.user_id,
       source_purchase_order_id: null,
       source_evaluation_account_id: params.evaluationAccountId,
       program_type: 'WARIBA_PERFORMANCE',
-      nominal_balance: params.nominalBalance,
-      currency: params.currency,
+      nominal_balance: evaluation.nominal_balance,
+      currency: evaluation.currency,
       status: 'active',
       policy_version_id: policyVersion.id,
       symbol_spec_set_id: symbolSpecSet.id,
       activated_at: timestamp,
+      // Same clock as the pass that spawned it — `created_at` would otherwise
+      // default to the database's transaction start, and the last link of
+      // `passedAt <= performanceCreatedAt` would be measured against a
+      // different clock from the one that stamped the pass.
+      created_at: timestamp,
     })
+    .onConflict((oc) => oc.column('source_evaluation_account_id').doNothing())
     .returning(['id', 'public_id', 'status'])
-    .executeTakeFirstOrThrow();
+    .executeTakeFirst();
+
+  // A concurrent retry can pass the fast-path lookup before the first
+  // transaction commits. The unique key arbitrates that race; the loser
+  // returns the canonical child and performs none of the ledger/cycle/outbox
+  // effects below.
+  if (!account) {
+    const winner = await trx
+      .selectFrom('app.trading_accounts')
+      .select(['id', 'public_id', 'status'])
+      .where('source_evaluation_account_id', '=', params.evaluationAccountId)
+      .executeTakeFirstOrThrow();
+    return {
+      id: winner.id,
+      publicId: winner.public_id,
+      status: winner.status,
+      alreadyExisted: true,
+    };
+  }
 
   await trx
     .insertInto('app.account_state_transitions')
@@ -106,8 +158,8 @@ export async function activatePerformanceAccountInTransaction(
     .values({
       account_id: account.id,
       entry_type: 'initial_balance',
-      amount: params.nominalBalance,
-      currency: params.currency,
+      amount: evaluation.nominal_balance,
+      currency: evaluation.currency,
     })
     .execute();
 
@@ -120,9 +172,25 @@ export async function activatePerformanceAccountInTransaction(
       payload: JSON.stringify({
         accountId: account.id,
         publicId: account.public_id,
-        userId: params.userId,
+        userId: evaluation.user_id,
         sourceEvaluationAccountId: params.evaluationAccountId,
       }),
+    })
+    .execute();
+
+  await trx
+    .insertInto('app.outbox_events')
+    .values({
+      aggregate_type: 'trading_account',
+      aggregate_id: account.id,
+      event_type: 'performance_account_created',
+      payload: JSON.stringify({
+        accountId: account.id,
+        userId: evaluation.user_id,
+        sourceEvaluationAccountId: params.evaluationAccountId,
+        policyVersionId: policyVersion.id,
+      }),
+      occurred_at: timestamp,
     })
     .execute();
 
@@ -231,6 +299,8 @@ export interface CycleProgress {
   cycleStatus: PerformanceCycle['status'];
   /** The program-eligible realized balance this progress was computed from — lets a UI show "how close" even below the floor, which eligibleExcess alone (clamped to 0) cannot. */
   realizedBalance: string;
+  /** The account's nominal balance — the point buffer building starts from, not zero. */
+  nominalBalance: string;
   bufferFloor: string;
   eligibleExcess: string;
   bufferReached: boolean;
@@ -309,6 +379,7 @@ export async function evaluateCycleProgress(trx: Db, accountId: string): Promise
     cycleNumber: cycle.cycleNumber,
     cycleStatus: cycle.status,
     realizedBalance: projection.programEligibleBalance,
+    nominalBalance: account.nominal_balance,
     bufferFloor,
     eligibleExcess: computeEligibleExcess({
       realizedBalance: projection.programEligibleBalance,

@@ -55,7 +55,7 @@ export default async function PayoutsPage({
         <HubEmptyState
           icon="payouts"
           title="Aucun payout pour le moment."
-          description="Les payouts s’ouvrent sur un compte Funded. Réussissez d’abord une évaluation WARIBA ONE."
+          description="Les payouts s’ouvrent sur un compte Performance. Réussissez d’abord une évaluation WARIBA ONE."
           action={
             <ActionLink href="/comptes/nouveau" icon="addAccount">
               Choisir une évaluation

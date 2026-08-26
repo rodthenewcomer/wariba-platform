@@ -17,9 +17,12 @@ export const REJECTION_DETAIL: Record<string, { reason: string; action: string }
       'Votre compte n’est plus actif pour trader (blocage temporaire, dépassement de limite, ou statut inactif).',
     action: 'Consultez le Hub pour connaître le statut exact de votre compte.',
   },
+  performance_rules_not_acknowledged: {
+    reason: 'Vous devez d’abord prendre connaissance des règles de ce compte Performance.',
+    action: 'Ouvrez le tableau de bord puis consultez les règles attachées au compte.',
+  },
   stale_market_data: {
-    reason:
-      'Le cours de ce symbole n’était plus à jour au moment où le serveur a traité votre ordre.',
+    reason: 'Le cours de ce symbole n’était plus à jour au moment où votre ordre a été traité.',
     action: 'Réessayez lorsque le flux aura repris.',
   },
   invalid_quantity: {
@@ -85,7 +88,7 @@ export const REJECTION_DETAIL: Record<string, { reason: string; action: string }
 };
 
 export const UNKNOWN_REJECTION_DETAIL = {
-  reason: 'Le serveur a refusé cet ordre.',
+  reason: 'Cet ordre a été refusé.',
   action: 'Réessayez, ou contactez le support si le problème persiste.',
 };
 

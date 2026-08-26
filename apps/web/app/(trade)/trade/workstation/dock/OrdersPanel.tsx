@@ -189,7 +189,7 @@ export const OrdersPanel = memo(function OrdersPanel({
             {recentOrders.length === 0 ? (
               <DockEmptyState
                 title="Aucun ordre récent"
-                hint="Les ordres traités par le serveur apparaîtront ici."
+                hint="Vos ordres apparaîtront ici une fois traités."
               />
             ) : (
               recentOrders.map((order) => (
@@ -205,7 +205,7 @@ export const OrdersPanel = memo(function OrdersPanel({
                   details={
                     order.status === 'rejected'
                       ? rejectionDetailFor(order.rejectionCode).reason
-                      : 'Exécution traitée par le serveur'
+                      : 'Exécution confirmée'
                   }
                 />
               ))
@@ -227,7 +227,7 @@ export const OrdersPanel = memo(function OrdersPanel({
                     <DataTableCell colSpan={4} className="p-0">
                       <DockEmptyState
                         title="Aucun ordre récent"
-                        hint="Les ordres traités par le serveur apparaîtront ici."
+                        hint="Vos ordres apparaîtront ici une fois traités."
                       />
                     </DataTableCell>
                   </DataTableRow>

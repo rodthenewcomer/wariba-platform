@@ -49,6 +49,8 @@ export {
 } from './audit-fixture';
 // Re-exported so E2E specs never import @wariba/database directly (AGENTS.md §7.1).
 export {
+  acknowledgePerformanceRules,
+  activatePerformanceAccountInTransaction,
   evaluateAndApplyAccountRisk,
   evaluateReserveStatus,
   type Db,
@@ -56,7 +58,26 @@ export {
 } from '@wariba/database';
 
 export {
+  seedBreachEvidence,
+  seedSupportTicket,
+  seedContestation,
+  deleteSupportFixture,
+  type SeededBreachEvidence,
+  type SeededSupportTicket,
+  type SeededContestation,
+} from './support-fixture';
+
+export {
   seedTradingRecord,
   deleteTradingRecord,
   type TradingRecordFixture,
 } from './trading-record-fixture';
+
+export {
+  assertLifecycleOrder,
+  assertPerformanceReadyInvariants,
+  assertUntradedPerformanceAccount,
+  ScenarioInvariantError,
+  type LifecycleOrder,
+  type PerformanceReadyFacts,
+} from './scenario-invariants';

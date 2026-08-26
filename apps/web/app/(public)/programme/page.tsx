@@ -1,16 +1,45 @@
 import Link from 'next/link';
 import { Badge, buttonClassNames, Text } from '@wariba/ui';
+import { HELP_FACT_UNPUBLISHED, buildHelpPolicyFacts, type HelpFactKey } from '@wariba/application';
+import { getDb } from '../../../lib/db';
 
-const EVALUATION_RULES = [
-  ['Objectif', '10 % de profit net réalisé'],
-  ['Daily Loss Limit', '3 % · soft lock au reset suivant'],
-  ['Maximum Loss', '10 % · plancher EOD trailing'],
-  ['Best Day Rule', '50 % · bloque le passage, jamais un breach'],
-  ['Minimum de jours', 'Aucun'],
-  ['Journées qualifiées', 'Aucune en Evaluation'],
-  ['Limite de temps', 'Aucune · inactivité après 30 jours'],
-  ['Positions', 'Overnight autorisé · weekend interdit'],
-] as const;
+// The rule table reads the published policy, so this page cannot be served
+// from a cache that outlives a policy change.
+export const dynamic = 'force-dynamic';
+
+/**
+ * The rules a visitor reads before buying, from the policy that enforces them.
+ *
+ * This table used to be a literal array: « Objectif · 10 % », « Daily Loss
+ * Limit · 3 % », and so on. That made `/programme` the second place the rules
+ * lived, and the second place they would go stale — exactly the failure
+ * `UX-HELP-002` `LOCKED` names. The Help Center already reads
+ * `app.policy_versions`; the marketing page now reads the same facts, so the
+ * page a trader decides on and the engine that judges them cannot disagree.
+ *
+ * One line was dropped rather than migrated: « inactivité après 30 jours ». No
+ * published policy carries an inactivity parameter, so the claim had no source
+ * — the same reason the help article refuses to print a day count.
+ */
+const RULE_FACTS: readonly {
+  key: HelpFactKey;
+  label: string;
+  /** What the value means, appended after the figure. */
+  qualifier?: string;
+}[] = [
+  { key: 'profitTargetRate', label: 'Objectif', qualifier: 'de profit net réalisé' },
+  { key: 'dailyLossRate', label: 'Daily Loss Limit', qualifier: '· soft lock au reset suivant' },
+  { key: 'maximumLossRate', label: 'Maximum Loss', qualifier: '· plancher EOD trailing' },
+  {
+    key: 'bestDayMaxRatio',
+    label: 'Best Day Rule',
+    qualifier: '· bloque le passage, jamais un breach',
+  },
+  { key: 'minimumTradingDays', label: 'Minimum de jours' },
+  { key: 'overnightAllowed', label: 'Position overnight' },
+  { key: 'weekendAllowed', label: 'Position le week-end' },
+  { key: 'newsAllowed', label: 'Trading pendant les annonces' },
+];
 
 const PERFORMANCE_THRESHOLDS = [
   ['5K', '500 USD', '25 USD'],
@@ -20,7 +49,9 @@ const PERFORMANCE_THRESHOLDS = [
   ['100K', '10 000 USD', '500 USD'],
 ] as const;
 
-export default function ProgramPage() {
+export default async function ProgramPage() {
+  const facts = await buildHelpPolicyFacts(getDb());
+
   return (
     <>
       <section className="border-b border-[color:var(--wariba-color-ink-700)] bg-[color:var(--wariba-color-ink-950)]">
@@ -100,15 +131,26 @@ export default function ProgramPage() {
             id="regles"
             className="scroll-mt-20 border-t border-[color:var(--wariba-color-bone-300)]"
           >
-            {EVALUATION_RULES.map(([label, value]) => (
-              <div
-                key={label}
-                className="grid gap-2 border-b border-[color:var(--wariba-color-bone-300)] py-5 sm:grid-cols-[0.8fr_1.2fr]"
-              >
-                <dt className="font-semibold text-[color:var(--wariba-color-ink-950)]">{label}</dt>
-                <dd className="text-[color:var(--wariba-color-ink-600)]">{value}</dd>
-              </div>
-            ))}
+            {RULE_FACTS.map((entry) => {
+              const fact = facts.facts[entry.key];
+              const value = fact?.value ?? HELP_FACT_UNPUBLISHED;
+              return (
+                <div
+                  key={entry.key}
+                  data-testid="programme-rule"
+                  data-fact={entry.key}
+                  className="grid gap-2 border-b border-[color:var(--wariba-color-bone-300)] py-5 sm:grid-cols-[0.8fr_1.2fr]"
+                >
+                  <dt className="font-semibold text-[color:var(--wariba-color-ink-950)]">
+                    {entry.label}
+                  </dt>
+                  <dd className="text-[color:var(--wariba-color-ink-600)]">
+                    {value}
+                    {entry.qualifier && fact?.value ? ` ${entry.qualifier}` : ''}
+                  </dd>
+                </div>
+              );
+            })}
           </dl>
         </div>
       </section>

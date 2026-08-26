@@ -6,6 +6,21 @@ import { Surface } from '../../../components/hub/Surface';
 import { PageHeader } from '../../../components/hub/PageHeader';
 import { MOBILE_OVERFLOW } from '../hub-destinations';
 
+/*
+ * Never prerendered — see the platform layout.
+ *
+ * Any page under `(platform)` renders `HubShell`, which builds a Supabase
+ * server client and validates the full server config. A page without this
+ * directive is therefore rendered at *build* time and drags DATABASE_URL,
+ * SUPABASE_SERVICE_ROLE_KEY and the webhook secret into the build inputs —
+ * which, in a container build, means passing secrets as build arguments that
+ * stay readable in image history forever.
+ *
+ * Every one of these pages is per-user or per-order and has nothing static to
+ * emit, so the directive costs nothing and removes the trap.
+ */
+export const dynamic = 'force-dynamic';
+
 /**
  * The overflow destinations, as a page.
  *

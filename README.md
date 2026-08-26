@@ -35,7 +35,9 @@ des traders sur un marché live.
 | **WariX — graphique**         | Chandeliers `lightweight-charts`, intervalles professionnels `1m` à `1M`, historique durable paginé, raccord historique/temps réel sans doublon       |
 | **WariX — poste de travail**  | Baseline WX1 acceptée et gelée, rail utilitaire droit 48 px, graphique dimensionné par son conteneur, adaptation mobile et reduced motion             |
 | **Trader Hub**                | État de compte, mission, historique de journées, fil d'activité, multi-comptes                                                                        |
-| **Control**                   | Panneau staff RBAC (support/finance/admin) — intégrité, utilisateurs, payouts                                                                         |
+| **Support & contestations**   | Demandes suivies sous référence, fil en ajout seul garanti par trigger, contestation liée à sa preuve, files opérateur dans Control                   |
+| **Centre d'aide**             | 77 articles servis, recherche classée et insensible aux accents, valeurs de règle lues depuis la policy publiée, lien reason code → article           |
+| **Control**                   | Panneau staff RBAC (support/risk/finance/compliance/admin) — intégrité, utilisateurs, payouts, support, contestations                                 |
 | **Fiabilité**                 | RLS Postgres sur chaque table sensible, idempotence sur chaque commande financière, resync WebSocket sur reconnexion                                  |
 
 ## Routes publiques
@@ -43,7 +45,8 @@ des traders sur un marché live.
 | Route                                            | Description                                             |
 | ------------------------------------------------ | ------------------------------------------------------- |
 | `/`, `/programme`, `/warix`, `/offres`           | Site public — vitrine, programme, terminal démo, tarifs |
-| `/aide`, `/support`                              | Centre d'aide et support                                |
+| `/aide`, `/aide/{catégorie}/{article}`           | Centre d'aide public                                    |
+| `/support`                                       | Explication publique, et système de support authentifié |
 | `/inscription`, `/login`, `/mot-de-passe-oublie` | Authentification                                        |
 | `/catalog`, `/checkout`                          | Achat d'un compte WARIBA ONE                            |
 | `/hub`, `/trade`, `/comptes`, `/payouts`         | Espace trader authentifié                               |
@@ -56,6 +59,11 @@ est enregistrée dans `docs/00-decisions/DECISION_LOG.md` — une décision non
 écrite est une hypothèse, jamais une règle. Les addenda v1.1 du Product Master
 et du Program Rulebook, le ruleset v1.1, le modèle financier v1.1 et le modèle
 actuariel complètent les baselines v1.0 dans `docs/`.
+
+**Où en est le produit, et ce qu'il reste :**
+`docs/08-delivery/WARIBA_ROAD_TO_BETA_2026-08-24.md`. C'est le document vivant ;
+les audits datés de `docs/08-delivery/` décrivent le code à leur date et ne sont
+pas mis à jour rétroactivement.
 
 ## Prérequis
 

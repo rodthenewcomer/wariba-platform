@@ -14,6 +14,10 @@ function account(overrides: Partial<AccountSummaryDTO> & { id: string }): Accoun
     createdAt: '2026-01-01T00:00:00.000Z',
     kycSandboxVerified: false,
     payoutMethodConfigured: false,
+    sourceEvaluationAccountId: null,
+    sourceEvaluationPublicId: null,
+    performanceAccountId: null,
+    performanceAccountPublicId: null,
     ...overrides,
   };
 }

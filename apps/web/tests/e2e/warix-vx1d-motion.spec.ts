@@ -444,7 +444,14 @@ test.describe('VX1-D motion safety', { tag: ['@warix-vx1d'] }, () => {
     await page.goto('/trade');
     await settle(page);
 
-    const bars = page.getByTestId('workstation-connection').locator('svg rect');
+    /*
+     * The bars are `<path>` elements, and always were — `svg rect` matched
+     * nothing from the day this was written, so the assertions below had never
+     * once run. They target the class the stylesheet animates instead.
+     */
+    const bars = page
+      .getByTestId('workstation-connection')
+      .locator('svg .warix-market-feed-icon__bar');
     await expect(bars).toHaveCount(3);
     const healthyNames = await bars.evaluateAll((nodes) =>
       nodes.map((node) => getComputedStyle(node).animationName),

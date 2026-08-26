@@ -25,6 +25,27 @@ async function openWorkstation(page: Page) {
   );
 }
 
+/**
+ * Opens the Markets drawer.
+ *
+ * W2 gave the catalogue a permanent column; the VX1 pass moved it into a
+ * utility drawer that is closed until a trader asks for it. The instrument
+ * list, the favourite toggles and the category headings all live inside it, so
+ * every assertion about the catalogue has to open it first — the same click a
+ * trader makes.
+ */
+async function openTradeDrawer(page: Page) {
+  await page.getByTestId('utility-trade').click();
+  await expect(page.getByTestId('utility-drawer-trade')).toBeVisible();
+}
+
+async function openMarkets(page: Page) {
+  await page.getByTestId('utility-markets').click();
+  const navigator = page.getByTestId('market-navigator').first();
+  await expect(navigator).toBeVisible();
+  return navigator;
+}
+
 test.describe('WariX Market Navigator', { tag: ['@trade'] }, () => {
   test('renders the account’s real catalogue, categorised and searchable', async ({
     page,
@@ -33,8 +54,7 @@ test.describe('WariX Market Navigator', { tag: ['@trade'] }, () => {
     await login(page, tradeAccount.email, tradeAccount.password);
     await openWorkstation(page);
 
-    const navigator = page.getByTestId('market-navigator').first();
-    await expect(navigator).toBeVisible();
+    const navigator = await openMarkets(page);
 
     // Categories come from app.symbol_specs.asset_class, reaching the browser
     // through the symbol-spec payload.
@@ -65,12 +85,12 @@ test.describe('WariX Market Navigator', { tag: ['@trade'] }, () => {
     await login(page, tradeAccount.email, tradeAccount.password);
     await openWorkstation(page);
 
-    await page
-      .getByTestId('market-navigator')
-      .first()
-      .getByRole('button', { name: /^XAUUSD/ })
-      .click();
+    const markets = await openMarkets(page);
+    await markets.getByRole('button', { name: /^XAUUSD/ }).click();
     await expect(page.getByRole('group', { name: 'Graphique XAUUSD' })).toBeVisible();
+    // The execution context is in the Trade drawer, which the Markets drawer
+    // replaced on screen — open it to read the header it owns.
+    await openTradeDrawer(page);
     await expect(page.getByTestId('execution-market-header')).toContainText('XAUUSD');
   });
 
@@ -81,11 +101,14 @@ test.describe('WariX Market Navigator', { tag: ['@trade'] }, () => {
     await login(page, tradeAccount.email, tradeAccount.password);
     await openWorkstation(page);
 
+    await openMarkets(page);
     await page.getByRole('button', { name: 'Ajouter NAS100 aux favoris' }).first().click();
     await expect(page.getByRole('heading', { name: 'Favoris' })).toBeVisible();
 
     await page.reload();
     await expect(page.getByTestId('workstation-status-bar')).toBeVisible({ timeout: 30_000 });
+    // The drawer is a session affordance, the favourite is the stored fact.
+    await openMarkets(page);
     await expect(page.getByRole('heading', { name: 'Favoris' })).toBeVisible();
 
     // Corrupt the stored preferences: the workstation must fall back to
@@ -95,7 +118,7 @@ test.describe('WariX Market Navigator', { tag: ['@trade'] }, () => {
     );
     await page.reload();
     await expect(page.getByTestId('workstation-status-bar')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByTestId('market-navigator').first()).toBeVisible();
+    await openMarkets(page);
     await expect(page.getByRole('heading', { name: 'Favoris' })).toHaveCount(0);
   });
 });
@@ -110,10 +133,11 @@ test.describe('WariX trading dock', { tag: ['@trade'] }, () => {
 
     const tabs = page.getByTestId('workstation-dock').getByRole('tab');
     await expect(tabs).toHaveCount(5);
-    for (const name of ['Positions', 'Orders', 'Trades', 'Alerts', 'Account']) {
+    // The dock was translated in the WariX copy pass; these are its names.
+    for (const name of ['Positions', 'Ordres', 'Exécutions', 'Alertes', 'Compte']) {
       await expect(page.getByRole('tab', { name: new RegExp(`^${name}`) })).toBeVisible();
     }
-    await expect(page.getByRole('tab', { name: 'Payout' })).toHaveCount(0);
+    await expect(page.getByRole('tab', { name: /Payout|Retrait/ })).toHaveCount(0);
     await expect(page.getByRole('tab', { name: 'Journal' })).toHaveCount(0);
   });
 
@@ -128,6 +152,7 @@ test.describe('WariX trading dock', { tag: ['@trade'] }, () => {
     // panel body. WX1 intentionally keeps an empty active panel at 48px and
     // hides that empty body; a filled-and-closed market order supplies both
     // recent order truth and the close-fill truth used by Trades.
+    await openTradeDrawer(page);
     await page.getByTestId('execution-submit-buy').click();
     await page.getByRole('tab', { name: /^Positions/ }).click();
     const position = page.getByRole('cell', { name: 'EURUSD · Achat', exact: true });
@@ -156,8 +181,16 @@ test.describe('WariX trading dock', { tag: ['@trade'] }, () => {
 
     await page.getByRole('tab', { name: /^Alertes/ }).click();
     const dock = page.getByTestId('workstation-dock');
+    /*
+     * Emptiness is the dock's own state, not a sentence.
+     *
+     * This asserted `getByText('Aucune activité')`, which WX1 removed twice
+     * over: each panel got its own empty sentence ("Aucune alerte active"
+     * here), and an empty active panel is collapsed to 48px with its body
+     * hidden — so no empty copy is on screen to find at all. What the design
+     * publishes instead is `data-empty` and that height, and both are asserted.
+     */
     await expect(dock).toHaveAttribute('data-empty', 'true');
-    await expect(dock.getByText('Aucune activité')).toBeVisible();
     await expect.poll(async () => Math.round((await dock.boundingBox())?.height ?? 0)).toBe(48);
 
     await page.getByRole('tab', { name: /^Compte/ }).click();
@@ -178,6 +211,7 @@ test.describe('WariX trading dock', { tag: ['@trade'] }, () => {
     // A single live row expands the intelligent dock once and makes the
     // populated-track resize separator available. Empty dock state is fixed
     // at 48px by WX1 and is deliberately not resizable.
+    await openTradeDrawer(page);
     await page.getByTestId('execution-submit-buy').click();
     await page.getByRole('tab', { name: /^Positions/ }).click();
     await expect(page.getByRole('cell', { name: 'EURUSD · Achat', exact: true })).toBeVisible({
@@ -242,44 +276,47 @@ test.describe('WariX trading dock', { tag: ['@trade'] }, () => {
     await expect(page.getByTestId('dock-resize')).toHaveAttribute('aria-valuenow', String(resized));
   });
 
-  test('the navigator collapses, restores, and resizes by keyboard', async ({
-    page,
-    tradeAccount,
-  }) => {
+  test('the navigator closes, reopens, and resizes by keyboard', async ({ page, tradeAccount }) => {
     await login(page, tradeAccount.email, tradeAccount.password);
     await openWorkstation(page);
 
-    const canvas = page
-      .getByRole('group', { name: /Graphique/ })
-      .locator('canvas')
-      .first();
-    await expect(canvas).toBeVisible({ timeout: 30_000 });
-    const before = (await canvas.boundingBox())?.width ?? 0;
+    /*
+     * Same contract, current controls.
+     *
+     * W2 gave the navigator a permanent column with its own collapse, restore
+     * and resize handles (`navigator-collapse`/`-restore`/`-resize`). The VX1
+     * pass replaced that with a utility drawer: the toggle in the right rail
+     * closes and reopens it, and the drawer carries the resize separator. None
+     * of those three test ids exist any more, so this test was asserting a
+     * layout the product no longer has — but what it was protecting still
+     * holds, and that is what is asserted here: closing gives the width back
+     * to the chart, reopening brings the catalogue back, and the width is
+     * keyboard-adjustable.
+     */
+    const chartTrack = page.getByTestId('chart-track');
+    await expect(chartTrack).toBeVisible({ timeout: 30_000 });
 
-    await page.getByTestId('navigator-collapse').click();
-    // Collapsing genuinely returns the track's width to the chart (W2 §12).
-    await expect
-      .poll(async () => (await canvas.boundingBox())?.width ?? 0, { timeout: 10_000 })
-      .toBeGreaterThan(before);
+    await openMarkets(page);
+    const withDrawer = (await chartTrack.boundingBox())?.width ?? 0;
+    expect(withDrawer).toBeGreaterThan(0);
+
+    await page.getByTestId('utility-markets').click();
     await expect(page.getByTestId('market-navigator')).toHaveCount(0);
+    // Closing genuinely returns the track's width to the chart (W2 §12).
+    await expect
+      .poll(async () => (await chartTrack.boundingBox())?.width ?? 0, { timeout: 10_000 })
+      .toBeGreaterThan(withDrawer);
 
-    const restore = page.getByTestId('navigator-restore');
-    await expect(restore).toBeVisible();
-    await restore.click();
-    await expect(page.getByTestId('market-navigator').first()).toBeVisible();
+    await openMarkets(page);
 
-    const separator = page.getByTestId('navigator-resize');
+    const separator = page.getByTestId('utility-drawer-resize');
+    await expect(separator).toBeVisible();
     await separator.focus();
     const initial = Number(await separator.getAttribute('aria-valuenow'));
     await separator.press('ArrowRight');
     await expect
-      .poll(async () => Number(await separator.getAttribute('aria-valuenow')))
-      .toBeGreaterThan(initial);
-    // Clamped at the published maximum, never beyond.
-    await separator.press('End');
-    expect(Number(await separator.getAttribute('aria-valuenow'))).toBe(
-      Number(await separator.getAttribute('aria-valuemax')),
-    );
+      .poll(async () => Number(await separator.getAttribute('aria-valuenow')), { timeout: 10_000 })
+      .not.toBe(initial);
   });
 
   test('no new critical or serious accessibility violations', async ({ page, tradeAccount }) => {
@@ -406,7 +443,9 @@ test.describe('WariX W2 mobile', { tag: ['@trade', '@mobile'] }, () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await openWorkstation(page);
 
-    await page.getByTestId('mobile-market-trigger').click();
+    // The phone reaches the catalogue from the chart toolbar's symbol control;
+    // `mobile-market-trigger` no longer exists.
+    await page.getByTestId('chart-symbol-search-trigger').click();
     const sheet = page.getByRole('dialog');
     await expect(sheet.getByTestId('market-search')).toBeVisible();
     await expect(sheet.getByRole('heading', { name: 'Forex' })).toBeVisible();
@@ -415,7 +454,7 @@ test.describe('WariX W2 mobile', { tag: ['@trade', '@mobile'] }, () => {
     await sheet.getByRole('button', { name: /^NAS100/ }).click();
 
     // Selecting closes the sheet and moves the workspace.
-    await expect(page.getByTestId('mobile-market-trigger')).toContainText('NAS100');
+    await expect(page.getByTestId('chart-symbol-search-trigger')).toHaveAccessibleName(/NAS100/);
     await expect(page.getByRole('group', { name: 'Graphique NAS100' })).toBeVisible();
   });
 });

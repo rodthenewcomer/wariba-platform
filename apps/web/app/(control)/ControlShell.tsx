@@ -1,9 +1,9 @@
 'use client';
 
 import { ControlSidebar, OverviewIcon, PayoutsIcon, ShieldIcon, UsersIcon } from '@wariba/ui';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { ControlDocumentLink } from './ControlDocumentLink';
 
 export interface ControlNavItem {
   href: string;
@@ -22,7 +22,14 @@ const AREA_ICON: Record<string, ReactNode> = {
   '/control/accounts': <UsersIcon size="sm" />,
   '/control/trading': <OverviewIcon size="sm" />,
   '/control/integrity': <ShieldIcon size="sm" />,
+  '/control/pass-reviews': <ShieldIcon size="sm" />,
+  '/control/identity': <UsersIcon size="sm" />,
   '/control/payouts': <PayoutsIcon size="sm" />,
+  // Phase 3.2. Support wears the people glyph (a queue of requests from
+  // traders); contestations wear the shield, the same mark Risk & Integrity
+  // and Audit use — a contestation is an evidence surface, not an inbox.
+  '/control/support': <UsersIcon size="sm" />,
+  '/control/contestations': <ShieldIcon size="sm" />,
   '/control/market-operations': <OverviewIcon size="sm" />,
   '/control/incidents': <ShieldIcon size="sm" />,
   '/control/treasury': <OverviewIcon size="sm" />,
@@ -50,7 +57,7 @@ export function ControlShell({
       className="flex min-h-dvh flex-col bg-[color:var(--wariba-background-canvas)] md:flex-row"
     >
       <ControlSidebar
-        LinkComponent={Link}
+        LinkComponent={ControlDocumentLink}
         currentPath={pathname}
         items={areas.map((area) => ({
           href: area.href,

@@ -57,7 +57,33 @@ export type ControlPermission =
   | 'policy.view'
   | 'treasury.view'
   | 'actuarial.view'
-  | 'staff_directory.view';
+  | 'staff_directory.view'
+  // Phase 3.2 — support and contestations. Granular on purpose: answering a
+  // question and deciding a dispute over a breach are different authorities
+  // held by different people, and neither is "admin".
+  | 'support.read'
+  | 'support.reply'
+  | 'support.assign'
+  | 'support.resolve'
+  | 'dispute.read'
+  | 'dispute.assign'
+  | 'dispute.review'
+  | 'dispute.resolve'
+  | 'dispute.correct'
+  | 'dispute.remediate'
+  // Phase 3.3 — Evaluation pass is system-authoritative. These operational
+  // permissions record post-result review or escalation only; no `.decide`
+  // permission exists and neither action can change the pass lifecycle.
+  | 'pass_review.read'
+  | 'pass_review.review'
+  | 'pass_review.escalate'
+  // Private-beta identity operations remain entirely with Compliance. Support
+  // reads only the trader-facing state through the normal support context and
+  // never gains the Control detail or its internal decision reason.
+  | 'identity_review.read'
+  | 'identity_review.assign'
+  | 'identity_review.review'
+  | 'identity_review.decide';
 
 const CONTROL_PERMISSION_REQUIREMENTS: Record<ControlPermission, readonly StaffRole[]> = {
   'account.view': ['support'],
@@ -108,6 +134,42 @@ const CONTROL_PERMISSION_REQUIREMENTS: Record<ControlPermission, readonly StaffR
   // The staff roster is an access-control surface: admin only, and read
   // only — Prompt 09 authorizes no staff-role mutation at all.
   'staff_directory.view': ['admin'],
+
+  // Phase 3.2 — the support queue belongs to support. Constitution §132:
+  // « Support peut lire résumé, tickets et escalader. Ne peut pas approuver
+  // payout ni modifier règle. » Nothing here grants payout approval, ledger
+  // mutation, policy editing or a risk override, and a test asserts that
+  // absence against the real permission table rather than a list beside it.
+  'support.read': ['support'],
+  'support.reply': ['support'],
+  'support.assign': ['support'],
+  'support.resolve': ['support'],
+
+  /*
+   * Contestations split read from decide, and the split is the point.
+   *
+   * Support reads them because a trader asks about theirs on the phone and a
+   * first-line operator has to be able to say where it stands. Deciding one is
+   * a different job: a contestation challenges a risk decision made from a
+   * published policy, so the authority to review and resolve belongs to risk
+   * and compliance. Support escalating is the intended path — support
+   * resolving a dispute over its own tickets would be marking its own homework.
+   */
+  'dispute.read': ['support', 'risk', 'compliance'],
+  'dispute.assign': ['risk', 'compliance'],
+  'dispute.review': ['risk', 'compliance'],
+  'dispute.resolve': ['risk', 'compliance'],
+  'dispute.correct': ['risk', 'compliance'],
+  'dispute.remediate': ['risk', 'compliance'],
+
+  'pass_review.read': ['risk', 'compliance'],
+  'pass_review.review': ['risk', 'compliance'],
+  'pass_review.escalate': ['risk', 'compliance'],
+
+  'identity_review.read': ['compliance'],
+  'identity_review.assign': ['compliance'],
+  'identity_review.review': ['compliance'],
+  'identity_review.decide': ['compliance'],
 };
 
 /**

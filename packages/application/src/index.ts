@@ -195,6 +195,29 @@ export {
   authorizeSensitiveStaffAction,
   type AuthorizeSensitiveStaffActionParams,
 } from './control-security';
+export {
+  IDENTITY_REVIEW_STATUS_LABELS,
+  IDENTITY_REVIEW_STATUSES,
+  IDENTITY_REVIEW_ASSIGNMENTS,
+  parseControlIdentityQuery,
+  buildControlIdentityQueueView,
+  buildControlIdentityDetailView,
+  assignIdentityReview,
+  updateIdentityReview,
+  type ControlIdentitySearchParams,
+  type ControlIdentityActionParams,
+} from './control-identity';
+export {
+  PASS_REVIEW_STATUSES,
+  PASS_REVIEW_ACTION_BLOCKED_BY_PRODUCT_DECISION,
+  parseControlPassReviewQuery,
+  buildControlPassReviewQueueView,
+  buildControlPassReviewDetailView,
+  recordPassReviewOperationalState,
+  type ControlPassReviewSearchParams,
+  type ControlPassReviewActionParams,
+} from './control-pass-review';
+export { buildControlOverviewView } from './control-overview';
 
 export {
   createUserProfile,
@@ -215,6 +238,26 @@ export {
   type AccountSummaryDTO,
   type ListAccountsForUserParams,
 } from './accounts-list';
+
+export {
+  buildEvaluationToPerformanceHandoff,
+  EvaluationPerformanceHandoffError,
+  type EvaluationPerformanceHandoffStage,
+  type EvaluationToPerformanceHandoffDTO,
+  type HandoffRuleKey,
+  type HandoffTimelineItem,
+  type PayoutPathStep,
+  type PayoutPathPhase,
+  type PerformanceRuleItem,
+  type RuleComparisonItem,
+} from './evaluation-performance-handoff';
+export {
+  acknowledgePerformanceRules,
+  loadPerformanceRulesAcknowledgement,
+  PerformanceRulesAcknowledgementError,
+  type PerformanceRulesAcknowledgement,
+  type PerformanceRulesAcknowledgementErrorCode,
+} from '@wariba/database';
 
 export {
   loadAccountRiskEngineInputs,
@@ -254,7 +297,7 @@ export {
   type BuildAccountPerformanceMissionViewParams,
 } from './performance-mission-view';
 
-export { ACCOUNT_STATUS_LABEL, accountStatusLabel } from './account-status-labels';
+export { ACCOUNT_STATUS_LABEL, accountStatusLabel, traderLabel } from './account-status-labels';
 
 /* Product OS Phase 2 — the account's life, payouts, identity, and the record. */
 export {
@@ -436,6 +479,121 @@ export {
   type SetComplianceFlagsParams,
 } from './control-payouts-actions';
 
+// Help Center — policy-bound facts (content master §11.3).
+export {
+  buildHelpPolicyFacts,
+  resolveHelpFacts,
+  HELP_FACT_UNPUBLISHED,
+  type HelpFact,
+  type HelpFactKey,
+  type HelpPolicyFacts,
+} from './help-policy-facts';
+
+// Phase 3.2 — Support + Contestations (UX-010 LOCKED).
+export {
+  SUPPORT_CATEGORIES,
+  SUPPORT_CATEGORY_LABELS,
+  SUPPORT_CATEGORY_SHORT,
+  SUPPORT_STATUS_LABELS,
+  SUPPORT_STATUS_NEXT_ACTION,
+  SUPPORT_STATUS_TONE,
+  CONTESTATION_STATUS_LABELS,
+  CONTESTATION_STATUS_TONE,
+  CONTESTATION_STATUS_NEXT_ACTION,
+  CONTESTATION_REASON_CATEGORIES,
+  CONTESTATION_REASON_LABELS,
+  CONTESTATION_TARGET_LABELS,
+  CONTESTATION_DECISION_LABELS,
+  CONSEQUENCE_LABELS,
+  formatSupportTimestamp,
+  formatAge,
+  buildSupportHomeView,
+  buildSupportTicketView,
+  buildContestationView,
+  projectContestationView,
+  projectContestationEvidence,
+  type SupportTone,
+  type SupportTicketSummary,
+  type SupportHomeView,
+  type ContestationSummary,
+  type SupportThreadEntry,
+  type SupportTicketView,
+  type EvidenceRow,
+  type ContestationEvidenceView,
+  type ContestationView,
+} from './support-view';
+export {
+  submitSupportTicket,
+  submitSupportReply,
+  submitContestation,
+  listContestableDecisionOptions,
+  type SubmitSupportTicketParams,
+  type SubmitSupportReplyParams,
+  type SubmitContestationParams,
+  type ContestableDecisionOption,
+} from './support-actions';
+export {
+  parseControlSupportQuery,
+  controlSupportPageHref,
+  buildControlSupportQueueView,
+  buildControlSupportTicketView,
+  parseControlContestationQuery,
+  buildControlContestationQueueView,
+  buildControlContestationView,
+  CONTROL_SUPPORT_STATUSES,
+  CONTROL_SUPPORT_CATEGORIES,
+  CONTROL_SUPPORT_ASSIGNMENTS,
+  CONTROL_SUPPORT_AGES,
+  CONTROL_SUPPORT_FILTER_LABELS,
+  CONTROL_CONTESTATION_STATUSES,
+  CONTROL_CONTESTATION_TARGETS,
+  CONTROL_CONTESTATION_REASONS,
+  CONTROL_CONTESTATION_FILTER_LABELS,
+  type ControlSupportSearchParams,
+  type ControlSupportQuery,
+  type ControlSupportQueueItem,
+  type ControlSupportQueueView,
+  type ControlSupportTicketView,
+  type ControlContestationQuery,
+  type ControlContestationQueueItem,
+  type ControlContestationQueueView,
+  type ControlContestationView,
+} from './control-support-view';
+export {
+  assignSupportTicket,
+  replyToSupportTicket,
+  setSupportTicketResolution,
+  setContestationReviewState,
+  assignContestation,
+  recordContestationDecision,
+  executeContestationReplacement,
+  type ControlSupportActionParams,
+  type ControlContestationActionParams,
+} from './control-support-actions';
+export type {
+  SupportTicketCategory,
+  SupportTicketStatus,
+  SupportTicketPriority,
+  ContestationStatus,
+  ContestationTargetType,
+  ContestationReasonCategory,
+  ContestationDecision,
+  IdentityReviewStatus,
+  PassReviewOperatorStatus,
+} from '@wariba/database';
+export {
+  SupportOwnershipError,
+  SupportTicketStateError,
+  DuplicateContestationError,
+  ContestationTargetError,
+  ContestationStateError,
+  StaffActionRateLimitExceededError,
+  OperatorCaseStaleError,
+  IdentityReviewStateError,
+  requestIdentityReview,
+  loadLatestIdentityReviewForTrader,
+} from '@wariba/database';
+
 export {
   listActiveProducts,
   getCheckoutContext,
@@ -454,3 +612,11 @@ export {
   type ProcessPaymentWebhookEventParams,
   type ProcessPaymentWebhookEventResult,
 } from './commerce';
+
+export {
+  assertIdentityEvidenceSufficient,
+  identityEvidenceRequirement,
+  IdentityEvidenceError,
+  type IdentityDecisionStatus,
+  type IdentityEvidenceRequirement,
+} from './identity-evidence';

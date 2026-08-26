@@ -45,7 +45,7 @@ async function openExecutionCenter(page: Page): Promise<void> {
 
   const width = page.viewportSize()?.width ?? DESKTOP_BREAKPOINT;
   if (width < DESKTOP_BREAKPOINT) {
-    await expect(page.getByTestId('mobile-market-trigger')).not.toContainText('— / —', {
+    await expect(page.getByTestId('chart-symbol-search-trigger')).toBeVisible({
       timeout: 30_000,
     });
     await page.getByRole('button', { name: /^Trader EURUSD$/ }).click();
@@ -231,10 +231,15 @@ test.describe('WariX Execution Center', { tag: ['@trade', '@warix-w4'] }, () => 
     await page.getByTestId('stop-loss-input').fill('1.08000');
     await page.getByTestId('take-profit-input').fill('1.09000');
 
+    // The catalogue is behind the Markets destination; switching back to Trade
+    // is how the execution context comes into view again.
+    await page.getByTestId('utility-markets').click();
     await page
       .getByTestId('market-navigator')
+      .first()
       .getByRole('button', { name: /^XAUUSD/ })
       .click();
+    await page.getByTestId('utility-trade').click();
     await expect(page.getByTestId('execution-market-header')).toContainText('XAUUSD');
 
     // W4 §54 — an EURUSD stop of 1.08000 against XAUUSD is unvalidated

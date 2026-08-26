@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js';
-import type { Db } from '@wariba/database';
+import { asEvaluationOnePolicy, type Db } from '@wariba/database';
 import { deriveHubDisplayState, type HubDisplayState } from '@wariba/domain';
 import {
   loadAccountRiskEngineInputs,
@@ -34,6 +34,11 @@ export interface AccountMissionView {
   variant: 'evaluation';
   state: AccountMissionState;
   title: string;
+  /** The sibling of the Performance view's `progressKind` — here the bar really is the profit objective. */
+  progressKind: 'objective';
+  progressLabel: string;
+  /** "612 / 1 000 USD" — the two figures the percentage came from. */
+  progressDetail: string;
   progressPercent: number;
   conditions: AccountMissionCondition[];
   nextAction: AccountMissionNextAction | null;
@@ -232,12 +237,22 @@ export function projectAccountMissionView(inputs: AccountRiskEngineInputs): Acco
       targetBalance,
     },
     state: toMissionState(hubState),
+    /*
+     * The objective is read from the attached policy, never spelled out.
+     * "Atteignez 10 % de profit net réalisé" was a literal — correct against
+     * today's published WARIBA ONE version and silently wrong the day a
+     * different one is attached to an account (UX-HELP-002's rule, applied
+     * here).
+     */
     title:
       hubState === 'passed'
         ? 'Évaluation réussie'
         : hubState === 'breached'
           ? 'Évaluation terminée'
-          : 'Atteignez 10 % de profit net réalisé',
+          : `Atteignez ${toPercent(asEvaluationOnePolicy(inputs.policy).profit_target_rate)} % de profit net réalisé`,
+    progressKind: 'objective',
+    progressLabel: 'Objectif de profit',
+    progressDetail: `${formatUsd(result.realizedNetProfit)} / ${formatUsd(result.target.required)}`,
     progressPercent,
     conditions,
     nextAction,

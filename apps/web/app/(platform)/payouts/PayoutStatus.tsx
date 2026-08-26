@@ -125,7 +125,7 @@ export function PayoutStatus({ payout }: { payout: PayoutLifecycleView }) {
 
           <ProgressBar
             percent={payout.cycle.bufferProgressPercent}
-            label="Progression vers le plancher du buffer"
+            label="Progression du buffer permanent"
             tone={payout.cycle.bufferProgressPercent >= 100 ? 'emerald' : 'indigo'}
             className="mt-3"
           />
@@ -133,7 +133,11 @@ export function PayoutStatus({ payout }: { payout: PayoutLifecycleView }) {
           <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
             {[
               { term: 'Solde éligible', value: payout.cycle.realizedBalanceFormatted },
-              { term: 'Plancher du buffer', value: payout.cycle.bufferFloorFormatted },
+              {
+                term: 'Buffer construit',
+                value: `${payout.cycle.bufferBuiltFormatted} / ${payout.cycle.bufferRequiredFormatted}`,
+              },
+              { term: 'Seuil du buffer', value: payout.cycle.bufferFloorFormatted },
               {
                 term: 'Performance Days',
                 value: `${payout.cycle.performanceDaysCompleted} / ${payout.cycle.performanceDaysRequired}`,

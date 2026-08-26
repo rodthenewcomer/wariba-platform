@@ -29,3 +29,16 @@ export {
   type CheckoutInput,
   type SandboxWebhookEvent,
 } from './commerce';
+
+export {
+  supportCategorySchema,
+  createSupportTicketSchema,
+  supportReplySchema,
+  contestationReasonSchema,
+  openContestationSchema,
+  type SupportCategory,
+  type CreateSupportTicketInput,
+  type SupportReplyInput,
+  type ContestationReason,
+  type OpenContestationInput,
+} from './support';

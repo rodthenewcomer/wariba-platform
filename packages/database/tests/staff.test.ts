@@ -93,6 +93,39 @@ describe('staffCan — sensitive Control authorization matrix', () => {
   });
 });
 
+describe('Phase 3.3 operator capability separation', () => {
+  it('allows pass-review visibility without inventing a decision authority', () => {
+    expect(staffCan('risk', 'pass_review.read')).toBe(true);
+    expect(staffCan('compliance', 'pass_review.read')).toBe(true);
+    expect(staffCan('support', 'pass_review.read')).toBe(false);
+    expect(staffCan('risk', 'pass_review.review')).toBe(true);
+    expect(staffCan('risk', 'pass_review.escalate')).toBe(true);
+    expect(staffCan('support', 'pass_review.review')).toBe(false);
+    expect(CONTROL_PERMISSIONS).not.toContain('pass_review.decide');
+  });
+
+  it('keeps identity operations and internal reasons with compliance', () => {
+    expect(staffCan('support', 'identity_review.read')).toBe(false);
+    expect(staffCan('support', 'identity_review.assign')).toBe(false);
+    expect(staffCan('support', 'identity_review.decide')).toBe(false);
+    expect(staffCan('compliance', 'identity_review.assign')).toBe(true);
+    expect(staffCan('compliance', 'identity_review.review')).toBe(true);
+    expect(staffCan('compliance', 'identity_review.decide')).toBe(true);
+    expect(staffCan('risk', 'identity_review.decide')).toBe(false);
+  });
+
+  it('keeps cross-role mutations blocked in both directions', () => {
+    expect(staffCan('support', 'dispute.resolve')).toBe(false);
+    expect(staffCan('support', 'dispute.assign')).toBe(false);
+    expect(staffCan('support', 'dispute.correct')).toBe(false);
+    expect(staffCan('support', 'dispute.remediate')).toBe(false);
+    expect(staffCan('risk', 'dispute.correct')).toBe(true);
+    expect(staffCan('compliance', 'dispute.remediate')).toBe(true);
+    expect(staffCan('risk', 'support.reply')).toBe(false);
+    expect(staffCan('risk', 'support.resolve')).toBe(false);
+  });
+});
+
 /**
  * Prompt 09 milestone 5 — governance surfaces stay read-only.
  *

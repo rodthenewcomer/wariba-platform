@@ -42,6 +42,12 @@ export {
 } from './kyc-state';
 
 export {
+  identityEvidenceRequirement,
+  type IdentityDecisionStatus,
+  type IdentityEvidenceRequirement,
+} from './identity-evidence';
+
+export {
   deriveAccountHealth,
   type AccountHealth,
   type AccountHealthView,

@@ -45,8 +45,8 @@ export interface ExecutionGate {
 
 const BLOCK_MESSAGE: Record<EntryBlockReason, string> = {
   resyncing:
-    'Resynchronisation… un écart de séquence a été détecté. Les nouveaux ordres restent bloqués jusqu’au nouveau snapshot serveur.',
-  disconnected: 'Connexion au serveur en cours…',
+    'Resynchronisation en cours. Les nouveaux ordres restent bloqués tant que WARIBA n’a pas confirmé l’état exact de votre compte.',
+  disconnected: 'Connexion en cours…',
   quote_unavailable: 'Aucune cotation en cours pour cet instrument.',
   market_stale: 'Les nouvelles positions sont bloquées tant que le marché n’est pas à jour.',
   market_closed:

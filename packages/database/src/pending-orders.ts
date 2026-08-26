@@ -42,6 +42,7 @@ import { assertCurrentLeadershipInTransaction, type LeadershipToken } from './re
 
 const REJECTION = {
   ACCOUNT_NOT_ACTIVE: 'account_not_active',
+  PERFORMANCE_RULES_NOT_ACKNOWLEDGED: 'performance_rules_not_acknowledged',
   STALE_MARKET_DATA: 'stale_market_data',
   INVALID_QUANTITY: 'invalid_quantity',
   UNKNOWN_SYMBOL_SPEC: 'unknown_symbol_spec',
@@ -168,8 +169,21 @@ export async function createPendingOrder(
       order: null,
     });
 
-    if (account.status !== 'active') {
+    // Reaching the Evaluation objective intraday does not freeze the account.
+    // It remains fully governed by the risk engine until daily finalization.
+    if (account.status !== 'active' && account.status !== 'pass_pending') {
       return reject(REJECTION.ACCOUNT_NOT_ACTIVE);
+    }
+    if (account.program_type === 'WARIBA_PERFORMANCE') {
+      const acknowledgement = await trx
+        .selectFrom('app.performance_rule_acknowledgements')
+        .select('id')
+        .where('account_id', '=', account.id)
+        .where('policy_version_id', '=', account.policy_version_id)
+        .executeTakeFirst();
+      if (!acknowledgement) {
+        return reject(REJECTION.PERFORMANCE_RULES_NOT_ACKNOWLEDGED);
+      }
     }
 
     const exposureRejection = await findExposureIncreaseRejection(trx, account.id);

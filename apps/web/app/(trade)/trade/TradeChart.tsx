@@ -2956,7 +2956,7 @@ export function TradeChart({
                 isStale
                   ? 'Cours non actualisé — actions indisponibles tant que le flux n’a pas repris.'
                   : isDisconnected
-                    ? 'Connexion au serveur en cours…'
+                    ? 'Connexion en cours…'
                     : null
               }
               onMarketBuy={() => {
@@ -3031,7 +3031,7 @@ export function TradeChart({
               isStale
                 ? 'Cours non actualisé — actions indisponibles tant que le flux n’a pas repris.'
                 : isDisconnected
-                  ? 'Connexion au serveur en cours…'
+                  ? 'Connexion en cours…'
                   : null
             }
             onMarketBuy={() => {

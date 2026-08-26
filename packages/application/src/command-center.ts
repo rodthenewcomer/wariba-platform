@@ -150,13 +150,42 @@ export async function buildCommandCenterView(
       }).catch(() => null)
     : null;
 
+  const currentSessionFinalized =
+    account.status === 'pass_pending'
+      ? await db
+          .selectFrom('app.account_state_transitions as objective_transition')
+          .select((eb) =>
+            eb
+              .exists(
+                eb
+                  .selectFrom('app.account_daily_snapshots as finalized_snapshot')
+                  .select('finalized_snapshot.id')
+                  .whereRef('finalized_snapshot.account_id', '=', 'objective_transition.account_id')
+                  .where('finalized_snapshot.status', '=', 'finalized')
+                  .whereRef(
+                    'finalized_snapshot.finalized_at',
+                    '>=',
+                    'objective_transition.occurred_at',
+                  ),
+              )
+              .as('finalized_after_objective'),
+          )
+          .where('objective_transition.account_id', '=', account.id)
+          .where('objective_transition.to_status', '=', 'pass_pending')
+          .orderBy('objective_transition.occurred_at', 'desc')
+          .executeTakeFirst()
+          .then((row) => Boolean(row?.finalized_after_objective))
+      : false;
+
   const lifecycle = deriveAccountLifecycle({
     accountStatus: account.status,
     programType: account.programType,
     inAttentionZone: risk.status === 'attention',
-    // A session is closed once today's snapshot is finalised — which is what
-    // separates "objective reached, still trading" from "under review".
-    currentSessionFinalized: hub.tradingDays[0]?.finalized ?? false,
+    // Compare the finalization instant to the authoritative objective
+    // transition. The daily worker immediately opens a fresh unfinalized
+    // snapshot for the new day, so `hub.tradingDays[0]` cannot answer whether
+    // the objective-reaching day itself has closed.
+    currentSessionFinalized,
   });
 
   /*
@@ -243,6 +272,9 @@ export interface AccountTelemetry {
   riskStatus: AccountRiskView['status'];
   openPositionCount: number;
   progressPercent: number | null;
+  /** What that percentage measures on this account — "Objectif de profit" or "Buffer à construire". */
+  progressLabel: string | null;
+  progressDetail: string | null;
   nextResetAt: string;
   capturedAt: string;
 }
@@ -277,6 +309,8 @@ export async function buildAccountTelemetry(
     riskStatus: risk.status,
     openPositionCount: positions.length,
     progressPercent: mission.available ? mission.progressPercent : null,
+    progressLabel: mission.available ? mission.progressLabel : null,
+    progressDetail: mission.available ? mission.progressDetail : null,
     nextResetAt: risk.nextResetAt,
     capturedAt: now.toISOString(),
   };

@@ -22,6 +22,8 @@ export const performanceProgressDtoSchema = z.object({
   cycleNumber: z.number().int().positive(),
   cycleStatus: performanceCycleStatusSchema,
   realizedBalance: z.string(),
+  /** Buffer progress is measured from here, never from zero (PERF-023). */
+  nominalBalance: z.string(),
   bufferFloor: z.string(),
   eligibleExcess: z.string(),
   bufferReached: z.boolean(),

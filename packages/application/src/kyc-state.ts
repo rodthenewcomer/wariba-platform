@@ -22,6 +22,8 @@
  * what is true: verification is required, and where the trader stands.
  */
 
+import type { IdentityReviewStatus } from '@wariba/database';
+
 export type KycState =
   'not_started' | 'in_progress' | 'submitted' | 'needs_information' | 'verified' | 'rejected';
 
@@ -83,14 +85,38 @@ const VIEW: Record<KycState, Omit<KycView, 'state'>> = {
 };
 
 /**
- * Derived from the one fact the platform actually holds.
+ * The states a private-beta identity case maps onto.
  *
- * Deliberately not a guess at the intermediate states. Until a provider is
- * wired, an unverified account is `not_started` — because from the trader's
- * point of view nothing has started, which is true.
+ * `requested` and `under_review` are both "WARIBA is looking at it" from the
+ * trader's side — the distinction between a case that has been picked up and
+ * one that has not is an operator fact, not a trader one.
  */
-export function deriveKycState(params: { verified: boolean }): KycState {
-  return params.verified ? 'verified' : 'not_started';
+const REVIEW_STATE: Record<IdentityReviewStatus, KycState> = {
+  requested: 'submitted',
+  under_review: 'submitted',
+  needs_information: 'needs_information',
+  verified: 'verified',
+  unable_to_verify: 'rejected',
+  // A closed case leaves no live obligation. The account flag decides.
+  closed: 'not_started',
+};
+
+/**
+ * Derived from the two facts the platform actually holds: whether the account
+ * carries verification, and whether a review case is open on it.
+ *
+ * B1 — the case used to be invisible here, so a trader whose file was already
+ * `under_review` was still told "Vérification requise" and, three cards lower,
+ * to contact support to trigger the verification that had already been
+ * triggered. The states below are still not a guess at a provider's flow;
+ * every one of them corresponds to a row this deployment really writes.
+ */
+export function deriveKycState(params: {
+  verified: boolean;
+  reviewStatus?: IdentityReviewStatus | null;
+}): KycState {
+  if (params.verified) return 'verified';
+  return params.reviewStatus ? REVIEW_STATE[params.reviewStatus] : 'not_started';
 }
 
 export function kycView(state: KycState): KycView {
@@ -105,7 +131,10 @@ export function kycView(state: KycState): KycView {
  * to widen.
  */
 export function reachableKycStates(): readonly KycState[] {
-  return ['not_started', 'verified'];
+  // Widened in Phase 3.3.2: the private-beta identity queue really does write
+  // `requested`/`under_review`/`needs_information`/`unable_to_verify` rows, so
+  // these are states the product produces, not states it pretends to.
+  return ['not_started', 'submitted', 'needs_information', 'verified', 'rejected'];
 }
 
 /**

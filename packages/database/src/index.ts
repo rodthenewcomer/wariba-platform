@@ -9,6 +9,7 @@
 export const PACKAGE_NAME = '@wariba/database';
 
 export { createDbClient, type Db, type DbExecutor } from './client';
+export { OperatorCaseStaleError, assertExpectedCaseVersion } from './operator-case';
 export {
   registerMarketDataSource,
   upsertMarketBars,
@@ -45,6 +46,17 @@ export type {
   MarketBarVolumeSemantics,
   MarketBarSessionState,
   MarketBarHistoryProvenance,
+  RiskViolationRuleCode,
+  SupportTicketCategory,
+  SupportTicketStatus,
+  SupportTicketPriority,
+  TicketMessageActorType,
+  ContestationTargetType,
+  ContestationStatus,
+  ContestationReasonCategory,
+  ContestationDecision,
+  IdentityReviewStatus,
+  PassReviewOperatorStatus,
 } from './schema';
 export {
   getStaffRole,
@@ -62,10 +74,109 @@ export {
 } from './owner-bootstrap';
 export {
   consumeStaffActionRateLimit,
+  consumeActorActionRateLimit,
   StaffActionRateLimitExceededError,
   type ConsumeStaffActionRateLimitParams,
 } from './staff-action-rate-limit';
+
+// Phase 3.2 — support and contestations (UX-010 LOCKED).
+export {
+  listSupportTicketsForUser,
+  loadSupportTicketForUser,
+  createSupportTicket,
+  appendTraderMessage,
+  traderCanReply,
+  SupportOwnershipError,
+  SupportTicketStateError,
+  type SupportTicketListRow,
+  type SupportTicketThread,
+  type SupportThreadMessage,
+  type CreateSupportTicketParams,
+  type CreatedSupportTicket,
+  type AppendTraderMessageParams,
+} from './support-tickets';
+export {
+  loadContestedDecisionEvidence,
+  listContestableDecisions,
+  type ContestedDecisionEvidence,
+  type ContestedOrderEvidence,
+  type ContestableDecision,
+  type ContestationEvidenceRef,
+} from './contestation-evidence';
+export {
+  openContestation,
+  listContestationsForUser,
+  loadContestationForUser,
+  LIVE_CONTESTATION_STATUSES,
+  DuplicateContestationError,
+  ContestationTargetError,
+  type OpenContestationParams,
+  type OpenedContestation,
+  type ContestationListRow,
+  type ContestationDetail,
+} from './contestations';
+export {
+  loadControlSupportQueue,
+  loadControlSupportTicket,
+  assignSupportTicketInTransaction,
+  appendStaffMessageInTransaction,
+  setSupportTicketResolutionInTransaction,
+  type ControlSupportFilters,
+  type ControlSupportQueueRow,
+  type ControlSupportQueuePage,
+  type ControlSupportTicketDetail,
+  type TicketBeforeAfter,
+} from './control-support';
+export {
+  loadControlContestationQueue,
+  loadControlContestation,
+  assignContestationInTransaction,
+  setContestationReviewStateInTransaction,
+  recordContestationDecisionInTransaction,
+  executeContestationReplacementInTransaction,
+  ContestationStateError,
+  type ControlContestationFilters,
+  type ControlContestationQueueRow,
+  type ControlContestationQueuePage,
+  type ControlContestationDetail,
+  type ContestationBeforeAfter,
+  type ContestationRemediationResult,
+} from './control-contestations';
 export { recordStaffAuditEvent, type RecordStaffAuditEventParams } from './audit';
+export {
+  loadControlOverview,
+  type OperationalQueueKind,
+  type OperationalQueueSummary,
+  type AssignedOperationalCase,
+  type AgingOperationalCase,
+  type RecentOperatorDecision,
+  type ControlOverviewScope,
+} from './control-overview';
+export {
+  loadControlPassReviewQueue,
+  loadControlPassReviewCase,
+  setPassReviewOperatorStateInTransaction,
+  PassReviewStateError,
+  type PassReviewFilters,
+  type PassReviewQueueRow,
+  type PassReviewQueuePage,
+  type PassReviewCaseFacts,
+  type PassReviewOperatorChange,
+} from './control-pass-reviews';
+export {
+  loadIdentityReviewQueue,
+  loadIdentityReviewDetail,
+  loadLatestIdentityReviewForTrader,
+  requestIdentityReview,
+  assignIdentityReviewInTransaction,
+  updateIdentityReviewInTransaction,
+  IdentityReviewStateError,
+  type IdentityReviewFilters,
+  type IdentityReviewQueueRow,
+  type IdentityReviewQueuePage,
+  type IdentityReviewDetail,
+  type IdentityReviewBeforeAfter,
+} from './identity-reviews';
 export {
   searchControlOrders,
   loadControlTradingSummary,
@@ -198,6 +309,13 @@ export {
   type OpenPerformanceReviewCase,
 } from './performance';
 export {
+  acknowledgePerformanceRules,
+  loadPerformanceRulesAcknowledgement,
+  PerformanceRulesAcknowledgementError,
+  type PerformanceRulesAcknowledgement,
+  type PerformanceRulesAcknowledgementErrorCode,
+} from './performance-onboarding';
+export {
   createPayoutRequestInTransaction,
   approvePayoutRequestInTransaction,
   rejectPayoutRequestInTransaction,
@@ -319,7 +437,7 @@ export {
   type PositionProtectionTrigger,
   type TriggeredPositionProtection,
 } from './position-protections';
-export { loadPublishedPolicy, loadPolicyById } from './policy';
+export { loadPublishedPolicy, loadPolicyById, asEvaluationOnePolicy } from './policy';
 export { loadAccountBalanceProjection, type AccountBalanceProjection } from './program-eligibility';
 export {
   reconstructAccountFinancialState,

@@ -164,6 +164,9 @@ export async function activateEvaluationAccountInTransaction(
       from_status: 'pending_activation',
       to_status: 'active',
       reason: 'payment_confirmed',
+      // The activation's own instant, so this row sorts against the rest of
+      // the account's timeline on the clock that wrote it.
+      occurred_at: timestamp,
     })
     .execute();
 

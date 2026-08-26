@@ -1346,14 +1346,137 @@ body {
   }
 }
 
-/* Reduced motion — Design System §41.2 */
+/* Help Center visual education.
+ * Motion explains sequence and thresholds; it is never a decorative loop.
+ * The global reduced-motion contract below collapses every transition to 1ms.
+ */
+@keyframes help-visual-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes help-visual-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes help-visual-rise {
+  from {
+    opacity: 0.35;
+    transform: scaleY(0.08);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+.help-visual .help-visual-node {
+  animation: help-visual-enter 320ms var(--wariba-component-workstation-ease-enter) both;
+}
+
+.help-visual .help-visual-node:nth-child(2) {
+  animation-delay: 55ms;
+}
+
+.help-visual .help-visual-node:nth-child(3) {
+  animation-delay: 110ms;
+}
+
+.help-visual .help-visual-node:nth-child(4) {
+  animation-delay: 165ms;
+}
+
+.help-visual .help-visual-node:nth-child(5) {
+  animation-delay: 220ms;
+}
+
+.help-visual .help-visual-node:nth-child(n + 6) {
+  animation-delay: 275ms;
+}
+
+.help-visual-flow::before {
+  position: absolute;
+  top: 16px;
+  bottom: 16px;
+  left: 15px;
+  width: 1px;
+  background: var(--wariba-color-ink-700);
+  content: '';
+}
+
+.help-visual-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: help-visual-draw 780ms var(--wariba-component-workstation-ease-enter) 90ms forwards;
+}
+
+.help-visual-draw-delayed {
+  animation-delay: 260ms;
+}
+
+.help-visual-bar {
+  transform-origin: bottom;
+  animation: help-visual-rise 460ms var(--wariba-component-workstation-ease-enter) both;
+}
+
+.help-screenshot-pin {
+  transition:
+    transform var(--wariba-component-workstation-motion-interaction),
+    background-color var(--wariba-component-workstation-motion-interaction);
+}
+
+.help-screenshot-pin:hover {
+  transform: scale(1.08);
+  background: var(--wariba-color-cobalt-900);
+}
+
+@media (min-width: 768px) {
+  .help-visual-flow::before {
+    top: 15px;
+    right: 16px;
+    bottom: auto;
+    left: 16px;
+    width: auto;
+    height: 1px;
+  }
+}
+
+/*
+ * Reduced motion — Design System §41.2
+ *
+ * The delays matter as much as the durations, and leaving them out was a real
+ * hole. Staggered entrances such as `.help-visual-node` run with
+ * `animation-fill-mode: both`, so during their delay the element holds the
+ * `from` keyframe — `opacity: 0`. Collapsing the duration to 1 ms while
+ * leaving a 275 ms delay in place means a reader who asked for no motion still
+ * spends 275 ms looking at invisible text, and any tool that samples the page
+ * in that window measures a colour the design never specified: axe read
+ * `--wariba-color-bone-50` as `#363940` and reported a 1.56:1 contrast failure
+ * against a token that measures 14:1 at rest.
+ *
+ * Zeroing the delays makes "reduced motion" mean what it says: the resting
+ * state, immediately, with nothing to wait for.
+ */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: var(--wariba-motion-duration-reduced, 1ms) !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: var(--wariba-motion-duration-reduced, 1ms) !important;
+    transition-delay: 0ms !important;
     scroll-behavior: auto !important;
   }
 }

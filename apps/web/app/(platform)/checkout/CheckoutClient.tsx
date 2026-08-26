@@ -68,7 +68,7 @@ export function CheckoutClient({ context }: CheckoutClientProps) {
           </div>
           <div>
             <Text variant="label-sm" color="tertiary">
-              Policy WARIBA ONE
+              Règles WARIBA ONE
             </Text>
             <Text variant="heading-sm">Version {context.policyVersion}</Text>
           </div>
@@ -83,20 +83,29 @@ export function CheckoutClient({ context }: CheckoutClientProps) {
           <Text as="h2" variant="heading-sm" className="mb-3">
             Règles essentielles
           </Text>
+          {/*
+           * Lues depuis la policy publiée, pas tapées ici.
+           *
+           * La case cochée quelques lignes plus bas enregistre un
+           * consentement versionné et horodaté, conservé comme preuve. Les
+           * quatre pourcentages de cette liste étaient en dur : le jour d'un
+           * changement de policy, la preuve et l'écran auraient dit deux
+           * choses différentes, et c'est l'écran que la personne aurait lu.
+           */}
           <ul className="grid list-disc gap-2 pl-5 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-secondary)] sm:grid-cols-2">
-            <li>Objectif net réalisé : 10 %</li>
-            <li>Perte quotidienne : 3 % avec soft lock</li>
-            <li>Perte maximale : 10 % EOD trailing</li>
-            <li>Best Day Rule : 50 %, jamais une violation</li>
-            <li>Aucun minimum de jours</li>
-            <li>Aucune journée qualifiée en Evaluation</li>
+            {context.rules.map((rule) => (
+              <li key={rule.label}>
+                {rule.label} : {rule.value}
+              </li>
+            ))}
+            <li>Aucune journée qualifiée exigée pendant l’évaluation</li>
           </ul>
         </div>
 
         <Checkbox
           checked={accepted}
           onChange={(event) => setAccepted(event.target.checked)}
-          label={`J'accepte la divulgation de compte simulé liée à la policy WARIBA ONE ${context.policyVersion}.`}
+          label={`J'accepte la divulgation de compte simulé liée aux règles WARIBA ONE ${context.policyVersion}.`}
           helperText="Cette acceptation est versionnée, horodatée et conservée comme preuve."
         />
 

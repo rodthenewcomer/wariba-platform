@@ -59,6 +59,15 @@ export interface LifecycleBannerProps {
   evidence?: readonly { label: string; value: string }[];
   action?: { label: string; href: string };
   secondaryAction?: { label: string; href: string };
+  /**
+   * A third way out, for the one state that needs three.
+   *
+   * A breached account offers: buy another, contest the decision, read the
+   * detail. Two of those are decisions and the third is just navigation, so it
+   * renders as a quiet link rather than a third button — three equal-weight
+   * buttons on one banner is the same as none.
+   */
+  tertiaryAction?: { label: string; href: string };
 }
 
 /** States that warrant taking over a band of the dashboard. */
@@ -82,6 +91,7 @@ export function LifecycleBanner({
   evidence = [],
   action,
   secondaryAction,
+  tertiaryAction,
 }: LifecycleBannerProps) {
   return (
     <Surface
@@ -127,8 +137,8 @@ export function LifecycleBanner({
           </div>
         </div>
 
-        {action || secondaryAction ? (
-          <div className="flex shrink-0 flex-wrap gap-2">
+        {action || secondaryAction || tertiaryAction ? (
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
             {action ? (
               <ActionLink
                 href={action.href}
@@ -141,6 +151,11 @@ export function LifecycleBanner({
             {secondaryAction ? (
               <ActionLink href={secondaryAction.href} variant="secondary" size="sm">
                 {secondaryAction.label}
+              </ActionLink>
+            ) : null}
+            {tertiaryAction ? (
+              <ActionLink href={tertiaryAction.href} variant="ghost" size="sm">
+                {tertiaryAction.label}
               </ActionLink>
             ) : null}
           </div>

@@ -19,6 +19,7 @@ import {
   type MissionCondition,
 } from '@wariba/ui';
 import type { PayoutRequestDTO, PerformanceProgressDTO } from '@wariba/contracts';
+import { computeBufferBuildProgress } from '@wariba/domain';
 
 export interface PayoutCenterPanelProps {
   performanceProgress: PerformanceProgressDTO | null;
@@ -74,13 +75,13 @@ function resolveBlockingReason(progress: PerformanceProgressDTO): string | null 
     return 'Une demande de payout est déjà en cours de revue pour ce cycle.';
   }
   if (!progress.bufferReached) {
-    return `Le solde éligible n’a pas encore dépassé le plancher du buffer permanent (${formatUsd(progress.bufferFloor)}).`;
+    return `Le solde éligible n’a pas encore dépassé le seuil du buffer permanent (${formatUsd(progress.bufferFloor)}).`;
   }
   if (progress.performanceDaysCompleted < progress.performanceDaysRequired) {
     return `Il manque des Performance Days pour ce cycle (${progress.performanceDaysCompleted} / ${progress.performanceDaysRequired}).`;
   }
   if (!progress.consistencyCompliant) {
-    return 'La meilleure journée dépasse 50 % du profit positif total — répartissez le profit sur d’autres journées.';
+    return 'Votre meilleure journée pèse trop lourd dans le total de vos journées gagnantes — répartissez vos gains sur d’autres journées.';
   }
   if (progress.openPositionBlocking) {
     return 'Une position est ouverte — fermez-la avant de demander un payout.';
@@ -89,21 +90,28 @@ function resolveBlockingReason(progress: PerformanceProgressDTO): string | null 
     return 'Un ordre en attente est actif — annulez-le avant de demander un payout.';
   }
   if (!progress.kycVerified) {
-    return 'Vérification d’identité sandbox non complétée.';
+    return 'Votre identité n’est pas encore vérifiée.';
   }
   if (!progress.payoutMethodConfigured) {
-    return 'Aucune méthode de payout sandbox configurée.';
+    return 'Aucune méthode de paiement enregistrée.';
   }
   return null;
 }
 
 function toConditions(progress: PerformanceProgressDTO): MissionCondition[] {
+  const buffer = computeBufferBuildProgress({
+    realizedBalance: progress.realizedBalance,
+    nominalBalance: progress.nominalBalance,
+    bufferFloor: progress.bufferFloor,
+  });
   return [
     {
-      label: 'Buffer permanent atteint',
+      label: 'Buffer permanent construit',
+      // A8 — "plancher" belongs to Maximum Loss, the level that ends an
+      // account. This one only decides which part of a gain can be requested.
       detail: progress.bufferReached
-        ? `Excédent éligible : ${formatUsd(progress.eligibleExcess)}`
-        : `Plancher : ${formatUsd(progress.bufferFloor)}`,
+        ? `Disponible : ${formatUsd(progress.eligibleExcess)}`
+        : `${formatUsd(buffer.builtAmount)} / ${formatUsd(buffer.requiredAmount)}`,
       met: progress.bufferReached,
     },
     {
@@ -112,11 +120,11 @@ function toConditions(progress: PerformanceProgressDTO): MissionCondition[] {
       met: progress.performanceDaysCompleted >= progress.performanceDaysRequired,
     },
     {
-      label: 'Consistance',
+      label: 'Meilleur Jour',
       detail:
         progress.consistencyRatio === null
-          ? 'Aucune journée positive pour l’instant'
-          : `${toPercent(progress.consistencyRatio)} % (limite 50 %)`,
+          ? 'Aucune journée gagnante pour l’instant'
+          : `Votre meilleure journée pèse ${toPercent(progress.consistencyRatio)} % de vos journées gagnantes`,
       met: progress.consistencyCompliant,
     },
   ];
@@ -158,16 +166,19 @@ export function PayoutCenterPanel({
 
   const blockingReason = resolveBlockingReason(performanceProgress);
   const canSubmit = blockingReason === null && !pending;
-  const progressPercent = Math.min(
-    100,
-    Math.max(
-      0,
-      Math.round(
-        (Number(performanceProgress.realizedBalance) / Number(performanceProgress.bufferFloor)) *
-          100,
-      ),
-    ),
-  );
+  /*
+   * Phase 3.3.2 A1 — the same canonical buffer calculation the Hub uses.
+   *
+   * `realizedBalance / bufferFloor` read 91 % on an account that had built no
+   * buffer at all. The domain owns the formula now, so the Payout Center and
+   * the dashboard cannot drift into showing two different numbers for one
+   * account.
+   */
+  const buffer = computeBufferBuildProgress({
+    realizedBalance: performanceProgress.realizedBalance,
+    nominalBalance: performanceProgress.nominalBalance,
+    bufferFloor: performanceProgress.bufferFloor,
+  });
 
   return (
     <div id="payout" className="flex flex-col gap-4 scroll-mt-20">
@@ -175,7 +186,7 @@ export function PayoutCenterPanel({
         variant="performance"
         state={blockingReason ? 'attention' : 'reached'}
         title={`Cycle de payout n°${performanceProgress.cycleNumber}`}
-        progressPercent={progressPercent}
+        progressPercent={buffer.percent}
         conditions={conditions}
         nextAction={
           canSubmit ? (
@@ -204,12 +215,10 @@ export function PayoutCenterPanel({
       />
 
       {!performanceProgress.kycVerified || !performanceProgress.payoutMethodConfigured ? (
-        <Alert level="warning" title="Configuration sandbox requise">
-          {!performanceProgress.kycVerified
-            ? 'Vérification d’identité sandbox non complétée. '
-            : ''}
+        <Alert level="warning" title="Il reste une étape avant de demander un payout">
+          {!performanceProgress.kycVerified ? 'Votre identité n’est pas encore vérifiée. ' : ''}
           {!performanceProgress.payoutMethodConfigured
-            ? 'Aucune méthode de payout sandbox configurée.'
+            ? 'Aucune méthode de paiement enregistrée.'
             : ''}
         </Alert>
       ) : null}

@@ -29,9 +29,15 @@ test.describe('Trader Hub', { tag: ['@auth'] }, () => {
 
       await expect(page.getByText(/objectif de profit/i).first()).toBeVisible();
       /*
-       * "DLL restante" became "Perte quotidienne restante" in Phase 2 — the
-       * same authoritative figure, in French a trader does not have to expand
-       * an acronym to read. The assertion follows the label.
+       * The daily-loss budget, under the one label the Hub now renders.
+       *
+       * This asserted « Perte quotidienne restante » until Phase 3.2 found it
+       * red, then « Risque jour restant » — the telemetry strip's own name for
+       * the same figure. The strip, the risk meter, the account card and WariX
+       * had four names between them, one of which was the acronym « DLL ».
+       * They now all read « Perte quotidienne restante », which is the name
+       * the Help Center gives the rule, so one assertion covers the figure
+       * wherever it appears.
        */
       await expect(page.getByText(/Perte quotidienne restante/).first()).toBeVisible();
       // Legitimately more than one: the hero's primary and the sticky header's
@@ -40,8 +46,15 @@ test.describe('Trader Hub', { tag: ['@auth'] }, () => {
 
       await expect(page.getByText(/Activé le/)).toBeVisible();
       await expect(page.getByText(/Répartition après passage/)).toBeVisible();
-      await expect(page.getByText('Positions ouvertes')).toBeVisible();
-      await expect(page.getByText('Aucune position ouverte.')).toBeVisible();
+      /*
+       * Twice on purpose: the health panel counts open positions, and the
+       * module below lists them. `.first()` because asserting the *heading*
+       * specifically would pass while the panel silently stopped rendering,
+       * and what this line guards is that the dashboard talks about positions
+       * at all.
+       */
+      await expect(page.getByText('Positions ouvertes').first()).toBeVisible();
+      await expect(page.getByText('Aucune position ouverte.').first()).toBeVisible();
 
       /*
        * The account evolution is a chart only when the read model says the

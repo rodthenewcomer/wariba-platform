@@ -195,14 +195,72 @@ test.describe('@phase2 information architecture', () => {
 });
 
 test.describe('@phase2 account lifecycle', () => {
+  /*
+   * `root` is the surface each state actually renders.
+   *
+   * Every state used to be expected to draw the dashboard hero. Phase 3.3.1
+   * changed that for one of them on purpose: a successful evaluation is handed
+   * over rather than kept on a dashboard, so `passed` renders the handoff
+   * (UX-HUB-011). Asserting the hero there was asserting the pre-handoff
+   * product. The rest are unchanged, and the point of the loop — every
+   * lifecycle state renders something coherent, named, and photographable — is
+   * the same.
+   */
   const STATES = [
-    { state: 'evaluation_new', shot: '20-lifecycle-evaluation', banner: false },
-    { state: 'objective_reached', shot: '21-lifecycle-objective-reached', banner: true },
-    { state: 'under_review', shot: '22-lifecycle-under-review', banner: true },
-    { state: 'passed', shot: '23-lifecycle-passed', banner: true },
-    { state: 'funded_preparing', shot: '24-lifecycle-funded-preparing', banner: true },
-    { state: 'funded_active', shot: '25-lifecycle-funded-active', banner: false },
-    { state: 'breached', shot: '26-lifecycle-breached', banner: true },
+    {
+      state: 'evaluation_new',
+      shot: '20-lifecycle-evaluation',
+      banner: false,
+      root: 'account-hero',
+    },
+    {
+      state: 'objective_reached',
+      shot: '21-lifecycle-objective-reached',
+      banner: true,
+      root: 'account-hero',
+    },
+    {
+      state: 'under_review',
+      shot: '22-lifecycle-under-review',
+      banner: true,
+      root: 'account-hero',
+    },
+    {
+      state: 'passed',
+      shot: '23-lifecycle-passed',
+      banner: false,
+      root: 'performance-handoff',
+    },
+    {
+      state: 'funded_preparing',
+      shot: '24-lifecycle-funded-preparing',
+      banner: true,
+      root: 'account-hero',
+    },
+    /*
+     * `funded_active` renders the dashboard again.
+     *
+     * It spent a phase asserting the fail-closed guard instead, because the
+     * fixture posed this state by flipping `program_type` on the evaluation
+     * row — a WARIBA_PERFORMANCE account with no `source_evaluation_account_id`,
+     * the shape UX-HUB-011, PERF-020 and `trading_accounts_source_exactly_one`
+     * all rule out. The Hub was right to refuse it; the account was the thing
+     * that could not exist. The fixture now passes a real evaluation and lets
+     * the provisioning command create the child, so this asserts the product
+     * rather than the fixture's mistake.
+     */
+    {
+      state: 'funded_active',
+      shot: '25-lifecycle-funded-active',
+      banner: false,
+      root: 'account-hero',
+    },
+    {
+      state: 'breached',
+      shot: '26-lifecycle-breached',
+      banner: true,
+      root: 'account-hero',
+    },
   ] as const;
 
   for (const entry of STATES) {
@@ -211,7 +269,10 @@ test.describe('@phase2 account lifecycle', () => {
       await withLifecycle(entry.state, async (fixture: LifecycleFixture) => {
         await page.setViewportSize(SIZES.desktop);
         await signIn(page, fixture);
-        await expect(page.getByTestId('account-hero')).toBeVisible({ timeout: 30_000 });
+        // Every lifecycle state renders a real dashboard root again. The
+        // `guard` alternative this used to carry existed only for
+        // `funded_active`, whose account the fixture could not build.
+        await expect(page.getByTestId(entry.root)).toBeVisible({ timeout: 30_000 });
 
         if (entry.banner) {
           const banner = page.getByTestId('lifecycle-banner');
@@ -350,7 +411,25 @@ test.describe('@phase2 no fabricated data', () => {
     await withLifecycle('no_account', async (fixture) => {
       await page.setViewportSize(SIZES.desktop);
       await signIn(page, fixture);
-      await expect(page.getByTestId('hub-empty-state')).toBeVisible();
+
+      /*
+       * The gate is the Launchpad, not an empty state.
+       *
+       * This asserted `hub-empty-state` — the single card the no-account Hub
+       * used to render before Phase 2.5 replaced it with the Launchpad, and
+       * the assertion never followed. It had been failing rather than
+       * protecting anything.
+       *
+       * What the test is *for* still holds and is now checked properly: a
+       * trader with no account gets a real gate reading the published
+       * catalogue, and a route into buying one — never an empty dashboard.
+       */
+      await expect(page.getByTestId('launchpad-primary')).toBeVisible();
+      await expect(page.getByTestId('launchpad-primary')).toHaveAttribute(
+        'href',
+        '/comptes/nouveau',
+      );
+      await expect(page.getByText('Commencez votre première évaluation')).toBeVisible();
       await shoot(page, '34-no-account-hub');
 
       await page.goto('/trade');

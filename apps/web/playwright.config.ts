@@ -19,6 +19,17 @@ const WEB_SERVER_COMMAND = process.env.PLAYWRIGHT_WEB_SERVER_COMMAND ?? 'pnpm bu
 export default defineConfig({
   testDir: './tests/e2e',
   testMatch: '**/*.spec.ts',
+  /*
+   * Runs under `playwright.wx3-history.config.ts`, not here.
+   *
+   * It asserts deep 1D/1W/1M candles from a vendor archive, which requires
+   * `MARKET_HISTORY_PROVIDER` set to a real provider — the opposite of the
+   * single coherent sandbox market this suite pins below. The two cannot hold
+   * in one process, and the spec was written with its own config for that
+   * reason. Excluded here so it is run against the environment it needs
+   * rather than failing against one it was never meant to see.
+   */
+  testIgnore: '**/warix-wx3-history.spec.ts',
   // Generous: the isolated Supabase stack + pg.Pool round trips for a single
   // order can take several seconds under CI contention, and Close
   // All/reconnection tests stack several such round trips in one test.
@@ -59,6 +70,31 @@ export default defineConfig({
         REALTIME_PORT,
         MARKET_DATA_PROVIDER: 'mock',
         MARKET_DATA_REPLAY_MODE: 'false',
+        /*
+         * One market, one source.
+         *
+         * The realtime feed is pinned to the sandbox mock above, but the
+         * history provider was left to fall through to whatever a developer
+         * happened to have in `.env.local`. With `MARKET_HISTORY_PROVIDER=
+         * twelve-data` set there, the suite ran against a vendor archive at
+         * EURUSD ~1.166 while the mock fed ~1.085 — a 700 bps gap against a
+         * 50 bps tolerance, so the service refused the cutover and every
+         * workstation spec saw "Historique disponible · temps réel
+         * indisponible": no live tick, therefore no current-price plate, and
+         * a whole family of WariX specs failing on a chart that was working
+         * correctly.
+         *
+         * That refusal is the guard doing its job — it exists so a mock feed
+         * is never spliced onto real history. The bug was pairing the two.
+         * Pinning history to the same sandbox source makes the canonical
+         * suite coherent and independent of anyone's local environment.
+         *
+         * The vendor-archive path is not lost: `warix-wx3-history.spec.ts`
+         * proves it, under `playwright.wx3-history.config.ts`, which exists
+         * precisely because that spec "only means anything when a real
+         * historical provider is configured".
+         */
+        MARKET_HISTORY_PROVIDER: 'none',
       },
       reuseExistingServer: true,
       timeout: 60_000,

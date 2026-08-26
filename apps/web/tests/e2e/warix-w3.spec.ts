@@ -29,7 +29,7 @@ const DESKTOP_WORKSTATION_BREAKPOINT = 1024;
 function liveQuote(page: Page) {
   const width = page.viewportSize()?.width ?? DESKTOP_WORKSTATION_BREAKPOINT;
   return width < DESKTOP_WORKSTATION_BREAKPOINT
-    ? page.getByTestId('mobile-market-trigger')
+    ? page.getByTestId('chart-symbol-search-trigger')
     : page.getByTestId('execution-bid');
 }
 
@@ -54,6 +54,19 @@ async function openWorkstation(page: Page): Promise<void> {
     'open',
     { timeout: 30_000 },
   );
+  /*
+   * The Execution Center is a drawer, not a column.
+   *
+   * Its quote is this suite's hydration signal, and the VX1 pass moved the
+   * panel behind the Trade destination — so waiting for the bid without
+   * opening it waited on a panel nothing had asked for. warix-w4's own helper
+   * has opened it this way since that pass; this is the same two lines.
+   */
+  const width = page.viewportSize()?.width ?? DESKTOP_WORKSTATION_BREAKPOINT;
+  if (width >= DESKTOP_WORKSTATION_BREAKPOINT) {
+    await page.getByTestId('utility-trade').click();
+    await expect(page.getByTestId('utility-drawer-trade')).toBeVisible();
+  }
   await expect(liveQuote(page)).not.toContainText('—', { timeout: 30_000 });
   await expect(page.locator(HISTORY_STATUS)).not.toHaveAttribute('data-history-status', 'idle', {
     timeout: 30_000,
