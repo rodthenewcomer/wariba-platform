@@ -158,11 +158,19 @@ finalizes twenty evaluations and asserts
 `objectiveReachedAt <= dailyFinalizedAt <= passedAt <= performanceCreatedAt` on
 every one — because a single run samples a race once and proves nothing.
 
-## 4. A third defect, found and not touched
+## 4. A third defect — found, then fixed on instruction
 
 ```text
-VX1_FEED_GLYPH_STATE_ENCODING_LOST — PRODUCT_DEFECT, pre-existing, NOT in scope
+VX1_FEED_GLYPH_STATE_ENCODING_LOST — PRODUCT_DEFECT, pre-existing, FIXED
 ```
+
+> Reported first as out of scope and needing a design decision. The owner then
+> said to fix everything, and a second fact settled it: the spec's `svg rect`
+> selector had **never matched anything** — `git log -S'rect'` on that icon
+> returns nothing — so those assertions had not run once since `ef39f71`.
+> Rewriting the assertion around the lucide glyph would have made it pass
+> vacuously, since nothing animates at all now. The bars were restored instead,
+> and the selector points at the class the stylesheet animates.
 
 With the market coherent, one failure in `warix-vx1d-motion.spec.ts:440` ("the
 ambient sweep runs only on a healthy feed") survives, and it is real.
@@ -181,11 +189,12 @@ appears in no component in the repository:
 Feed state now reaches the trader through colour and `data-market-feed-state`
 only. The recovery pulse survives; the ambient sweep does not.
 
-**Not fixed, and deliberately not worked around.** Restoring the glyph reverses
-a later approved design pass; rewriting the assertion to "nothing animates when
-disconnected" would pass vacuously, since nothing animates at all now — that is
-the weakening the brief forbids. Whether VX1-F.1 intended to drop the encoding
-is a design decision, not a repair.
+**Fixed.** The three bars are restored, so the component, its stylesheet and
+`WorkstationStatusBar`'s comment describe one product again. The decision turned
+on behaviour rather than taste: a single `Signal` glyph cannot express "two of
+three lit", so degraded and healthy differed only by colour. The sibling case in
+§7 — the seven lucide *destination* icons — is left alone precisely because
+nothing behavioural was lost there.
 
 ## 5. Gates
 
