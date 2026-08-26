@@ -101,7 +101,19 @@ async function flatten(page: Page, options: { mobile?: boolean } = {}): Promise<
   if ((await page.getByTestId('chart-position-chip').count()) === 0) return;
 
   if (options.mobile) {
-    await page.getByTestId('mobile-dock-trigger').click();
+    /*
+     * Dismiss whatever the scene left open first.
+     *
+     * On a phone the position-management sheet covers the dock, so the trigger
+     * below is present but cannot receive a pointer event. `click()` carries no
+     * action timeout, so it waits out the *test* rather than rejecting — and
+     * the `.catch()` every caller wraps this in never gets the chance to fire.
+     * That is the same hazard the `{ mobile: true }` comment at the call site
+     * describes, reached through a covered element instead of a missing one.
+     */
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('mobile-dock-trigger')).toBeVisible({ timeout: 15_000 });
+    await page.getByTestId('mobile-dock-trigger').click({ timeout: 15_000 });
   } else {
     const toggle = page.getByTestId('workstation-dock-collapse');
     if ((await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click();
