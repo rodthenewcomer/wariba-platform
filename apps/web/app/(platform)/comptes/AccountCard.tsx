@@ -83,13 +83,13 @@ function ArchiveBody({
           <p
             className="wariba-data mt-1 text-[length:var(--wariba-font-size-heading-sm)] font-bold"
             style={{
-              color: archive.finalResultFormatted.startsWith('+0 ')
-                ? 'var(--wariba-text-primary)'
-                : archive.finalResultFormatted.startsWith('+')
+              color:
+                archive.finalResultSign === 'positive'
                   ? 'var(--wariba-accent-emerald)'
                   : 'var(--wariba-text-primary)',
             }}
             data-testid="account-card-final-result"
+            data-result-sign={archive.finalResultSign ?? 'unknown'}
           >
             {archive.finalResultFormatted}
           </p>

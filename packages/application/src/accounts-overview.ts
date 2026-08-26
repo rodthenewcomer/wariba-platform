@@ -75,6 +75,12 @@ function formatUsd(amount: string): string {
 export interface AccountArchiveView {
   /** Signed, e.g. "+1 000 USD". `null` when the projection cannot be read. */
   finalResultFormatted: string | null;
+  /**
+   * How to read that number. Emerald belongs to a gain only: a flat result is
+   * not an achievement to colour, and the sign is decided here rather than by
+   * the card re-parsing a string it was handed already formatted.
+   */
+  finalResultSign: 'positive' | 'flat' | 'negative' | null;
   /** "25 août 2026", from the transition that recorded the pass. */
   completedAtLabel: string | null;
   performanceAccountId: string | null;
@@ -181,6 +187,13 @@ export async function buildAccountsOverview(
           archive: {
             finalResultFormatted: result
               ? `${result.isNegative() ? '' : '+'}${formatUsd(result.toFixed(2))}`
+              : null,
+            finalResultSign: result
+              ? result.isZero()
+                ? 'flat'
+                : result.isNegative()
+                  ? 'negative'
+                  : 'positive'
               : null,
             completedAtLabel: passedTransition
               ? passedTransition.occurred_at.toLocaleDateString('fr-FR', {

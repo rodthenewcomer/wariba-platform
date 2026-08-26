@@ -268,8 +268,17 @@ test.describe('@critical @handoff @phase-3-3-1 Evaluation to Performance handoff
       await expect(
         performance.getByText(`Issu de ${emptyPerformanceOwner.accountPublicId}`),
       ).toBeVisible();
+      /*
+       * The parent still names its child, but from the archive block rather
+       * than a footnote: a passed evaluation now presents the successor as its
+       * outcome (UX-COMPTES-014). Scoped to the evaluation's own card, so the
+       * Performance card's copy of the same id cannot satisfy it.
+       */
+      const archivedCard = performance
+        .getByTestId('account-card')
+        .filter({ hasText: emptyPerformanceOwner.accountPublicId as string });
       await expect(
-        performance.getByText(`Compte créé : ${emptyPerformance.publicId}`),
+        archivedCard.getByTestId('account-card-successor').getByText(emptyPerformance.publicId),
       ).toBeVisible();
       await waitForAccountsRelationshipReady(performance, {
         performancePublicId: emptyPerformance.publicId,
