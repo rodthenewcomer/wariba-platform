@@ -174,8 +174,10 @@ test.describe('WX1 reopen renders', { tag: ['@warix-reopen'] }, () => {
       await expect(plot).toHaveAttribute('data-drawing-count', String(expectedCount));
     };
 
+    // `info_line` sits in Annotations, not Lines — the catalog groups it with
+    // the arrow and the marker it is used alongside.
     await draw(
-      'lines',
+      'annotations',
       'info_line',
       [
         { x: 0.26, y: 0.62 },

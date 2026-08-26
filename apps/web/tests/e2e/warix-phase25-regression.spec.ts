@@ -101,7 +101,15 @@ test.describe('@phase25 WariX regression classification', () => {
     await login(page, account.email);
     await expect(page.getByTestId('header-open-warix')).toBeVisible();
     await page.getByTestId('header-open-warix').click();
-    await page.waitForURL('**/trade', { timeout: 60_000 });
+    /*
+     * The Hub's WariX link carries the account it was pressed from
+     * (`/trade?account=…`), so a glob ending in `/trade` never matches and
+     * this waited out its timeout on a navigation that had already succeeded.
+     * The
+     * pathname is what this assertion is about; the query string is the
+     * account context the rest of the suite relies on.
+     */
+    await page.waitForURL((url) => url.pathname === '/trade', { timeout: 60_000 });
     await expect(page.getByTestId('chart-bottom-bar')).toBeVisible({ timeout: 60_000 });
   });
 });
