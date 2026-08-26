@@ -212,65 +212,54 @@ test.describe('@phase2 account lifecycle', () => {
       shot: '20-lifecycle-evaluation',
       banner: false,
       root: 'account-hero',
-      guard: null,
     },
     {
       state: 'objective_reached',
       shot: '21-lifecycle-objective-reached',
       banner: true,
       root: 'account-hero',
-      guard: null,
     },
     {
       state: 'under_review',
       shot: '22-lifecycle-under-review',
       banner: true,
       root: 'account-hero',
-      guard: null,
     },
     {
       state: 'passed',
       shot: '23-lifecycle-passed',
       banner: false,
       root: 'performance-handoff',
-      guard: null,
     },
     {
       state: 'funded_preparing',
       shot: '24-lifecycle-funded-preparing',
       banner: true,
       root: 'account-hero',
-      guard: null,
     },
     /*
-     * `funded_active` renders the fail-closed guard, not the dashboard.
+     * `funded_active` renders the dashboard again.
      *
-     * The fixture poses this state by flipping `program_type` on the evaluation
-     * row, which produces a WARIBA_PERFORMANCE account with no
-     * `source_evaluation_account_id` — a shape UX-HUB-011 and PERF-020 say
-     * cannot exist. The Hub refuses to trade it and says why, which is correct
-     * behaviour on an incoherent account.
-     *
-     * The real fix is the fixture: a Performance account has to be seeded as a
-     * child of a passed evaluation, and the schema's own
-     * `trading_accounts_source_exactly_one` says the same thing. That is a
-     * change to a fixture eight suites share and it belongs in its own slice,
-     * so this asserts what the product actually does today and names the
-     * reason rather than leaving a red test with no explanation.
+     * It spent a phase asserting the fail-closed guard instead, because the
+     * fixture posed this state by flipping `program_type` on the evaluation
+     * row — a WARIBA_PERFORMANCE account with no `source_evaluation_account_id`,
+     * the shape UX-HUB-011, PERF-020 and `trading_accounts_source_exactly_one`
+     * all rule out. The Hub was right to refuse it; the account was the thing
+     * that could not exist. The fixture now passes a real evaluation and lets
+     * the provisioning command create the child, so this asserts the product
+     * rather than the fixture's mistake.
      */
     {
       state: 'funded_active',
       shot: '25-lifecycle-funded-active',
       banner: false,
-      root: null,
-      guard: 'Compte Performance indisponible',
+      root: 'account-hero',
     },
     {
       state: 'breached',
       shot: '26-lifecycle-breached',
       banner: true,
       root: 'account-hero',
-      guard: null,
     },
   ] as const;
 
@@ -280,11 +269,10 @@ test.describe('@phase2 account lifecycle', () => {
       await withLifecycle(entry.state, async (fixture: LifecycleFixture) => {
         await page.setViewportSize(SIZES.desktop);
         await signIn(page, fixture);
-        if (entry.root) {
-          await expect(page.getByTestId(entry.root)).toBeVisible({ timeout: 30_000 });
-        } else {
-          await expect(page.getByText(entry.guard as string)).toBeVisible({ timeout: 30_000 });
-        }
+        // Every lifecycle state renders a real dashboard root again. The
+        // `guard` alternative this used to carry existed only for
+        // `funded_active`, whose account the fixture could not build.
+        await expect(page.getByTestId(entry.root)).toBeVisible({ timeout: 30_000 });
 
         if (entry.banner) {
           const banner = page.getByTestId('lifecycle-banner');

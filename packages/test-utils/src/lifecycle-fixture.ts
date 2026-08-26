@@ -1,5 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { activateEvaluationAccount, createDbClient, type Db } from '@wariba/database';
+import {
+  acknowledgePerformanceRules,
+  activateEvaluationAccount,
+  activatePerformanceAccountInTransaction,
+  createDbClient,
+  type Db,
+} from '@wariba/database';
 import Decimal from 'decimal.js';
 import { createAuthFixtureUser, deleteAuthFixtureUser } from './supabase-auth-fixture';
 
@@ -251,15 +257,53 @@ export async function seedLifecycleFixture(
       return { state, userId, email, password, accountId: null, accountPublicId: null };
     }
 
-    const account = await seedActivatedAccount(db, userId);
+    let account = await seedActivatedAccount(db, userId);
 
     if (state !== 'evaluation_new') {
       const pose = POSE[state];
+
+      /*
+       * A Performance account is a *child*, and posing one by flipping
+       * `program_type` produced an account that cannot exist.
+       *
+       * The flipped row kept its `source_purchase_order_id` and had no
+       * `source_evaluation_account_id`, which is the shape the schema's own
+       * `trading_accounts_source_exactly_one` rules out and which UX-HUB-011
+       * and PERF-020 both describe. The Hub refused to trade it and said so —
+       * correctly — so every funded state photographed the fail-closed guard
+       * instead of the dashboard, and one suite ended up asserting that guard
+       * as though it were the product.
+       *
+       * So the parent is passed and the real provisioning command creates the
+       * child, exactly as production does. The rules acknowledgement goes with
+       * it: a funded account that has not accepted them is not yet trading,
+       * which is a different state from the ones posed here.
+       */
+      if (pose.programType === 'WARIBA_PERFORMANCE') {
+        await db
+          .updateTable('app.trading_accounts')
+          .set({ status: 'passed' })
+          .where('id', '=', account.id)
+          .execute();
+        const performance = await activatePerformanceAccountInTransaction(db, {
+          evaluationAccountId: account.id,
+        });
+        await acknowledgePerformanceRules(db, {
+          userId,
+          accountId: performance.id,
+          correlationId: randomUUID(),
+          now: new Date(),
+        });
+        account = { id: performance.id, publicId: performance.publicId };
+      }
+
       await db
         .updateTable('app.trading_accounts')
         .set({
           status: pose.status as never,
-          ...(pose.programType ? { program_type: pose.programType } : {}),
+          ...(pose.programType && pose.programType !== 'WARIBA_PERFORMANCE'
+            ? { program_type: pose.programType }
+            : {}),
           ...(pose.kycVerified === undefined ? {} : { kyc_sandbox_verified: pose.kycVerified }),
           ...(pose.payoutMethod === undefined
             ? {}
@@ -394,47 +438,49 @@ export async function deleteLifecycleFixture(
       .where('actor_id', '=', fixture.userId)
       .execute();
 
-    if (fixture.accountId) {
-      const performanceChildren = await db
-        .selectFrom('app.trading_accounts')
-        .select('id')
-        .where('source_evaluation_account_id', '=', fixture.accountId)
+    /*
+     * Every account this user owns, newest first.
+     *
+     * A funded fixture is now a real parent/child pair, so naming one account
+     * and looking for children *of* it is no longer the right shape: the
+     * fixture's own `accountId` is the child, and the passed evaluation it
+     * points at would be left behind for the purchase-order delete below to
+     * trip over. Creation order descending removes a child before the parent
+     * it references, whatever the fixture happens to name.
+     */
+    const owned = await db
+      .selectFrom('app.trading_accounts')
+      .select('id')
+      .where('user_id', '=', fixture.userId)
+      .orderBy('created_at', 'desc')
+      .execute();
+
+    for (const account of owned) {
+      // Children of the account row first: nothing here relies on cascade
+      // behaviour that a migration could later change.
+      await db
+        .deleteFrom('app.performance_rule_acknowledgements')
+        .where('account_id', '=', account.id)
         .execute();
-      for (const child of performanceChildren) {
-        await db
-          .deleteFrom('app.performance_rule_acknowledgements')
-          .where('account_id', '=', child.id)
-          .execute();
-        await db.deleteFrom('app.performance_cycles').where('account_id', '=', child.id).execute();
-        await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', child.id).execute();
-        await db
-          .deleteFrom('app.account_state_transitions')
-          .where('account_id', '=', child.id)
-          .execute();
-        // Opening WariX materializes the current daily snapshot even when no
-        // order is submitted. It belongs to this synthetic account and must
-        // be removed before the account foreign key can be deleted.
-        await db
-          .deleteFrom('app.account_daily_snapshots')
-          .where('account_id', '=', child.id)
-          .execute();
-        await db
-          .deleteFrom('app.trading_ledger_entries')
-          .where('account_id', '=', child.id)
-          .execute();
-        await db.deleteFrom('app.trading_accounts').where('id', '=', child.id).execute();
-      }
-      // Children first: nothing here relies on cascade behaviour that a
-      // migration could later change.
-      for (const table of [
-        'app.risk_violations',
-        'app.account_state_transitions',
-        'app.account_daily_snapshots',
-        'app.trading_ledger_entries',
-      ] as const) {
-        await db.deleteFrom(table).where('account_id', '=', fixture.accountId).execute();
-      }
-      await db.deleteFrom('app.trading_accounts').where('id', '=', fixture.accountId).execute();
+      await db.deleteFrom('app.performance_cycles').where('account_id', '=', account.id).execute();
+      await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', account.id).execute();
+      await db.deleteFrom('app.risk_violations').where('account_id', '=', account.id).execute();
+      await db
+        .deleteFrom('app.account_state_transitions')
+        .where('account_id', '=', account.id)
+        .execute();
+      // Opening WariX materializes the current daily snapshot even when no
+      // order is submitted. It belongs to this synthetic account and must be
+      // removed before the account foreign key can be deleted.
+      await db
+        .deleteFrom('app.account_daily_snapshots')
+        .where('account_id', '=', account.id)
+        .execute();
+      await db
+        .deleteFrom('app.trading_ledger_entries')
+        .where('account_id', '=', account.id)
+        .execute();
+      await db.deleteFrom('app.trading_accounts').where('id', '=', account.id).execute();
     }
     await db.deleteFrom('app.purchase_orders').where('user_id', '=', fixture.userId).execute();
     await db.deleteFrom('app.user_profiles').where('user_id', '=', fixture.userId).execute();
