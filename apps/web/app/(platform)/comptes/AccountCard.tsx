@@ -78,8 +78,17 @@ function ArchiveBody({
           <p className="text-[length:var(--wariba-font-size-label-sm)] uppercase tracking-[0.08em] text-[color:var(--wariba-text-tertiary)]">
             Résultat final
           </p>
+          {/* Emerald means a gain. A flat or negative result is reported in
+              the ordinary text colour rather than dressed as one. */}
           <p
-            className="wariba-data mt-1 text-[length:var(--wariba-font-size-heading-sm)] font-bold text-[color:var(--wariba-accent-emerald)]"
+            className="wariba-data mt-1 text-[length:var(--wariba-font-size-heading-sm)] font-bold"
+            style={{
+              color: archive.finalResultFormatted.startsWith('+0 ')
+                ? 'var(--wariba-text-primary)'
+                : archive.finalResultFormatted.startsWith('+')
+                  ? 'var(--wariba-accent-emerald)'
+                  : 'var(--wariba-text-primary)',
+            }}
             data-testid="account-card-final-result"
           >
             {archive.finalResultFormatted}
@@ -314,7 +323,7 @@ export function AccountCard({ item }: { item: AccountOverviewItem }) {
                 {account.sourceEvaluationPublicId}
               </a>
             </span>
-          ) : account.performanceAccountPublicId ? (
+          ) : account.performanceAccountPublicId && !archive ? (
             <span className="mt-1 block">
               Compte créé :{' '}
               <a
