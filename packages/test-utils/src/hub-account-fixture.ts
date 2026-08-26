@@ -140,48 +140,75 @@ export async function deleteFixtureAccount(db: Db, fixture: E2eFixtureAccount): 
     .where('actor_id', '=', fixture.userId)
     .execute();
 
-  const positions = await db
-    .selectFrom('app.positions')
-    .select('id')
-    .where('account_id', '=', fixture.accountId)
-    .execute();
-  await db.deleteFrom('app.fills').where('account_id', '=', fixture.accountId).execute();
-  await db.deleteFrom('app.trade_orders').where('account_id', '=', fixture.accountId).execute();
-  // Before positions: both reference `positions` as well as the account, and
-  // every account_id FK here is NO ACTION rather than ON DELETE CASCADE, so a
-  // row left behind fails the account delete instead of being swept with it.
-  // A pending order that never triggered, and a reduction still queued, are
-  // both ordinary end states for a test — not leaks — so teardown clears them
-  // rather than requiring every test to cancel what it created.
-  await db
-    .deleteFrom('app.position_reduction_queue')
-    .where('account_id', '=', fixture.accountId)
-    .execute();
-  await db.deleteFrom('app.pending_orders').where('account_id', '=', fixture.accountId).execute();
-  await db.deleteFrom('app.positions').where('account_id', '=', fixture.accountId).execute();
-  await db
-    .deleteFrom('app.trading_ledger_entries')
-    .where('account_id', '=', fixture.accountId)
-    .execute();
-  for (const position of positions) {
-    await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', position.id).execute();
-  }
-  await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', fixture.accountId).execute();
-  await db.deleteFrom('app.risk_violations').where('account_id', '=', fixture.accountId).execute();
-  await db
-    .deleteFrom('app.account_daily_snapshots')
-    .where('account_id', '=', fixture.accountId)
-    .execute();
-  await db
-    .deleteFrom('app.account_state_transitions')
-    .where('account_id', '=', fixture.accountId)
-    .execute();
+  /*
+   * The account's own rows, swept in dependency order.
+   *
+   * Every `account_id` FK here is NO ACTION rather than ON DELETE CASCADE, so
+   * a row left behind fails the account delete instead of being swept with it.
+   * A pending order that never triggered, and a reduction still queued, are
+   * both ordinary end states for a test — not leaks — so teardown clears them
+   * rather than requiring every test to cancel what it created.
+   */
+  const sweepAccountRows = async (): Promise<void> => {
+    const positions = await db
+      .selectFrom('app.positions')
+      .select('id')
+      .where('account_id', '=', fixture.accountId)
+      .execute();
+    await db.deleteFrom('app.fills').where('account_id', '=', fixture.accountId).execute();
+    await db.deleteFrom('app.trade_orders').where('account_id', '=', fixture.accountId).execute();
+    // Before positions: both reference `positions` as well as the account.
+    await db
+      .deleteFrom('app.position_reduction_queue')
+      .where('account_id', '=', fixture.accountId)
+      .execute();
+    await db.deleteFrom('app.pending_orders').where('account_id', '=', fixture.accountId).execute();
+    await db.deleteFrom('app.positions').where('account_id', '=', fixture.accountId).execute();
+    await db
+      .deleteFrom('app.trading_ledger_entries')
+      .where('account_id', '=', fixture.accountId)
+      .execute();
+    for (const position of positions) {
+      await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', position.id).execute();
+    }
+    await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', fixture.accountId).execute();
+    await db.deleteFrom('app.risk_violations').where('account_id', '=', fixture.accountId).execute();
+    await db
+      .deleteFrom('app.account_daily_snapshots')
+      .where('account_id', '=', fixture.accountId)
+      .execute();
+    await db
+      .deleteFrom('app.account_state_transitions')
+      .where('account_id', '=', fixture.accountId)
+      .execute();
+  };
+
   const account = await db
     .selectFrom('app.trading_accounts')
     .select('source_purchase_order_id')
     .where('id', '=', fixture.accountId)
     .executeTakeFirst();
-  await db.deleteFrom('app.trading_accounts').where('id', '=', fixture.accountId).execute();
+
+  /*
+   * Sweep, then delete, and be willing to do it again.
+   *
+   * This fixture is not scoped to `page`, so Playwright can tear it down while
+   * the workstation is still open — and an open workstation on a live feed
+   * goes on materializing today's daily snapshot. The sweep above would then
+   * delete a snapshot, the page would write a new one, and the account delete
+   * would fail on a foreign key to a row that did not exist when teardown
+   * started. Re-sweeping and retrying closes that window without asking every
+   * WariX test to shut its own page down first.
+   */
+  for (let attempt = 0; ; attempt += 1) {
+    await sweepAccountRows();
+    try {
+      await db.deleteFrom('app.trading_accounts').where('id', '=', fixture.accountId).execute();
+      break;
+    } catch (error) {
+      if (attempt >= 4) throw error;
+    }
+  }
   if (account) {
     await db
       .deleteFrom('app.payment_events')
