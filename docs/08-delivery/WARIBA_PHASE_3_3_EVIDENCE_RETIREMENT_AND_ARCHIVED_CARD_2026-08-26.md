@@ -43,11 +43,22 @@ largest failing groups turned out not to be outdated generators at all:
 
 ### `warix-vx1d-motion` (4) and `warix-vx1a1-polish` (1)
 
+> **Correction, 2026-08-26.** The diagnosis below is **wrong**, and the
+> follow-up slice measured why. `priceScaleWidth` was never `0` — it reads
+> 68 px on a hydrated chart, every time. The plates did not render because the
+> plate list was *empty*: the certification harness paired a mock realtime feed
+> (EURUSD ~1.085) with a real twelve-data history archive (~1.166), the service
+> refused the cutover across a 700 bps gap, and with no attached feed there was
+> no current price to plate. The chart was correct throughout. See
+> `WARIBA_PHASE_3_3_LAST_BLOCKER_CLOSURE_2026-08-26.md` §2. The conclusion
+> that these specs must not be deleted still stands — for a better reason than
+> the one given here: they were reporting a broken environment accurately.
+
 These are the only automated detection of a real, current, unfixed product
 defect:
 
 ```text
-WARIX_PRICE_PLATES_NEVER_RENDER
+WARIX_PRICE_PLATES_NEVER_RENDER   ← withdrawn; see the correction above
 ```
 
 Zero price plates render on a fully hydrated chart. `ChartPriceScalePlates`
