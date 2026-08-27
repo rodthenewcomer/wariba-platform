@@ -3,7 +3,7 @@ import type { Db } from '@wariba/database';
 export interface AccountSummaryDTO {
   id: string;
   publicId: string;
-  programType: 'WARIBA_ONE' | 'WARIBA_PERFORMANCE';
+  programType: 'WARIBA_ONE' | 'WARIBA_FLEX' | 'WARIBA_PERFORMANCE';
   nominalBalance: string;
   nominalCurrency: string;
   status: string;

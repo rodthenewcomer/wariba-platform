@@ -1,6 +1,6 @@
 begin;
 
-select plan(24);
+select plan(40);
 
 select has_schema('app', 'app schema exists');
 select has_table('app', 'trading_accounts', 'trading accounts table exists');
@@ -94,6 +94,65 @@ select has_trigger(
   'ticket_messages',
   'ticket_messages_append_only',
   'support messages cannot be edited or removed from a live conversation'
+);
+
+-- Phase 3.4.2 — canonical V2 runtime foundation.
+select has_table('app', 'margin_profiles', 'versioned margin profiles exist');
+select has_table('app', 'news_calendar_versions', 'versioned news calendar contract exists');
+select has_table('app', 'news_events', 'news event evidence exists');
+select has_table('app', 'session_calendar_versions', 'versioned session calendar contract exists');
+select has_table('app', 'session_closures', 'session closure evidence exists');
+select has_table('app', 'policy_performance_links', 'exact Evaluation to Performance policy links exist');
+select has_table('app', 'flex_activation_obligations', 'FLEX activation obligations exist');
+select has_table('app', 'offer_capability_gates', 'catalogue capability gates exist separately');
+select has_column('app', 'policy_versions', 'product_family', 'policy product family is explicit');
+select has_column('app', 'purchase_orders', 'policy_version_id', 'purchase order pins exact policy UUID');
+select has_column('app', 'account_daily_snapshots', 'risk_sod_balance', 'risk-adjusted balance is persisted separately');
+select has_trigger('app', 'policy_versions', 'policy_versions_immutable_guard', 'published/referenced policy content is immutable');
+select has_trigger('app', 'trading_accounts', 'trading_accounts_policy_pin_guard', 'account policy pin is immutable');
+select results_eq(
+  $$select count(*)::bigint from app.product_versions where catalogue_version = 'v2.0.0-candidate'$$,
+  array[15::bigint],
+  'all fifteen V2 catalogue offers are represented'
+);
+select results_eq(
+  $$
+    select count(*)::bigint
+    from pg_class
+    where oid in (
+      'app.margin_profiles'::regclass,
+      'app.news_calendar_versions'::regclass,
+      'app.news_events'::regclass,
+      'app.session_calendar_versions'::regclass,
+      'app.session_closures'::regclass,
+      'app.policy_performance_links'::regclass,
+      'app.flex_activation_obligations'::regclass,
+      'app.offer_capability_gates'::regclass
+    )
+      and relrowsecurity
+  $$,
+  array[8::bigint],
+  'all eight V2 private tables have RLS enabled'
+);
+select results_eq(
+  $$
+    select count(*)::bigint
+    from information_schema.role_table_grants
+    where table_schema = 'app'
+      and table_name in (
+        'margin_profiles',
+        'news_calendar_versions',
+        'news_events',
+        'session_calendar_versions',
+        'session_closures',
+        'policy_performance_links',
+        'flex_activation_obligations',
+        'offer_capability_gates'
+      )
+      and grantee in ('anon', 'authenticated')
+  $$,
+  array[0::bigint],
+  'browser roles have no direct privilege on V2 private tables'
 );
 
 select * from finish();

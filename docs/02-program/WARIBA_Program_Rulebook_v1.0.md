@@ -2,7 +2,7 @@
 title: "WARIBA Program Rulebook"
 version: "1.0"
 document_id: "WARIBA-PROGRAM-RULEBOOK"
-status: "BASELINE INTERNE — CANDIDATE POUR BÊTA PRIVÉE"
+status: "HISTORICAL V1 BASELINE — SUPERSEDED FOR NEW V2 OFFERS"
 language: "fr-FR"
 brand: "WARIBA"
 domain: "wariba.app"
@@ -21,6 +21,8 @@ next_documents:
 ---
 
 # WARIBA Program Rulebook v1.0
+
+> **Supersession V2 — `POLICY-GOV-003`.** Cette baseline ne gouverne plus les nouvelles offres ni les futurs comptes V2. Elle reste inchangée comme historique des policies V1. Voir `WARIBA_Program_Rulebook_Candidate_V2.md` et `WARIBA_Canonical_Policy_Contract_V2.md`.
 
 > **Une infrastructure de progression pour traders disciplinés.**
 

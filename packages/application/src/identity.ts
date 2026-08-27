@@ -29,6 +29,7 @@ export interface AcceptSandboxDisclosureParams {
 }
 
 export interface AcceptedSandboxDisclosure {
+  policyVersionId: string;
   policyVersion: string;
   alreadyExisted: boolean;
 }
@@ -46,7 +47,7 @@ export async function acceptSandboxDisclosure(
   return db.transaction().execute(async (trx) => {
     const policy = await trx
       .selectFrom('app.policy_versions')
-      .select('semantic_version')
+      .select(['id', 'semantic_version', 'machine_hash', 'human_document_hash'])
       .where('program', '=', 'WARIBA_ONE')
       .where('status', '=', 'published')
       .orderBy('effective_from', 'desc')
@@ -58,12 +59,17 @@ export async function acceptSandboxDisclosure(
         user_id: params.userId,
         consent_type: 'simulated_account_disclosure',
         policy_version_id: policy.semantic_version,
+        attached_policy_version_id: policy.id,
+        policy_machine_hash: policy.machine_hash,
+        policy_human_document_hash: policy.human_document_hash,
+        acceptance_source: 'checkout',
         locale: params.locale,
         accepted_at: timestamp,
       })
-      .onConflict((oc) =>
-        oc.columns(['user_id', 'consent_type', 'policy_version_id', 'locale']).doNothing(),
-      )
+      // Both the historical semantic-version key and the exact policy-UUID
+      // key protect this row during V1/V2 coexistence. A targetless conflict
+      // handler lets either immutable identity arbitrate concurrent retries.
+      .onConflict((oc) => oc.doNothing())
       .returning('id')
       .executeTakeFirst();
 
@@ -82,6 +88,8 @@ export async function acceptSandboxDisclosure(
           after_json: JSON.stringify({
             consentType: 'simulated_account_disclosure',
             policyVersion: policy.semantic_version,
+            policyVersionId: policy.id,
+            policyMachineHash: policy.machine_hash,
             locale: params.locale,
           }),
           reason: 'checkout',
@@ -93,6 +101,10 @@ export async function acceptSandboxDisclosure(
         .execute();
     }
 
-    return { policyVersion: policy.semantic_version, alreadyExisted: !inserted };
+    return {
+      policyVersionId: policy.id,
+      policyVersion: policy.semantic_version,
+      alreadyExisted: !inserted,
+    };
   });
 }

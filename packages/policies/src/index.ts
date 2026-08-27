@@ -20,12 +20,38 @@ export {
 export { computeMachineHash } from './hash';
 export { parseAndVerifyPolicy, type LoadedPolicy } from './loader';
 export {
+  V2_POLICY_CONTRACT_VERSION,
+  V2_DECISION_RECORD_ID,
+  V2_POLICY_PARAMETERS,
+  productFamilySchema,
+  accountPhaseSchema,
+  v2EvaluationPolicyParametersSchema,
+  v2PerformancePolicyParametersSchema,
+  evaluateV2CapabilityReadiness,
+  type ProductFamily,
+  type AccountPhase,
+  type V2EvaluationPolicyParameters,
+  type V2PerformancePolicyParameters,
+  type V2CapabilityReadiness,
+} from './v2';
+export {
   resolveProfitEligibilityPolicy,
   type ProfitEligibilityPolicyControl,
   type ProfitEligibilitySourceParameters,
 } from './profit-eligibility-policy';
 export {
+  CANONICAL_REASON_CODES,
+  EXPOSURE_REASON_CODES,
+  LEGACY_REASON_CODE_ALIASES,
+  LIFECYCLE_REASON_CODES,
+  PAYOUT_REASON_CODES,
+  RISK_REASON_CODES,
+  resolveCanonicalReasonCode,
+  type CanonicalReasonCode,
+} from './reason-codes';
+export {
   evaluateAccountRisk,
+  resolveRuleDailyProfit,
   type EvaluateAccountRiskParams,
   type RiskEngineResult,
   type RiskViolation,

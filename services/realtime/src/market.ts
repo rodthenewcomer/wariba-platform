@@ -37,7 +37,7 @@ export interface LoadedSymbolSpec {
 /** Prompt 07 — picks the effective leverage for the account's program; never sends both numbers to the client. */
 export function resolveLeverage(
   spec: LoadedSymbolSpec,
-  programType: 'WARIBA_ONE' | 'WARIBA_PERFORMANCE',
+  programType: 'WARIBA_ONE' | 'WARIBA_FLEX' | 'WARIBA_PERFORMANCE',
 ): number {
   return programType === 'WARIBA_ONE' ? spec.leverageOne : spec.leveragePerformance;
 }

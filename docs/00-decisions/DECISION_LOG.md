@@ -7,7 +7,7 @@ language: "fr-FR"
 brand: "WARIBA"
 domain: "wariba.app"
 owner: "WARIBA Leadership, Product, Risk, Engineering & Operations"
-last_updated: "2026-08-25"
+last_updated: "2026-08-27"
 ---
 
 # WARIBA Decision Log v1.0
@@ -87,6 +87,12 @@ En cas de contradiction :
 12. Build Plan ;
 13. Prompt Pack ;
 14. code.
+
+Depuis `POLICY-GOV-003`, le `WARIBA Program Rulebook Candidate V2` et le
+`WARIBA Canonical Policy Contract V2` constituent la source normative courante
+pour les nouvelles offres, les contenus à propager et les futurs comptes
+pilotes V2. Les décisions V1 conservées plus bas n'ont plus d'autorité sur ce
+périmètre, même lorsque leur statut historique apparaît encore `LOCKED`.
 
 ## 3.4 Agents IA
 
@@ -744,7 +750,90 @@ trading manuel ni à la règle d'éligibilité de profit à 60 secondes (TRD-033
 
 ---
 
+# 25A. Décision — Supersession V2 et contrat de policy canonique
+
+## POLICY-GOV-003 — WARIBA_OFFER_POLICY_V2_SUPERSESSION
+
+| Champ | Valeur |
+|---|---|
+| ID | `POLICY-GOV-003` |
+| Date | 2026-08-27 |
+| Catégorie | Policy, offre, risque, payout et gouvernance |
+| Titre | `WARIBA_OFFER_POLICY_V2_SUPERSESSION` |
+| Statut | `EXPERIMENT` — GO PILOTE révocable, **pas LOCK** |
+| Décision | Adopter V2 comme nouvelle source normative de vérité pour les nouvelles offres, la future publication policy et les futurs comptes pilotes créés sous une version V2. |
+| Motif | La V2 réconcilie ONE, FLEX, INSTANT, prix, risque, payout, exposition, acquisition et vérité publique dans un contrat unique, sans écraser l'historique des comptes existants. |
+| Alternatives considérées | Maintenir V1 comme vérité courante; modifier V1 en place; migrer les comptes existants; appliquer V2 sans version de policy. Toutes rejetées. |
+| Owner | WARIBA Leadership, Product, Risk, Finance, Legal, Engineering & Operations |
+| Révision | Une nouvelle décision explicite est nécessaire pour tout changement V2 ou passage à `LOCKED`. |
+
+### Décision normative
+
+1. `docs/02-program/WARIBA_Program_Rulebook_Candidate_V2.md` est la nouvelle
+   autorité normative humaine du programme.
+2. `docs/02-program/WARIBA_Canonical_Policy_Contract_V2.md` est le pont
+   canonique exhaustif entre Product, Risk, Backend, Database, WariX, Hub,
+   Checkout, Help, QA et Control.
+3. Les valeurs V1, anciennes grilles de prix et anciens textes publics sont
+   `SUPERSEDED_NORMATIVE` pour toute nouvelle offre ou tout futur compte V2.
+   Ils ne doivent plus guider les travaux futurs.
+4. Les comptes existants conservent sans exception leur
+   `trading_accounts.policy_version_id`, leur hash machine et leurs règles
+   historiques. Aucune migration, aucun repin et aucune réécriture silencieuse
+   n'est autorisé.
+5. `GO PILOTE` signifie expérimentation révocable et instrumentée. Il ne
+   signifie ni `LOCKED`, ni vente publique prête, ni validation économique,
+   juridique ou actuarielle définitive.
+6. Les quinze combinaisons ONE/FLEX/INSTANT × 5K/10K/25K/50K/100K font partie
+   du catalogue public V2. `HOLD`, `LIMITÉ`, `gated` et `paid scale` désignent
+   exclusivement des gates internes d'acquisition payante, de quota,
+   d'activation ou de réserve : `PUBLIC_CATALOG_AVAILABILITY != PAID_ACQUISITION_GATE`.
+7. WariX ne supporte pas les EA, bots ni API externes pendant le pilote. Le
+   copy trading automatisé et la liaison automatique de comptes sont
+   indisponibles. L'absence de support n'est pas une fraude; les décisions
+   manuelles similaires sur ses propres comptes sont permises. Partage de
+   compte, gestion par un tiers et coordination frauduleuse restent interdits.
+8. `PAYOUT_DEBIT_CANNOT_CAUSE_TRADING_BREACH = true`. Un débit de payout
+   autorisé reste financier mais ne peut déclencher daily loss, maximum loss
+   ou terminaison du compte.
+9. Les caps de marge candidats 20/15/10 % restent
+   `CALIBRATION_REQUIRED`. Ils ne peuvent être publiés comme limites validées
+   ni activés avant fermeture documentée de la calibration.
+10. La promesse Wave/Mobile Money globale reste `HOLD`.
+
+### Conséquences et propagation
+
+- **Produit/UX/public** : remplacer la narration V1 par la V2; ne jamais
+  masquer une taille publique à cause d'un gate paid interne.
+- **Finance** : conserver les modèles V1 comme artefacts historiques; le
+  modèle d'offre daté du 26 août 2026 reste un support candidat et non une
+  preuve de rentabilité réelle.
+- **Engineering/DB** : aucune modification runtime en Phase 3.4.1. Les futurs
+  changements doivent créer des versions immuables, étendre les programmes
+  ONE/FLEX/INSTANT et attacher chaque compte à la version exacte acceptée.
+- **Risk/Payout** : future séparation explicite entre PnL/coûts de trading et
+  débit de payout; exposition par marge fail-closed jusqu'à calibration.
+- **QA/Control** : prouver la non-rétroactivité, la sélection de policy, les
+  reason codes, les snapshots et l'absence de divergence public/runtime.
+
+Documents impactés : Rulebook V2, Canonical Policy Contract V2, Source of Truth
+Map V2, blast radius, calibration marge/exposition, Product OS Constitution,
+Product Master V1 (bannière historique), Rulebook V1.1 (bannière historique),
+inventaire et rapport de clôture Phase 3.4.1.
+
+---
+
 # 26. Historique des versions
+
+## v1.33 — 2026-08-27
+
+Phase 3.4.1 — `POLICY-GOV-003` adopte V2 comme source normative courante pour
+les nouvelles offres et les futurs comptes pilotes V2, avec statut
+`EXPERIMENT`/GO PILOTE révocable et non `LOCKED`. V1 devient historique hors
+des comptes déjà épinglés. La décision verrouille la non-rétroactivité, sépare
+catalogue public et acquisition payante, retire le support pilote des
+automatisations/copy automatisé, protège les payouts autorisés contre une
+breach de trading et maintient les caps de marge en `CALIBRATION_REQUIRED`.
 
 ## v1.32 — 2026-08-25
 

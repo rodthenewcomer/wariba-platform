@@ -52,7 +52,7 @@ export interface ControlAccountFilters {
   /** Matches the public account id or the owner's email. */
   query?: string;
   /** Narrowed to the real column unions so an unknown value cannot reach SQL. */
-  program?: 'WARIBA_ONE' | 'WARIBA_PERFORMANCE';
+  program?: 'WARIBA_ONE' | 'WARIBA_FLEX' | 'WARIBA_PERFORMANCE';
   status?: TradingAccountStatusColumn;
   nominalBalance?: string;
   integrityHold?: boolean;

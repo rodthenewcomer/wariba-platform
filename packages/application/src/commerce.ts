@@ -1,5 +1,6 @@
 import {
   activateEvaluationAccountInTransaction,
+  activateV2PerformanceFromOrderInTransaction,
   recordPaymentEvent,
   evaluateReserveStatus,
   type Db,
@@ -98,7 +99,9 @@ export async function listActiveProducts(db: Db): Promise<ProductDTO[]> {
       'app.product_versions.price_amount',
       'app.product_versions.price_currency',
       'app.product_versions.feature_flag_key',
+      'app.product_versions.purchase_enabled',
     ])
+    .where('app.products.product_family', '=', 'WARIBA_ONE')
     .where('app.product_versions.retired_at', 'is', null)
     .orderBy('app.products.nominal_balance', 'asc')
     .execute();
@@ -111,6 +114,7 @@ export async function listActiveProducts(db: Db): Promise<ProductDTO[]> {
     .filter(
       (row) =>
         isSandboxProductFeatureEnabled(row.feature_flag_key) &&
+        row.purchase_enabled &&
         isSizeCommerciallyAvailableInZone({
           zone: reserveStatus.zone,
           productCode: row.code as ProductCode,
@@ -252,13 +256,19 @@ export async function createPurchaseOrder(
       'app.product_versions.price_amount',
       'app.product_versions.price_currency',
       'app.product_versions.feature_flag_key',
+      'app.product_versions.activation_price_amount',
+      'app.product_versions.total_price_if_success',
+      'app.product_versions.purchase_enabled',
     ])
     .where('app.products.code', '=', params.productCode)
+    .where('app.products.product_family', '=', 'WARIBA_ONE')
+    .where('app.product_versions.purchase_enabled', '=', true)
     .where('app.product_versions.retired_at', 'is', null)
     .executeTakeFirst();
 
   if (
     !productVersion ||
+    !productVersion.purchase_enabled ||
     !(await isCommerciallyAvailable(db, params.productCode, productVersion.feature_flag_key))
   ) {
     return { kind: 'product_not_available' };
@@ -266,7 +276,7 @@ export async function createPurchaseOrder(
 
   const publishedPolicy = await db
     .selectFrom('app.policy_versions')
-    .select('semantic_version')
+    .select(['id', 'semantic_version', 'machine_hash', 'human_document_hash'])
     .where('program', '=', 'WARIBA_ONE')
     .where('status', '=', 'published')
     .orderBy('effective_from', 'desc')
@@ -279,7 +289,7 @@ export async function createPurchaseOrder(
     .select('id')
     .where('user_id', '=', params.userId)
     .where('consent_type', '=', 'simulated_account_disclosure')
-    .where('policy_version_id', '=', publishedPolicy.semantic_version)
+    .where('attached_policy_version_id', '=', publishedPolicy.id)
     .executeTakeFirst();
   if (!consent) {
     return { kind: 'consent_required' };
@@ -290,10 +300,18 @@ export async function createPurchaseOrder(
     .values({
       user_id: params.userId,
       product_version_id: productVersion.productVersionId,
+      policy_version_id: publishedPolicy.id,
+      policy_machine_hash: publishedPolicy.machine_hash,
+      policy_human_document_hash: publishedPolicy.human_document_hash,
+      product_family: 'WARIBA_ONE',
+      order_kind: 'initial_purchase',
       idempotency_key: params.idempotencyKey,
       status: 'pending_payment',
       total_amount: productVersion.price_amount,
       total_currency: productVersion.price_currency,
+      upfront_price_snapshot: productVersion.price_amount,
+      activation_price_snapshot: productVersion.activation_price_amount,
+      total_price_if_success_snapshot: productVersion.total_price_if_success,
     })
     .onConflict((oc) => oc.columns(['user_id', 'idempotency_key']).doNothing())
     .returningAll()
@@ -508,13 +526,19 @@ export async function processPaymentWebhookEvent(
       .where('app.product_versions.id', '=', order.product_version_id)
       .executeTakeFirstOrThrow();
 
-    const account = await activateEvaluationAccountInTransaction(trx, {
-      purchaseOrderId: order.id,
-      userId: order.user_id,
-      nominalBalance: productVersion.nominal_balance,
-      currency: productVersion.nominal_currency,
-      now: () => timestamp,
-    });
+    const account =
+      order.product_family === 'WARIBA_INSTANT' || order.order_kind === 'flex_activation'
+        ? await activateV2PerformanceFromOrderInTransaction(trx, {
+            purchaseOrderId: order.id,
+            now: timestamp,
+          })
+        : await activateEvaluationAccountInTransaction(trx, {
+            purchaseOrderId: order.id,
+            userId: order.user_id,
+            nominalBalance: productVersion.nominal_balance,
+            currency: productVersion.nominal_currency,
+            now: () => timestamp,
+          });
     await markProcessed();
     return { kind: 'confirmed', account };
   });

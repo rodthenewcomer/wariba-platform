@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   activateEvaluationAccount,
+  activatePerformanceAccountInTransaction,
   createDbClient,
   evaluateAndApplyAccountRisk,
   type Db,
@@ -100,7 +101,12 @@ describeIfDb('Hub read models — real database', () => {
   }, 15000);
 
   afterAll(async () => {
-    for (const id of cleanupAccountIds) {
+    for (const id of [...cleanupAccountIds].reverse()) {
+      await db.deleteFrom('app.performance_cycles').where('account_id', '=', id).execute();
+      await db
+        .deleteFrom('app.performance_rule_acknowledgements')
+        .where('account_id', '=', id)
+        .execute();
       await db.deleteFrom('app.trade_orders').where('account_id', '=', id).execute();
       await db.deleteFrom('app.positions').where('account_id', '=', id).execute();
       await db.deleteFrom('app.trading_ledger_entries').where('account_id', '=', id).execute();
@@ -114,10 +120,12 @@ describeIfDb('Hub read models — real database', () => {
         .where('id', '=', id)
         .executeTakeFirstOrThrow();
       await db.deleteFrom('app.trading_accounts').where('id', '=', id).execute();
-      await db
-        .deleteFrom('app.purchase_orders')
-        .where('id', '=', account.source_purchase_order_id)
-        .execute();
+      if (account.source_purchase_order_id) {
+        await db
+          .deleteFrom('app.purchase_orders')
+          .where('id', '=', account.source_purchase_order_id)
+          .execute();
+      }
     }
     for (const userId of cleanupUserIds) {
       await db.deleteFrom('app.user_consents').where('user_id', '=', userId).execute();
@@ -290,21 +298,18 @@ describeIfDb('Hub read models — real database', () => {
     let accountId: string;
 
     beforeAll(async () => {
-      const policy = await db
-        .selectFrom('app.policy_versions')
-        .select('id')
-        .where('program', '=', 'WARIBA_PERFORMANCE')
-        .where('status', '=', 'published')
-        .orderBy('created_at', 'desc')
-        .limit(1)
-        .executeTakeFirstOrThrow();
-
-      ({ accountId } = await createActiveAccount('performance'));
+      const evaluation = await createActiveAccount('performance');
       await db
         .updateTable('app.trading_accounts')
-        .set({ program_type: 'WARIBA_PERFORMANCE', policy_version_id: policy.id })
-        .where('id', '=', accountId)
+        .set({ status: 'passed' })
+        .where('id', '=', evaluation.accountId)
         .execute();
+      const performance = await activatePerformanceAccountInTransaction(db, {
+        evaluationAccountId: evaluation.accountId,
+        now: () => new Date(),
+      });
+      accountId = performance.id;
+      cleanupAccountIds.push(performance.id);
     }, 15000);
 
     it('builds the shared Hub state from Performance risk parameters', async () => {

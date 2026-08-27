@@ -4,3 +4,12 @@ export {
   correlationIdFromHeaders,
   CORRELATION_ID_HEADER,
 } from './correlation';
+export {
+  RISK_LIFECYCLE_METRICS,
+  buildRiskLifecycleDimensions,
+  createRiskLifecycleRecorder,
+  type MetricSample,
+  type RiskLifecycleDimensions,
+  type RiskLifecycleMetric,
+  type RiskLifecycleRecorder,
+} from './risk-lifecycle-metrics';

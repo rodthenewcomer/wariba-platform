@@ -258,7 +258,7 @@ export const accountSnapshotSchema = z.object({
   // from "Performance account, no active cycle right now" (performanceProgress
   // is null in both cases — see its own doc comment below), e.g. to decide
   // whether the Payout Center tab should exist at all.
-  programType: z.enum(['WARIBA_ONE', 'WARIBA_PERFORMANCE']),
+  programType: z.enum(['WARIBA_ONE', 'WARIBA_FLEX', 'WARIBA_PERFORMANCE']),
   nominalBalance: z.string(),
   balance: z.string(),
   programEligibleBalance: z.string(),

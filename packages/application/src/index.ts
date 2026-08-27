@@ -14,6 +14,13 @@ export const PACKAGE_NAME = '@wariba/application';
 // handle to pass into these functions".
 export { createDbClient, type Db } from '@wariba/database';
 export {
+  listCanonicalV2Offers,
+  createCanonicalV2PurchaseOrder,
+  type CanonicalOfferReadModel,
+  type CreateCanonicalV2OrderResult,
+} from './canonical-offers';
+
+export {
   getStaffRole,
   staffRoleSatisfies,
   staffCan,

@@ -182,6 +182,29 @@ describe('Prompt 07B / TRD-034 — program-eligible balance is authoritative', (
   });
 });
 
+describe('POLICY-GOV-003 — payout debit is risk-neutral', () => {
+  it('does not soft-lock or breach from an authorized payout debit', () => {
+    const result = evaluateAccountRisk({
+      clock: CLOCK,
+      account: { id: 'payout-neutral', status: 'active', nominalBalance: '10000' },
+      policy: PERFORMANCE_POLICY,
+      currentBalance: '9000',
+      currentProgramEligibleBalance: '9000',
+      currentRiskAdjustedBalance: '10000',
+      currentUnrealizedPnl: '0',
+      openPositionCount: 0,
+      pendingOrderCount: 0,
+      dailySnapshots: [todaySnapshot({ dailyReference: '10000', maximumLossFloorBefore: '9000' })],
+    });
+
+    expect(result.currentEquity).toBe('9000.00');
+    expect(result.riskAdjustedEquity).toBe('10000.00');
+    expect(result.dailyLoss.softLockTriggered).toBe(false);
+    expect(result.maximumLoss.breached).toBe(false);
+    expect(result.recommendedStatus).toBe('active');
+  });
+});
+
 describe('property: target requires realized profit only, independent of unrealized PnL', () => {
   it('stays target-reached even with a large unrealized loss dragging equity down (a separate, still-live concern)', () => {
     const result = evaluateAccountRisk({

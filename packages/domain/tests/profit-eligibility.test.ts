@@ -72,6 +72,18 @@ describe('computeProfitEligibility — Prompt 07B §4', () => {
     expect(result.eligibilityReason).toBe('breakeven');
   });
 
+  it('is fully eligible for a positive PnL held 1ms over the 60s boundary', () => {
+    const result = computeProfitEligibility({
+      openedAt: OPENED_AT,
+      closedAt: closedAtPlusMs(60_001),
+      realizedPnl: '25.00',
+    });
+    expect(result.durationMs).toBe(60_001);
+    expect(result.isShortDurationProfit).toBe(false);
+    expect(result.eligibleRealizedPnl).toBe('25.00');
+    expect(result.ineligibleShortDurationProfit).toBe('0.00');
+  });
+
   it('is fully eligible for a positive PnL held well over 60s', () => {
     const result = computeProfitEligibility({
       openedAt: OPENED_AT,

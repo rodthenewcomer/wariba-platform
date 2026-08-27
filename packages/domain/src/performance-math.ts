@@ -113,7 +113,10 @@ export function resolveTraderSplitRate(params: {
   maxPayoutCyclesBeforeReview: number;
   defaultSplitRate: string;
   finalCycleSplitRate: string;
+  splitSchedule?: readonly [string, string, string, string, string];
 }): string {
+  const scheduled = params.splitSchedule?.[params.cycleNumber - 1];
+  if (scheduled !== undefined) return scheduled;
   return params.cycleNumber >= params.maxPayoutCyclesBeforeReview
     ? params.finalCycleSplitRate
     : params.defaultSplitRate;

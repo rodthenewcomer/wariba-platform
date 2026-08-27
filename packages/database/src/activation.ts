@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Transaction } from 'kysely';
 import type { Database, Db } from './client';
-import { loadPublishedPolicy } from './policy';
+import { assertPolicyActivationReady, loadPolicyById, loadPublishedPolicy } from './policy';
 
 export interface ActivateEvaluationAccountParams {
   purchaseOrderId: string;
@@ -134,7 +134,18 @@ export async function activateEvaluationAccountInTransaction(
     };
   }
 
-  const policyVersion = await loadPublishedPolicy(trx, 'WARIBA_ONE');
+  const sourceOrder = await trx
+    .selectFrom('app.purchase_orders')
+    .select(['policy_version_id', 'product_family'])
+    .where('id', '=', params.purchaseOrderId)
+    .executeTakeFirstOrThrow(() => new Error('Purchase order not found during activation.'));
+  const policyVersion = sourceOrder.policy_version_id
+    ? await loadPolicyById(trx, sourceOrder.policy_version_id)
+    : await loadPublishedPolicy(trx, 'WARIBA_ONE');
+  if (policyVersion.accountPhase !== 'evaluation') {
+    throw new Error('Purchase order is not pinned to an Evaluation policy.');
+  }
+  await assertPolicyActivationReady(trx, policyVersion.id);
 
   const symbolSpecSet = await loadLatestSandboxSymbolSpecSet(trx);
 
@@ -146,7 +157,8 @@ export async function activateEvaluationAccountInTransaction(
       public_id: publicId,
       user_id: params.userId,
       source_purchase_order_id: params.purchaseOrderId,
-      program_type: 'WARIBA_ONE',
+      program_type: policyVersion.program === 'WARIBA_FLEX' ? 'WARIBA_FLEX' : 'WARIBA_ONE',
+      product_family: sourceOrder.product_family ?? policyVersion.productFamily,
       nominal_balance: params.nominalBalance,
       currency: params.currency,
       status: 'active',

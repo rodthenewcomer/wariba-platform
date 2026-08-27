@@ -107,16 +107,22 @@ export const performancePolicyParametersSchema = z.object({
     z.string(),
     z.tuple([decimalString, decimalString, decimalString, decimalString, decimalString]),
   ),
+  /** V2 carries every payout rank explicitly; absent only on historical V1 policies. */
+  payout_split_schedule: z
+    .tuple([decimalString, decimalString, decimalString, decimalString, decimalString])
+    .optional(),
 });
 export type PerformancePolicyParameters = z.infer<typeof performancePolicyParametersSchema>;
 
 export const policyVersionRowSchema = z.object({
   id: z.string(),
-  program: z.enum(['WARIBA_ONE', 'WARIBA_PERFORMANCE']),
+  program: z.enum(['WARIBA_ONE', 'WARIBA_FLEX', 'WARIBA_PERFORMANCE']),
   semantic_version: z.string(),
-  status: z.enum(['draft', 'reviewed', 'approved', 'published', 'retired']),
+  status: z.enum(['draft', 'reviewed', 'approved', 'pilot_ready', 'published', 'retired']),
   parameters_json: z.unknown(),
   machine_hash: z.string().nullable(),
+  product_family: z.enum(['WARIBA_ONE', 'WARIBA_FLEX', 'WARIBA_INSTANT']).nullish(),
+  account_phase: z.enum(['evaluation', 'performance']).nullish(),
 });
 
 export type PolicyVersionRow = z.infer<typeof policyVersionRowSchema>;
