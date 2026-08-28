@@ -178,11 +178,34 @@ export interface AccountOverviewSection {
   userId: string;
   userEmail: string | null;
   programType: string;
+  /**
+   * Phase 3.4.4 §49/§52 — the product, separately from the phase.
+   *
+   * `programType` cannot answer "which product is this": a FLEX Performance
+   * account and an INSTANT one are both `WARIBA_PERFORMANCE`. An operator
+   * handling a dispute needs the family, and for an INSTANT account the
+   * absence of `sourceEvaluation` beside it is the provenance fact — the
+   * account started in Performance and never held an Evaluation.
+   */
+  productFamily: string;
+  accountPhase: string | null;
   nominalBalance: string;
   currency: string;
   status: string;
+  policyVersionId: string;
   policyVersion: string;
   policyStatus: string;
+  /** The governance decision the pinned policy was published under. */
+  policyDecisionRecordId: string | null;
+  /**
+   * §49 — the parameters actually attached to this account.
+   *
+   * Carried raw so Control renders the account's own numbers rather than the
+   * current published ones. The failure this prevents is an operator reading
+   * "WARIBA ONE" and applying 8 % to an account pinned to a V1 policy whose
+   * maximum loss is 10 % — a wrong answer given confidently, in a dispute.
+   */
+  policyParameters: unknown;
   kycSandboxVerified: boolean;
   payoutMethodSandboxConfigured: boolean;
   activatedAt: Date | null;
@@ -343,6 +366,7 @@ export async function loadControlAccountDetail(
       'app.trading_accounts.user_id',
       'auth.users.email',
       'app.trading_accounts.program_type',
+      'app.trading_accounts.product_family',
       'app.trading_accounts.nominal_balance',
       'app.trading_accounts.currency',
       'app.trading_accounts.status',
@@ -357,8 +381,12 @@ export async function loadControlAccountDetail(
       'source_evaluation.public_id as source_evaluation_public_id',
       'performance_child.id as performance_child_id',
       'performance_child.public_id as performance_child_public_id',
+      'app.policy_versions.id as policy_version_id',
       'app.policy_versions.semantic_version as policy_version',
       'app.policy_versions.status as policy_status',
+      'app.policy_versions.account_phase as policy_account_phase',
+      'app.policy_versions.decision_record_id as policy_decision_record_id',
+      'app.policy_versions.parameters_json as policy_parameters_json',
     ])
     .where('app.trading_accounts.id', '=', accountId)
     .executeTakeFirst();
@@ -373,11 +401,16 @@ export async function loadControlAccountDetail(
       userId: account.user_id,
       userEmail: account.email,
       programType: account.program_type,
+      productFamily: account.product_family,
+      accountPhase: account.policy_account_phase,
       nominalBalance: account.nominal_balance,
       currency: account.currency,
       status: account.status,
+      policyVersionId: account.policy_version_id,
       policyVersion: account.policy_version,
       policyStatus: account.policy_status,
+      policyDecisionRecordId: account.policy_decision_record_id,
+      policyParameters: account.policy_parameters_json,
       kycSandboxVerified: account.kyc_sandbox_verified,
       payoutMethodSandboxConfigured: account.payout_method_sandbox_configured,
       activatedAt: account.activated_at,
