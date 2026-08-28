@@ -1,10 +1,15 @@
 # WARIBA Margin & Exposure Calibration V1
 
-> **STATUS = CALIBRATION EXECUTED — CAP STILL NOT LOCKED**
-> **CANDIDATE CAPS = 20% Evaluation / 15% Performance ONE-FLEX / 10% INSTANT**
-> **PURPOSE = sensitivity model and pilot calibration contract, not a runtime policy**
-> **OWNER_DECISION_REQUIRED = yes — voir §12 et §13**
-> Date : 27 août 2026 · calibration exécutée en Phase 3.4.3
+> **STATUS = CALIBRATION CLOSED BY POLICY-GOV-004**
+> **LOCKED MARGIN CAPS = 20% Evaluation / 15% Performance ONE-FLEX / 10% INSTANT**
+> **LOCKED GROSS CAPS = 3.00x nominal ONE-FLEX / 2.00x nominal INSTANT**
+> **OWNER_DECISION_REQUIRED = no — décision prise le 27 août 2026**
+> Date : 27 août 2026 · calibration exécutée en Phase 3.4.3, décidée en Phase 3.4.3A
+
+Les §1 à §13 conservent le raisonnement et le verdict pré-décision comme
+preuve historique. La décision normative courante est §14 et
+`POLICY-GOV-004`; aucune mention antérieure `CALIBRATION_REQUIRED` ne la
+réouvre.
 
 ## 1. Décision de calibration
 
@@ -334,5 +339,31 @@ Trois raisons maintiennent la décision chez le propriétaire :
 
 Tant que cette décision n'est pas prise, `app.margin_profiles.calibration_status`
 reste `calibration_required` pour les cinq profils V2 et le moteur pré-trade
-refuse toute augmentation d'exposition V2 avec
+refuse toute augmentation d’exposition V2 avec
 `MARGIN_CAP_NOT_CALIBRATED`. Aucune valeur n'est publiée comme limite active.
+
+## 14. Décision owner et activation runtime — Phase 3.4.3A
+
+`POLICY-GOV-004` accepte la recommandation §13 sans réserve sur les valeurs :
+
+```text
+MARGIN_CAP_EVALUATION_ONE_FLEX   = 0.20
+MARGIN_CAP_PERFORMANCE_ONE_FLEX  = 0.15
+MARGIN_CAP_INSTANT               = 0.10
+GROSS_EXPOSURE_ONE_FLEX          = 3.00 × nominal
+GROSS_EXPOSURE_INSTANT           = 2.00 × nominal
+BOUNDARY                         = <= autorisé; > refusé
+NETTING                          = interdit; somme des notionnels absolus
+```
+
+Les cinq profils successeurs sont `validated`. Les cinq policies 2.1.0
+référencent ces profils et portent leur plafond brut. Les 2.0.0 restent
+historiques et immuables. Le moteur pré-trade applique marge et exposition
+brute au Market order, à la création/augmentation pending et de nouveau au
+trigger sous lock. Une spec, un mark ou une conversion manquante refuse
+l’augmentation avec `EXPOSURE_CONVERSION_UNAVAILABLE`.
+
+US30 et les énergies restent exclus tant qu’une spec versionnée n’existe pas;
+ce périmètre instrument n’invalide ni les caps décidés ni les cinq instruments
+actuellement supportés. Les calendriers/provider réels et gates d’activation
+publique restent des conditions opérationnelles distinctes.

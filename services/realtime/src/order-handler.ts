@@ -349,6 +349,7 @@ export async function handleCreatePendingOrder(
     return 'not_owner';
   }
   const now = new Date();
+  const marketBySymbol = readAllMarkets(market);
   const result = await createPendingOrder(db, {
     accountId: msg.accountId,
     idempotencyKey: msg.idempotencyKey,
@@ -358,7 +359,8 @@ export async function handleCreatePendingOrder(
     triggerPrice: msg.triggerPrice,
     ...(msg.stopLoss !== undefined && { stopLoss: msg.stopLoss }),
     ...(msg.takeProfit !== undefined && { takeProfit: msg.takeProfit }),
-    market: readMarketSnapshot(market, msg.symbol),
+    market: marketBySymbol[msg.symbol],
+    marketBySymbol,
     now,
   });
   return toPendingOrderResultMessage(msg.idempotencyKey, result);
@@ -375,6 +377,7 @@ export async function handleModifyPendingOrder(
   }
   const now = new Date();
   const symbol = await symbolForPendingOrder(db, msg.pendingOrderId);
+  const marketBySymbol = readAllMarkets(market);
   const result = await modifyPendingOrder(db, {
     accountId: msg.accountId,
     pendingOrderId: msg.pendingOrderId,
@@ -382,7 +385,8 @@ export async function handleModifyPendingOrder(
     ...(msg.quantity !== undefined && { quantity: msg.quantity }),
     ...(msg.stopLoss !== undefined && { stopLoss: msg.stopLoss }),
     ...(msg.takeProfit !== undefined && { takeProfit: msg.takeProfit }),
-    market: readMarketSnapshot(market, symbol),
+    market: marketBySymbol[symbol],
+    marketBySymbol,
     now,
   });
   return toPendingOrderResultMessage(null, result);

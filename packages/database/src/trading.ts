@@ -454,6 +454,7 @@ export async function openPositionInTransaction(
     symbol: params.symbol,
     quantity: params.quantity,
     market: params.market,
+    marketBySymbol: params.marketBySymbol,
     side: params.side,
     now: params.now,
   });

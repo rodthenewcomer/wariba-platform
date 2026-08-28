@@ -15,9 +15,11 @@ import {
   loadActiveCycle,
 } from '../src/performance';
 import { acknowledgePerformanceRules } from '../src/performance-onboarding';
+import { createPendingOrder } from '../src/pending-orders';
 import { evaluateAndApplyAccountRisk } from '../src/risk';
 import { closePosition, openPosition } from '../src/trading';
 import { evaluateV2PreTradeDecisionInTransaction } from '../src/v2-pre-trade';
+import { triggerPendingOrdersAsLeader } from './market-trigger-fixture';
 
 /**
  * Phase 3.4.3 — the risk/lifecycle proofs that Phase 3.4.2 explicitly
@@ -172,6 +174,170 @@ describeIfDb('Phase 3.4.3 risk and lifecycle — real database', () => {
       .execute();
   };
 
+  const createReadyOnePolicy = async (
+    now: Date,
+    accountPhase: 'evaluation' | 'performance' = 'performance',
+  ): Promise<{ policyVersionId: string; newsCalendarVersionId: string }> => {
+    const isEvaluation = accountPhase === 'evaluation';
+    const marginProfile = await db
+      .insertInto('app.margin_profiles')
+      .values({
+        profile_code: `TEST-MARGIN-${randomUUID().slice(0, 8)}`,
+        product_family: 'WARIBA_ONE',
+        account_phase: accountPhase,
+        candidate_margin_cap_rate: isEvaluation ? '0.200000' : '0.150000',
+        leverage_by_asset_group: JSON.stringify(
+          isEvaluation
+            ? { FX: 50, METALS: 20, INDICES: 20, ENERGY: 10 }
+            : { FX: 30, METALS: 15, INDICES: 10, ENERGY: 10 },
+        ),
+        calibration_status: 'validated',
+        decision_record_id: 'POLICY-GOV-004',
+        validated_at: now,
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    cleanupMarginProfileIds.push(marginProfile.id);
+
+    const sessionCalendar = await db
+      .insertInto('app.session_calendar_versions')
+      .values({
+        version_code: `TEST-SESSIONS-${randomUUID().slice(0, 8)}`,
+        provider: 'test-fixture',
+        status: 'ready',
+        source_ready: true,
+        published_at: now,
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    cleanupCalendarIds.session.push(sessionCalendar.id);
+
+    const newsCalendar = await db
+      .insertInto('app.news_calendar_versions')
+      .values({
+        version_code: `TEST-NEWS-${randomUUID().slice(0, 8)}`,
+        provider: 'test-fixture',
+        status: 'ready',
+        source_ready: true,
+        published_at: now,
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    cleanupCalendarIds.news.push(newsCalendar.id);
+
+    const parameters = isEvaluation
+      ? V2_POLICY_PARAMETERS.oneEvaluation
+      : V2_POLICY_PARAMETERS.onePerformance;
+    const testPolicy = await db
+      .insertInto('app.policy_versions')
+      .values({
+        program: isEvaluation ? 'WARIBA_ONE' : 'WARIBA_PERFORMANCE',
+        product_family: 'WARIBA_ONE',
+        account_phase: accountPhase,
+        semantic_version: `2.1.0-test-${randomUUID().slice(0, 8)}`,
+        status: 'pilot_ready',
+        parameters_json: JSON.stringify(parameters),
+        machine_hash: computeMachineHash(parameters),
+        decision_record_id: 'POLICY-GOV-004',
+        margin_profile_id: marginProfile.id,
+        session_calendar_version_id: sessionCalendar.id,
+        news_calendar_version_id: newsCalendar.id,
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    cleanupPolicyIds.push(testPolicy.id);
+    return { policyVersionId: testPolicy.id, newsCalendarVersionId: newsCalendar.id };
+  };
+
+  const createActiveEvaluationWithPolicy = async (
+    label: string,
+    policyVersionId: string,
+  ): Promise<{ accountId: string; userId: string }> => {
+    const now = new Date();
+    const userId = await createTestUser(
+      `p343-${label}-${Date.now()}-${randomUUID().slice(0, 8)}@wariba-test.invalid`,
+    );
+    cleanupUserIds.push(userId);
+    const productVersion = await db
+      .selectFrom('app.product_versions')
+      .innerJoin('app.products', 'app.products.id', 'app.product_versions.product_id')
+      .select([
+        'app.product_versions.id',
+        'app.products.nominal_balance',
+        'app.products.nominal_currency',
+      ])
+      .where('app.products.code', '=', '10K')
+      .where('app.products.product_family', '=', 'WARIBA_ONE')
+      .where('app.product_versions.retired_at', 'is', null)
+      .executeTakeFirstOrThrow();
+    const policy = await db
+      .selectFrom('app.policy_versions')
+      .select('machine_hash')
+      .where('id', '=', policyVersionId)
+      .executeTakeFirstOrThrow();
+    const order = await db
+      .insertInto('app.purchase_orders')
+      .values({
+        user_id: userId,
+        product_version_id: productVersion.id,
+        policy_version_id: policyVersionId,
+        policy_machine_hash: policy.machine_hash,
+        product_family: 'WARIBA_ONE',
+        idempotency_key: randomUUID(),
+        status: 'paid',
+        total_amount: '39900.00',
+        total_currency: 'XOF',
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    const symbolSpecSet = await db
+      .selectFrom('app.symbol_spec_sets')
+      .select('id')
+      .where('status', '=', 'sandbox_candidate')
+      .where('set_id', '=', 'WARIBA-SANDBOX-SYMBOLS-1.1.0')
+      .executeTakeFirstOrThrow();
+    const account = await db
+      .insertInto('app.trading_accounts')
+      .values({
+        public_id: `EVAL-10000-${randomUUID().slice(0, 8).toUpperCase()}`,
+        user_id: userId,
+        source_purchase_order_id: order.id,
+        source_evaluation_account_id: null,
+        source_contestation_id: null,
+        program_type: 'WARIBA_ONE',
+        product_family: 'WARIBA_ONE',
+        nominal_balance: productVersion.nominal_balance,
+        currency: productVersion.nominal_currency,
+        status: 'active',
+        policy_version_id: policyVersionId,
+        symbol_spec_set_id: symbolSpecSet.id,
+        activated_at: now,
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    await db
+      .insertInto('app.account_state_transitions')
+      .values({
+        account_id: account.id,
+        from_status: 'pending_activation',
+        to_status: 'active',
+        reason: 'test_fixture',
+        occurred_at: now,
+      })
+      .execute();
+    await db
+      .insertInto('app.trading_ledger_entries')
+      .values({
+        account_id: account.id,
+        entry_type: 'initial_balance',
+        amount: productVersion.nominal_balance,
+        currency: productVersion.nominal_currency,
+      })
+      .execute();
+    cleanupAccountIds.push(account.id);
+    return { accountId: account.id, userId };
+  };
+
   beforeAll(async () => {
     db = createDbClient(DATABASE_URL as string);
   }, 15000);
@@ -195,6 +361,7 @@ describeIfDb('Phase 3.4.3 risk and lifecycle — real database', () => {
         await db.deleteFrom('app.fills').where('position_id', '=', position.id).execute();
         await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', position.id).execute();
       }
+      await db.deleteFrom('app.pending_orders').where('account_id', '=', id).execute();
       await db.deleteFrom('app.trade_orders').where('account_id', '=', id).execute();
       await db.deleteFrom('app.positions').where('account_id', '=', id).execute();
       await db.deleteFrom('app.trading_ledger_entries').where('account_id', '=', id).execute();
@@ -250,6 +417,34 @@ describeIfDb('Phase 3.4.3 risk and lifecycle — real database', () => {
     }
     await db.destroy();
   }, 120000);
+
+  it('loads and verifies every immutable POLICY-GOV-004 successor hash', async () => {
+    const successors = await db
+      .selectFrom('app.policy_versions')
+      .select(['id', 'semantic_version', 'status', 'parameters_json'])
+      .where('decision_record_id', '=', 'POLICY-GOV-004')
+      .orderBy('semantic_version', 'asc')
+      .execute();
+    expect(successors).toHaveLength(5);
+    expect(successors.every((row) => row.status === 'pilot_ready')).toBe(true);
+    expect(
+      successors.map(
+        (row) => (row.parameters_json as Record<string, unknown>).gross_exposure_max_multiple,
+      ),
+    ).toEqual(['3.00', '3.00', '3.00', '2.00', '3.00']);
+    for (const successor of successors) {
+      const loaded = await loadPolicyById(db, successor.id);
+      expect(loaded.semanticVersion).toBe(successor.semantic_version);
+    }
+
+    const superseded = await db
+      .selectFrom('app.policy_versions')
+      .select('id')
+      .where('decision_record_id', '=', 'POLICY-GOV-003')
+      .where('status', '=', 'retired')
+      .execute();
+    expect(superseded).toHaveLength(5);
+  });
 
   it('a Performance Day can satisfy exactly one payout cycle, never two (§26)', async () => {
     const { performanceAccountId } = await createPerformanceAccount('day-reuse');
@@ -685,101 +880,47 @@ describeIfDb('Phase 3.4.3 risk and lifecycle — real database', () => {
   it('enforces the margin cap once calibration and calendars are ready (§53)', async () => {
     const { performanceAccountId } = await createPerformanceAccount('pre-trade-margin');
     const now = new Date();
-
-    const marginProfile = await db
-      .insertInto('app.margin_profiles')
-      .values({
-        profile_code: `TEST-MARGIN-${randomUUID().slice(0, 8)}`,
-        product_family: 'WARIBA_ONE',
-        account_phase: 'performance',
-        candidate_margin_cap_rate: '0.150000',
-        leverage_by_asset_group: JSON.stringify({ FX: 30, METALS: 15, INDICES: 10, ENERGY: 10 }),
-        calibration_status: 'validated',
-        decision_record_id: 'POLICY-GOV-003',
-        validated_at: now,
-      })
-      .returning('id')
-      .executeTakeFirstOrThrow();
-    cleanupMarginProfileIds.push(marginProfile.id);
-
-    const sessionCalendar = await db
-      .insertInto('app.session_calendar_versions')
-      .values({
-        version_code: `TEST-SESSIONS-${randomUUID().slice(0, 8)}`,
-        provider: 'test-fixture',
-        status: 'ready',
-        source_ready: true,
-        published_at: now,
-      })
-      .returning('id')
-      .executeTakeFirstOrThrow();
-    cleanupCalendarIds.session.push(sessionCalendar.id);
-
-    const newsCalendar = await db
-      .insertInto('app.news_calendar_versions')
-      .values({
-        version_code: `TEST-NEWS-${randomUUID().slice(0, 8)}`,
-        provider: 'test-fixture',
-        status: 'ready',
-        source_ready: true,
-        published_at: now,
-      })
-      .returning('id')
-      .executeTakeFirstOrThrow();
-    cleanupCalendarIds.news.push(newsCalendar.id);
-
-    const parameters = V2_POLICY_PARAMETERS.onePerformance;
-    const testPolicy = await db
-      .insertInto('app.policy_versions')
-      .values({
-        program: 'WARIBA_PERFORMANCE',
-        product_family: 'WARIBA_ONE',
-        account_phase: 'performance',
-        semantic_version: `2.0.0-test-${randomUUID().slice(0, 8)}`,
-        status: 'pilot_ready',
-        parameters_json: JSON.stringify(parameters),
-        machine_hash: computeMachineHash(parameters),
-        decision_record_id: 'POLICY-GOV-003',
-        margin_profile_id: marginProfile.id,
-        session_calendar_version_id: sessionCalendar.id,
-        news_calendar_version_id: newsCalendar.id,
-      })
-      .returning('id')
-      .executeTakeFirstOrThrow();
-    cleanupPolicyIds.push(testPolicy.id);
-
-    const policy = await loadPolicyById(db, testPolicy.id);
-    const decide = (quantity: string) =>
+    const readyPolicy = await createReadyOnePolicy(now);
+    const policy = await loadPolicyById(db, readyPolicy.policyVersionId);
+    const decide = (symbol: 'EURUSD' | 'XAUUSD', quantity: string) =>
       db.transaction().execute(async (trx) => {
         const account = await lockAccount(trx, performanceAccountId);
         return evaluateV2PreTradeDecisionInTransaction(trx, {
           account,
           policy,
           intent: 'open',
-          symbol: 'EURUSD',
+          symbol,
           quantity,
-          market: MARKET,
+          market: ALL_MARKETS[symbol],
           side: 'buy',
           now,
         });
       });
 
-    // 10 000 equity, 15% cap = 1 500 margin; EURUSD at 1:30 costs ~3 615/lot,
-    // so 0.41 lots fits and 0.42 does not.
-    const withinCap = await decide('0.41');
+    // ONE Performance: gross <= 3x nominal. EURUSD 0.27 stays below 30k;
+    // 0.28 remains below the 15% margin cap but exceeds the gross cap.
+    const withinCap = await decide('EURUSD', '0.27');
     expect(withinCap.allowed).toBe(true);
     expect(withinCap.reasonCode).toBe('V2_PRE_TRADE_ALLOWED');
+    expect(new Decimal(withinCap.grossExposureRate as string).lte('3')).toBe(true);
 
-    const aboveCap = await decide('0.42');
-    expect(aboveCap.allowed).toBe(false);
-    expect(aboveCap.reasonCode).toBe('MARGIN_CAP_EXCEEDED');
+    const grossAboveCap = await decide('EURUSD', '0.28');
+    expect(grossAboveCap.allowed).toBe(false);
+    expect(grossAboveCap.reasonCode).toBe('GROSS_EXPOSURE_EXCEEDED');
+    expect(new Decimal(grossAboveCap.marginUsageRate as string).lte('0.15')).toBe(true);
+
+    // The strictest gate wins in the opposite direction too: XAUUSD 0.12
+    // remains below 3x gross but breaches the 15% margin cap at 1:15.
+    const marginAboveCap = await decide('XAUUSD', '0.12');
+    expect(marginAboveCap.allowed).toBe(false);
+    expect(marginAboveCap.reasonCode).toBe('MARGIN_CAP_EXCEEDED');
 
     // A high-impact news window on the traded asset group blocks the
     // increase without touching the reduce path.
     await db
       .insertInto('app.news_events')
       .values({
-        calendar_version_id: newsCalendar.id,
+        calendar_version_id: readyPolicy.newsCalendarVersionId,
         provider_event_id: `evt-${randomUUID().slice(0, 8)}`,
         impact: 'high',
         affected_asset_groups: JSON.stringify(['FX']),
@@ -788,8 +929,143 @@ describeIfDb('Phase 3.4.3 risk and lifecycle — real database', () => {
         window_ends_at: new Date(now.getTime() + 2 * 60_000),
       })
       .execute();
-    const duringNews = await decide('0.01');
+    const duringNews = await decide('EURUSD', '0.01');
     expect(duringNews.allowed).toBe(false);
     expect(duringNews.reasonCode).toBe('NEWS_EXPOSURE_INCREASE_BLOCKED');
   }, 90000);
+
+  it('serializes concurrent pending triggers and rejects the one that would cross the V2 gross cap', async () => {
+    const now = new Date();
+    const readyPolicy = await createReadyOnePolicy(now, 'evaluation');
+    const { accountId } = await createActiveEvaluationWithPolicy(
+      'pending-gross-race',
+      readyPolicy.policyVersionId,
+    );
+
+    const freshMarket = {
+      bid: '1.08450',
+      ask: '1.08460',
+      timestamp: now.toISOString(),
+      sequence: '1000',
+    };
+    const freshMarkets = { ...ALL_MARKETS, EURUSD: freshMarket };
+    const created = await Promise.all([
+      createPendingOrder(db, {
+        accountId,
+        idempotencyKey: randomUUID(),
+        symbol: 'EURUSD',
+        orderType: 'buy_limit',
+        quantity: '0.15',
+        triggerPrice: '1.08400',
+        market: freshMarket,
+        marketBySymbol: freshMarkets,
+        now,
+      }),
+      createPendingOrder(db, {
+        accountId,
+        idempotencyKey: randomUUID(),
+        symbol: 'EURUSD',
+        orderType: 'buy_limit',
+        quantity: '0.15',
+        triggerPrice: '1.08400',
+        market: freshMarket,
+        marketBySymbol: freshMarkets,
+        now,
+      }),
+    ]);
+    expect(created.map((entry) => entry.status)).toEqual(['active', 'active']);
+
+    const triggeredAt = new Date(now.getTime() + 1_000);
+    const triggerMarket = {
+      bid: '1.08300',
+      ask: '1.08310',
+      timestamp: triggeredAt.toISOString(),
+      sequence: '1001',
+    };
+    const triggerMarkets = { ...ALL_MARKETS, EURUSD: triggerMarket };
+    const races = await Promise.all([
+      triggerPendingOrdersAsLeader(db, {
+        symbol: 'EURUSD',
+        market: triggerMarket,
+        marketBySymbol: triggerMarkets,
+        now: triggeredAt,
+      }),
+      triggerPendingOrdersAsLeader(db, {
+        symbol: 'EURUSD',
+        market: triggerMarket,
+        marketBySymbol: triggerMarkets,
+        now: triggeredAt,
+      }),
+    ]);
+    const outcomes = races
+      .flat()
+      .filter((entry) => entry.accountId === accountId)
+      .map((entry) => entry.order);
+    expect(outcomes.filter((entry) => entry.status === 'filled')).toHaveLength(1);
+    expect(outcomes.filter((entry) => entry.status === 'failed')).toHaveLength(1);
+    expect(outcomes.find((entry) => entry.status === 'failed')?.rejectionCode).toBe(
+      'GROSS_EXPOSURE_EXCEEDED',
+    );
+
+    const openPositions = await db
+      .selectFrom('app.positions')
+      .select(['side', 'open_quantity'])
+      .where('account_id', '=', accountId)
+      .where('status', '=', 'open')
+      .execute();
+    expect(openPositions).toEqual([{ side: 'buy', open_quantity: '0.1500' }]);
+
+    const rejectedMarketIncrease = await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'EURUSD',
+      side: 'buy',
+      quantity: '0.14',
+      market: triggerMarket,
+      marketBySymbol: triggerMarkets,
+      now: triggeredAt,
+    });
+    expect(rejectedMarketIncrease.order.status).toBe('rejected');
+    expect(rejectedMarketIncrease.order.rejectionCode).toBe('GROSS_EXPOSURE_EXCEEDED');
+
+    const reducedAt = new Date(triggeredAt.getTime() + 1_000);
+    const reduceMarket = { ...triggerMarket, timestamp: reducedAt.toISOString(), sequence: '1002' };
+    const partial = await closePosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      positionId: (
+        await db
+          .selectFrom('app.positions')
+          .select('id')
+          .where('account_id', '=', accountId)
+          .where('status', '=', 'open')
+          .executeTakeFirstOrThrow()
+      ).id,
+      mode: 'partial',
+      quantity: '0.05',
+      market: reduceMarket,
+      marketBySymbol: { ...ALL_MARKETS, EURUSD: reduceMarket },
+      now: reducedAt,
+    });
+    expect(partial.order.status).toBe('filled');
+    expect(partial.position?.openQuantity).toBe('0.1000');
+
+    const reopenedAt = new Date(reducedAt.getTime() + 1_000);
+    const reopenMarket = {
+      ...triggerMarket,
+      timestamp: reopenedAt.toISOString(),
+      sequence: '1003',
+    };
+    const allowedMarketIncrease = await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'EURUSD',
+      side: 'buy',
+      quantity: '0.10',
+      market: reopenMarket,
+      marketBySymbol: { ...ALL_MARKETS, EURUSD: reopenMarket },
+      now: reopenedAt,
+    });
+    expect(allowedMarketIncrease.order.status).toBe('filled');
+  }, 120000);
 });

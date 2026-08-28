@@ -163,10 +163,15 @@ export {
 } from './price-alerts';
 export {
   evaluateMarginExposure,
+  evaluateGrossExposure,
+  computeCanonicalNotionalExposure,
   type V2AssetGroup,
   type MarginCalibrationStatus,
   type MarginExposureLine,
   type MarginExposureEvaluation,
+  type GrossExposureEvaluation,
+  type CanonicalNotionalSymbol,
+  type CanonicalNotionalExposureResult,
 } from './margin-exposure';
 export {
   evaluateV2TradingPermission,

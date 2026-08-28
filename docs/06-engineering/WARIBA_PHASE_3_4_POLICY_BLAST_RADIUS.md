@@ -1,14 +1,14 @@
 # WARIBA Phase 3.4 — Policy Blast Radius
 
-> Statut : **EN COURS — Risk/Lifecycle V2 livré en 3.4.3, surfaces publiques bloquées**
-> Source : `POLICY-GOV-003` + Canonical Policy Contract V2
+> Statut : **BACKEND V2 LIVRÉ — activation et surfaces publiques bloquées**
+> Source : `POLICY-GOV-004` + Canonical Policy Contract V2
 > Audit : `main@9dff986e5880130725a64866431ec8e3635f2a16`, 27 août 2026
 
 ## 1. Principe de propagation
 
-V2 est la nouvelle vérité normative. Le runtime actuel reste V1 jusqu’à ce que
-chaque vague soit implémentée, testée et autorisée. Les vagues ne migrent jamais
-les comptes V1. Toute donnée existante reste attachée à sa version historique.
+V2 est la vérité normative et la cible runtime définitive. Les policies 2.1.0
+portent l’enforcement backend; V1 n’est conservée que pour l’historique et un
+éventuel compte déjà épinglé. Aucune vague ne repin un compte historique.
 
 Ordre obligatoire : gouvernance → schéma/versioning → policy machine → Risk et
 Order Gateway → Payout → lifecycle → read models → WariX/Hub → public/Help →
@@ -56,7 +56,8 @@ serveur correspondants.
 |---|---|---|
 | Vagues 1–2 — policy, pinning, catalogue, schémas | `FOUNDATION_READY` | migration 3.4.2, hashes V2 stables, 15/15 offres, 40/40 pgTAP |
 | Vague 3 — projections risque/éligibilité | `EXECUTABLE` | 16 000 scénarios générés en 3.4.3 en plus des 15 000 de 3.4.2; neutralité payout prouvée jusqu’à Best Day et Performance Days |
-| Vague 4 — leverage/marge/news/session | `WIRED_BLOCKED` | chaîne pré-trade unique dans `v2-pre-trade.ts`, appelée par l’Order Gateway; calibration exécutée; providers absents |
+| Vague 4 — leverage/marge/exposition | `EXECUTABLE` | 20/15/10 + brut 3×/2× dans la chaîne unique; Market et pending trigger testés |
+| Vague 4 — news/session | `WIRED_BLOCKED` | chaîne pré-trade câblée; providers de calendriers absents |
 | Vague 5 — FLEX/INSTANT lifecycle | `FOUNDATION_READY` | 3/3 intégrations transactionnelles, enfant unique et expiration |
 | Vague 6 — payout V2 | `EXECUTABLE` | splits/caps/cycles 1-5/Review prouvés; non-réutilisation d’un Performance Day et permanence du buffer prouvées |
 | Vague 7 — read model catalogue backend | `FOUNDATION_READY` | catalogue complet distinct des gates |
@@ -81,15 +82,13 @@ Seul l’effet ledger payout/reversal est neutralisé pour Daily/Maximum Loss.
 
 ### P0-4 — Marge/exposition
 
-`WIRED_BLOCKED`. Le moteur est désormais appelé par l’Order Gateway via la
-chaîne unique `evaluateV2PreTradeDecisionInTransaction`, et la calibration
-20/15/10 a été exécutée (`packages/domain/src/margin-calibration.ts`) : zéro
-cellule infaisable, deux cellules 5K INSTANT limitées à deux positions
-minimales, US30 toujours `OPEN_CALIBRATION`. Le cap de marge ne borne pas la
-journée à l’intérieur du budget daily; un plafond d’exposition brute dérivé
-(3,00× ONE/FLEX, 2,00× INSTANT) est recommandé et attend une décision owner
-et une nouvelle version de policy. `calibration_status` reste
-`calibration_required`, donc toute augmentation d’exposition V2 est refusée.
+`CLOSED` par `POLICY-GOV-004`. Les caps de marge 20/15/10 sont validés et les
+plafonds bruts 3,00× ONE/FLEX et 2,00× INSTANT sont portés par cinq policies
+successeures 2.1.0. Le moteur additionne les notionnels absolus sans netting,
+autorise l’égalité, refuse tout dépassement ou conversion manquante, et est
+appelé par Market, pending create/modify et pending trigger. Le lock du compte
+rend deux triggers concurrents sûrs. US30/énergies restent hors catalogue
+d’exécution sans spec; cela ne réouvre pas la décision sur les caps.
 
 ### P0-5 — News et sessions
 
@@ -100,10 +99,11 @@ réelles restent absentes et l’activation reste bloquée.
 
 ### P0-6 — Risk et lifecycle V2
 
-`CLOSED` en Phase 3.4.3. ONE/FLEX/INSTANT exécutent leurs règles sur un moteur
+`CLOSED` en Phase 3.4.3A. ONE/FLEX/INSTANT exécutent leurs règles sur un moteur
 unique piloté par la policy attachée, sans branche par produit. Daily Loss
 reste une pause, Maximum Loss reste terminal, Best Day reste un gate, la
-règle 60 s alimente une seule définition d’éligibilité, et V1 est inchangée.
+règle 60 s alimente une seule définition d’éligibilité. Le seul backport V1
+ferme le bypass Daily Loss de `pass_pending` sans changer un seuil ni un hash.
 
 ## 4. P1 de vérité et UX
 
@@ -127,8 +127,9 @@ règle 60 s alimente une seule définition d’éligibilité, et V1 est inchang�
 7. Help public montre V2; Help d’un compte V1 montre V1 avec son badge version.
 8. Aucun reason code client ne peut autoriser un ordre refusé par le serveur.
 
-## 6. Hors scope Phase 3.4.2
+## 6. Hors scope Phase 3.4.3A
 
 Sont restés hors scope : refonte ou propagation WariX/Hub/site/Help/checkout,
 provider réel, activation publique, déploiement, push, PR, merge ou rollout.
-La migration et les packages backend étaient explicitement autorisés en 3.4.2.
+La migration, les packages backend, les tests et la gouvernance étaient
+explicitement autorisés. Aucun push, PR, merge ou déploiement n’est réalisé.

@@ -21,6 +21,7 @@ export { computeMachineHash } from './hash';
 export { parseAndVerifyPolicy, type LoadedPolicy } from './loader';
 export {
   V2_POLICY_CONTRACT_VERSION,
+  V2_LEGACY_DECISION_RECORD_ID,
   V2_DECISION_RECORD_ID,
   V2_POLICY_PARAMETERS,
   productFamilySchema,

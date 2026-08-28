@@ -823,7 +823,70 @@ inventaire et rapport de clôture Phase 3.4.1.
 
 ---
 
+## POLICY-GOV-004 — WARIBA_V2_DEFINITIVE_RUNTIME_AND_EXPOSURE_GUARDS
+
+| Champ | Valeur |
+|---|---|
+| ID | `POLICY-GOV-004` |
+| Date | 2026-08-27 |
+| Catégorie | Policy, risque pré-trade, catalogue et gouvernance runtime |
+| Titre | `WARIBA_V2_DEFINITIVE_RUNTIME_AND_EXPOSURE_GUARDS` |
+| Statut | `LOCKED` |
+| Décision | V2 devient la norme produit et runtime définitive pour toute nouvelle offre et tout nouveau compte. Les valeurs V2 du Rulebook et du Canonical Contract ne sont plus des candidats de policy. |
+| Owner | WARIBA Leadership / propriétaire produit |
+| Supersède | Le statut `EXPERIMENT`, les mentions `NOT LOCKED` et la calibration ouverte de `POLICY-GOV-003`; aucune ligne historique n'est modifiée en place. |
+
+### Règles verrouillées
+
+1. Les nouvelles policies successeures sont `2.1.0` (ONE/FLEX Evaluation),
+   `2.1.0-one`, `2.1.0-flex` et `2.1.0-instant` (Performance). Les policies
+   `2.0.0*` restent immuables, passent en historique et ne sont jamais un
+   fallback de création.
+2. Les caps de marge sont validés à **20 %** en Evaluation ONE/FLEX,
+   **15 %** en Performance ONE/FLEX et **10 %** en INSTANT.
+3. Le plafond d'exposition notionnelle brute est **3,00 × le nominal** pour
+   ONE/FLEX et **2,00 × le nominal** pour INSTANT.
+4. L'exposition brute est la somme des valeurs absolues des notionnels
+   canoniques en USD. Des positions opposées ne se compensent jamais. Une
+   conversion ou un prix autoritaire manquant refuse l'augmentation.
+5. La frontière est inclusive : `exposition_brute <= plafond` est autorisée;
+   toute valeur strictement supérieure est refusée avec
+   `GROSS_EXPOSURE_EXCEEDED`.
+6. Marge, exposition brute, état du compte, Daily/Maximum Loss, news et
+   session s'appliquent ensemble; la condition la plus stricte l'emporte.
+7. Les ordres pending sont contrôlés à la création et obligatoirement
+   réévalués au trigger sous le lock du compte. Deux triggers concurrents ne
+   peuvent jamais dépasser le plafond agrégé.
+8. Le correctif `pass_pending` V1 est un `BUG_FIX` de sécurité : un compte
+   ayant atteint son objectif reste soumis au Daily Loss et au Maximum Loss.
+   Aucune valeur V1, aucun hash V1 et aucun pin historique n'est modifié.
+9. Les quinze offres `v2.1.0-candidate` deviennent la sélection canonique du
+   catalogue backend. Leur achat/activation reste fail-closed tant que les
+   capabilities externes, calendriers et gates de lancement ne sont pas
+   validés. Un blocker opérationnel n'abaisse pas une règle V2 à candidat.
+10. V1 n'est plus une cible produit. Les artefacts V1 restent uniquement une
+    histoire immuable et un contrat pour un éventuel compte déjà épinglé.
+
+### Classification de la portée
+
+- `POLICY_SUCCESSOR` : nouvelles lignes 2.1.0 et nouveaux hashes;
+- `RUNTIME_ENFORCEMENT` : Market, pending create/modify et trigger;
+- `SAFETY_BACKPORT` : bypass Daily Loss de `pass_pending` seulement;
+- `HISTORICAL_PRESERVATION` : aucune mutation numérique V1;
+- `PUBLIC_ACTIVATION_BLOCKED` : aucun déploiement, aucune vente publique et
+  aucune promesse de provider ne découle de cette décision.
+
+---
+
 # 26. Historique des versions
+
+## v1.34 — 2026-08-27
+
+Phase 3.4.3A — `POLICY-GOV-004` verrouille V2 comme norme définitive,
+approuve les caps de marge 20/15/10, ajoute les plafonds d'exposition brute
+3,00× ONE/FLEX et 2,00× INSTANT, crée les policies/offres successeures 2.1.0,
+impose la revalidation pending sous lock et ferme le bypass Daily Loss de
+`pass_pending` sans modifier les valeurs V1 historiques.
 
 ## v1.33 — 2026-08-27
 

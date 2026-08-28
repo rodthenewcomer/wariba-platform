@@ -3,6 +3,7 @@ import type { ProductFamily } from '@wariba/policies';
 
 export interface CanonicalOfferReadModel {
   offerId: string;
+  productVersionId: string;
   productFamily: ProductFamily;
   sizeCode: '5K' | '10K' | '25K' | '50K' | '100K';
   nominalBalance: string;
@@ -53,6 +54,7 @@ export async function listCanonicalV2Offers(db: Db): Promise<CanonicalOfferReadM
         .on('gate.channel', '=', 'all'),
     )
     .select([
+      'version.id as product_version_id',
       'product.product_family',
       'product.code',
       'product.nominal_balance',
@@ -75,13 +77,15 @@ export async function listCanonicalV2Offers(db: Db): Promise<CanonicalOfferReadM
       'gate.activation_enabled as gate_activation_enabled',
       'gate.reason_code as capability_reason_code',
     ])
-    .where('version.catalogue_version', '=', 'v2.0.0-candidate')
+    .where('version.catalogue_status', '=', 'public_candidate')
+    .where('version.retired_at', 'is', null)
     .orderBy('product.product_family', 'asc')
     .orderBy('product.nominal_balance', 'asc')
     .execute();
 
   return rows.map((row) => ({
     offerId: offerId(row.product_family, row.code),
+    productVersionId: row.product_version_id,
     productFamily: row.product_family,
     sizeCode: row.code,
     nominalBalance: row.nominal_balance,
@@ -151,19 +155,11 @@ export async function createCanonicalV2PurchaseOrder(
       .executeTakeFirst();
     if (!consent) return { kind: 'consent_required', policyVersionId: offer.policyVersionId };
 
-    const version = await trx
-      .selectFrom('app.product_versions as version')
-      .innerJoin('app.products as product', 'product.id', 'version.product_id')
-      .select('version.id')
-      .where('version.catalogue_version', '=', 'v2.0.0-candidate')
-      .where('product.product_family', '=', offer.productFamily)
-      .where('product.code', '=', offer.sizeCode)
-      .executeTakeFirstOrThrow();
     const created = await trx
       .insertInto('app.purchase_orders')
       .values({
         user_id: params.userId,
-        product_version_id: version.id,
+        product_version_id: offer.productVersionId,
         policy_version_id: offer.policyVersionId,
         policy_machine_hash: offer.policyMachineHash,
         policy_human_document_hash: null,

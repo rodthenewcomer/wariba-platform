@@ -19,7 +19,6 @@ import { HubShell } from './HubShell';
  */
 export const dynamic = 'force-dynamic';
 
-
 /**
  * Server layout for the Trader Hub.
  *

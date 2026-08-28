@@ -7,18 +7,22 @@ import {
 } from '../src/index';
 
 const expectedHashes = {
-  oneEvaluation: 'sha256:2df974ac9d497d9b928d61725f8539e492f5514f51b6510dfc43796c2dd09fb6',
-  flexEvaluation: 'sha256:f3a2347cf9beaffaf9293fc39158da74b05aa5eaba1f650ed59e5bcadfc89051',
-  onePerformance: 'sha256:248f59456d036513f59f6a8809e73f5c74af5460e7275f074b6785a583e1f098',
-  flexPerformance: 'sha256:f42d637e6ba2714b94e3ff9aee13410a50deda2e56664c0850d302ddea3c05e6',
-  instantPerformance: 'sha256:f1e8b4413af408f3c914822566dd0ea88c25c7301be7d48510ec0527867f89b4',
+  oneEvaluation: 'sha256:45854cbeaf63df291ef7a5d8ab930aecebfb4098afce2eddb72083c016f2e862',
+  flexEvaluation: 'sha256:a4c9b28f08502dc7284af3aca41ef9092f5e64f1e0f9d50b855f65ea90ba7ff8',
+  onePerformance: 'sha256:1f7f85498ed6df454586e3b8b79cc5380c6ff7b523f0cbdde7b6ff5c82adaa5e',
+  flexPerformance: 'sha256:4c570850b8e00cbc7352a5b6d1f6fe2547c7468a78ef1db61b13fdb1c8a8392a',
+  instantPerformance: 'sha256:d1f368ab61d6009e18a3a57ab6e9089cb15d168c2954826d1e0c3cb6e09bb58a',
 } as const;
 
 describe('canonical V2 policy contract', () => {
   it('keeps the five machine-policy hashes stable', () => {
-    for (const key of Object.keys(expectedHashes) as (keyof typeof expectedHashes)[]) {
-      expect(computeMachineHash(V2_POLICY_PARAMETERS[key])).toBe(expectedHashes[key]);
-    }
+    const actualHashes = Object.fromEntries(
+      (Object.keys(expectedHashes) as (keyof typeof expectedHashes)[]).map((key) => [
+        key,
+        computeMachineHash(V2_POLICY_PARAMETERS[key]),
+      ]),
+    );
+    expect(actualHashes).toEqual(expectedHashes);
   });
 
   it('encodes ONE/FLEX/INSTANT normative risk values and the payout schedule', () => {
@@ -27,12 +31,15 @@ describe('canonical V2 policy contract', () => {
       daily_loss_rate: '0.03',
       maximum_loss_rate: '0.08',
       best_day_max_ratio: '0.35',
+      gross_exposure_max_multiple: '3.00',
+      margin_calibration_status: 'validated',
     });
     expect(V2_POLICY_PARAMETERS.flexEvaluation).toMatchObject({
       profit_target_rate: '0.04',
       daily_loss_rate: '0.03',
       maximum_loss_rate: '0.06',
       best_day_max_ratio: '0.35',
+      gross_exposure_max_multiple: '3.00',
     });
     expect(V2_POLICY_PARAMETERS.instantPerformance).toMatchObject({
       daily_loss_rate: '0.02',
@@ -40,6 +47,7 @@ describe('canonical V2 policy contract', () => {
       best_day_max_ratio: '0.30',
       permanent_buffer_rate: '0.03',
       payout_split_schedule: ['0.80', '0.80', '0.85', '0.85', '0.90'],
+      gross_exposure_max_multiple: '2.00',
     });
   });
 

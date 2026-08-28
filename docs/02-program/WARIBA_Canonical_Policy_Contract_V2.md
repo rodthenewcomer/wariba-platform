@@ -1,8 +1,8 @@
 # WARIBA Canonical Policy Contract V2
 
-> **STATUS = GO PILOTE RÉVOCABLE — NOT LOCKED**
-> **AUTHORITY = CANONICAL POLICY CONTRACT FOR NEW V2 PILOT OFFERS AND FUTURE V2-ATTACHED ACCOUNTS**
-> **DECISION_RECORD = POLICY-GOV-003 / WARIBA_OFFER_POLICY_V2_SUPERSESSION**
+> **STATUS = LOCKED POLICY CONTRACT — PUBLIC ACTIVATION REMAINS GATED**
+> **AUTHORITY = CANONICAL POLICY CONTRACT FOR ALL NEW OFFERS AND ACCOUNTS**
+> **DECISION_RECORD = POLICY-GOV-004 / WARIBA_V2_DEFINITIVE_RUNTIME_AND_EXPOSURE_GUARDS**
 > **EXISTING_ACCOUNTS = KEEP THEIR HISTORICAL POLICY VERSION**
 > **DO_NOT_APPLY_RETROACTIVELY = true**
 
@@ -12,20 +12,20 @@ Source normative humaine : `docs/02-program/WARIBA_Program_Rulebook_Candidate_V2
 
 ## 1. Objet et sémantique d’autorité
 
-Ce contrat est la nouvelle source de vérité exhaustive du programme pour les
-nouvelles offres V2 et les futurs comptes pilotes qui seront attachés à une
+Ce contrat est la source de vérité exhaustive et définitive du programme pour
+toutes les nouvelles offres et tous les nouveaux comptes attachés à une
 policy V2. Il remplace toute valeur V1 comme instruction de travail future.
 Les artefacts V1 ne restent applicables qu’aux comptes qui portent déjà leur
 identifiant historique.
 
-`GO PILOTE` signifie qu’une politique peut être préparée pour une cohorte
-révocable et instrumentée après fermeture de ses blockers. Cela ne signifie
-ni `LOCKED`, ni `PUBLIC_PRODUCTION_READY`, ni validation définitive des prix,
-de la marge, du droit, des rails ou des économies.
+`LOCKED` qualifie les règles de policy V2. Il ne signifie pas
+`PUBLIC_PRODUCTION_READY` : vente, providers, rails, pays, réserve et quotas
+restent soumis à leurs gates opérationnels propres.
 
-Les mentions `CANDIDATE`, `CALIBRATION_REQUIRED`, `OPEN_CALIBRATION` et `HOLD`
-sont fail-closed. Une valeur absente ou non validée est rendue « non publié »;
-elle n’est jamais remplacée par une valeur plausible.
+Les anciennes mentions `CANDIDATE` et `CALIBRATION_REQUIRED` appliquées aux
+règles chiffrées de ce contrat sont supersédées par `POLICY-GOV-004`. Les
+mentions `OPEN_CALIBRATION` d’un instrument sans spec et `HOLD` d’une
+capability externe restent fail-closed; rien n’est inventé.
 
 ## 2. Catalogue public canonique — identité et prix (15/15)
 
@@ -50,9 +50,9 @@ internes sont traités séparément en §7.
 | INSTANT-50 | WARIBA INSTANT | `WARIBA_INSTANT` | 50K | 50 000 | nominal USD; prix XOF | 169 900 XOF | 0 XOF | 169 900 XOF |
 | INSTANT-100 | WARIBA INSTANT | `WARIBA_INSTANT` | 100K | 100 000 | nominal USD; prix XOF | 279 900 XOF | 0 XOF | 279 900 XOF |
 
-Les codes `WARIBA_FLEX` et `WARIBA_INSTANT` sont les codes canoniques futurs.
-Ils sont `IMPLEMENTATION_REQUIRED` : le schéma courant ne les accepte pas
-encore. FLEX fige au checkout le prix d’activation dû après réussite approuvée;
+Les codes `WARIBA_FLEX` et `WARIBA_INSTANT` sont les codes canoniques. Le
+schéma et les policies versionnées les acceptent. FLEX fige au checkout le
+prix d’activation dû après réussite approuvée;
 ce droit reste disponible 30 jours. Taxes et frais obligatoires restent
 `OPEN_LEGAL_TAX` et ne doivent pas être inventés.
 
@@ -115,8 +115,8 @@ du buffer)`. Seuls les payouts payés font progresser tier et cycle. Le payout
 
 `PAYOUT_DEBIT_CANNOT_CAUSE_TRADING_BREACH = true`. Le débit autorisé reste dans
 le ledger financier et les rapprochements, mais il est exclu de la projection
-daily/maximum-loss. Cette séparation n’est pas implémentée dans le runtime
-actuel et bloque toute activation V2.
+daily/maximum-loss. Cette séparation est implémentée par les projections
+financière, éligible et ajustée risque.
 
 ## 5. Trading, exposition et intégrité (15/15)
 
@@ -125,46 +125,64 @@ exhaustive et consommable sans héritage implicite.
 
 | ID | overnight_policy | weekend_policy | news_policy | automation_policy | copy_trading_policy | hedging_policy | margin_cap | leverage_profile |
 |---|---|---|---|---|---|---|---|---|
-| ONE-5 | autorisé; coûts normaux | autorisé; pas de nouvelle exposition dans les 30 min avant fermeture ≥2 h | Eval libre; Performance T−2/T+2 high-impact: réduire/fermer oui, ouvrir/augmenter non | EA/bots/API externes non supportés; absence ≠ fraude | automatisé indisponible; manuel propre permis; partage/tiers/coordination interdits | même compte permis, risque brut | Eval 20%; Perf 15%; `CALIBRATION_REQUIRED` | Eval FX 1:50, métal 1:20, indices 1:20, énergie 1:10; Perf 1:30/1:15/1:10/1:10; `CANDIDATE` |
-| ONE-10 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | Eval 20%; Perf 15%; `CALIBRATION_REQUIRED` | même profil ONE `CANDIDATE` |
-| ONE-25 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | Eval 20%; Perf 15%; `CALIBRATION_REQUIRED` | même profil ONE `CANDIDATE` |
-| ONE-50 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | Eval 20%; Perf 15%; `CALIBRATION_REQUIRED` | même profil ONE `CANDIDATE` |
-| ONE-100 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | Eval 20%; Perf 15%; `CALIBRATION_REQUIRED` | même profil ONE `CANDIDATE` |
-| FLEX-5 | autorisé; coûts normaux | autorisé; pas de nouvelle exposition dans les 30 min avant fermeture ≥2 h | Eval libre; Performance T−2/T+2 high-impact: réduire/fermer oui, ouvrir/augmenter non | EA/bots/API externes non supportés; absence ≠ fraude | automatisé indisponible; manuel propre permis; partage/tiers/coordination interdits | même compte permis, risque brut | Eval 20%; Perf 15%; `CALIBRATION_REQUIRED` | même profil équilibré que ONE; `CANDIDATE` |
-| FLEX-10 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | Eval 20%; Perf 15%; `CALIBRATION_REQUIRED` | même profil FLEX `CANDIDATE` |
-| FLEX-25 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | Eval 20%; Perf 15%; `CALIBRATION_REQUIRED` | même profil FLEX `CANDIDATE` |
-| FLEX-50 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | Eval 20%; Perf 15%; `CALIBRATION_REQUIRED` | même profil FLEX `CANDIDATE` |
-| FLEX-100 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | Eval 20%; Perf 15%; `CALIBRATION_REQUIRED` | même profil FLEX `CANDIDATE` |
-| INSTANT-5 | autorisé; coûts normaux | autorisé; pas de nouvelle exposition dans les 30 min avant fermeture ≥2 h | Performance T−2/T+2 high-impact: réduire/fermer oui, ouvrir/augmenter non | EA/bots/API externes non supportés; absence ≠ fraude | automatisé indisponible; manuel propre permis; partage/tiers/coordination interdits | même compte permis, risque brut | 10%; `CALIBRATION_REQUIRED` | FX 1:30, métal 1:10, indices 1:10, énergie 1:5; `CANDIDATE` |
-| INSTANT-10 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | 10%; `CALIBRATION_REQUIRED` | même profil INSTANT `CANDIDATE` |
-| INSTANT-25 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | 10%; `CALIBRATION_REQUIRED` | même profil INSTANT `CANDIDATE` |
-| INSTANT-50 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | 10%; `CALIBRATION_REQUIRED` | même profil INSTANT `CANDIDATE` |
-| INSTANT-100 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | 10%; `CALIBRATION_REQUIRED` | même profil INSTANT `CANDIDATE` |
+| ONE-5 | autorisé; coûts normaux | autorisé; pas de nouvelle exposition dans les 30 min avant fermeture ≥2 h | Eval libre; Performance T−2/T+2 high-impact: réduire/fermer oui, ouvrir/augmenter non | EA/bots/API externes non supportés; absence ≠ fraude | automatisé indisponible; manuel propre permis; partage/tiers/coordination interdits | même compte permis; notionnels absolus sans netting | Eval 20%; Perf 15%; brut ≤3,00× nominal; `LOCKED` | Eval FX 1:50, métal 1:20, indices 1:20, énergie 1:10; Perf 1:30/1:15/1:10/1:10; `LOCKED` |
+| ONE-10 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | même marge et brut ONE `LOCKED` | même profil ONE `LOCKED` |
+| ONE-25 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | même marge et brut ONE `LOCKED` | même profil ONE `LOCKED` |
+| ONE-50 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | même marge et brut ONE `LOCKED` | même profil ONE `LOCKED` |
+| ONE-100 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | même marge et brut ONE `LOCKED` | même profil ONE `LOCKED` |
+| FLEX-5 | autorisé; coûts normaux | autorisé; pas de nouvelle exposition dans les 30 min avant fermeture ≥2 h | Eval libre; Performance T−2/T+2 high-impact: réduire/fermer oui, ouvrir/augmenter non | EA/bots/API externes non supportés; absence ≠ fraude | automatisé indisponible; manuel propre permis; partage/tiers/coordination interdits | même compte permis; notionnels absolus sans netting | Eval 20%; Perf 15%; brut ≤3,00× nominal; `LOCKED` | même profil équilibré que ONE; `LOCKED` |
+| FLEX-10 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | même marge et brut FLEX `LOCKED` | même profil FLEX `LOCKED` |
+| FLEX-25 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | même marge et brut FLEX `LOCKED` | même profil FLEX `LOCKED` |
+| FLEX-50 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | même marge et brut FLEX `LOCKED` | même profil FLEX `LOCKED` |
+| FLEX-100 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | même marge et brut FLEX `LOCKED` | même profil FLEX `LOCKED` |
+| INSTANT-5 | autorisé; coûts normaux | autorisé; pas de nouvelle exposition dans les 30 min avant fermeture ≥2 h | Performance T−2/T+2 high-impact: réduire/fermer oui, ouvrir/augmenter non | EA/bots/API externes non supportés; absence ≠ fraude | automatisé indisponible; manuel propre permis; partage/tiers/coordination interdits | même compte permis; notionnels absolus sans netting | marge 10%; brut ≤2,00× nominal; `LOCKED` | FX 1:30, métal 1:10, indices 1:10, énergie 1:5; `LOCKED` |
+| INSTANT-10 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | même marge et brut INSTANT `LOCKED` | même profil INSTANT `LOCKED` |
+| INSTANT-25 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | même marge et brut INSTANT `LOCKED` | même profil INSTANT `LOCKED` |
+| INSTANT-50 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | même marge et brut INSTANT `LOCKED` | même profil INSTANT `LOCKED` |
+| INSTANT-100 | autorisé; coûts normaux | même règle calendrier serveur | même règle news versionnée | même règle non-support | même règle copy | même règle hedging | même marge et brut INSTANT `LOCKED` | même profil INSTANT `LOCKED` |
 
 Le calendrier news et le calendrier de sessions doivent être versionnés côté
 serveur et épinglés au compte. Aucun `if Friday` codé en dur. US30 et les
 énergies n’ont pas de spécification d’instrument V2 validée dans le dépôt :
 leurs calculs restent `OPEN_CALIBRATION`.
 
+### 5.1 Algorithme d'exposition brute verrouillé
+
+```text
+gross_exposure_usd = somme(abs(notional_usd(position_ouverte)))
+                   + abs(notional_usd(ordre_entrant))
+maximum_gross_exposure_usd = nominal_balance_usd × policy_multiple
+ALLOW si gross_exposure_usd <= maximum_gross_exposure_usd
+DENY  si gross_exposure_usd >  maximum_gross_exposure_usd
+```
+
+Le notionnel utilise la quantité absolue, la taille de contrat versionnée et
+le mark serveur actuel. `USDJPY` est déjà notionnel en USD par sa devise de
+base; un instrument coté en USD utilise le prix serveur. Une devise de compte,
+une conversion, une spec ou un mark manquant retourne
+`EXPOSURE_CONVERSION_UNAVAILABLE`. Les pending orders repassent exactement ce
+calcul au trigger sous le lock du compte; leur acceptation à la création ne
+garantit jamais leur fill.
+
 ## 6. Lifecycle, KYC, rails et contestation (15/15)
 
 | ID | inactivity_policy | kyc_trigger | payout_method_capability_rule | dispute_window | rule_status | decision_record_id |
 |---|---|---|---|---|---|---|
-| ONE-5 | avertir J21; inactive J30; acquis financier conservé | premier `financially_eligible` | afficher seulement rail validé pays; Wave global `HOLD` | 30 jours, `CANDIDATE_LEGAL` | GO PILOTE, pas LOCK | `POLICY-GOV-003` |
-| ONE-10 | même règle | même trigger | même capability rule | même fenêtre | GO PILOTE, pas LOCK | `POLICY-GOV-003` |
-| ONE-25 | même règle | même trigger | même capability rule | même fenêtre | GO PILOTE, pas LOCK | `POLICY-GOV-003` |
-| ONE-50 | même règle | même trigger | même capability rule | même fenêtre | GO PILOTE, pas LOCK | `POLICY-GOV-003` |
-| ONE-100 | même règle | même trigger | même capability rule | même fenêtre | GO PILOTE, pas LOCK | `POLICY-GOV-003` |
-| FLEX-5 | avertir J21; inactive J30; droit d’activation/pass conservé selon contrat | premier `financially_eligible` | afficher seulement rail validé pays; Wave global `HOLD` | 30 jours, `CANDIDATE_LEGAL` | GO PILOTE, pas LOCK | `POLICY-GOV-003` |
-| FLEX-10 | même règle | même trigger | même capability rule | même fenêtre | GO PILOTE, pas LOCK | `POLICY-GOV-003` |
-| FLEX-25 | même règle | même trigger | même capability rule | même fenêtre | GO PILOTE, pas LOCK | `POLICY-GOV-003` |
-| FLEX-50 | même règle | même trigger | même capability rule | même fenêtre | GO PILOTE, pas LOCK | `POLICY-GOV-003` |
-| FLEX-100 | même règle | même trigger | même capability rule | même fenêtre | GO PILOTE, pas LOCK | `POLICY-GOV-003` |
-| INSTANT-5 | avertir J21; inactive J30; acquis financier conservé | premier `financially_eligible` | afficher seulement rail validé pays; Wave global `HOLD` | 30 jours, `CANDIDATE_LEGAL` | GO PILOTE plafonné, pas LOCK | `POLICY-GOV-003` |
-| INSTANT-10 | même règle | même trigger | même capability rule | même fenêtre | GO PILOTE plafonné, pas LOCK | `POLICY-GOV-003` |
-| INSTANT-25 | même règle | même trigger | même capability rule | même fenêtre | GO PILOTE plafonné, pas LOCK | `POLICY-GOV-003` |
-| INSTANT-50 | même règle | même trigger | même capability rule | même fenêtre | GO PILOTE + réserve dédiée, pas LOCK | `POLICY-GOV-003` |
-| INSTANT-100 | même règle | même trigger | même capability rule | même fenêtre | GO PILOTE + réserve dédiée, pas LOCK | `POLICY-GOV-003` |
+| ONE-5 | avertir J21; inactive J30; acquis financier conservé | premier `financially_eligible` | afficher seulement rail validé pays; Wave global `HOLD` | 30 jours, `CANDIDATE_LEGAL` | règles `LOCKED`; capability gated | `POLICY-GOV-004` |
+| ONE-10 | même règle | même trigger | même capability rule | même fenêtre | règles `LOCKED`; capability gated | `POLICY-GOV-004` |
+| ONE-25 | même règle | même trigger | même capability rule | même fenêtre | règles `LOCKED`; capability gated | `POLICY-GOV-004` |
+| ONE-50 | même règle | même trigger | même capability rule | même fenêtre | règles `LOCKED`; capability gated | `POLICY-GOV-004` |
+| ONE-100 | même règle | même trigger | même capability rule | même fenêtre | règles `LOCKED`; capability gated | `POLICY-GOV-004` |
+| FLEX-5 | avertir J21; inactive J30; droit d’activation/pass conservé selon contrat | premier `financially_eligible` | afficher seulement rail validé pays; Wave global `HOLD` | 30 jours, `CANDIDATE_LEGAL` | règles `LOCKED`; capability gated | `POLICY-GOV-004` |
+| FLEX-10 | même règle | même trigger | même capability rule | même fenêtre | règles `LOCKED`; capability gated | `POLICY-GOV-004` |
+| FLEX-25 | même règle | même trigger | même capability rule | même fenêtre | règles `LOCKED`; capability gated | `POLICY-GOV-004` |
+| FLEX-50 | même règle | même trigger | même capability rule | même fenêtre | règles `LOCKED`; capability gated | `POLICY-GOV-004` |
+| FLEX-100 | même règle | même trigger | même capability rule | même fenêtre | règles `LOCKED`; capability gated | `POLICY-GOV-004` |
+| INSTANT-5 | avertir J21; inactive J30; acquis financier conservé | premier `financially_eligible` | afficher seulement rail validé pays; Wave global `HOLD` | 30 jours, `CANDIDATE_LEGAL` | règles `LOCKED`; capability gated | `POLICY-GOV-004` |
+| INSTANT-10 | même règle | même trigger | même capability rule | même fenêtre | règles `LOCKED`; capability gated | `POLICY-GOV-004` |
+| INSTANT-25 | même règle | même trigger | même capability rule | même fenêtre | règles `LOCKED`; capability gated | `POLICY-GOV-004` |
+| INSTANT-50 | même règle | même trigger | même capability rule | même fenêtre | règles `LOCKED`; réserve gated | `POLICY-GOV-004` |
+| INSTANT-100 | même règle | même trigger | même capability rule | même fenêtre | règles `LOCKED`; réserve gated | `POLICY-GOV-004` |
 
 États KYC minimaux futurs : `not_started`, `required`, `in_progress`,
 `verified`, `rejected`, `expired`, `manual_review`. L’éligibilité financière
@@ -191,7 +209,7 @@ selon pays, canal, quota, réserve ou circuit breaker, avec raison explicite.
 
 ## 8. Immutabilité de policy par compte
 
-Invariants obligatoires pour la future implémentation V2 :
+Invariants obligatoires de l’implémentation V2 :
 
 1. une policy publiée est une version immuable; tout changement crée une
    nouvelle ligne et de nouveaux hashes;
@@ -208,16 +226,14 @@ Invariants obligatoires pour la future implémentation V2 :
 8. toute lecture Risk, Payout, Hub, WariX, Help contextualisée et Control
    utilise l’identifiant exact attaché, avec preuve rejouable.
 
-Audit courant : le compte stocke bien `policy_version_id` et Risk/Payout le
-relisent. Toutefois `app.policy_versions` n’est pas protégé par un trigger
-d’immutabilité, le checkout conserve seulement une version sémantique texte,
-la commande ne fige pas la policy et l’activation charge la dernière publiée.
-`ACCOUNT_POLICY_IMMUTABILITY = P0_BLOCKED` avant tout pilote V2.
+État runtime : `app.policy_versions` et le pin du compte sont protégés par des
+triggers d’immutabilité; consentement, commande et compte conservent l’ID et
+les hashes exacts; le lien Evaluation → Performance est explicite. Les
+policies 2.1.0 succèdent aux 2.0.0 sans mutation ni repin.
 
-## 9. Source machine future — design, pas implémentation
+## 9. Source machine versionnée
 
-Le futur format machine lisible doit être unique, versionné et dérivé de ce
-contrat. Proposition de familles :
+Le format machine est unique, versionné et dérivé de ce contrat. Familles :
 
 ```text
 policy_identity
@@ -238,12 +254,12 @@ acquisition_gates
 reason_codes
 ```
 
-Chaque version doit porter `id`, `program`, `semantic_version`, `status`,
+Chaque version porte `id`, `program`, `semantic_version`, `status`,
 `effective_from`, `parameters`, `machine_hash`, `human_document_hash`,
-`decision_record_id`, `created_at` et `published_at`. Aucune migration n’est
-créée en Phase 3.4.1.
+`decision_record_id`, `created_at` et `published_at`. Les migrations 3.4.2 et
+3.4.3A matérialisent ces contrats append-only.
 
-## 10. Inventaire futur des reason codes
+## 10. Registre des reason codes
 
 | Domaine | Codes minimaux futurs |
 |---|---|
@@ -253,30 +269,31 @@ créée en Phase 3.4.1.
 | Profit | `PROFIT_SHORT_DURATION_INELIGIBLE`, `TARGET_NOT_REACHED` |
 | Payout | `PAYOUT_BUFFER_NOT_REACHED`, `PERFORMANCE_DAYS_INSUFFICIENT`, `PAYOUT_CAP_APPLIED`, `PAYOUT_REVIEW_AFTER_FIFTH`, `PAYOUT_DEBIT_RISK_NEUTRAL` |
 | News/session | `NEWS_EXPOSURE_INCREASE_BLOCKED`, `MARKET_CLOSURE_EXPOSURE_INCREASE_BLOCKED` |
-| Exposition | `MARGIN_CAP_NOT_CALIBRATED`, `MARGIN_CAP_EXCEEDED`, `GROSS_EXPOSURE_EXCEEDED` |
+| Exposition | `MARGIN_CAP_NOT_CALIBRATED`, `MARGIN_CAP_EXCEEDED`, `GROSS_EXPOSURE_EXCEEDED`, `EXPOSURE_CONVERSION_UNAVAILABLE` |
 | Automation/copy | `AUTOMATION_UNSUPPORTED`, `AUTOMATED_COPY_UNSUPPORTED`, `ACCOUNT_SHARING_REVIEW`, `THIRD_PARTY_MANAGEMENT_REVIEW` |
 | Commerce | `PAID_ACQUISITION_CELL_GATED`, `ACTIVATION_QUOTA_REACHED`, `RESERVE_GATE_CLOSED` |
 | KYC/rail | `KYC_REQUIRED`, `KYC_NOT_VERIFIED`, `PAYOUT_RAIL_UNAVAILABLE_FOR_COUNTRY` |
 
-Ces codes sont un inventaire de contrat. Ils ne déclarent pas leur existence
-dans le runtime actuel.
+Ces codes sont le registre contractuel. Les codes Daily, Maximum Loss,
+news/session, marge, exposition brute et conversion indisponible sont émis par
+le runtime pré-trade; les capabilities externes restent fail-closed.
 
 ## 11. Claim Registry
 
 | Claim | Valeur / statut | Source | Usage autorisé |
 |---|---|---|---|
-| Statut V2 | GO PILOTE révocable, pas LOCK | `POLICY-GOV-003` | gouvernance interne et transparence |
+| Statut V2 | règles de policy `LOCKED`; activation publique gated | `POLICY-GOV-004` | toute nouvelle offre et tout nouveau compte |
 | Catalogue | 15 combinaisons publiques | Rulebook V2 §Prix | site/checkout futurs après implémentation |
-| Prix | grille §2 | Rulebook V2 | `CANDIDATE`; pas d’ancienne grille V1 |
-| Règles risque | ONE 8/3/8/35/2; FLEX 4/3/6/35/3; INSTANT 2/5/30/3 | Rulebook V2 | future policy V2 uniquement |
-| Payout | 5 jours, splits 80/80/85/85/90, caps §4 | Rulebook V2 | future policy V2 uniquement |
+| Prix | grille §2 | Rulebook V2 | norme V2; pas d’ancienne grille V1 |
+| Règles risque | ONE 8/3/8/35/2; FLEX 4/3/6/35/3; INSTANT 2/5/30/3 | Rulebook V2 | policies V2 2.1.0 |
+| Payout | 5 jours, splits 80/80/85/85/90, caps §4 | Rulebook V2 | policies V2 2.1.0 |
 | Economics Stress | portefeuille candidat ≥15% dans le modèle | `WARIBA_Offer_Economics_Acquisition_V1.xlsx` | hypothèse de modèle; jamais preuve réalisée |
 | Economics Disaster | échec du modèle candidat | même source | blocker LOCK et circuit breaker |
-| Leverage | profils §5 | modèle d’offre du 26 août 2026 | `CANDIDATE`; calibration requise |
-| Marge 20/15/10 | non validée | Phase 3.4.1 + calibration | ne pas publier comme limite active |
+| Leverage | profils §5 | Rulebook V2 + calibration | `LOCKED` dans les profils 2.1.0 |
+| Marge/exposition | marge 20/15/10; brut 3× ONE/FLEX, 2× INSTANT | `POLICY-GOV-004` | enforcement serveur actif pour policies 2.1.0 |
 | Wave global | non validé | Rulebook V2 | `HOLD`; aucune promesse |
 | Compte réel | jamais automatique ni garanti | Rulebook V2 | texte public obligatoire |
-| Runtime V2 | non implémenté au 27 août 2026 | audit repository Phase 3.4.1 | ne pas prétendre V2 active |
+| Runtime V2 | policy/risk/lifecycle backend implémenté; activation externe bloquée | clôtures 3.4.2–3.4.3A | ne pas confondre enforcement backend et vente publique |
 
 ## 12. Conditions de propagation
 

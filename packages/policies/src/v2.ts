@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { evaluationOnePolicyParametersSchema, performancePolicyParametersSchema } from './schema';
 
 export const V2_POLICY_CONTRACT_VERSION = 'WARIBA_POLICY_V2' as const;
-export const V2_DECISION_RECORD_ID = 'POLICY-GOV-003' as const;
+export const V2_LEGACY_DECISION_RECORD_ID = 'POLICY-GOV-003' as const;
+export const V2_DECISION_RECORD_ID = 'POLICY-GOV-004' as const;
 
 export const productFamilySchema = z.enum(['WARIBA_ONE', 'WARIBA_FLEX', 'WARIBA_INSTANT']);
 export const accountPhaseSchema = z.enum(['evaluation', 'performance']);
@@ -18,30 +19,53 @@ const fiveRates = z.tuple([
   decimalString,
 ]);
 
-const v2CommonSchema = z.object({
-  contract_version: z.literal(V2_POLICY_CONTRACT_VERSION),
-  decision_record_id: z.literal(V2_DECISION_RECORD_ID),
-  product_family: productFamilySchema,
-  account_phase: accountPhaseSchema,
-  inactivity_warning_days: z.literal(21),
-  inactivity_close_days: z.literal(30),
-  minimum_profit_eligible_duration_ms: z.literal(60000),
-  payout_debit_risk_neutral: z.literal(true),
-  weekend_new_exposure_cutoff_minutes: z.literal(30),
-  weekend_minimum_closure_minutes: z.literal(120),
-  news_policy: z.enum(['evaluation_unrestricted', 'performance_high_impact_t2_reduce_close_only']),
-  session_calendar_required: z.literal(true),
-  news_calendar_required: z.boolean(),
-  margin_calibration_status: z.literal('calibration_required'),
-  leverage_profile_status: z.literal('candidate'),
-  leverage_by_asset_group: z.object({
-    FX: z.number().int().positive(),
-    METALS: z.number().int().positive(),
-    INDICES: z.number().int().positive(),
-    ENERGY: z.number().int().positive(),
-  }),
-  candidate_margin_cap_rate: decimalString,
-});
+const v2CommonSchema = z
+  .object({
+    contract_version: z.literal(V2_POLICY_CONTRACT_VERSION),
+    decision_record_id: z.enum([V2_LEGACY_DECISION_RECORD_ID, V2_DECISION_RECORD_ID]),
+    product_family: productFamilySchema,
+    account_phase: accountPhaseSchema,
+    inactivity_warning_days: z.literal(21),
+    inactivity_close_days: z.literal(30),
+    minimum_profit_eligible_duration_ms: z.literal(60000),
+    payout_debit_risk_neutral: z.literal(true),
+    weekend_new_exposure_cutoff_minutes: z.literal(30),
+    weekend_minimum_closure_minutes: z.literal(120),
+    news_policy: z.enum([
+      'evaluation_unrestricted',
+      'performance_high_impact_t2_reduce_close_only',
+    ]),
+    session_calendar_required: z.literal(true),
+    news_calendar_required: z.boolean(),
+    margin_calibration_status: z.enum(['calibration_required', 'validated']),
+    leverage_profile_status: z.literal('candidate'),
+    leverage_by_asset_group: z.object({
+      FX: z.number().int().positive(),
+      METALS: z.number().int().positive(),
+      INDICES: z.number().int().positive(),
+      ENERGY: z.number().int().positive(),
+    }),
+    candidate_margin_cap_rate: decimalString,
+    gross_exposure_max_multiple: decimalString.optional(),
+  })
+  .superRefine((policy, context) => {
+    if (policy.decision_record_id !== V2_DECISION_RECORD_ID) return;
+    if (policy.margin_calibration_status !== 'validated') {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'POLICY-GOV-004 successor policies require validated margin calibration.',
+        path: ['margin_calibration_status'],
+      });
+    }
+    const expectedMultiple = policy.product_family === 'WARIBA_INSTANT' ? '2.00' : '3.00';
+    if (policy.gross_exposure_max_multiple !== expectedMultiple) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `${policy.product_family} gross exposure must be ${expectedMultiple}x.`,
+        path: ['gross_exposure_max_multiple'],
+      });
+    }
+  });
 
 export const v2EvaluationPolicyParametersSchema = evaluationOnePolicyParametersSchema
   .and(v2CommonSchema)
@@ -118,7 +142,7 @@ const evaluationBase = {
   news_policy: 'evaluation_unrestricted',
   session_calendar_required: true,
   news_calendar_required: false,
-  margin_calibration_status: 'calibration_required',
+  margin_calibration_status: 'validated',
   leverage_profile_status: 'candidate',
   candidate_margin_cap_rate: '0.20',
   leverage_by_asset_group: { FX: 50, METALS: 20, INDICES: 20, ENERGY: 10 },
@@ -156,7 +180,7 @@ const performanceBase = {
   news_policy: 'performance_high_impact_t2_reduce_close_only',
   session_calendar_required: true,
   news_calendar_required: true,
-  margin_calibration_status: 'calibration_required',
+  margin_calibration_status: 'validated',
   leverage_profile_status: 'candidate',
 } as const;
 
@@ -166,12 +190,14 @@ export const V2_POLICY_PARAMETERS = {
     product_family: 'WARIBA_ONE',
     profit_target_rate: '0.08',
     maximum_loss_rate: '0.08',
+    gross_exposure_max_multiple: '3.00',
   }),
   flexEvaluation: v2EvaluationPolicyParametersSchema.parse({
     ...evaluationBase,
     product_family: 'WARIBA_FLEX',
     profit_target_rate: '0.04',
     maximum_loss_rate: '0.06',
+    gross_exposure_max_multiple: '3.00',
     // The monetary obligation is versioned on the offer/order, not copied
     // into the risk policy. This legacy scalar therefore remains zero.
     activation_fee: '0',
@@ -185,6 +211,7 @@ export const V2_POLICY_PARAMETERS = {
     permanent_buffer_rate: '0.02',
     candidate_margin_cap_rate: '0.15',
     leverage_by_asset_group: { FX: 30, METALS: 15, INDICES: 10, ENERGY: 10 },
+    gross_exposure_max_multiple: '3.00',
   }),
   flexPerformance: v2PerformancePolicyParametersSchema.parse({
     ...performanceBase,
@@ -194,6 +221,7 @@ export const V2_POLICY_PARAMETERS = {
     best_day_max_ratio: '0.35',
     candidate_margin_cap_rate: '0.15',
     leverage_by_asset_group: { FX: 30, METALS: 15, INDICES: 10, ENERGY: 10 },
+    gross_exposure_max_multiple: '3.00',
   }),
   instantPerformance: v2PerformancePolicyParametersSchema.parse({
     ...performanceBase,
@@ -203,6 +231,7 @@ export const V2_POLICY_PARAMETERS = {
     best_day_max_ratio: '0.30',
     candidate_margin_cap_rate: '0.10',
     leverage_by_asset_group: { FX: 30, METALS: 10, INDICES: 10, ENERGY: 5 },
+    gross_exposure_max_multiple: '2.00',
   }),
 } as const;
 

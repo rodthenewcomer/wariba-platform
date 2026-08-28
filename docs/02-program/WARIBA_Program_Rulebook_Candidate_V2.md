@@ -1,24 +1,24 @@
-# WARIBA Program Rulebook Candidate V2
+# WARIBA Program Rulebook V2
 
-> **STATUS = GO PILOTE REVOCABLE — NOT LOCKED**
-> **AUTHORITY = candidate policy for new pilot accounts only after Decision Record adoption**
+> **STATUS = LOCKED POLICY RULES — PUBLIC ACTIVATION REMAINS GATED**
+> **AUTHORITY = definitive policy for every new offer and account**
 > **EXISTING_ACCOUNTS = remain attached to their historical policy versions**
 > **DO_NOT_APPLY_RETROACTIVELY = true**
 
-Date de décision candidate : 27 août 2026. Le Decision Record `POLICY-GOV-003` adopte ce document comme nouvelle source normative de vérité pour les nouvelles offres et les futurs comptes pilotes V2. Les documents V1 sont historiques et ne gouvernent plus les nouveaux travaux. Une valeur marquée `CANDIDATE`, `CALIBRATION_REQUIRED`, `OPEN_CALIBRATION` ou `HOLD` ne devient pas pour autant `LOCK`.
+Date de décision : 27 août 2026. Le Decision Record `POLICY-GOV-004` verrouille ce document comme source normative définitive pour toutes les nouvelles offres et tous les nouveaux comptes. Les documents V1 sont historiques et ne gouvernent plus les nouveaux travaux. Les anciens statuts `CANDIDATE`, `CALIBRATION_REQUIRED` ou `GO PILOTE` attachés à une règle de policy dans les tableaux ci-dessous sont supersédés par cette décision; `OPEN_CALIBRATION`, `HOLD`, droit, provider, réserve, pays et quotas restent des gates externes fail-closed.
 
 ## Executive Summary
 
-- **Le Rulebook V2 est la nouvelle autorité normative.** Les valeurs ONE 8/3/8/35/2, FLEX 4/3/6/35/3 et INSTANT 2/5/30/3 remplacent les valeurs V1 pour toutes les nouvelles offres et tous les futurs comptes pilotes attachés à une policy V2.
+- **Le Rulebook V2 est l’autorité normative définitive.** Les valeurs ONE 8/3/8/35/2, FLEX 4/3/6/35/3 et INSTANT 2/5/30/3 remplacent les valeurs V1 pour toutes les nouvelles offres et tous les nouveaux comptes.
 - **ONE est le noyau.** Le modèle financier candidat indique 31,2% de marge Stress à ONE; FLEX tombe à 2,4% en moyenne et son acquisition payante doit être limitée aux 25K/50K; INSTANT reste une bêta avec réserve dédiée. Ces gates d’acquisition ne retirent aucune taille du catalogue public.
 - **Les règles sont simples côté trader et strictes côté serveur.** Soft daily = pause, Maximum Loss = terminal, Best Day = simple gate, profits <60 secondes non éligibles, pertes toujours comptées, 5 Performance Days, buffer, split 80/85/90 et caps progressifs.
 - **Wave/Mobile Money reste une capacité pays, pas une promesse globale.** Aucun rail ne doit apparaître avant validation juridique, PSP, frais, limites et tests.
 
 ## Statuts de décision
 
-- **LOCK** : invariant déjà canonique et non modifié ici.
-- **GO PILOTE** : autorisé dans un pilote révocable après les gates requis.
-- **CANDIDATE** : valeur ou mécanique proposée; Decision Record et publication nécessaires.
+- **LOCK** : règle V2 définitive; tout changement exige une policy successeure.
+- **GO PILOTE** : gate de lancement/cohorte, pas un statut d’incertitude de la règle.
+- **CANDIDATE** : libellé historique supersédé pour une règle V2; reste valable pour une hypothèse économique ou externe explicitement nommée.
 - **HOLD** : ne pas implémenter, promettre ou scaler avant fermeture du blocker.
 
 ## Tableau comparatif
@@ -39,7 +39,7 @@ Date de décision candidate : 27 août 2026. Le Decision Record `POLICY-GOV-003`
 
 ## WARIBA INSTANT
 
-**Pas d’évaluation. Commencez directement sur Performance.** Tailles 5K à 100K, toutes publiables au catalogue, avec une activation de pilote plafonnée. Soft daily 2%, Maximum Loss 5% EOD trailing, buffer 3%, Best Day 30%, leverage conservateur, marge utilisée maximale candidate 10% sous `CALIBRATION_REQUIRED`, 5 jours à +0,5%, splits et caps communs. 25K est le noyau bêta; 50K/100K ne s’activent qu’avec réserve dédiée; 5K reste sans paid scale.
+**Pas d’évaluation. Commencez directement sur Performance.** Tailles 5K à 100K, toutes publiables au catalogue, avec une activation de pilote plafonnée. Soft daily 2%, Maximum Loss 5% EOD trailing, buffer 3%, Best Day 30%, leverage conservateur, marge maximale 10% et exposition brute maximale 2,00× le nominal, 5 jours à +0,5%, splits et caps communs. 25K est le noyau bêta; 50K/100K ne s’activent qu’avec réserve dédiée; 5K reste sans paid scale.
 
 ## Prix candidats
 
@@ -120,8 +120,8 @@ Le payout 5 ouvre WARIBA Review. Il n’existe aucun payout 6 automatique. La Re
 | Overnight | Vous pouvez garder une position pendant la nuit. Les swaps et changements de spread comptent. | PnL normal | CANDIDATE |
 | Weekend | Vous pouvez garder une position pendant le weekend. Pendant les 30 dernières minutes avant une fermeture de marché de 2 heures ou plus, aucune nouvelle exposition n’est acceptée. | Augmentation refusée; positions existantes conservées | CANDIDATE |
 | Gaps, spreads et slippage | Un stop n’est pas un prix garanti. Les exécutions normales du marché comptent. Une erreur de prix prouvée est corrigée de façon symétrique. | Correction auditée si incident provider | GO PILOTE |
-| Exposition maximale | Il n’y a pas de limite fixe de nombre de positions. Les caps proposés sont 20% en Évaluation, 15% en Performance ONE/FLEX et 10% en INSTANT. Ils ne sont applicables qu’après calibration; jusque-là, WariX ne doit pas les présenter comme des limites validées. | Futur ordre refusé; pas breach | CALIBRATION_REQUIRED |
-| Positions opposées | Vous pouvez couvrir une position sur le même compte. WARIBA calcule le risque brut : les deux côtés utilisent de l’exposition et ne contournent pas les limites. | Risque brut agrégé | CANDIDATE |
+| Exposition maximale | Il n’y a pas de limite fixe de nombre de positions. Marge maximale : 20% en Évaluation ONE/FLEX, 15% en Performance ONE/FLEX, 10% en INSTANT. Exposition notionnelle brute maximale : 3,00× le nominal pour ONE/FLEX, 2,00× pour INSTANT. L’égalité est autorisée; le dépassement est refusé. | Ordre refusé; pas breach | LOCK — `POLICY-GOV-004` |
+| Positions opposées | Vous pouvez couvrir une position sur le même compte. WARIBA additionne les valeurs absolues des notionnels : les deux côtés utilisent de l’exposition et ne se compensent jamais. | Risque brut agrégé | LOCK — `POLICY-GOV-004` |
 | EA, bots et API de trading | WariX ne prend pas en charge les EA, bots ni API de trading externes pendant le pilote. Leur simple absence ou tentative d’usage n’est pas une fraude. Saturer le serveur ou exploiter le flux reste interdit et exige une preuve. | Fonction indisponible; revue technique si abus prouvé | GO PILOTE |
 | Copy trading automatisé | Le copy trading automatisé et la liaison automatique de comptes ne sont pas disponibles pendant le pilote. Vous pouvez prendre manuellement des décisions similaires sur vos propres comptes. Le partage de compte, la gestion par un tiers, le service de passage et la coordination frauduleuse entre personnes restent interdits. | Fonction indisponible; hold seulement après preuve d’abus | GO PILOTE |
 | Hedging entre personnes | Prendre des positions opposées coordonnées entre plusieurs personnes ou plusieurs identités est interdit. | Revue d’intégrité | GO PILOTE |
@@ -144,6 +144,12 @@ Le payout 5 ouvre WARIBA Review. Il n’existe aucun payout 6 automatique. La Re
 | WARIBA Review | Après le payout 5, aucun payout 6 n’est automatique. WARIBA examine votre historique pour proposer une continuation, un scaling ou un accord distinct. Aucun capital réel n’est garanti. | Compte en review | LOCK entrée en Review; résultats CANDIDATS |
 | Contestation | Vous pouvez contester une décision depuis le Hub dans les 30 jours. La preuve, la policy et les calculs sont conservés; un autre reviewer examine le dossier. | Décision confirmée, corrigée ou information demandée | CANDIDATE juridique |
 | Fraude et abus | Une alerte ne vaut pas culpabilité. WARIBA peut bloquer temporairement pour protéger le compte, mais une sanction terminale exige un motif, des preuves, un audit et une voie de recours. | Hold puis décision structurée | LOCK principe / CANDIDATE procédure |
+
+Contrat de rédaction future, sous le libellé simple **« Exposition maximale »** :
+
+> WariX limite automatiquement la taille totale de vos positions selon votre
+> compte et les marchés tradés. Si un nouvel ordre dépasse votre limite, il
+> est refusé avant exécution. Votre compte n'est pas perdu.
 
 ## Règles internes invisibles
 
@@ -198,7 +204,7 @@ Le payout 5 ouvre WARIBA Review. Il n’existe aucun payout 6 automatique. La Re
 | Hedging même compte | CANDIDATE | Trading Risk | Risque brut; hedging coordonné entre personnes interdit |
 | Martingale/grid sous caps | CANDIDATE | Product, Risk | Aucun passe-droit; stratégie illimitée/exploitative interdite |
 | HFT/latency/arbitrage interdits | GO PILOTE | Integrity, Platform, Market Data | Sanction seulement après preuve, pas par heuristique seule |
-| Exposition par marge | CALIBRATION_REQUIRED | Head of Trading Risk | 20/15/10% ne deviennent actifs qu’après matrice instrument × taille × phase validée |
+| Marge et exposition brute | LOCK | Head of Trading Risk | marge 20/15/10 et brut 3,00× ONE/FLEX, 2,00× INSTANT; stricte règle la plus restrictive |
 | Inactivité 30 jours | LOCK actuel | Lifecycle, Support | Avertissements 21/28 jours CANDIDATS |
 | Reset commercial | HOLD | Governance, Legal Consumer | OFFER-011 OPEN; aucune promesse Phase 3.4 |
 | 5 Performance Days | GO PILOTE | Payout Risk, Product, benchmarks officiels | Jour net >=0,5%, non consécutif, recalcul serveur |
@@ -292,10 +298,10 @@ Simulation de fonctions, pas vote de personnes réelles.
 | 14 | Certification | Unit, property, integration, E2E, replay, accessibilité, responsive, sécurité et evidence bundle | Preuve SHA/policy matching; revue humaine séparée |
 | 15 | Activation pilote | Feature flags par produit×taille×pays×canal, quotas et budgets | GO cellule par cellule; arrêt automatique |
 
-## Conditions avant LOCK
+## Conditions avant activation publique
 
 Decision Record adopté; 1 000 achats et 90 jours avec 200 achats par produit retenu; marge Stress réalisée >=15% portefeuille et >=10% par cellule; LTV/CAC >=1,5x; CAC observé; réserve/P90 30 jours >=2,5x; Disaster circuit breaker testé; avis UMOA et CEMAC; PSP et market-data contracts; KYC/AML/fiscalité/recours; rapprochement indépendant; validation humaine.
 
 ## Caveats
 
-Toutes les performances sont simulées. Les prix, targets, buffers, leverage, exposure, news windows, caps et rails sont candidats. Le modèle passe Stress de peu et échoue Disaster. Aucun résultat de modèle n’est une promesse de marge, de payout, de rendement ou de délai.
+Toutes les performances sont simulées. Les règles de policy sont verrouillées; les capacités pays, rails, contrats provider, réserve, quotas, droit et données économiques réelles restent gated. Aucun résultat de modèle n’est une promesse de marge, de payout, de rendement ou de délai.
