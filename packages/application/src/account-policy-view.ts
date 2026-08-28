@@ -1,6 +1,7 @@
 import Decimal from 'decimal.js';
 import {
   loadPolicyById,
+  loadCompatiblePerformancePolicy,
   evaluateCycleProgress,
   loadV2PolicyRuntimeContext,
   type Db,
@@ -332,5 +333,55 @@ export async function buildAccountPolicyView(
     },
     flexActivation,
     nextAction,
+  };
+}
+
+/**
+ * Phase 3.4.4 §6/§40 — what an Evaluation trader will actually be paid, from
+ * the Performance policy their account is linked to.
+ *
+ * ## Why this exists
+ *
+ * The Hub hero showed every Evaluation account `85 % → 90 %`, written as a
+ * literal in the page. That is WARIBA ONE V1's schedule. Under V2 the first
+ * two cycles pay 80 %, so the number on the hero was wrong for every V2
+ * account — and wrong in the flattering direction, on the screen a trader
+ * reads before deciding whether to keep going.
+ *
+ * The successor is not guessed from the family: `app.policy_performance_links`
+ * maps the exact Evaluation policy to the exact Performance policy that will
+ * be attached on a pass, so a V1 evaluation still resolves to V1's schedule
+ * and a V2 one to V2's.
+ *
+ * Returns null rather than a fallback when no link or schedule exists. A
+ * missing successor is a governance gap, and inventing "85 % → 90 %" to fill
+ * it is precisely the bug this replaces.
+ */
+export async function loadSuccessorPayoutSplit(
+  db: Db,
+  evaluationPolicyVersionId: string,
+): Promise<{ firstFormatted: string; finalFormatted: string; rangeFormatted: string } | null> {
+  const performance = await loadCompatiblePerformancePolicy(db, evaluationPolicyVersionId).catch(
+    () => null,
+  );
+  if (!performance) return null;
+
+  const parameters = performance.parameters as Partial<PerformancePolicyParameters> & {
+    payout_split_schedule?: readonly string[];
+  };
+  const schedule = parameters.payout_split_schedule;
+  const first = schedule?.[0] ?? parameters.trader_split_rate_default;
+  const final = schedule?.[schedule.length - 1] ?? parameters.trader_split_rate_final_cycle;
+  if (!first || !final) return null;
+
+  const firstFormatted = formatRate(first);
+  const finalFormatted = formatRate(final);
+  if (!firstFormatted || !finalFormatted) return null;
+
+  return {
+    firstFormatted,
+    finalFormatted,
+    rangeFormatted:
+      firstFormatted === finalFormatted ? firstFormatted : `${firstFormatted} → ${finalFormatted}`,
   };
 }

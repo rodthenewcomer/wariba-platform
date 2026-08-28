@@ -117,7 +117,10 @@ export default async function AccountRulesPage({
           </p>
         ) : null}
 
-        <p className="wariba-data mt-6 border-t border-[color:var(--warix-border-subtle)] pt-4 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
+        <p
+          className="wariba-data mt-6 border-t border-[color:var(--warix-border-subtle)] pt-4 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]"
+          data-testid="account-rules-policy-version"
+        >
           Version de vos règles : {policy.semanticVersion}
         </p>
       </Surface>

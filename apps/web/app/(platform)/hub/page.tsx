@@ -6,6 +6,7 @@ import {
   buildOfferCatalog,
   deriveAccountLifecycle,
   listAccountsForUser,
+  loadSuccessorPayoutSplit,
 } from '@wariba/application';
 import { createSupabaseServerClient } from '../../../lib/supabase/server';
 import { getDb } from '../../../lib/db';
@@ -256,6 +257,9 @@ export default async function HubPage({
   const { hub, risk, mission, health, performance, positions, activity, lifecycle, payout } =
     command;
   const isPerformanceAccount = activeAccount.programType === 'WARIBA_PERFORMANCE';
+  const successorSplit = isPerformanceAccount
+    ? null
+    : await loadSuccessorPayoutSplit(db, activeAccount.policyVersionId);
 
   trackEvent('hub_viewed', { accountId: activeAccount.id, state: hub.state });
   if (mission.available) {
@@ -284,7 +288,19 @@ export default async function HubPage({
   const details: HeroDetail[] = [
     ...(hub.activatedAtLabel ? [{ label: copy.activatedOn, value: hub.activatedAtLabel }] : []),
     ...baseDetails,
-    ...(isPerformanceAccount ? [] : [{ label: 'Répartition après passage', value: '85 % → 90 %' }]),
+    /*
+     * §6 — the split comes from the Performance policy this evaluation is
+     * actually linked to, not from a literal.
+     *
+     * This row read `85 % → 90 %` for every evaluation account. That is
+     * WARIBA ONE V1's schedule; V2 pays 80 % on the first two cycles. The
+     * number was wrong for every V2 account, and wrong in the flattering
+     * direction, on the screen a trader reads before deciding to keep going.
+     * Absent rather than guessed when no successor is linked.
+     */
+    ...(isPerformanceAccount || !successorSplit
+      ? []
+      : [{ label: 'Répartition après passage', value: successorSplit.rangeFormatted }]),
   ];
 
   return (

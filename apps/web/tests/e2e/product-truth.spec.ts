@@ -118,7 +118,7 @@ test.describe('@critical @handoff vérité produit du passage Evaluation → Per
 
     // The bar names what it measures. A Performance policy applies no profit
     // objective, so "Objectif" here would describe a rule the account lacks.
-    await expect(checklist).toContainText('Buffer à construire');
+    await expect(checklist).toContainText('Réserve à constituer');
     await expect(checklist).not.toContainText('Objectif');
 
     // And the two figures behind the percentage are shown, so a reader can
@@ -209,7 +209,7 @@ test.describe('@critical @handoff vérité produit du passage Evaluation → Per
      */
     await page.goto('/hub');
     await expect(page.getByTestId('mission-checklist')).toBeVisible();
-    await expect(page.getByTestId('mission-checklist')).toContainText('Buffer à construire');
+    await expect(page.getByTestId('mission-checklist')).toContainText('Réserve à constituer');
     await expect(page.getByTestId('evaluation-archive')).toHaveCount(0);
 
     // WariX resolves its account from the same ordering, so an unparameterised

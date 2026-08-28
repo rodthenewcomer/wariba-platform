@@ -274,6 +274,7 @@ export {
 
 export {
   buildAccountPolicyView,
+  loadSuccessorPayoutSplit,
   type AccountPolicyView,
   type AccountLimits,
   type AccountCapabilities,

@@ -20,6 +20,8 @@ export interface AccountSummaryDTO {
   nominalBalance: string;
   nominalCurrency: string;
   status: string;
+  /** The exact pinned row, for anything that must resolve *this* policy rather than a semver. */
+  policyVersionId: string;
   policyVersion: string;
   policyStatus: 'published' | 'retired';
   createdAt: string;
@@ -87,6 +89,7 @@ export async function listAccountsForUser(
       'app.trading_accounts.created_at',
       'app.trading_accounts.kyc_sandbox_verified',
       'app.trading_accounts.payout_method_sandbox_configured',
+      'app.policy_versions.id as policyVersionId',
       'app.policy_versions.semantic_version as policyVersion',
       'app.policy_versions.status as policyStatus',
       'app.policy_versions.account_phase as accountPhase',
@@ -115,6 +118,7 @@ export async function listAccountsForUser(
       nominalBalance: row.nominal_balance,
       nominalCurrency: row.currency,
       status: row.status,
+      policyVersionId: row.policyVersionId,
       policyVersion: row.policyVersion,
       policyStatus: row.policyStatus,
       createdAt: row.created_at.toISOString(),

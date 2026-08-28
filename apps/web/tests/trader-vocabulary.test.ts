@@ -104,3 +104,42 @@ describe('no financial rule is hardcoded in the browser (§6/§89)', () => {
     expect(PAYOUT_REJECTION_DETAIL.consistency_non_compliant).toMatch(/limite/i);
   });
 });
+
+describe('no rule percentage is written into an authenticated page (§6/§89)', () => {
+  /**
+   * The Hub hero showed every Evaluation account `85 % → 90 %`, written as a
+   * literal. That is WARIBA ONE V1's payout schedule; V2 pays 80 % on the
+   * first two cycles. The number was wrong for every V2 account, and wrong in
+   * the flattering direction, on the screen a trader reads before deciding
+   * whether to keep going.
+   *
+   * Scoped to authenticated surfaces. The public pages carry V1 figures too
+   * (`(public)/page.tsx`, `(public)/programme/page.tsx`), and Phase 3.4.4 §84
+   * puts them out of scope — they are a documented open contradiction for
+   * Phase 3.4.5, not something to fix here.
+   */
+  const AUTHENTICATED_PAGES = [
+    'app/(platform)/hub/page.tsx',
+    'app/(platform)/payouts/page.tsx',
+    'app/(platform)/payouts/PayoutStatus.tsx',
+    'app/(platform)/payouts/PayoutCenterPanel.tsx',
+    'app/(platform)/comptes/AccountCard.tsx',
+    'app/(platform)/comptes/[publicId]/regles/page.tsx',
+  ];
+
+  it('writes no literal rule percentage a policy should have supplied', () => {
+    for (const relative of AUTHENTICATED_PAGES) {
+      const source = read(relative)
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '');
+      // Percent literals inside a quoted string — but a colour or a length is
+      // not a claim about anyone's money, so CSS values are dropped first.
+      const CSS =
+        /color-mix|calc\(|rgba?\(|hsla?\(|linear-gradient|translate|width|height|flex-basis|var\(--/;
+      const claims = (source.match(/['"`][^'"`]*\d{1,3}\s*%[^'"`]*['"`]/g) ?? []).filter(
+        (candidate) => !CSS.test(candidate),
+      );
+      expect(claims, `${relative} still states a rule percentage`).toEqual([]);
+    }
+  });
+});

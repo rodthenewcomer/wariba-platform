@@ -311,7 +311,17 @@ test.describe('@critical @handoff @phase-3-3-1 Evaluation to Performance handoff
 
       await performance.goto(`/comptes/${emptyPerformance.publicId}/regles`);
       await expect(performance.getByTestId('account-rules-page')).toBeVisible();
-      await expect(performance.getByText(/Version 1\./)).toBeVisible();
+      /*
+       * Phase 3.4.4 §8 — the version is a trust artefact, and the assertion
+       * now says so. `/Version 1\./` matched a bare prefix and would have
+       * passed on any element whose text happened to start that way; this
+       * targets the line the page publishes for the purpose, and checks both
+       * that it names the concept and that it carries the pinned version.
+       */
+      const policyVersionLine = performance.getByTestId('account-rules-policy-version');
+      await expect(policyVersionLine).toBeVisible();
+      await expect(policyVersionLine).toContainText('Version de vos règles');
+      await expect(policyVersionLine).toContainText(/\d+\.\d+\.\d+/);
       await assertAccessible(performance);
       await screenshot(performance, '14-account-rules-version-1440');
 
