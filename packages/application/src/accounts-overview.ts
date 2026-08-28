@@ -1,6 +1,11 @@
 import Decimal from 'decimal.js';
 import { loadAccountBalanceProjection, type Db } from '@wariba/database';
 import { accountStatusLabel } from './account-status-labels';
+import {
+  loadFlexActivationObligation,
+  flexActivationNotice,
+  type FlexActivationNotice,
+} from './flex-activation';
 import { listAccountsForUser, type AccountSummaryDTO } from './accounts-list';
 import { buildAccountRiskView, type AccountRiskView } from './risk-view';
 import { buildAccountMissionView } from './mission-view';
@@ -96,6 +101,17 @@ export interface AccountOverviewItem {
   detail: AccountOverviewDetail | null;
   /** Set only for a passed evaluation. Mutually exclusive with `detail`. */
   archive: AccountArchiveView | null;
+  /**
+   * §26/§46 — the FLEX obligation standing between this account and a
+   * Performance successor.
+   *
+   * Present on both sides of the handoff: on the evaluation card, so a passed
+   * FLEX evaluation says "Activation Performance requise" instead of implying
+   * a successor that does not exist; and on the Performance card once one
+   * does, so the activation that produced it stays visible. Null for ONE and
+   * INSTANT, which have no such step.
+   */
+  flexActivation: FlexActivationNotice | null;
 }
 
 export type AccountFilter = 'all' | 'evaluation' | 'review' | 'funded' | 'failed' | 'closed';
@@ -133,6 +149,22 @@ export async function buildAccountsOverview(
 
   return Promise.all(
     accounts.map(async (account): Promise<AccountOverviewItem> => {
+      /*
+       * Resolved for every FLEX account on either side of the handoff: the
+       * evaluation owns the row, and its Performance successor reaches the
+       * same row through `sourceEvaluationAccountId`.
+       */
+      const obligation =
+        account.productFamily === 'WARIBA_FLEX'
+          ? await loadFlexActivationObligation(
+              db,
+              account.accountPhase === 'evaluation'
+                ? account.id
+                : account.sourceEvaluationAccountId,
+            )
+          : null;
+      const flexActivation = obligation ? flexActivationNotice(obligation) : null;
+
       const activated =
         account.status !== 'pending_activation' &&
         account.status !== 'inactive' &&
@@ -147,6 +179,7 @@ export async function buildAccountsOverview(
           }),
           detail: null,
           archive: null,
+          flexActivation,
         };
       }
 
@@ -159,7 +192,17 @@ export async function buildAccountsOverview(
        * a trader can still lose. The result and the successor are the facts
        * that survive; nothing else is asked for.
        */
-      if (account.programType === 'WARIBA_ONE' && account.status === 'passed') {
+      /*
+       * Any evaluation, not only ONE's.
+       *
+       * This branch was written when WARIBA_ONE was the only evaluation
+       * program, and the guard froze that in. A passed FLEX evaluation fell
+       * through to the live-detail branch below and got exactly the card this
+       * comment says must not exist — remaining-loss meters and an objective
+       * bar beside "Évaluation réussie". The condition that matters is the
+       * phase, so it is the phase that is tested.
+       */
+      if (account.accountPhase === 'evaluation' && account.status === 'passed') {
         const child = accounts.find(
           (candidate) => candidate.sourceEvaluationAccountId === account.id,
         );
@@ -184,6 +227,7 @@ export async function buildAccountsOverview(
             programType: account.programType,
           }),
           detail: null,
+          flexActivation,
           archive: {
             finalResultFormatted: result
               ? `${result.isNegative() ? '' : '+'}${formatUsd(result.toFixed(2))}`
@@ -254,6 +298,7 @@ export async function buildAccountsOverview(
         return {
           account,
           lifecycle,
+          flexActivation,
           detail: {
             balanceFormatted: risk.currentEquityFormatted,
             equity: risk.amounts.currentEquity,
@@ -294,6 +339,7 @@ export async function buildAccountsOverview(
           }),
           detail: null,
           archive: null,
+          flexActivation,
         };
       }
     }),

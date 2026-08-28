@@ -131,8 +131,77 @@ function ArchiveBody({
   );
 }
 
+/**
+ * Phase 3.4.4 §26/§27/§46 — the FLEX activation step, said plainly.
+ *
+ * The whole point of the block is the two lines a trader would otherwise have
+ * to take on trust: the amount, and where the amount came from. WARIBA quoted
+ * a price at purchase and froze it on the obligation row; showing it without
+ * saying so leaves a trader comparing it against today's offer page and
+ * finding a number that does not match.
+ *
+ * The deadline is rendered from the server's stored `due_at`. There is no
+ * "+30 days" anywhere on this side of the wire, because a deadline computed in
+ * the browser drifts against the one the expiry job enforces.
+ */
+function FlexActivationNoticeBlock({
+  notice,
+  accountId,
+}: {
+  notice: NonNullable<AccountOverviewItem['flexActivation']>;
+  accountId: string;
+}) {
+  return (
+    <div
+      className="flex flex-col gap-2 border-t border-[color:var(--warix-border-subtle)] pt-4"
+      data-testid="flex-activation-notice"
+      data-activation-status={notice.status}
+    >
+      <p className="text-[length:var(--wariba-font-size-body-sm)] font-semibold text-[color:var(--wariba-text-primary)]">
+        {notice.title}
+      </p>
+      <p className="text-[length:var(--wariba-font-size-label-sm)] leading-relaxed text-[color:var(--wariba-text-secondary)]">
+        {notice.body}
+      </p>
+
+      {notice.amountFormatted ? (
+        <div>
+          <p className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
+            Montant d’activation
+          </p>
+          <p className="wariba-data text-[length:var(--wariba-font-size-body-sm)] font-semibold text-[color:var(--wariba-text-primary)]">
+            {notice.amountFormatted}
+          </p>
+          {notice.priceOriginNote ? (
+            <p className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
+              {notice.priceOriginNote}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {notice.deadlineLabel ? (
+        <p
+          className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]"
+          data-testid="flex-activation-deadline"
+        >
+          {notice.deadlineLabel}
+        </p>
+      ) : null}
+
+      {notice.actionLabel && notice.status === 'activation_due' ? (
+        <div className="pt-1">
+          <ActionLink href={`/hub?account=${accountId}`} size="sm">
+            {notice.actionLabel}
+          </ActionLink>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function AccountCard({ item }: { item: AccountOverviewItem }) {
-  const { account, lifecycle, detail, archive } = item;
+  const { account, lifecycle, detail, archive, flexActivation } = item;
 
   const actions: { label: string; href: string; variant: 'primary' | 'secondary' | 'danger' }[] =
     [];
@@ -211,6 +280,10 @@ export function AccountCard({ item }: { item: AccountOverviewItem }) {
         </div>
         <StatusPill tone={lifecycle.tone}>{lifecycle.label}</StatusPill>
       </div>
+
+      {flexActivation ? (
+        <FlexActivationNoticeBlock notice={flexActivation} accountId={account.id} />
+      ) : null}
 
       {archive ? (
         <ArchiveBody account={account} archive={archive} />

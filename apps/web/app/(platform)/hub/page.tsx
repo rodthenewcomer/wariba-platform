@@ -507,11 +507,7 @@ export default async function HubPage({
                         <span />
                       )}
                       <ActionLink
-                        href={
-                          isPerformanceAccount
-                            ? `/comptes/${activeAccount.publicId}/regles`
-                            : '/aide/wariba-one/regles-essentielles'
-                        }
+                        href={`/comptes/${activeAccount.publicId}/regles`}
                         variant="secondary"
                         size="sm"
                       >
@@ -538,11 +534,7 @@ export default async function HubPage({
                   </Text>
                   <div className="pt-1">
                     <ActionLink
-                      href={
-                        isPerformanceAccount
-                          ? `/comptes/${activeAccount.publicId}/regles`
-                          : '/aide/wariba-one/regles-essentielles'
-                      }
+                      href={`/comptes/${activeAccount.publicId}/regles`}
                       variant="secondary"
                       size="sm"
                     >

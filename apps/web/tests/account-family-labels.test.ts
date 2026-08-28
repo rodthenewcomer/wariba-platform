@@ -64,3 +64,24 @@ describe('account family labels', () => {
     expect(programPhaseLabel(identity('WARIBA_FLEX', 'WARIBA_FLEX'))).toBe('Évaluation');
   });
 });
+
+describe('INSTANT provenance (§30/§45)', () => {
+  /**
+   * An INSTANT account starts in Performance and has no Evaluation parent.
+   * `listAccountsForUser` links a parent only through
+   * `sourceEvaluationAccountId`, which is null for INSTANT — so the guarantee
+   * worth pinning here is the one a card renders from: the identity strings
+   * must never carry an evaluation the account never held.
+   */
+  it('produces an identity with no evaluation language anywhere in it', () => {
+    const instant = identity('WARIBA_INSTANT', 'WARIBA_PERFORMANCE');
+    const rendered = [
+      programLabel(instant),
+      programShortLabel(instant),
+      programPhaseLabel(instant),
+    ].join(' ');
+    expect(rendered).not.toMatch(/évaluation|réussi|passed|phase\s*1/i);
+    expect(rendered).toContain('INSTANT');
+    expect(rendered).toContain('Performance');
+  });
+});

@@ -22,6 +22,7 @@ import {
   type AccountRuleItem,
 } from './account-policy-rules';
 import { deriveAccountNextAction, type AccountNextAction } from './account-next-action';
+import { loadFlexActivationObligation, type FlexActivationObligationView } from './flex-activation';
 
 /**
  * Phase 3.4.4 §5 — the account's own contract, projected once for every
@@ -79,7 +80,7 @@ export interface AccountPolicyView {
   limits: AccountLimits;
   capabilities: AccountCapabilities;
   provenance: AccountProvenance;
-  flexActivation: FlexActivationState | null;
+  flexActivation: FlexActivationObligationView | null;
   nextAction: AccountNextAction;
 }
 
@@ -134,66 +135,21 @@ export interface AccountProvenance {
 }
 
 /**
- * §26/§27 — the obligation between a passed FLEX Evaluation and its
- * Performance account.
+ * Addressed by id or by public id, never by both.
  *
- * `amountFormatted` is the snapshot taken when the trader bought, never the
- * current catalogue price. That is the point of the row existing: WARIBA
- * quoted a number at purchase and is held to it, which is why `priceOrigin`
- * is stated on the surface rather than assumed.
+ * The trader-facing routes carry the public id (`/comptes/PERF-XXXXX/regles`)
+ * and the Hub carries the internal one. A union rather than two optional
+ * fields so a caller cannot pass neither and get the first account back.
  */
-export interface FlexActivationState {
-  status: 'activation_due' | 'paid' | 'fulfilled' | 'expired';
-  amount: string;
-  amountFormatted: string;
-  currency: string;
-  /** Server-authoritative. No frontend `+30 days` arithmetic (§27). */
-  dueAt: string;
-  paidAt: string | null;
-  fulfilledAt: string | null;
-}
-
-export interface BuildAccountPolicyViewParams {
-  userId: string;
-  accountId: string;
-  now: Date;
-}
-
-/**
- * The FLEX obligation for an account, whichever side of the handoff it is on.
- *
- * Looked up by the *evaluation* account id, because that is the row the
- * obligation is keyed to — so a Performance account resolves it through its
- * own parent rather than not finding one.
- */
-async function loadFlexActivation(
-  db: Db,
-  evaluationAccountId: string | null,
-): Promise<FlexActivationState | null> {
-  if (!evaluationAccountId) return null;
-  const row = await db
-    .selectFrom('app.flex_activation_obligations')
-    .select(['status', 'amount_snapshot', 'currency_snapshot', 'due_at', 'paid_at', 'fulfilled_at'])
-    .where('evaluation_account_id', '=', evaluationAccountId)
-    .orderBy('created_at', 'desc')
-    .executeTakeFirst();
-  if (!row) return null;
-  return {
-    status: row.status,
-    amount: row.amount_snapshot,
-    amountFormatted: formatMoney(row.amount_snapshot, row.currency_snapshot),
-    currency: row.currency_snapshot,
-    dueAt: row.due_at.toISOString(),
-    paidAt: row.paid_at?.toISOString() ?? null,
-    fulfilledAt: row.fulfilled_at?.toISOString() ?? null,
-  };
-}
+export type BuildAccountPolicyViewParams = { userId: string; now: Date } & (
+  { accountId: string; accountPublicId?: never } | { accountPublicId: string; accountId?: never }
+);
 
 export async function buildAccountPolicyView(
   db: Db,
   params: BuildAccountPolicyViewParams,
 ): Promise<AccountPolicyView | null> {
-  const account = await db
+  let query = db
     .selectFrom('app.trading_accounts')
     .select([
       'id',
@@ -209,9 +165,12 @@ export async function buildAccountPolicyView(
       'kyc_sandbox_verified',
       'payout_method_sandbox_configured',
     ])
-    .where('id', '=', params.accountId)
-    .where('user_id', '=', params.userId)
-    .executeTakeFirst();
+    .where('user_id', '=', params.userId);
+  query =
+    params.accountId !== undefined
+      ? query.where('id', '=', params.accountId)
+      : query.where('public_id', '=', params.accountPublicId);
+  const account = await query.executeTakeFirst();
   if (!account) return null;
 
   const policy = await loadPolicyById(db, account.policy_version_id);
@@ -241,7 +200,7 @@ export async function buildAccountPolicyView(
     phase === 'evaluation' ? account.id : account.source_evaluation_account_id;
   const flexActivation =
     policy.productFamily === 'WARIBA_FLEX'
-      ? await loadFlexActivation(db, evaluationAccountId)
+      ? await loadFlexActivationObligation(db, evaluationAccountId)
       : null;
 
   const performanceChild =

@@ -278,9 +278,16 @@ export {
   type AccountLimits,
   type AccountCapabilities,
   type AccountProvenance,
-  type FlexActivationState,
   type BuildAccountPolicyViewParams,
 } from './account-policy-view';
+
+export {
+  loadFlexActivationObligation,
+  flexActivationNotice,
+  type FlexActivationObligationView,
+  type FlexActivationNotice,
+  type FlexActivationStatus,
+} from './flex-activation';
 
 export {
   projectAccountRules,
