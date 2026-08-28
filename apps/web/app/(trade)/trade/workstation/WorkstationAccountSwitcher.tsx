@@ -113,7 +113,17 @@ export const WorkstationAccountSwitcher = memo(function WorkstationAccountSwitch
       className="relative shrink-0 [&[open]>summary>svg]:rotate-180"
     >
       <summary
-        aria-label={`Compte actif : ${active.programLabel} ${active.nominalFormatted} ${active.publicId}. Changer de compte`}
+        /*
+         * Phase 3.4.4 §9 — the accessible name carries the whole identity.
+         *
+         * It used to read `${programLabel} ${nominal} ${publicId}`, which was
+         * complete only while `programLabel` conflated product and phase
+         * ("WARIBA Performance"). Now that the product is named from
+         * `product_family`, dropping the phase would leave a screen-reader
+         * user unable to tell a ONE Evaluation from its Performance
+         * successor — the one distinction this control exists to make.
+         */
+        aria-label={`Compte actif : ${active.programLabel} ${active.phaseLabel} ${active.nominalFormatted} ${active.publicId}. Changer de compte`}
         className="flex h-7 shrink-0 cursor-pointer list-none items-center gap-1.5 rounded-[7px] bg-[color:var(--wariba-component-workstation-surface-control)] px-2 shadow-[inset_0_1px_0_0_var(--wariba-component-workstation-rim-light-strong)] ring-1 ring-inset ring-[color:var(--wariba-component-workstation-border-hairline)] transition-[background-color,box-shadow] duration-[var(--wariba-component-workstation-motion-quick)] hover:bg-[color:var(--wariba-component-workstation-surface-control-hover)] hover:ring-[color:var(--wariba-component-workstation-border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--wariba-component-workstation-border-focus)] [&::-webkit-details-marker]:hidden"
       >
         {summary}
