@@ -130,7 +130,16 @@ function parseLeverageByAssetGroup(value: unknown): Readonly<Record<V2AssetGroup
   return leverage;
 }
 
-interface V2PolicyRuntimeContext {
+/**
+ * The margin profile and calendar readiness a V2 policy actually resolves to.
+ *
+ * Exported since Phase 3.4.4: the pre-trade gate enforces from these rows, and
+ * every surface that *shows* a trader their margin cap or a calendar's
+ * availability has to read the same ones. Displaying the cap from
+ * `parameters_json` while enforcing from `app.margin_profiles` is a divergence
+ * with no symptom until the two disagree on a refused order.
+ */
+export interface V2PolicyRuntimeContext {
   marginProfile: {
     candidateMarginCapRate: string;
     calibrationStatus: 'calibration_required' | 'validated' | 'retired';
@@ -142,7 +151,7 @@ interface V2PolicyRuntimeContext {
   sessionSourceReady: boolean;
 }
 
-async function loadV2PolicyRuntimeContext(
+export async function loadV2PolicyRuntimeContext(
   trx: Db,
   policyVersionId: string,
 ): Promise<V2PolicyRuntimeContext> {

@@ -457,6 +457,8 @@ export {
 } from './v2-provisioning';
 export {
   assetGroupForAssetClass,
+  loadV2PolicyRuntimeContext,
+  type V2PolicyRuntimeContext,
   evaluateV2PreTradeDecisionInTransaction,
   type EvaluateV2PreTradeParams,
   type V2PreTradeDecision,

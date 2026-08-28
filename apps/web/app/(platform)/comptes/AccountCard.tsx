@@ -198,10 +198,10 @@ export function AccountCard({ item }: { item: AccountOverviewItem }) {
           </span>
           <div className="min-w-0">
             <p className="truncate text-[length:var(--wariba-font-size-body-md)] font-semibold text-[color:var(--wariba-text-primary)]">
-              {programLabel(account.programType)}
+              {programLabel(account)}
             </p>
             <p className="mt-0.5 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
-              {programPhaseLabel(account.programType)}
+              {programPhaseLabel(account)}
               <span aria-hidden="true"> · </span>
               <span className="wariba-data">
                 {formatNominal(account.nominalBalance, account.nominalCurrency)}

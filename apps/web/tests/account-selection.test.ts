@@ -6,6 +6,8 @@ function account(overrides: Partial<AccountSummaryDTO> & { id: string }): Accoun
   return {
     publicId: `PUB-${overrides.id}`,
     programType: 'WARIBA_ONE',
+    productFamily: 'WARIBA_ONE',
+    accountPhase: 'evaluation',
     nominalBalance: '10000.00',
     nominalCurrency: 'USD',
     status: 'active',

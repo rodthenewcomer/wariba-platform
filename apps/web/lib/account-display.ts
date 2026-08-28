@@ -13,36 +13,71 @@ import {
 } from '@wariba/application/presentation';
 
 export type AccountProgramType = AccountSummaryDTO['programType'];
+export type AccountProductFamily = AccountSummaryDTO['productFamily'];
 export type AccountStatusVariant = 'neutral' | 'information' | 'success' | 'warning' | 'danger';
 
 /**
- * The canonical human labels for the two programs. Extracted in W1 so the
- * Hub selector, the WariX status bar and the `/trade` empty state cannot
- * drift apart — the W0 audit (§3A.4) found exactly that drift, with
- * `TradeHeaderPanel` hardcoding "WARIBA ONE" for every account and a
- * WARIBA_PERFORMANCE trader being shown the wrong program in the terminal.
+ * What the account is called, from the family it belongs to.
  *
- * The program is always read from authoritative account/snapshot state
- * (`AccountSummaryDTO.programType` / `AccountSnapshot.programType`), never
- * inferred from balance, payout presence, the URL or anything client-side.
+ * ## Why `programType` is not enough
+ *
+ * The W0 audit caught `TradeHeaderPanel` hardcoding "WARIBA ONE" for every
+ * account, and the fix was to read the authoritative `programType`. That was
+ * right for a two-program world and wrong the moment there were three
+ * families: `programType` is *phase-shaped*, not product-shaped. A FLEX
+ * account in Evaluation is `WARIBA_FLEX`, but its Performance successor is
+ * `WARIBA_PERFORMANCE`, exactly like ONE's and exactly like INSTANT's.
+ *
+ * So the same bug came back one layer down. A FLEX Evaluation account fell
+ * through to the `else` branch and was labelled WARIBA ONE — a trader told
+ * they hold a product they did not buy, on the terminal they trade it from.
+ * A FLEX or INSTANT Performance account lost its family entirely.
+ *
+ * `productFamily` is the account's own column, set at provisioning and never
+ * derived. The phase is a separate question, answered separately below.
  */
-export function programLabel(programType: AccountProgramType): 'WARIBA ONE' | 'WARIBA Performance' {
-  return programType === 'WARIBA_PERFORMANCE' ? 'WARIBA Performance' : 'WARIBA ONE';
+const FAMILY_LABEL: Record<AccountProductFamily, string> = {
+  WARIBA_ONE: 'WARIBA ONE',
+  WARIBA_FLEX: 'WARIBA FLEX',
+  WARIBA_INSTANT: 'WARIBA INSTANT',
+};
+
+const FAMILY_SHORT_LABEL: Record<AccountProductFamily, string> = {
+  WARIBA_ONE: 'ONE',
+  WARIBA_FLEX: 'FLEX',
+  WARIBA_INSTANT: 'INSTANT',
+};
+
+export interface AccountIdentity {
+  productFamily: AccountProductFamily;
+  programType: AccountProgramType;
+}
+
+export function programLabel(account: AccountIdentity): string {
+  return FAMILY_LABEL[account.productFamily] ?? FAMILY_LABEL.WARIBA_ONE;
 }
 
 /**
- * The program in the fewest characters that stay unambiguous, for the phone
- * status bar (W2 §25) where the full canonical public id does not fit beside
- * equity, DLL and the notification control. The full identity is never lost:
- * it stays in the control's accessible name and one tap away in the switcher.
+ * The family in the fewest characters that stay unambiguous, for the phone
+ * status bar (W2 §25) where the full public id does not fit beside equity,
+ * the daily limit and the notification control. The full identity is never
+ * lost: it stays in the control's accessible name and one tap away in the
+ * switcher.
  */
-export function programShortLabel(programType: AccountProgramType): string {
-  return programType === 'WARIBA_PERFORMANCE' ? 'PERF' : 'ONE';
+export function programShortLabel(account: AccountIdentity): string {
+  return FAMILY_SHORT_LABEL[account.productFamily] ?? FAMILY_SHORT_LABEL.WARIBA_ONE;
 }
 
-/** The phase a program represents — what distinguishes the two at a glance. */
-export function programPhaseLabel(programType: AccountProgramType): string {
-  return programType === 'WARIBA_PERFORMANCE' ? 'Performance' : 'Évaluation';
+/**
+ * Which phase the account is in — the second half of its identity.
+ *
+ * §30: an INSTANT account started in Performance and never held an
+ * Evaluation. Reading the phase from `programType` states that correctly
+ * without implying a phase it skipped, because the phase really is what
+ * `programType` encodes.
+ */
+export function programPhaseLabel(account: AccountIdentity): string {
+  return account.programType === 'WARIBA_PERFORMANCE' ? 'Performance' : 'Évaluation';
 }
 
 /**

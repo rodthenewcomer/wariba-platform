@@ -222,6 +222,43 @@ export const concentrationBucketSchema = z.object({
 });
 export type ConcentrationBucket = z.infer<typeof concentrationBucketSchema>;
 
+/**
+ * Phase 3.4.4 §14/§82 — the two V2 ceilings, as the trader's live standing
+ * against them.
+ *
+ * Both are nullable, and the two reasons are different in kind. A V1-pinned
+ * account returns null because the cap was never part of its contract. A
+ * V2 account returns null when an authoritative price or conversion is
+ * missing — the same condition that makes the pre-trade gate fail closed —
+ * because a ratio computed from a stale price is worse than no ratio.
+ *
+ * Only this service may produce them. `account-policy-view.ts` projects the
+ * ceilings for server-rendered surfaces but deliberately not the usage:
+ * ENG-028 means no authoritative price is reachable from a page render, and
+ * this WebSocket session is the one place in the product where every open
+ * leg can be marked at a price the platform will stand behind.
+ */
+export const grossExposureUsageSchema = z.object({
+  /** Sum of absolute canonical notionals. Opposite legs add; they never net. */
+  grossExposure: z.string(),
+  maximumGrossExposure: z.string(),
+  /** grossExposure / nominalBalance — the "1,6 ×" a ribbon shows against its ceiling. */
+  grossExposureRate: z.string(),
+  maximumMultiple: z.string(),
+  withinCap: z.boolean(),
+});
+export type GrossExposureUsage = z.infer<typeof grossExposureUsageSchema>;
+
+export const marginUsageSchema = z.object({
+  requiredMargin: z.string(),
+  marginUsageRate: z.string(),
+  capRate: z.string(),
+  /** False while the account's margin profile is not validated — the cap is not enforced and must not be drawn as one. */
+  enforcementReady: z.boolean(),
+  withinCap: z.boolean(),
+});
+export type MarginUsage = z.infer<typeof marginUsageSchema>;
+
 export const accountRiskSchema = z.object({
   status: evaluationAccountStatusSchema,
   programEligibleBalance: z.string(),
@@ -249,6 +286,10 @@ export const accountRiskSchema = z.object({
     status: z.enum(['normal', 'warning', 'entry_locked']),
     count24h: z.number().int().nonnegative(),
   }),
+  // Null on a V1-pinned account, which has neither cap — see the schemas' own
+  // doc comment for the second, unrelated reason a V2 account can return null.
+  grossExposure: grossExposureUsageSchema.nullable(),
+  margin: marginUsageSchema.nullable(),
 });
 export type AccountRisk = z.infer<typeof accountRiskSchema>;
 

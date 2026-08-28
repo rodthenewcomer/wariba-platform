@@ -4,6 +4,19 @@ export interface AccountSummaryDTO {
   id: string;
   publicId: string;
   programType: 'WARIBA_ONE' | 'WARIBA_FLEX' | 'WARIBA_PERFORMANCE';
+  /**
+   * Which product this account belongs to, independent of the phase it is in.
+   *
+   * `programType` conflates the two: a FLEX account in Evaluation is
+   * `WARIBA_FLEX`, but the same trader's Performance account is
+   * `WARIBA_PERFORMANCE` — the family is gone, and an INSTANT account is
+   * indistinguishable from a ONE Performance account. Every surface that
+   * labelled an account from `programType` alone therefore told a FLEX
+   * Evaluation trader they held WARIBA ONE.
+   */
+  productFamily: 'WARIBA_ONE' | 'WARIBA_FLEX' | 'WARIBA_INSTANT';
+  /** From the pinned policy, so the phase and the rules can never disagree. */
+  accountPhase: 'evaluation' | 'performance';
   nominalBalance: string;
   nominalCurrency: string;
   status: string;
@@ -66,6 +79,7 @@ export async function listAccountsForUser(
       'app.trading_accounts.id',
       'app.trading_accounts.public_id',
       'app.trading_accounts.program_type',
+      'app.trading_accounts.product_family',
       'app.trading_accounts.nominal_balance',
       'app.trading_accounts.currency',
       'app.trading_accounts.status',
@@ -75,6 +89,7 @@ export async function listAccountsForUser(
       'app.trading_accounts.payout_method_sandbox_configured',
       'app.policy_versions.semantic_version as policyVersion',
       'app.policy_versions.status as policyStatus',
+      'app.policy_versions.account_phase as accountPhase',
     ])
     .where('app.trading_accounts.user_id', '=', params.userId)
     .orderBy('app.trading_accounts.created_at', 'desc')
@@ -88,6 +103,15 @@ export async function listAccountsForUser(
       id: row.id,
       publicId: row.public_id,
       programType: row.program_type,
+      productFamily: row.product_family,
+      /*
+       * A V1 policy row predates the phase column and leaves it null. The
+       * program type is the only thing that can answer for those accounts, and
+       * it answers correctly: V1 had exactly two programs, one per phase.
+       */
+      accountPhase:
+        row.accountPhase ??
+        (row.program_type === 'WARIBA_PERFORMANCE' ? 'performance' : 'evaluation'),
       nominalBalance: row.nominal_balance,
       nominalCurrency: row.currency,
       status: row.status,

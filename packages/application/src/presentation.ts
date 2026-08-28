@@ -69,3 +69,37 @@ export type { AccountTelemetry } from './command-center';
 
 /* Type-only, same reasoning as above — `activity-view` imports the database. */
 export type { ActivityItem } from './activity-view';
+
+/**
+ * Phase 3.4.4 §15/§55/§68 — the canonical reason-code vocabulary.
+ *
+ * Pure: its only import is `@wariba/policies`' registry, which is zod and
+ * constants. WariX needs it in a client component to render a server refusal,
+ * which is precisely the case this subpath exists for.
+ */
+export {
+  reasonCodeCopy,
+  resolveReasonCodeCopy,
+  ALL_REASON_CODE_COPY,
+  UNKNOWN_REASON_COPY,
+  type ReasonCodeCopy,
+  type ReasonSeverity,
+} from './reason-code-copy';
+
+export {
+  projectAccountRules,
+  formatRate,
+  formatMoney,
+  ACCOUNT_RULE_LABEL,
+  PRODUCT_FAMILY_LABEL,
+  ACCOUNT_PHASE_LABEL,
+  type AccountRuleItem,
+  type AccountRuleKey,
+} from './account-policy-rules';
+
+export {
+  deriveAccountNextAction,
+  type AccountNextAction,
+  type AccountNextActionKind,
+  type AccountNextActionFacts,
+} from './account-next-action';

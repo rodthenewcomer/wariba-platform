@@ -1,5 +1,10 @@
 import Decimal from 'decimal.js';
-import { loadPolicyById, evaluateCycleProgress, type Db } from '@wariba/database';
+import {
+  loadPolicyById,
+  evaluateCycleProgress,
+  loadV2PolicyRuntimeContext,
+  type Db,
+} from '@wariba/database';
 import type {
   EvaluationOnePolicyParameters,
   PerformancePolicyParameters,
@@ -154,60 +159,6 @@ export interface BuildAccountPolicyViewParams {
   now: Date;
 }
 
-interface CalendarReadiness {
-  newsSourceReady: boolean;
-  sessionSourceReady: boolean;
-  marginCapRate: string | null;
-  marginCalibrationValidated: boolean;
-  leverageByAssetGroup: Readonly<Record<string, number>> | null;
-}
-
-function parseLeverage(value: unknown): Readonly<Record<string, number>> | null {
-  const raw: unknown = typeof value === 'string' ? JSON.parse(value) : value;
-  if (typeof raw !== 'object' || raw === null) return null;
-  const entries = Object.entries(raw as Record<string, unknown>).filter(
-    (entry): entry is [string, number] => typeof entry[1] === 'number',
-  );
-  return entries.length > 0 ? Object.fromEntries(entries) : null;
-}
-
-/**
- * Margin profile and calendar readiness, read from the policy row itself.
- *
- * The same three joins `v2-pre-trade.ts` runs before it decides. Read here
- * rather than imported from there because that one runs inside the account
- * lock on the write path; this is a read model, and sharing the query would
- * mean sharing a transaction it has no business holding.
- */
-async function loadCalendarReadiness(db: Db, policyVersionId: string): Promise<CalendarReadiness> {
-  const row = await db
-    .selectFrom('app.policy_versions as policy')
-    .leftJoin('app.margin_profiles as margin', 'margin.id', 'policy.margin_profile_id')
-    .leftJoin('app.news_calendar_versions as news', 'news.id', 'policy.news_calendar_version_id')
-    .leftJoin(
-      'app.session_calendar_versions as session',
-      'session.id',
-      'policy.session_calendar_version_id',
-    )
-    .select([
-      'margin.candidate_margin_cap_rate',
-      'margin.calibration_status',
-      'margin.leverage_by_asset_group',
-      'news.source_ready as news_source_ready',
-      'session.source_ready as session_source_ready',
-    ])
-    .where('policy.id', '=', policyVersionId)
-    .executeTakeFirst();
-
-  return {
-    newsSourceReady: row?.news_source_ready === true,
-    sessionSourceReady: row?.session_source_ready === true,
-    marginCapRate: row?.candidate_margin_cap_rate ?? null,
-    marginCalibrationValidated: row?.calibration_status === 'validated',
-    leverageByAssetGroup: parseLeverage(row?.leverage_by_asset_group),
-  };
-}
-
 /**
  * The FLEX obligation for an account, whichever side of the handoff it is on.
  *
@@ -264,7 +215,7 @@ export async function buildAccountPolicyView(
   if (!account) return null;
 
   const policy = await loadPolicyById(db, account.policy_version_id);
-  const readiness = await loadCalendarReadiness(db, policy.id);
+  const runtime = await loadV2PolicyRuntimeContext(db, policy.id);
   const parameters = policy.parameters as
     EvaluationOnePolicyParameters | PerformancePolicyParameters;
   const v2 = parameters as unknown as {
@@ -347,6 +298,7 @@ export async function buildAccountPolicyView(
     payoutMethodConfigured: account.payout_method_sandbox_configured,
   });
 
+  const marginProfile = runtime.marginProfile;
   const nominalFormatted = formatMoney(account.nominal_balance, account.currency);
   const productLabel = PRODUCT_FAMILY_LABEL[policy.productFamily];
   const phaseLabel = ACCOUNT_PHASE_LABEL[phase];
@@ -396,23 +348,23 @@ export async function buildAccountPolicyView(
             ),
           }
         : null,
-      margin: readiness.marginCapRate
+      margin: marginProfile
         ? {
-            capRate: readiness.marginCapRate,
-            capRateFormatted: formatRate(readiness.marginCapRate) ?? '',
-            calibrationValidated: readiness.marginCalibrationValidated,
+            capRate: marginProfile.candidateMarginCapRate,
+            capRateFormatted: formatRate(marginProfile.candidateMarginCapRate) ?? '',
+            calibrationValidated: marginProfile.calibrationStatus === 'validated',
           }
         : null,
-      leverageByAssetGroup: readiness.leverageByAssetGroup,
+      leverageByAssetGroup: marginProfile?.leverageByAssetGroup ?? null,
     },
     capabilities: {
       news: {
         required: v2.news_calendar_required === true,
-        sourceReady: readiness.newsSourceReady,
+        sourceReady: runtime.newsSourceReady,
       },
       marketSession: {
         required: v2.session_calendar_required === true,
-        sourceReady: readiness.sessionSourceReady,
+        sourceReady: runtime.sessionSourceReady,
       },
     },
     provenance: {

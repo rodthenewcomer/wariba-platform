@@ -239,8 +239,8 @@ export default async function HubPage({
             : {})}
         />
         <AccountHero
-          program={programLabel(activeAccount.programType)}
-          phase={programPhaseLabel(activeAccount.programType)}
+          program={programLabel(activeAccount)}
+          phase={programPhaseLabel(activeAccount)}
           nominalFormatted={formatNominal(
             activeAccount.nominalBalance,
             activeAccount.nominalCurrency,
@@ -360,8 +360,8 @@ export default async function HubPage({
       <Stagger className="flex flex-col gap-5">
         <StaggerItem>
           <AccountHero
-            program={programLabel(activeAccount.programType)}
-            phase={programPhaseLabel(activeAccount.programType)}
+            program={programLabel(activeAccount)}
+            phase={programPhaseLabel(activeAccount)}
             nominalFormatted={formatNominal(
               activeAccount.nominalBalance,
               activeAccount.nominalCurrency,
