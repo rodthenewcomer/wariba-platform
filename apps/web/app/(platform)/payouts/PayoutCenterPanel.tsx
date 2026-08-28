@@ -75,10 +75,10 @@ function resolveBlockingReason(progress: PerformanceProgressDTO): string | null 
     return 'Une demande de payout est déjà en cours de revue pour ce cycle.';
   }
   if (!progress.bufferReached) {
-    return `Le solde éligible n’a pas encore dépassé le seuil du buffer permanent (${formatUsd(progress.bufferFloor)}).`;
+    return `Votre réserve de sécurité n’est pas encore constituée (seuil ${formatUsd(progress.bufferFloor)}).`;
   }
   if (progress.performanceDaysCompleted < progress.performanceDaysRequired) {
-    return `Il manque des Performance Days pour ce cycle (${progress.performanceDaysCompleted} / ${progress.performanceDaysRequired}).`;
+    return `Il vous manque des journées Performance sur ce cycle (${progress.performanceDaysCompleted} / ${progress.performanceDaysRequired}).`;
   }
   if (!progress.consistencyCompliant) {
     return 'Votre meilleure journée pèse trop lourd dans le total de vos journées gagnantes — répartissez vos gains sur d’autres journées.';
@@ -106,7 +106,7 @@ function toConditions(progress: PerformanceProgressDTO): MissionCondition[] {
   });
   return [
     {
-      label: 'Buffer permanent construit',
+      label: 'Réserve de sécurité constituée',
       // A8 — "plancher" belongs to Maximum Loss, the level that ends an
       // account. This one only decides which part of a gain can be requested.
       detail: progress.bufferReached
@@ -115,7 +115,7 @@ function toConditions(progress: PerformanceProgressDTO): MissionCondition[] {
       met: progress.bufferReached,
     },
     {
-      label: 'Performance Days',
+      label: 'Journées Performance',
       detail: `${progress.performanceDaysCompleted} / ${progress.performanceDaysRequired} — seuil ${formatUsd(progress.performanceDayThreshold)}/jour`,
       met: progress.performanceDaysCompleted >= progress.performanceDaysRequired,
     },

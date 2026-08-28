@@ -494,9 +494,9 @@ export function PerformanceHandoff({
           <div className="grid gap-5 lg:grid-cols-2">
             {handoff.buffer ? (
               <Surface className="p-5 sm:p-6" data-testid="performance-buffer">
-                <SurfaceTitle>Le buffer permanent</SurfaceTitle>
+                <SurfaceTitle>La réserve de sécurité</SurfaceTitle>
                 <p className="mt-3 text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-text-secondary)]">
-                  Le buffer reste dans votre compte. Seule la partie autorisée au-dessus du seuil
+                  La réserve reste dans votre compte. Seule la partie autorisée au-dessus du seuil
                   peut être demandée.
                 </p>
                 <div className="mt-5 overflow-hidden rounded-[10px] border border-[color:var(--warix-border-subtle)]">
@@ -504,7 +504,7 @@ export function PerformanceHandoff({
                   <dl className="grid grid-cols-2 gap-4 p-4">
                     <div>
                       <dt className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
-                        Buffer
+                        Réserve
                       </dt>
                       <dd className="wariba-data mt-1 font-semibold">
                         {handoff.buffer.rateFormatted} · {handoff.buffer.amountFormatted}
@@ -512,7 +512,7 @@ export function PerformanceHandoff({
                     </div>
                     <div>
                       <dt className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-tertiary)]">
-                        Seuil du buffer
+                        Seuil de la réserve
                       </dt>
                       <dd className="wariba-data mt-1 font-semibold">
                         {handoff.buffer.floorFormatted}

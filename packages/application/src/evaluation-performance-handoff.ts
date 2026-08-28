@@ -198,7 +198,7 @@ function comparison(
     },
     {
       key: 'best_day',
-      label: 'Règle du Meilleur Jour',
+      label: 'Règle de la meilleure journée',
       evaluation: side(true, percent(one.best_day_max_ratio)),
       performance: side(true, percent(performance.best_day_max_ratio)),
       changed: one.best_day_max_ratio !== performance.best_day_max_ratio,
@@ -226,7 +226,7 @@ function comparison(
     },
     {
       key: 'buffer',
-      label: 'Buffer permanent',
+      label: 'Réserve de sécurité',
       evaluation: side(false, null),
       performance: side(true, percent(performance.permanent_buffer_rate)),
       changed: true,
@@ -278,7 +278,7 @@ function performanceRules(
     },
     {
       key: 'best_day',
-      label: 'Règle du Meilleur Jour',
+      label: 'Règle de la meilleure journée',
       displayValue: percent(policy.best_day_max_ratio) ?? 'Non publié',
       explanation:
         'Elle mesure la concentration des gains sur le cycle et ne termine pas le compte.',
@@ -291,7 +291,7 @@ function performanceRules(
     },
     {
       key: 'buffer',
-      label: 'Buffer permanent',
+      label: 'Réserve de sécurité',
       displayValue: percent(policy.permanent_buffer_rate) ?? 'Non publié',
       explanation: 'Il reste dans le compte. Seul l’excédent autorisé au-dessus peut être demandé.',
     },
@@ -338,10 +338,10 @@ function payoutPathPhases(
         ]
       : []),
     ...(new Decimal(performance.permanent_buffer_rate).isPositive()
-      ? [{ key: 'buffer', label: 'Construire le buffer permanent', done: false }]
+      ? [{ key: 'buffer', label: 'Constituer la réserve de sécurité', done: false }]
       : []),
     ...(new Decimal(performance.best_day_max_ratio).isPositive()
-      ? [{ key: 'best_day', label: 'Respecter la règle du Meilleur Jour', done: false }]
+      ? [{ key: 'best_day', label: 'Respecter la règle de la meilleure journée', done: false }]
       : []),
     { key: 'risk', label: 'Respecter les règles de risque', done: false },
   ];

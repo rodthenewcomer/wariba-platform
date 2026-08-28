@@ -103,7 +103,7 @@ export default async function PayoutsPage({
         basePath="/payouts"
       />
 
-      <PageHeader description="Seul l’excédent au-dessus du buffer permanent est disponible. Le buffer, lui, ne se retire jamais.">
+      <PageHeader description="Seul l’excédent au-dessus de votre réserve de sécurité est disponible. La réserve, elle, ne se retire jamais.">
         {/*
          * The account's public reference, at footnote weight.
          *
