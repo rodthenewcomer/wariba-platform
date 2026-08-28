@@ -1,4 +1,7 @@
-import type { CanonicalReasonCode } from '@wariba/policies';
+// Type-only, and from the subpath: this module reaches a client bundle via
+// `@wariba/application/presentation`, where the policies barrel pulls in
+// `node:crypto`.
+import type { CanonicalReasonCode } from '@wariba/policies/reason-codes';
 
 /**
  * Phase 3.4.4 §48 — one server-side answer to "what should this trader do

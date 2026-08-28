@@ -1,8 +1,20 @@
+/*
+ * The subpath, not the barrel.
+ *
+ * `@wariba/policies`' main entry re-exports `hash.ts`, which imports
+ * `node:crypto`. This module is re-exported from
+ * `@wariba/application/presentation` and therefore ends up in a client
+ * bundle — where reaching through the barrel fails the build on
+ * `Module not found: node:crypto`, exactly the way importing the
+ * application barrel drags in `pg`.
+ *
+ * `reason-codes.ts` itself is constants and a lookup, with no imports at all.
+ */
 import {
   CANONICAL_REASON_CODES,
   resolveCanonicalReasonCode,
   type CanonicalReasonCode,
-} from '@wariba/policies';
+} from '@wariba/policies/reason-codes';
 
 /**
  * Phase 3.4.4 §15/§55/§68 — the one place a canonical reason code becomes
