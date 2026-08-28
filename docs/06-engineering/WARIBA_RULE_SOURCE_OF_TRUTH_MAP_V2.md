@@ -42,31 +42,31 @@ Ils restent des preuves historiques des comptes V1.
 
 ## 3. Carte règle → source actuelle → source V2 → consommateurs
 
-| Règle | Source d’exécution actuelle | Source V2 normative | Consommateurs réels audités | État après 3.4.3A |
-|---|---|---|---|---|
-| Sélection policy publiée | `packages/database/src/policy.ts` + `app.policy_versions` | version exacte acceptée puis épinglée | activation, Risk, Performance, Control | ID/hash exacts; Performance liée explicitement, jamais par latest global |
-| Policy du compte | `app.trading_accounts.policy_version_id` + trigger de pin | ID, hashes et provenance immuables | Risk, daily finalization, Hub, Control | `READY`; repin et mutation publiée/référencée refusés en DB |
-| Programmes | types/DB acceptent ONE, FLEX, INSTANT et la phase | famille/phase du Canonical Contract V2 | loader, commerce, provisioning, Control | `READY`; V1 reste historique et épinglée |
-| Catalogue/prix | `app.products`, `app.product_versions`, `canonical-offers.ts` | 3 familles × 5 tailles et prix §2 | backend catalogue et commande future | 15/15 présents; achat et activation V2 restent `false` |
-| Catalogue vs gates paid | `app.offer_capability_gates` séparé du catalogue | catalogue distinct de l’acquisition | backend catalogue | `READY`; aucune UI publique changée |
-| Consentement | semver historique + FK/hashes exacts | preuve exacte acceptée | checkout/commerce | idempotence concurrente V1/V2 vérifiée |
-| Objectif/daily/ML/Best Day | schémas V1/V2, policy attachée, Risk générique | paramètres V2 du compte | Risk, snapshot, lifecycle | exécutable; frontières exactes et priorité breach > soft lock > pass testées |
-| Finalisation EOD | snapshots financiers, éligibles et ajustés risque | modèle V2 payout-neutral | worker, Risk, evidence | projection persistée; replay V1 vert |
-| Profit ≥60 s | fill serveur + projection programme | règle V2 commune | Risk, Performance Days, payout | frontière 60 000 ms et pertes testées sur 5 000 seeds |
-| Performance Days/Best Day payout | policy attachée + schedule explicite | buffers/splits/caps V2 | payout/lifecycle backend | exécutable; non-réutilisation d’un jour et permanence du buffer prouvées |
-| Payout | ledger + projections triple + reconciliation | débit autorisé non-breach | Risk, payout, reconciliation | `READY`; seule l’écriture payout est neutralisée pour daily/ML |
-| Leverage | `app.margin_profiles` + policy V2 par asset group | FX/METALS/INDICES/ENERGY | moteur marge backend | profils successeurs validés 20/15/10 |
-| Marge/exposition | `margin-exposure.ts` + profil versionné | marge 20/15/10; brut 3× ONE/FLEX, 2× INSTANT | `v2-pre-trade.ts` appelé par Market et pending create/modify/trigger | `CLOSED`; abs notionals, frontière exacte, fail-closed conversion et concurrence testés |
-| News | versions/events + permission matrix | Eval libre; Performance T−2/T+2 | `v2-pre-trade.ts` appelé par `trading.ts` | câblé; refus `NEWS_EXPOSURE_INCREASE_BLOCKED` prouvé; source réelle absente |
-| Weekend/session | versions/closures + permission matrix | fermeture ≥2 h, cutoff 30 min | `v2-pre-trade.ts` appelé par `trading.ts` | câblé; absence de source = refus d’augmentation, jamais de sanction |
-| Reason codes | `packages/policies/src/reason-codes.ts` | inventaire Canonical Contract V2 §10 | Risk, payout, Order Gateway | registre unique; vocabulaires historiques mappés, jamais renommés |
-| Automatisation | aucun connecteur EA/bot/API public | `unsupported` pendant pilote | WariX/API/Help | doit être explicite partout; absence ≠ fraude |
-| Copy trading | aucune liaison automatique; décision V1 deferred | automatisé indisponible, manuel propre permis | Hub, Integrity, Help | owner graph/allocation future |
-| KYC | flags sandbox sur `trading_accounts`; `performance.ts`/payout eligibility | lifecycle KYC séparé déclenché à `financially_eligible` | Hub, payout, Control | provider et state machine réels absents |
-| Rails payout | provider sandbox + copy pays non canonique | capabilities pays/rail; Wave HOLD | payout, Hub, Checkout/Help | aucun registre pays/versionné |
-| Contestation | tables/moteur Support + Contestations | fenêtre 30 j sous validation légale | Hub, Support, Control | workflow existe; SLA/texte V2 à propager |
-| Vérité publique | `offer-configuration.ts`, `help-policy-facts.ts`, pages publiques | facts dérivés du contrat/policy attachée ou courante | site, Checkout, Help | plusieurs hardcodes V1; loaders divergents |
-| Control | `control-policies.ts`, `control-accounts.ts`, `control-payout-review.ts` | lecture des versions V2 et preuves | opérateurs | types backend étendus; aucune refonte UI |
+| Règle | Source d’exécution actuelle | Source V2 normative | Consommateurs réels audités | État après 3.4.3A | Propagation 3.4.4 |
+|---|---|---|---|---|---|
+| Sélection policy publiée | `packages/database/src/policy.ts` + `app.policy_versions` | version exacte acceptée puis épinglée | activation, Risk, Performance, Control | ID/hash exacts; Performance liée explicitement, jamais par latest global | inchangé |
+| Policy du compte | `app.trading_accounts.policy_version_id` + trigger de pin | ID, hashes et provenance immuables | Risk, daily finalization, Hub, Control | `READY`; repin et mutation publiée/référencée refusés en DB | `PROPAGÉ` — `account-policy-view.ts` projette la version épinglée; Hub, règles et Control la lisent |
+| Programmes | types/DB acceptent ONE, FLEX, INSTANT et la phase | famille/phase du Canonical Contract V2 | loader, commerce, provisioning, Control | `READY`; V1 reste historique et épinglée | `PROPAGÉ` — `product_family` remonte dans `accounts-list`; Hub, WariX et Control nomment la famille |
+| Catalogue/prix | `app.products`, `app.product_versions`, `canonical-offers.ts` | 3 familles × 5 tailles et prix §2 | backend catalogue et commande future | 15/15 présents; achat et activation V2 restent `false` | hors périmètre 3.4.4 (commerce = 3.4.5) |
+| Catalogue vs gates paid | `app.offer_capability_gates` séparé du catalogue | catalogue distinct de l’acquisition | backend catalogue | `READY`; aucune UI publique changée | hors périmètre 3.4.4 |
+| Consentement | semver historique + FK/hashes exacts | preuve exacte acceptée | checkout/commerce | idempotence concurrente V1/V2 vérifiée | inchangé |
+| Objectif/daily/ML/Best Day | schémas V1/V2, policy attachée, Risk générique | paramètres V2 du compte | Risk, snapshot, lifecycle | exécutable; frontières exactes et priorité breach > soft lock > pass testées | `PROPAGÉ` — `account-policy-rules.ts`; V1 10/3/10/50 et V2 8/3/8/35 prouvés dans un même build |
+| Finalisation EOD | snapshots financiers, éligibles et ajustés risque | modèle V2 payout-neutral | worker, Risk, evidence | projection persistée; replay V1 vert | inchangé |
+| Profit ≥60 s | fill serveur + projection programme | règle V2 commune | Risk, Performance Days, payout | frontière 60 000 ms et pertes testées sur 5 000 seeds | `DÉJÀ VISIBLE` — `TradesPanel`/`PartialCloseSheet` (Phase 3.3); vérifié, non modifié |
+| Performance Days/Best Day payout | policy attachée + schedule explicite | buffers/splits/caps V2 | payout/lifecycle backend | exécutable; non-réutilisation d’un jour et permanence du buffer prouvées | `PARTIEL` — vocabulaire §36 propagé; compteurs et cycles non re-vérifiés cette phase |
+| Payout | ledger + projections triple + reconciliation | débit autorisé non-breach | Risk, payout, reconciliation | `READY`; seule l’écriture payout est neutralisée pour daily/ML | `PARTIEL` — copie et blocages propagés; paliers/plafonds non re-vérifiés |
+| Leverage | `app.margin_profiles` + policy V2 par asset group | FX/METALS/INDICES/ENERGY | moteur marge backend | profils successeurs validés 20/15/10 | `PROPAGÉ` — projeté par `account-policy-view.limits` depuis `margin_profiles` |
+| Marge/exposition | `margin-exposure.ts` + profil versionné | marge 20/15/10; brut 3× ONE/FLEX, 2× INSTANT | `v2-pre-trade.ts` appelé par Market et pending create/modify/trigger | `CLOSED`; abs notionals, frontière exacte, fail-closed conversion et concurrence testés | `PROPAGÉ` — plafonds côté read model, usage live sur `accountRisk` WariX |
+| News | versions/events + permission matrix | Eval libre; Performance T−2/T+2 | `v2-pre-trade.ts` appelé par `trading.ts` | câblé; refus `NEWS_EXPOSURE_INCREASE_BLOCKED` prouvé; source réelle absente | `PROPAGÉ (honnêteté)` — capability déclarée sur la page des règles; aucun événement simulé |
+| Weekend/session | versions/closures + permission matrix | fermeture ≥2 h, cutoff 30 min | `v2-pre-trade.ts` appelé par `trading.ts` | câblé; absence de source = refus d’augmentation, jamais de sanction | `PROPAGÉ (honnêteté)` — idem news |
+| Reason codes | `packages/policies/src/reason-codes.ts` | inventaire Canonical Contract V2 §10 | Risk, payout, Order Gateway | registre unique; vocabulaires historiques mappés, jamais renommés | `PROPAGÉ` — `reason-code-copy.ts`; WariX consomme le registre au lieu d’une seconde table |
+| Automatisation | aucun connecteur EA/bot/API public | `unsupported` pendant pilote | WariX/API/Help | doit être explicite partout; absence ≠ fraude | non traité |
+| Copy trading | aucune liaison automatique; décision V1 deferred | automatisé indisponible, manuel propre permis | Hub, Integrity, Help | owner graph/allocation future | non traité |
+| KYC | flags sandbox sur `trading_accounts`; `performance.ts`/payout eligibility | lifecycle KYC séparé déclenché à `financially_eligible` | Hub, payout, Control | provider et state machine réels absents | `PARTIEL` — `nextAction` distingue éligibilité financière et identité; provider toujours absent |
+| Rails payout | provider sandbox + copy pays non canonique | capabilities pays/rail; Wave HOLD | payout, Hub, Checkout/Help | aucun registre pays/versionné | non traité; aucun rail nommé nulle part (vérifié par test) |
+| Contestation | tables/moteur Support + Contestations | fenêtre 30 j sous validation légale | Hub, Support, Control | workflow existe; SLA/texte V2 à propager | non traité |
+| Vérité publique | `offer-configuration.ts`, `help-policy-facts.ts`, pages publiques | facts dérivés du contrat/policy attachée ou courante | site, Checkout, Help | plusieurs hardcodes V1; loaders divergents | hors périmètre 3.4.4 — hardcodes V1 publics **confirmés et non corrigés** (voir clôture §Contradictions) |
+| Control | `control-policies.ts`, `control-accounts.ts`, `control-payout-review.ts` | lecture des versions V2 et preuves | opérateurs | types backend étendus; aucune refonte UI | `PROPAGÉ` — famille/phase, décision de gouvernance et paramètres attachés rendus |
 
 ## 4. Carte des tables et migrations actuelles
 

@@ -63,6 +63,22 @@ serveur correspondants.
 | Vague 7 — read model catalogue backend | `FOUNDATION_READY` | catalogue complet distinct des gates |
 | Vagues 7–12 — realtime/UI/public/pilote | `DEFERRED` | aucun fichier WariX, Hub ou site public changé |
 
+### État de propagation après Phase 3.4.4
+
+La ligne « Vagues 7–12 — `DEFERRED` » ci-dessus décrivait l’état à la clôture de
+3.4.3 et reste vraie pour cette date. Elle est remplacée, pour les vagues 7 et 8
+seulement, par le tableau suivant.
+
+| Bloc | Statut | Preuve principale |
+|---|---|---|
+| Vague 7 — realtime DTO | `PROPAGATED` | `accountRisk.grossExposure` et `accountRisk.margin` calculés dans la session temps réel, aux mêmes prix que l’equity affichée à côté; échec fermé sur conversion manquante |
+| Vague 7 — Hub read models | `PROPAGATED` | `account-policy-view.ts` accepte les trois familles et les deux phases; `account-next-action.ts`; `flex-activation.ts`; V1/V2 projetés côte à côte dans un même build |
+| Vague 8 — WariX | `PROPAGATED` | famille produit lue depuis `product_family`; refus V2 traduits via le registre canonique; exposition et marge dans le détail du risque |
+| Vague 8 — Trader Hub | `PARTIAL` | page de règles ouverte à tout compte; activation FLEX visible des deux côtés du handoff; vocabulaire réserve/journées propagé. Compteurs de cycle, paliers de payout et écrans WARIBA Review non re-vérifiés cette phase |
+| Vague 8 — Control | `PROPAGATED` | famille/phase, décision de gouvernance et paramètres réellement attachés rendus depuis la version épinglée |
+| Vague 9 — site public/Help/checkout | `DEFERRED` | aucun fichier public changé; les chiffres V1 publics restent en place et sont documentés comme contradiction ouverte |
+| Vagues 10–12 — fixtures E2E, observabilité, pilote | `DEFERRED` | Docker indisponible dans la session de clôture : DB, RLS, intégration et E2E non exécutés |
+
 ## 3. P0 après Phase 3.4.2
 
 ### P0-1 — Policy immuable et consentement exact
