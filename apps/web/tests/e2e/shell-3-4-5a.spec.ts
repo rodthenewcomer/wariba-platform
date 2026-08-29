@@ -83,6 +83,33 @@ test.describe('Coque de marque globale', { tag: ['@shell'] }, () => {
       await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1),
     ).toBe(false);
 
+    /*
+     * No overflow is not the same as nothing hidden.
+     *
+     * The first version passed `320_OVERFLOW = no` while the fixed dock sat on
+     * top of the INSTANT card — technically no scroll width, functionally an
+     * occluded destination. So the contract is the stronger one: scrolled to
+     * the end, no link may straddle the dock's top edge.
+     */
+    const scroller = drawer.locator('> div').nth(1);
+    await scroller.evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+    });
+    await page.waitForTimeout(400);
+
+    const dock = await drawer.locator('> div').last().boundingBox();
+    expect(dock).not.toBeNull();
+
+    for (const link of await drawer.locator('a').all()) {
+      const item = await link.boundingBox();
+      if (!item) continue;
+      const straddles = item.y < dock!.y && item.y + item.height > dock!.y + 1;
+      expect(
+        straddles,
+        `${(await link.textContent())?.trim()} ne doit pas passer sous le dock`,
+      ).toBe(false);
+    }
+
     await page.keyboard.press('Escape');
     await expect(drawer).toHaveCount(0);
     await expect(open).toBeFocused();
@@ -120,5 +147,29 @@ test.describe('Coque de marque globale', { tag: ['@shell'] }, () => {
     }
 
     await assertAccessible(page, 'pied de page');
+  });
+
+  test('la barre d’achat se retire quand le pied de page arrive @mobile', async ({ page }) => {
+    /*
+     * Two fixed systems that do not know about each other end up on top of one
+     * another, and the loser here was the simulated-trading disclosure — the
+     * one paragraph on the site that may never be covered. The shell publishes
+     * `data-wariba-footer` and the bar reads it.
+     */
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/offres');
+
+    const paybar = page.getByTestId('commerce-paybar');
+    await expect(paybar).toBeVisible();
+
+    await page.locator('footer').scrollIntoViewIfNeeded();
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.dataset.waribaFooter))
+      .toBe('visible');
+    await expect(paybar).toBeHidden();
+
+    /* And it comes back: retiring is a state, not a one-way trip. */
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(paybar).toBeVisible();
   });
 });
