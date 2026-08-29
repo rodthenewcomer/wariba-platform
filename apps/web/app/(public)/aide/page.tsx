@@ -70,7 +70,7 @@ export default async function HelpPage() {
             <Link
               href={helpArticleHref(pinned)}
               data-testid="help-pinned"
-              className="flex flex-col gap-3 rounded-[var(--wariba-radius-2xl)] border border-[color:var(--wariba-color-cobalt-700)] bg-[color:var(--wariba-color-ink-900)] p-6 transition-colors hover:border-[color:var(--wariba-color-cobalt-300)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-color-cobalt-300)] motion-reduce:transition-none sm:p-8"
+              className="flex flex-col gap-3 rounded-[var(--wariba-radius-2xl)] border border-[color:var(--commerce-accent-edge)] bg-[color:var(--wariba-color-ink-900)] p-6 transition-colors hover:border-[color:var(--wariba-color-cobalt-300)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-color-cobalt-300)] motion-reduce:transition-none sm:p-8"
             >
               <span className="text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase tracking-[var(--wariba-letter-spacing-wide)] text-[color:var(--wariba-color-cobalt-300)]">
                 À lire en premier
@@ -116,13 +116,13 @@ export default async function HelpPage() {
         </div>
       </section>
 
-      <section data-theme="light" className="bg-[color:var(--wariba-color-bone-100)]">
+      <section data-theme="light" className="bg-[color:var(--wariba-color-ink-880)]">
         <div className="mx-auto flex max-w-[var(--wariba-size-marketing-container-max)] flex-col items-start gap-5 px-4 py-16 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:py-20">
           <div>
-            <h2 className="text-[length:var(--wariba-font-size-heading-lg)] font-semibold text-[color:var(--wariba-color-ink-950)]">
+            <h2 className="text-[length:var(--wariba-font-size-heading-lg)] font-semibold text-[color:var(--wariba-color-ink-50)]">
               Vous ne trouvez pas votre réponse ?
             </h2>
-            <p className="mt-2 max-w-[60ch] text-[color:var(--wariba-color-ink-600)]">
+            <p className="mt-2 max-w-[60ch] text-[color:var(--wariba-color-ink-300)]">
               Pour tout ce qui touche à votre compte, à une commande ou à une décision, l’équipe
               WARIBA prend le relais. Votre demande est suivie sous une référence.
             </p>
