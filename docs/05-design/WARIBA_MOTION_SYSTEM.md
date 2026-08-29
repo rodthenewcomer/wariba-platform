@@ -61,3 +61,11 @@ Motion state must be local to the visual component and independent of `TickStore
 - no animation frame or React render in tick-independent components;
 - no client bundle regression without explicit measured acceptance;
 - sheet stays within safe area and reaches final state after rapid reversal.
+
+## Vocabulaire de la coque publique — 3.4.5A
+
+Les durées ci-dessus restent canoniques. La coque publique les expose sous cinq noms de rôle —
+`micro`, `state`, `panel`, `enter`, `ambient` — pour qu'un composant demande « un panneau » plutôt
+que de se souvenir de 240 ms.
+
+Voir [`WARIBA_GLOBAL_BRAND_SHELL_V1.md`](./WARIBA_GLOBAL_BRAND_SHELL_V1.md) §3.

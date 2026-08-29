@@ -91,3 +91,15 @@ Public/Marketing, Authentication, onboarding/activation and selected Trader Port
 - remain subordinate to content, task and authoritative state.
 
 This allowance does not permit a dominant generic gradient or a separate theme system. WARIBA Control remains restrained and evidence-first. Legal/Trust remains free of decorative interference. A future PX0 audit must tune visual energy by product expression instead of applying the WariX workstation skin to every route.
+
+## Coque de marque globale — 3.4.5A
+
+Les surfaces publiques consomment désormais des tokens de rôle déclarés au `:root`
+(`--wariba-canvas-*`, `--wariba-surface-*`, `--wariba-brand-*`, `--wariba-seam`,
+`--wariba-glow-*`). Ils ne remplacent aucune famille décrite ci-dessus : ils leur donnent un nom
+que le composant peut demander, au lieu de le faire choisir parmi neuf `surface-*`.
+
+Une correction est portée par cette phase : `ink-500` ne passe pas AA en corps de texte sur fond
+sombre — 2,66:1 sur un module. Le rôle « discret » vaut `ink-300`.
+
+Voir [`WARIBA_GLOBAL_BRAND_SHELL_V1.md`](./WARIBA_GLOBAL_BRAND_SHELL_V1.md) §2.

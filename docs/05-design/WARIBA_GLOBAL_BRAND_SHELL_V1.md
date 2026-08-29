@@ -1,0 +1,215 @@
+# WARIBA — Coque de marque globale v1
+
+**Phase :** 3.4.5A
+**Date :** 29 août 2026
+**Portée :** la coque publique commune — tokens, primitives, en-tête, méga-menu, tiroir mobile, pied de page
+**Hors portée :** le contenu des pages (3.4.5B–N), les assets 3D finaux, l'authentifié, WariX, Control
+
+---
+
+## 1. Ce que la coque décide, une fois pour toutes
+
+Une coque de marque a une seule raison d'être : prendre les décisions ennuyeuses une fois, pour
+qu'aucune des pages qui suivent n'ait à les réinventer.
+
+Sans elle, la page d'accueil invente un rythme vertical, `/offres` en invente un autre, et à la
+quatrième page le site a quatre systèmes d'espacement presque identiques — la façon la plus banale
+dont un produit cesse d'avoir l'air d'un produit.
+
+Ce que la coque possède :
+
+| Domaine | Source unique |
+|---|---|
+| Canevas, surfaces, coutures, liserés | `:root` dans `apps/web/app/globals.css` |
+| Cobalt de marque, halos, lumière ambiante | idem |
+| Rôles typographiques | `.wariba-display` · `.wariba-section-title` · `.wariba-lead` · `.wariba-eyebrow` · `.wariba-figure` |
+| Actions | `.wariba-cta-primary` · `.wariba-cta-secondary` · `.wariba-cta-tertiary` |
+| Focus | `.wariba-focus-ring`, déclaré une fois |
+| Rythme de section | `<PublicSection>` |
+| Scènes | `<StrongColorSurface>` · `<DarkProductSurface>` · `<VisualCard>` |
+| Icônes | `packages/ui/src/icons/shell-icons.tsx` |
+| Navigation | `packages/ui/src/layouts/public-nav.ts` |
+
+---
+
+## 2. Tokens
+
+### 2.1 L'échelle de matière
+
+Quatre niveaux, parce qu'un produit sombre avec un seul noir est une page avec des bordures
+dessinées dessus.
+
+```
+--wariba-canvas-deep      ink-975   le sol
+--wariba-canvas-base      ink-960   la page
+--wariba-canvas-elevated  ink-920   la chrome qui flotte au-dessus
+--wariba-surface-1        ink-880   un panneau
+--wariba-surface-2        ink-790   un puits interactif dedans
+--wariba-surface-3        ink-780   ce puits, survolé
+--wariba-surface-overlay            verre, pour ce qui flotte
+```
+
+### 2.2 Le cobalt
+
+```
+--wariba-brand-300  cobalt-300  un lien
+--wariba-brand-400  cobalt-400  parle sur fond sombre, focus
+--wariba-brand-500  cobalt-500  remplit
+--wariba-brand-600/700          la profondeur d'une surface pleine
+--wariba-brand-wash             12 % — un champ à poser du contenu dessus
+--wariba-brand-edge             42 % — une bordure porteuse de sens
+```
+
+**Le budget de saturation reste la règle :** une seule surface cobalt pleine par section. La
+hiérarchie vient du plein contre le contour, jamais de la taille.
+
+### 2.3 Lumière
+
+Le sombre ne se sculpte pas à l'ombre portée — elle ne se voit pas. Il se sculpte au liseré.
+
+```
+--wariba-seam / --wariba-seam-strong    coutures mélangées, jamais un gris opaque
+--wariba-inner-highlight                1px blanc à 6 % sur l'arête haute
+--wariba-glow-primary / --wariba-glow-soft
+--wariba-ambient-cobalt                 le champ ambiant, une fois par composition
+```
+
+`.wariba-ambient` pose ce champ **et** `position: relative`. Pour un élément déjà positionné,
+utiliser `.wariba-ambient-field`, qui ne peint que la lumière — voir §6.2.
+
+### 2.4 Texte sur sombre
+
+```
+--wariba-on-dark        ink-50   pas #FFF, qui vibre sur du quasi-noir
+--wariba-on-dark-muted  ink-200
+--wariba-on-dark-dim    ink-300  et non ink-500 : voir §6.1
+```
+
+---
+
+## 3. Mouvement
+
+Cinq catégories, nommées pour ce qu'elles portent plutôt que pour leur durée.
+
+| Catégorie | Token | Emploi |
+|---|---|---|
+| `micro` | `--wariba-motion-micro` (120 ms) | survol, pression, onglet, lien |
+| `state` | `--wariba-motion-state` (180 ms) | changement d'état, popover |
+| `panel` | `--wariba-motion-panel` (240 ms) | méga-menu, tiroir |
+| `enter` | `--wariba-motion-enter` (450 ms) | arrivée de section |
+| `ambient` | `--wariba-motion-ambient` (9 s) | lumière lente, réflexion |
+
+`prefers-reduced-motion: reduce` coupe les boucles, les translations et les animations de panneau.
+Le panneau reste : le menu doit continuer à se comprendre, il arrive simplement au lieu de bouger.
+
+---
+
+## 4. Navigation publique
+
+### 4.1 Les six destinations
+
+Déclarées une fois dans `public-nav.ts`, consommées par l'en-tête, le tiroir et le pied de page.
+
+| Libellé | Destination | Pourquoi celle-là |
+|---|---|---|
+| Parcours | méga-menu | ONE · FLEX · INSTANT + comparer + comment ça marche |
+| WariX | `/warix` | — |
+| Comment ça marche | `/programme` | — |
+| Règles | `/aide/risque-regles` | il n'existe pas de route `/regles` publique |
+| Payouts | `/aide/payouts` | il n'existe pas de route `/payouts` publique |
+| Aide | `/aide` | — |
+
+**Écart assumé.** Le brief propose `Règles` et `Payouts` en destinations de premier niveau et
+interdit par ailleurs les liens morts. Les deux n'existent aujourd'hui que derrière
+authentification (`/comptes/[id]/regles`, `/(platform)/payouts`). La réponse publique aux deux
+questions est le centre d'aide, qui a une catégorie pour chacune et lit ses chiffres depuis la
+politique publiée. Les libellés restent, les cibles sont réelles.
+
+### 4.2 Le pied de page a quatre colonnes, pas cinq
+
+Le brief propose une colonne `Société`. WARIBA n'a aujourd'hui aucune route d'entreprise publique,
+et la phase interdit d'inventer des pages « à propos » ou « équipe » pour la remplir. Quatre
+colonnes honnêtes se lisent comme de la maturité ; cinq dont une fabriquée se lisent comme un
+gabarit.
+
+### 4.3 Contrat d'interaction du méga-menu
+
+- ouverture au clic **et** au survol avec intention (120 ms), fermeture avec grâce (180 ms) ;
+- déclencheur = `<button aria-expanded aria-controls>`, jamais un `div` avec un `mouseenter` ;
+- `Échap` ferme **et rend le focus au déclencheur** ;
+- clic extérieur ferme ; un changement de route ferme.
+
+### 4.4 Le tiroir mobile est une scène
+
+Colonne en trois parties : en-tête fixe, milieu défilant, actions fixes. Piège de focus, `Échap`,
+verrou de défilement, focus rendu au déclencheur. Le voile est retiré de l'arbre d'accessibilité
+(§6.3).
+
+---
+
+## 5. Primitives pour les phases B–N
+
+```tsx
+<PublicSection tone="canvas|band|deep|ambient" space="tight|default|loose">
+<SectionHeader eyebrow title lead align />
+<StrongColorSurface tone="brand|deep" media />   // le champ de couleur saturé
+<DarkProductSurface media flip />                // la surface où un produit se montre
+<VisualCard variant="panel|accent|quiet" interactive />
+```
+
+Aucune n'encode de contenu. `StrongColorSurface tone="brand"` dépense le budget de saturation de la
+page : au plus une par page.
+
+### Contrat d'accroche visuelle
+
+Chaque route livrée en B–N doit pouvoir répondre :
+
+```
+Route :
+Accroche visuelle principale :
+Sections majeures :
+Élément fort par section :
+Type de composition :
+Adaptation mobile :
+```
+
+Une section sans réponse n'est pas finie.
+
+---
+
+## 6. Trois pièges rencontrés, et ce qu'ils coûtent
+
+### 6.1 `ink-500` ne passe pas AA
+
+`#555E6E` à 12 px mesure **2,66:1** sur un module et 3,0:1 sur le canevas. C'était la teinte de tous
+les sur-titres et libellés discrets du système : la seule couleur utilisée pour « discret » était la
+seule qu'un lecteur malvoyant ne pouvait pas lire. `--wariba-on-dark-dim` vaut `ink-300` (6,4:1).
+Discret doit rester lisible, sinon c'est juste invisible.
+
+### 6.2 Une classe non-layerée écrase Tailwind
+
+`globals.css` n'est pas dans un `@layer`, alors que les utilitaires Tailwind le sont. Une règle
+non-layerée **gagne** contre un utilitaire, quel que soit l'ordre du source.
+
+`.wariba-ambient { position: relative }` a donc silencieusement transformé le tiroir mobile —
+`absolute inset-0` dans un conteneur `fixed inset-0` — en élément `relative` : il est sorti de la
+boîte à hauteur d'écran, a pris la hauteur de son contenu, et a poussé son action principale 19 px
+sous le bas de l'écran. D'où `.wariba-ambient-field`, qui ne peint que la lumière.
+
+**Toute classe de ce fichier qui ressemble à un utilitaire porte le même risque.**
+
+### 6.3 Deux contrôles, un seul nom
+
+Le voile du tiroir était un `<button aria-label="Fermer le menu">`, exactement comme la croix. Le
+panneau annonçait donc deux contrôles de nom identique. Le voile est maintenant `aria-hidden` et
+hors du parcours de tabulation : le clic extérieur ferme toujours, et les chemins accessibles —
+`Échap` et la croix — sont sans ambiguïté.
+
+---
+
+## 7. Documents liés
+
+- [`WARIBA_COLOR_AND_SEMANTIC_SYSTEM.md`](./WARIBA_COLOR_AND_SEMANTIC_SYSTEM.md) — familles et sens sémantiques
+- [`WARIBA_MOTION_SYSTEM.md`](./WARIBA_MOTION_SYSTEM.md) — durées et courbes canoniques
+- [`WARIBA_Design_System_v1.0.md`](./WARIBA_Design_System_v1.0.md) — le système de composants
+- [`../04-ux/references/phase-3-4-5R/README.md`](../04-ux/references/phase-3-4-5R/README.md) — l'analyse des références concurrentes
