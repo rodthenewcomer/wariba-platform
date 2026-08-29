@@ -34,20 +34,31 @@ Ce que la coque possède :
 
 ## 2. Tokens
 
-### 2.1 L'échelle de matière
+### 2.1 L'échelle de matière — carbone, pas encre
 
-Quatre niveaux, parce qu'un produit sombre avec un seul noir est une page avec des bordures
-dessinées dessus.
+**Noir d'abord, cobalt ensuite.** C'est la loi la plus importante du système.
+
+La rampe `ink` est décalée vers le bleu de façon systématique — `ink-790` vaut R28 G35 B51, soit
+vingt-trois points de bleu au-dessus du rouge. C'est juste là où elle vit : WariX et le Hub sont
+navy-graphite par choix. Mais la coque publique en avait hérité, et le résultat se lisait *navy* —
+ce qui annule discrètement l'accent. Du cobalt sur du noir bleuté, c'est un bleu parmi deux. Du
+cobalt sur du vrai noir, c'est la seule couleur de l'écran.
 
 ```
---wariba-canvas-deep      ink-975   le sol
---wariba-canvas-base      ink-960   la page
---wariba-canvas-elevated  ink-920   la chrome qui flotte au-dessus
---wariba-surface-1        ink-880   un panneau
---wariba-surface-2        ink-790   un puits interactif dedans
---wariba-surface-3        ink-780   ce puits, survolé
---wariba-surface-overlay            verre, pour ce qui flotte
+--wariba-canvas-deep      carbon-980  #070708   le sol
+--wariba-canvas-base      carbon-960  #0A0A0B   la page
+--wariba-canvas-elevated  carbon-940  #0D0D0F   la chrome
+--wariba-surface-1        carbon-900  #111214   un panneau
+--wariba-surface-2        carbon-850  #151619   un puits interactif
+--wariba-surface-3        carbon-800  #191A1E   ce puits, survolé
+--wariba-surface-overlay                        verre, pour ce qui flotte
 ```
+
+`carbon` porte un à cinq points de bleu : assez pour ne pas virer au gris plat, beaucoup trop peu
+pour teinter une page. Le contraste entre niveaux vient de la **luminance**, pas de la teinte.
+
+Test : masquez le logo, le CTA, les textes. La première réaction doit être « noir profond », pas
+« bleu nuit ».
 
 ### 2.2 Le cobalt
 
@@ -76,6 +87,11 @@ Le sombre ne se sculpte pas à l'ombre portée — elle ne se voit pas. Il se sc
 
 `.wariba-ambient` pose ce champ **et** `position: relative`. Pour un élément déjà positionné,
 utiliser `.wariba-ambient-field`, qui ne peint que la lumière — voir §6.2.
+
+**La lumière est locale.** Le champ ambiant est un seul bloom de 40 rem à 20 %, ancré hors du coin
+haut. Il valait auparavant deux radiales de 68 rem à 34 % et 30 % : un champ bleu de la taille de la
+page déguisé en dégradé. Les halos appartiennent aux objets — derrière une plaque, sous un CTA,
+dans un onglet actif — jamais à la page entière.
 
 ### 2.4 Texte sur sombre
 
@@ -204,6 +220,62 @@ Le voile du tiroir était un `<button aria-label="Fermer le menu">`, exactement 
 panneau annonçait donc deux contrôles de nom identique. Le voile est maintenant `aria-hidden` et
 hors du parcours de tabulation : le clic extérieur ferme toujours, et les chemins accessibles —
 `Échap` et la croix — sont sans ambiguïté.
+
+---
+
+## 6bis. Coexistence des surfaces fixes — 3.4.5A.1 §19
+
+Deux systèmes fixes qui s'ignorent finissent l'un sur l'autre. Ici, le perdant était la divulgation
+de trading simulé : la barre d'achat mobile s'affichait par-dessus.
+
+La barre appartient au commerce, le pied de page à la coque : aucun des deux ne peut porter la
+correction. La coque, si. `FixedUiCoordinator` publie la position du lecteur sur l'élément racine :
+
+```css
+[data-wariba-footer='visible'] .commerce-mobile-paybar { … }
+```
+
+Chaque surface flottante décide alors de son comportement. La règle retenue : **la barre se retire
+quand le pied de page arrive.** Des trois issues possibles — masquer la barre, rembourrer le pied de
+page, réduire la barre — seule la première améliore aussi la page : une barre d'achat sert pendant
+qu'on choisit, et arrivé à la bande légale on a fini de choisir.
+
+Contrat de test :
+
+```
+CONTENT_OCCLUDED_BY_FIXED_UI = 0
+FOOTER_OCCLUDED_BY_STICKY_COMMERCE = 0
+```
+
+`overflow: none` ne suffit pas : le tiroir passait ce test tout en cachant la carte INSTANT sous son
+dock. Le critère est plus fort — défilement en fin de course, aucun élément ne chevauche l'arête
+haute du dock.
+
+---
+
+## 6ter. La loi de langue
+
+> **Si une phrase ressemble à du jargon produit, à une traduction de l'anglais, ou à quelque chose
+> qu'un trader francophone ne dirait jamais, elle ne sort pas en production.**
+
+Cinq tests, sur chaque phrase importante :
+
+1. un francophone dirait-il réellement cette phrase ?
+2. est-ce compris en moins de trois secondes ?
+3. vend-elle un bénéfice, ou récite-t-elle la structure du produit ?
+4. semble-t-elle traduite ?
+5. peut-on retirer 20 à 30 % des mots sans perdre le sens ?
+
+Ce que cette passe a corrigé :
+
+| Avant | Après | Pourquoi |
+|---|---|---|
+| `15 offres · trois parcours · cinq tailles` | `Trois parcours · cinq tailles de compte` | Personne ne cherche une entreprise à quinze SKU |
+| `Un paiement, une preuve` | `Une évaluation. Une seule étape.` | Une formule n'informe pas |
+| `Entrez léger, payez après` | `Commencez avec moins.` | Ce n'est pas du français prononcé |
+| `Performance immédiate` | `Pas d'évaluation.` | Se lisait comme une promesse de rendement |
+| `Le bon parcours commence par une règle comprise.` | `Choisissez comment vous voulez commencer.` | Un slogan qui a besoin d'être expliqué a échoué |
+| `Comparer les 15 offres` | `Comparer les parcours` | Le nombre de références n'est pas une proposition de valeur |
 
 ---
 
