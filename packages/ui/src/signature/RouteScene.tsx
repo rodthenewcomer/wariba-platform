@@ -48,7 +48,7 @@ export function RouteScene({ family, variant = 'banner', className }: RouteScene
       role="img"
       aria-label={LABEL[family]}
       preserveAspectRatio="xMidYMid slice"
-      className={cx('block', banner ? 'h-[104px] w-full' : 'size-16 shrink-0', className)}
+      className={cx('block', banner ? 'h-[118px] w-full' : 'size-16 shrink-0', className)}
     >
       <defs>
         <radialGradient id={`${id}-bloom`} cx="50%" cy="50%" r="50%">

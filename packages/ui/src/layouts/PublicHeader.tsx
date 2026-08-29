@@ -210,8 +210,8 @@ export function PublicHeader({ LinkComponent: Link, currentPath }: PublicHeaderP
         onPointerLeave={closeWithGrace}
         className="wariba-megamenu hidden border-t border-[color:var(--wariba-seam)] lg:block"
       >
-        <div className="mx-auto max-w-[var(--wariba-shell-max)] px-[var(--wariba-shell-gutter)] py-8">
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,2.5fr)_minmax(0,1fr)]">
+        <div className="mx-auto max-w-[var(--wariba-shell-max)] px-[var(--wariba-shell-gutter)] py-6">
+          <div className="grid items-stretch gap-4 lg:grid-cols-[minmax(0,2.5fr)_minmax(0,1fr)]">
             <ul className="grid gap-4 sm:grid-cols-3">
               {NAV_FAMILIES.map((family) => (
                 <li key={family.href}>
@@ -223,7 +223,7 @@ export function PublicHeader({ LinkComponent: Link, currentPath }: PublicHeaderP
                         third of the surface, so the family is recognised
                         before a word is read. */}
                     <RouteScene family={family.family} />
-                    <span className="flex flex-1 flex-col p-4">
+                    <span className="flex flex-1 flex-col p-4 pb-5">
                       <span className="flex items-center gap-2 text-base font-semibold text-[color:var(--wariba-on-dark)]">
                         {family.label}
                         <ArrowRightIcon
@@ -248,20 +248,29 @@ export function PublicHeader({ LinkComponent: Link, currentPath }: PublicHeaderP
                 petite scène : les trois parcours convergent vers une seule
                 sortie, ce qui dit « ils mènent au même endroit » sans avoir à
                 l'écrire. */}
-            <div className="flex flex-col justify-between gap-5 rounded-[var(--wariba-radius-xl)] border border-[color:var(--wariba-seam)] bg-[color:var(--wariba-canvas-deep)] p-5">
+            <div className="flex flex-col justify-between gap-3 rounded-[var(--wariba-radius-xl)] border border-[color:var(--wariba-seam)] bg-[color:var(--wariba-canvas-deep)] p-5">
               <div>
                 <p className="text-base font-semibold text-[color:var(--wariba-on-dark)]">
                   Vous hésitez ?
                 </p>
+                {/*
+                 * Ce bloc affirmait « les trois mènent au même compte
+                 * Performance, ce qui change c'est quand vous payez ». C'est
+                 * faux : sur une taille 10K, cinq des six règles diffèrent —
+                 * objectif 8/4/aucun, quotidien 3/3/2, perte maximale 8/6/5,
+                 * meilleure journée 35/35/30, réserve 2/3/3, exposition 3/3/2×.
+                 * Le moment du paiement n'est qu'une différence parmi
+                 * plusieurs, et une généralisation fausse dans un menu est une
+                 * promesse que le configurateur contredit deux clics plus loin.
+                 */}
                 <p className="mt-1.5 text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-on-dark-dim)]">
-                  Les trois mènent au même compte Performance. Ce qui change, c’est quand vous
-                  payez.
+                  Comparez les parcours et choisissez celui qui vous convient.
                 </p>
               </div>
 
               <ConvergenceScene />
 
-              <ul className="flex flex-col gap-1">
+              <ul className="flex flex-col">
                 {NAV_PARCOURS_LINKS.map((link) => (
                   <li key={link.label}>
                     <Link
@@ -300,7 +309,7 @@ export function PublicHeader({ LinkComponent: Link, currentPath }: PublicHeaderP
  */
 function ConvergenceScene() {
   return (
-    <svg viewBox="0 0 220 90" aria-hidden="true" className="w-full">
+    <svg viewBox="0 0 220 90" aria-hidden="true" className="max-h-[84px] w-full">
       <defs>
         <linearGradient id="wcs-line" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stopColor="#5C7FFF" stopOpacity="0.15" />

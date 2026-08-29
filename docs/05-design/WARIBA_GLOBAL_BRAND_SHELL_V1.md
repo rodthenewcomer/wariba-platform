@@ -279,6 +279,33 @@ Ce que cette passe a corrigé :
 
 ---
 
+## 6quater. Le filtre d'exactitude
+
+La loi de langue a quatre filtres, pas trois. Aux tests de naturalité, de clarté et de marketing
+s'ajoute celui qui a manqué en A.1 :
+
+> **Est-ce rigoureusement vrai pour ONE, FLEX *et* INSTANT ?**
+
+Deux phrases avaient passé les trois premiers filtres et échouaient au quatrième : « les trois
+mènent au même compte Performance, ce qui change c'est quand vous payez » et « les règles sont les
+mêmes pour toutes ». Sur une taille 10K, cinq des six règles diffèrent — objectif 8/4/aucun,
+quotidien 3/3/2, perte maximale 8/6/5, meilleure journée 35/35/30, réserve 2/3/3, exposition
+3/3/2×.
+
+Une phrase élégante et fausse est pire qu'une phrase plate : le configurateur la dément deux clics
+plus loin, et c'est la crédibilité de tout le reste qui part avec.
+
+**Toute phrase qui généralise une règle produit est interdite tant qu'elle n'a pas été vérifiée
+contre les trois familles.**
+
+### Note pour 3.4.5E
+
+Le mini-FLEX du méga-menu reste abstrait : sans son libellé, la courbe ne dit pas encore
+« paiement initial → réussite → activation ». Le véritable **FLEX Bridge** devra représenter cette
+séquence explicitement.
+
+---
+
 ## 7. Documents liés
 
 - [`WARIBA_COLOR_AND_SEMANTIC_SYSTEM.md`](./WARIBA_COLOR_AND_SEMANTIC_SYSTEM.md) — familles et sens sémantiques

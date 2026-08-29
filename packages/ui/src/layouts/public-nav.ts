@@ -43,9 +43,14 @@ export interface FamilyLink extends NavLink {
  * Et « Performance immédiate » se lit comme une promesse de résultat — alors
  * que « Performance » désigne ici une phase du produit, pas un rendement.
  *
+ * La correction de FLEX a demandé un second tour. « Commencez avec moins » est
+ * naturel mais ambigu : moins de capital ? un compte plus petit ? moins de
+ * risque ? La proposition est financière et rien d'autre — le premier paiement
+ * est plus faible — donc la phrase le dit : « Payez moins au départ. »
+ *
  * Le test appliqué à chaque ligne : est-ce qu'un trader francophone dirait
- * réellement cette phrase, et est-ce qu'il comprend en moins de trois secondes
- * ce qu'on lui propose ? Sinon on réécrit.
+ * réellement cette phrase, est-ce qu'il comprend en moins de trois secondes, et
+ * est-ce que c'est exact pour ce produit-là ? Sinon on réécrit.
  */
 export const NAV_FAMILIES: readonly FamilyLink[] = [
   {
@@ -59,15 +64,15 @@ export const NAV_FAMILIES: readonly FamilyLink[] = [
     family: 'flex',
     href: '/challenges/flex',
     label: 'FLEX',
-    tagline: 'Commencez avec moins.',
-    description: 'Payez le reste seulement si vous réussissez.',
+    tagline: 'Payez moins au départ.',
+    description: 'Le reste seulement si vous réussissez.',
   },
   {
     family: 'instant',
     href: '/challenges/instant',
     label: 'INSTANT',
     tagline: 'Pas d’évaluation.',
-    description: 'Vous démarrez directement sur Performance.',
+    description: 'Commencez directement sur Performance.',
   },
 ];
 

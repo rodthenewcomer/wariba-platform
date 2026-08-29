@@ -37,11 +37,18 @@ export function PublicFooter({ LinkComponent: Link }: PublicFooterProps) {
       <div className="border-b border-[color:var(--wariba-seam)]">
         <div className="mx-auto flex max-w-[var(--wariba-shell-max)] flex-col gap-6 px-[var(--wariba-shell-gutter)] py-12 sm:flex-row sm:items-center sm:justify-between">
           <div>
+            {/*
+             * La seconde ligne disait « les règles sont les mêmes pour
+             * toutes ». Faux : objectif, limite quotidienne, perte maximale,
+             * meilleure journée, réserve et exposition diffèrent tous les trois.
+             * Une phrase de pied de page qui généralise une règle produit est
+             * une phrase que la page suivante dément.
+             */}
             <p className="text-2xl font-semibold tracking-[-0.03em] text-[color:var(--wariba-on-dark)] sm:text-3xl">
-              Choisissez comment vous voulez commencer.
+              Quel parcours vous convient ?
             </p>
             <p className="mt-2 max-w-xl text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-on-dark-dim)]">
-              Trois façons d’accéder à un compte Performance. Les règles sont les mêmes pour toutes.
+              Comparez ONE, FLEX et INSTANT avant de commencer.
             </p>
           </div>
           <Link href="/offres" className="wariba-cta-primary shrink-0">

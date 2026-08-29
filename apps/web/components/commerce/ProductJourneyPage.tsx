@@ -18,10 +18,17 @@ const FAMILY_TOKEN = {
   WARIBA_INSTANT: 'instant',
 } as const;
 
-/** Each family owns a promise, said in four words, in its own voice. */
+/**
+ * Each family owns a promise, said in four words, in its own voice.
+ *
+ * FLEX gets the longer, warmer version here that the mega-menu cannot afford:
+ * a product page has the room to say the whole proposition, and «⁠payez moins
+ * au départ⁠» alone reads as a discount rather than as a deferred second
+ * payment. In the menu, precision wins; on the page, the sequence does.
+ */
 const FAMILY_PROMISE = {
   WARIBA_ONE: 'Une évaluation. Une seule étape.',
-  WARIBA_FLEX: 'Commencez avec moins.',
+  WARIBA_FLEX: 'Commencez maintenant. Payez le reste après votre réussite.',
   WARIBA_INSTANT: 'Pas d’évaluation.',
 } as const;
 
