@@ -14,16 +14,25 @@ test.describe('Page d’accueil', { tag: ['@home'] }, () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/');
 
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Passez sur Performance');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText(
+      'Tradez avec des règles claires',
+    );
 
     /* The named scenes. Their absence would mean a section quietly became
        "headline + paragraph + border" again. */
-    /* Two of them: the hero's compact version and the full one in the
-       dashboard section. `.first()` rather than a second test id — they are
-       the same component, and giving one a different name to satisfy strict
-       mode would hide that. */
-    await expect(page.getByTestId('performance-showcase').first()).toBeVisible();
-    await expect(page.getByTestId('performance-showcase')).toHaveCount(2);
+    /*
+     * One, not two.
+     *
+     * The hero used to carry a copy of the dashboard; 3.4.5B.1 replaced it with
+     * the Market Field, because WariX has its own section further down and a
+     * product mockup in the hero spends that moment early. The dashboard now
+     * appears once, where it is the subject.
+     */
+    await expect(page.getByTestId('performance-showcase')).toHaveCount(1);
+    await expect(page.getByTestId('performance-showcase')).toBeVisible();
+
+    /* And the hero carries the atmosphere instead. */
+    await expect(page.locator('.wariba-market-field')).toHaveCount(1);
     await expect(page.getByTestId('home-configurator')).toBeVisible();
     await expect(page.getByRole('img', { name: /perte maximale/i })).toBeVisible();
     await expect(page.getByRole('img', { name: /WariX/ })).toBeVisible();
@@ -77,6 +86,9 @@ test.describe('Page d’accueil', { tag: ['@home'] }, () => {
     ).toBe(false);
 
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Commencer' }).first()).toBeVisible();
+    /* The hero's own CTA, not the header's — at 320 the header CTA is
+       correctly hidden, and asserting on it would pass only while a cascade
+       bug was leaking it onto a phone. */
+    await expect(page.getByRole('link', { name: 'Choisir mon parcours' })).toBeVisible();
   });
 });

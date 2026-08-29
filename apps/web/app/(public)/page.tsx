@@ -10,6 +10,7 @@ import {
   ShieldCheckIcon,
 } from '@wariba/ui';
 import { PerformanceShowcase } from '../../components/marketing/PerformanceShowcase';
+import { WaribaMarketField } from '../../components/marketing/scenes/WaribaMarketField';
 import { HomeConfigurator } from '../../components/marketing/HomeConfigurator';
 import { OneTargetReactor } from '../../components/marketing/scenes/OneTargetReactor';
 import { InstantPortal } from '../../components/marketing/scenes/InstantPortal';
@@ -62,41 +63,69 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* ───────────────  1 · Héros produit  ─────────────── */}
-      <section className="wariba-ambient relative overflow-hidden">
-        <div className="mx-auto grid max-w-[var(--wariba-shell-max)] items-center gap-12 px-[var(--wariba-shell-gutter)] pb-20 pt-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.02fr)] lg:gap-16 lg:pb-28 lg:pt-20">
-          {/* `min-w-0`: a grid item defaults to `min-width: auto` and refuses to
-              shrink below its content, so the display headline pushed this
-              column 24px past the gutter at 390 and 320. The `minmax(0,…)` on
-              the desktop template already says this; the single-column mobile
-              case had nothing saying it. */}
-          <div className="min-w-0">
+      {/* ───────────────  1 · Héros  ───────────────
+          La promesse WARIBA, pas le produit. WariX a sa propre section plus
+          bas : y montrer un terminal ici dépenserait ce moment en avance et
+          laisserait la section produit sans rien de neuf à révéler. Le visuel
+          du héros est donc une atmosphère — le Market Field — et le texte
+          garde la priorité visuelle. */}
+      <section className="relative isolate overflow-hidden">
+        <WaribaMarketField />
+
+        <div className="mx-auto max-w-[var(--wariba-shell-max)] px-[var(--wariba-shell-gutter)] pb-24 pt-16 lg:pb-36 lg:pt-28">
+          <div className="min-w-0 max-w-[46rem]">
             <p className="wariba-eyebrow">Trading simulé</p>
-            <h1 className="wariba-display mt-6">Tradez. Progressez. Passez sur Performance.</h1>
-            <p className="wariba-lead mt-6">
-              Choisissez votre parcours, respectez vos limites, et gardez une part de ce que vous
-              gagnez. Tout se passe sur WariX, dans un environnement entièrement simulé.
-            </p>
 
-            <div className="mt-9 flex flex-wrap gap-3">
-              <Link href="/offres" className="wariba-cta-primary">
-                Commencer
-                <ArrowRightIcon size="sm" />
-              </Link>
-              <Link href="/warix" className="wariba-cta-secondary">
-                Découvrir WariX
-              </Link>
+            {/*
+             * Deux propositions, deux bénéfices : la clarté puis le suivi.
+             *
+             * L'ancienne version disait « Tradez. Progressez. Passez sur
+             * Performance. » — trois verbes dont le dernier est faux pour
+             * INSTANT, qui ne « passe » pas après une évaluation puisqu'il
+             * n'en a pas. Une promesse qui n'est vraie que pour deux parcours
+             * sur trois n'a rien à faire dans un H1.
+             */}
+            <h1 className="wariba-hero-title mt-6">
+              Tradez avec des règles claires.
+              <span className="block text-[color:var(--wariba-on-dark-muted)]">
+                Progressez sans perdre le fil.
+              </span>
+            </h1>
+
+            {/* Le filet : il sépare la promesse de l'explication sans ajouter
+                un mot, et donne à la composition un point d'appui autre que
+                l'alignement à gauche. */}
+            <span
+              aria-hidden="true"
+              className="mt-9 block h-px w-24 bg-[linear-gradient(90deg,var(--wariba-brand-400),transparent)]"
+            />
+
+            <div className="lg:pl-8">
+              <p className="wariba-lead mt-8 max-w-[36rem]">
+                ONE, FLEX ou INSTANT : choisissez votre façon de commencer. Vos limites et votre
+                progression restent visibles en permanence.
+              </p>
+
+              <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <Link href="/offres" className="wariba-cta-primary">
+                  Choisir mon parcours
+                  <ArrowRightIcon size="sm" />
+                </Link>
+                <Link href="/programme" className="wariba-cta-secondary">
+                  Voir comment ça marche
+                </Link>
+              </div>
+
+              {/* La divulgation vit sous les CTA, séparée du titre : elle est
+                  une information, pas un argument. */}
+              <p className="mt-7 max-w-md text-sm leading-relaxed text-[color:var(--wariba-on-dark-dim)]">
+                Trading entièrement simulé. Aucun dépôt ni capital réel ne vous est confié.
+              </p>
+              <p className="mt-2 text-sm text-[color:var(--wariba-on-dark-dim)]">
+                Les achats ne sont pas encore ouverts.
+              </p>
             </div>
-
-            <p className="mt-6 text-sm text-[color:var(--wariba-on-dark-dim)]">
-              Les achats ne sont pas encore ouverts. Les parcours et les règles sont déjà
-              consultables.
-            </p>
           </div>
-
-          <Reveal delay={0.08}>
-            <PerformanceShowcase />
-          </Reveal>
         </div>
       </section>
 
