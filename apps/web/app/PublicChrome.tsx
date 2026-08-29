@@ -1,6 +1,6 @@
 'use client';
 
-import { PublicFooter, PublicHeader } from '@wariba/ui';
+import { FixedUiCoordinator, PublicFooter, PublicHeader } from '@wariba/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -33,7 +33,7 @@ export function PublicChrome({ children }: { children: ReactNode }) {
       data-wariba-section="public"
       data-wariba-theme="marketing"
       data-theme="dark"
-      className="flex min-h-dvh flex-col bg-[color:var(--wariba-color-ink-975)]"
+      className="flex min-h-dvh flex-col bg-[color:var(--wariba-canvas-deep)]"
     >
       {/*
        * The skip link — 3.4.5A §32.
@@ -47,6 +47,7 @@ export function PublicChrome({ children }: { children: ReactNode }) {
       <a href="#contenu" className="wariba-skip-link">
         Aller au contenu
       </a>
+      <FixedUiCoordinator />
       <PublicHeader LinkComponent={Link} currentPath={pathname} />
       <main id="contenu" className="flex-1">
         {children}

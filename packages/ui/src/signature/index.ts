@@ -8,6 +8,8 @@
  */
 export { AccountToken } from './AccountToken';
 export { RouteGlyph } from './RouteGlyph';
+export { RouteScene } from './RouteScene';
+export type { RouteSceneFamily, RouteSceneProps } from './RouteScene';
 export type { RouteGlyphFamily, RouteGlyphProps } from './RouteGlyph';
 export type { AccountTokenFamily, AccountTokenProps } from './AccountToken';
 export { RiskCorridor } from './RiskCorridor';

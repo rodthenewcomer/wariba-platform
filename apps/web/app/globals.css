@@ -282,17 +282,35 @@
      Four levels, because a dark product with one black is a page with borders
      drawn on it. `deep` is the floor a page sits on, `base` is the page,
      `elevated` is the chrome that floats over it. */
-  --wariba-canvas-deep: var(--wariba-color-ink-975);
-  --wariba-canvas-base: var(--wariba-color-ink-960);
-  --wariba-canvas-elevated: var(--wariba-color-ink-920);
+  /*
+   * Carbon, not ink. This is the whole point of 3.4.5A.1.
+   *
+   * The `ink` ramp is systematically blue-shifted — `ink-790` is R28 G35 B51,
+   * twenty-three points of blue over red — and it is right where it lives:
+   * WariX and the Hub are navy-graphite by design. The public shell inherited
+   * it, and the result read *navy*, which quietly cancels the accent. Cobalt on
+   * blue-black is one blue among two; cobalt on true black is the only colour
+   * on the screen.
+   *
+   * Every reference the owner supplied works this way — ForTraders ≈ R10 G10
+   * B10, FundingRock ≈ R14 G14 B14 — canvas neutral, brand colour the event.
+   *
+   * `carbon` carries one to five points of blue: enough not to read as flat
+   * grey, far too little to tint a page. WariX and the Hub keep `ink`.
+   */
+  --wariba-canvas-deep: var(--wariba-color-carbon-980);
+  --wariba-canvas-base: var(--wariba-color-carbon-960);
+  --wariba-canvas-elevated: var(--wariba-color-carbon-940);
 
   /* ── Surfaces ────────────────────────────────────────────────────────────
      What content actually sits on. 1 is a panel, 2 an interactive well inside
      it, 3 the hovered state of that well; overlay is for anything floating. */
-  --wariba-surface-1: var(--wariba-color-ink-880);
-  --wariba-surface-2: var(--wariba-color-ink-790);
-  --wariba-surface-3: var(--wariba-color-ink-780);
-  --wariba-surface-overlay: color-mix(in srgb, var(--wariba-color-ink-960) 88%, transparent);
+  /* Contrast between levels now comes from luminance, not hue — which is what
+     makes a dark system read as expensive rather than as tinted. */
+  --wariba-surface-1: var(--wariba-color-carbon-900);
+  --wariba-surface-2: var(--wariba-color-carbon-850);
+  --wariba-surface-3: var(--wariba-color-carbon-800);
+  --wariba-surface-overlay: color-mix(in srgb, var(--wariba-color-carbon-960) 90%, transparent);
 
   /* ── Brand ───────────────────────────────────────────────────────────────
      Cobalt is the signature. 500 fills, 400 speaks on dark, 300 is a link,
@@ -309,8 +327,8 @@
      Dark surfaces are not separated by shadow — it is invisible. They are
      separated by a mixed seam and a 1px highlight along the top edge, which
      is most of what makes a panel read as manufactured rather than drawn. */
-  --wariba-seam: color-mix(in srgb, var(--wariba-color-ink-700) 74%, transparent);
-  --wariba-seam-strong: color-mix(in srgb, var(--wariba-color-ink-650) 88%, transparent);
+  --wariba-seam: color-mix(in srgb, var(--wariba-color-carbon-700) 88%, transparent);
+  --wariba-seam-strong: color-mix(in srgb, var(--wariba-color-carbon-600) 82%, transparent);
   --wariba-inner-highlight: rgb(255 255 255 / 6%);
   --wariba-inner-highlight-strong: rgb(255 255 255 / 10%);
   --wariba-rim-primary: 0 0 0 1px var(--wariba-brand-edge);
@@ -321,17 +339,20 @@
      glows at rest has spent the budget on nothing. */
   --wariba-glow-primary: 0 18px 48px -18px rgb(49 87 245 / 55%);
   --wariba-glow-soft: 0 10px 30px -14px rgb(49 87 245 / 40%);
-  --wariba-ambient-cobalt:
-    radial-gradient(
-      68rem 40rem at 78% -12%,
-      color-mix(in srgb, var(--wariba-color-cobalt-700) 34%, transparent),
-      transparent 62%
-    ),
-    radial-gradient(
-      52rem 34rem at 4% 8%,
-      color-mix(in srgb, var(--wariba-color-cobalt-900) 30%, transparent),
-      transparent 58%
-    );
+  /*
+   * One light, localised — not a wash.
+   *
+   * This was two 68rem radials at 34 % and 30 %: a page-sized blue field
+   * wearing a gradient's clothes, which is precisely the "énorme radial cobalt
+   * derrière toute la page" the amendment rules out. It is now a single tighter
+   * bloom at 20 %, anchored off the top corner. Enough to say the page is lit;
+   * not enough to recolour it.
+   */
+  --wariba-ambient-cobalt: radial-gradient(
+    40rem 24rem at 86% -16%,
+    color-mix(in srgb, var(--wariba-color-cobalt-600) 20%, transparent),
+    transparent 66%
+  );
 
   /* ── Type on dark ────────────────────────────────────────────────────────
      ink-50 rather than pure white, which vibrates on near-black. `dim` is
@@ -428,6 +449,36 @@
 }
 
 /*
+ * The header's seam, once it is elevated.
+ *
+ * A one-pixel line that is brand-coloured in the middle and gone at both ends.
+ * It is the smallest possible signature: at rest the header is a black bar
+ * with links on it, and this is what says whose black bar it is — without
+ * adding a gradient, an object, or anything that moves.
+ */
+.wariba-header-lit {
+  position: relative;
+}
+
+.wariba-header-lit::after {
+  position: absolute;
+  content: '';
+  inset-inline: 0;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--wariba-brand-edge) 26%,
+    var(--wariba-brand-400) 50%,
+    var(--wariba-brand-edge) 74%,
+    transparent
+  );
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/*
  * The skip link.
  *
  * Off-screen rather than `display: none`, so it stays in the tab order, and it
@@ -496,19 +547,40 @@
     transform var(--wariba-motion-duration-instant) var(--wariba-motion-ease-exit);
 }
 
+/*
+ * The primary CTA is the most repeated object in the brand, so it earns depth.
+ *
+ * A flat fill reads as a button; a lit one reads as a manufactured control.
+ * Three layers do it: a vertical gradient so the top catches light, a bright
+ * inner highlight along the top edge, and a hairline of the darker brand at
+ * the bottom so the pill has a body rather than an outline. On true black this
+ * is now the single most saturated thing on the page — which is the point.
+ */
 .wariba-cta-primary {
   border: 1px solid transparent;
-  background: var(--wariba-brand-500);
+  background: linear-gradient(
+    180deg,
+    var(--wariba-brand-400) 0%,
+    var(--wariba-brand-500) 52%,
+    var(--wariba-brand-600) 100%
+  );
   color: #fff;
   box-shadow:
-    inset 0 1px 0 var(--wariba-inner-highlight-strong),
+    inset 0 1px 0 rgb(255 255 255 / 30%),
+    inset 0 -1px 0 rgb(0 0 0 / 22%),
     var(--wariba-glow-soft);
 }
 
 .wariba-cta-primary:not(:disabled):hover {
-  background: var(--wariba-brand-400);
+  background: linear-gradient(
+    180deg,
+    var(--wariba-brand-300) 0%,
+    var(--wariba-brand-400) 52%,
+    var(--wariba-brand-500) 100%
+  );
   box-shadow:
-    inset 0 1px 0 var(--wariba-inner-highlight-strong),
+    inset 0 1px 0 rgb(255 255 255 / 38%),
+    inset 0 -1px 0 rgb(0 0 0 / 22%),
     var(--wariba-glow-primary);
 }
 
@@ -727,31 +799,62 @@
 }
 
 /*
- * The footer's brand scene.
+ * The footer's brand scene — elevated in 3.4.5A.1 §15.
  *
- * A cobalt horizon rising from the bottom edge, with the wordmark sitting in
- * it at 14% opacity. The gradient is the whole effect — one paint, no image,
- * no element that has to load before the footer can render. The wordmark is
- * `aria-hidden`: it is a texture, and a screen reader announcing "WARIBA" a
- * fourth time at the end of every page is noise.
+ * The v1 was a cobalt radial and the wordmark, and it was already the best part
+ * of the shell. This adds roughly the ten to fifteen percent of depth the owner
+ * asked for, and nothing more:
+ *
+ *   a data field   two repeating-linear-gradients at 3.5 % — a trading product
+ *                  should feel like it has a grid under it, and this one costs
+ *                  no element and no request;
+ *   a horizon      two stacked radials instead of one, a tight bright core
+ *                  inside a wide dim bloom, which is what a light source
+ *                  actually looks like;
+ *   a far object   a single faint ring low and left, the most distant possible
+ *                  hint of a Performance Core. Not the asset — the suggestion
+ *                  that one exists.
+ *
+ * All of it is background-image on one element. Reduced motion has nothing to
+ * disable because nothing here moves: the scene is calm on purpose, and the
+ * footer is the wrong place to start animating.
  */
 .wariba-footer-scene {
   position: relative;
   overflow: hidden;
-  padding-block: clamp(1.5rem, 5vw, 3rem);
+  padding-block: clamp(1.75rem, 6vw, 3.5rem);
   background:
     radial-gradient(
-      120% 100% at 50% 118%,
-      color-mix(in srgb, var(--wariba-brand-700) 52%, transparent),
-      transparent 62%
+      52% 62% at 50% 122%,
+      color-mix(in srgb, var(--wariba-brand-400) 30%, transparent),
+      transparent 58%
+    ),
+    radial-gradient(
+      130% 108% at 50% 128%,
+      color-mix(in srgb, var(--wariba-brand-700) 44%, transparent),
+      transparent 64%
     ),
     var(--wariba-canvas-base);
+}
+
+/* The data field. Kept behind the wordmark and faded out at the top, so it
+   reads as ground rather than as wallpaper. */
+.wariba-footer-scene::after {
+  position: absolute;
+  content: '';
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 3.5%) 0 1px, transparent 1px 56px),
+    repeating-linear-gradient(0deg, rgb(255 255 255 / 3.5%) 0 1px, transparent 1px 56px);
+  mask-image: linear-gradient(180deg, transparent, #000 46%, #000);
+  pointer-events: none;
 }
 
 /* A hairline of brand along the top of the scene: the horizon needs an edge or
    it reads as a smudge. */
 .wariba-footer-scene::before {
   position: absolute;
+  z-index: 1;
   content: '';
   inset-inline: 0;
   top: 0;
@@ -1014,7 +1117,7 @@
 
 .commerce-secondary-action {
   border: 1px solid var(--commerce-rule-strong);
-  background: color-mix(in srgb, var(--wariba-color-ink-880) 70%, transparent);
+  background: color-mix(in srgb, var(--wariba-surface-1) 70%, transparent);
   color: var(--commerce-text);
 }
 
@@ -1320,7 +1423,7 @@
       color-mix(in srgb, var(--wariba-color-cobalt-900) 26%, transparent),
       transparent 44%
     ),
-    var(--wariba-color-ink-920);
+    var(--wariba-canvas-elevated);
 }
 
 .commerce-stat {
@@ -1361,7 +1464,7 @@
    section, used to sink a band below the canvas for contrast. */
 .commerce-performance-island {
   border-block: 1px solid var(--commerce-rule);
-  background: var(--wariba-color-ink-975);
+  background: var(--wariba-canvas-deep);
 }
 
 .commerce-dark-stat {
@@ -1393,7 +1496,7 @@
   z-index: var(--wariba-z-sticky);
   border: 1px solid var(--commerce-rule);
   border-radius: var(--wariba-radius-2xl);
-  background: var(--wariba-color-ink-920);
+  background: var(--wariba-canvas-elevated);
   padding: 1.25rem;
   box-shadow:
     inset 0 1px 0 var(--commerce-rim),
@@ -1418,11 +1521,47 @@
   justify-content: space-between;
   gap: 1rem;
   border-top: 1px solid var(--commerce-rule-strong);
-  background: color-mix(in srgb, var(--wariba-color-ink-960) 88%, transparent);
+  background: color-mix(in srgb, var(--wariba-canvas-base) 88%, transparent);
   padding: 0.75rem max(1.25rem, env(safe-area-inset-right))
     calc(0.75rem + env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left));
   box-shadow: 0 -18px 44px rgb(0 0 0 / 55%);
   backdrop-filter: blur(16px) saturate(140%);
+}
+
+/*
+ * Fixed-UI coordination — 3.4.5A.1 §19.
+ *
+ * The purchase bar retires when the footer arrives. `FixedUiCoordinator`
+ * publishes `data-wariba-footer` on the document element; every floating
+ * surface reads it here rather than each one growing its own observer.
+ *
+ * `visibility` as well as `transform`, so the bar is not merely off-screen but
+ * out of the tab order — a control a keyboard reader can still reach after it
+ * has visually left is worse than one that never moved.
+ */
+[data-wariba-footer='visible'] .commerce-mobile-paybar {
+  transform: translateY(115%);
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.commerce-mobile-paybar {
+  transition:
+    transform var(--wariba-motion-panel) var(--wariba-motion-ease-exit),
+    visibility 0s linear var(--wariba-motion-panel);
+}
+
+[data-wariba-footer='away'] .commerce-mobile-paybar {
+  transition:
+    transform var(--wariba-motion-panel) var(--wariba-motion-ease-enter),
+    visibility 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .commerce-mobile-paybar,
+  [data-wariba-footer='away'] .commerce-mobile-paybar {
+    transition: none;
+  }
 }
 
 /*

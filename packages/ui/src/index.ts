@@ -63,6 +63,7 @@ export * from './signature';
 // Layouts — Design System §26 / Prompt 02 scope
 export * from './layouts/PublicHeader';
 export * from './layouts/PublicMobileMenu';
+export * from './layouts/FixedUiCoordinator';
 export * from './layouts/public-nav';
 export * from './layouts/PublicFooter';
 export * from './layouts/PlatformSidebar';

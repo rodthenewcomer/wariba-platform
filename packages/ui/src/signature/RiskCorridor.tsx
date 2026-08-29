@@ -126,7 +126,7 @@ export function RiskCorridor({
         {/* The marker. */}
         <span
           aria-hidden="true"
-          className="absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[color:var(--wariba-color-ink-975)]"
+          className="absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[color:var(--wariba-canvas-deep)]"
           style={{
             left: `${position}%`,
             background: MARKER_TONE[tone],

@@ -30,36 +30,56 @@ export interface FamilyLink extends NavLink {
   tagline: string;
 }
 
-/** The three product families, in the order they are meant to be considered. */
+/**
+ * The three product families, in the order they are meant to be considered.
+ *
+ * ## La règle de langue, appliquée ici
+ *
+ * La première version disait « Un paiement, une preuve », « Entrez léger,
+ * payez après » et « Performance immédiate ». Trois problèmes, un par ligne.
+ *
+ * « Un paiement, une preuve » n'explique rien : c'est une formule, pas une
+ * information. « Entrez léger » n'est pas du français que quelqu'un prononce.
+ * Et « Performance immédiate » se lit comme une promesse de résultat — alors
+ * que « Performance » désigne ici une phase du produit, pas un rendement.
+ *
+ * Le test appliqué à chaque ligne : est-ce qu'un trader francophone dirait
+ * réellement cette phrase, et est-ce qu'il comprend en moins de trois secondes
+ * ce qu'on lui propose ? Sinon on réécrit.
+ */
 export const NAV_FAMILIES: readonly FamilyLink[] = [
   {
     family: 'one',
     href: '/challenges/one',
     label: 'ONE',
-    tagline: 'Un paiement, une preuve',
-    description: 'Une évaluation exigeante, puis le compte Performance. Aucun frais d’activation.',
+    tagline: 'Une évaluation. Une seule étape.',
+    description: 'Réussissez l’objectif, puis passez sur Performance.',
   },
   {
     family: 'flex',
     href: '/challenges/flex',
     label: 'FLEX',
-    tagline: 'Entrez léger, payez après',
-    description:
-      'Une entrée réduite. Le montant d’activation est figé à l’achat et dû seulement si vous réussissez.',
+    tagline: 'Commencez avec moins.',
+    description: 'Payez le reste seulement si vous réussissez.',
   },
   {
     family: 'instant',
     href: '/challenges/instant',
     label: 'INSTANT',
-    tagline: 'Performance immédiate',
-    description:
-      'Aucune évaluation. Vous commencez en Performance, avec des limites plus resserrées.',
+    tagline: 'Pas d’évaluation.',
+    description: 'Vous démarrez directement sur Performance.',
   },
 ];
 
-/** Secondary destinations inside the `Parcours` menu. */
+/**
+ * Secondary destinations inside the `Parcours` menu.
+ *
+ * « Comparer les 15 offres » est sorti : le nombre de références au catalogue
+ * n'est pas une proposition de valeur. Personne ne se lève en voulant une
+ * entreprise qui a quinze SKU.
+ */
 export const NAV_PARCOURS_LINKS: readonly NavLink[] = [
-  { href: '/offres', label: 'Comparer les 15 offres' },
+  { href: '/offres', label: 'Comparer les parcours' },
   { href: '/programme', label: 'Comment ça marche' },
 ];
 

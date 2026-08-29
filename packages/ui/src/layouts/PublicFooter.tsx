@@ -38,10 +38,10 @@ export function PublicFooter({ LinkComponent: Link }: PublicFooterProps) {
         <div className="mx-auto flex max-w-[var(--wariba-shell-max)] flex-col gap-6 px-[var(--wariba-shell-gutter)] py-12 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-2xl font-semibold tracking-[-0.03em] text-[color:var(--wariba-on-dark)] sm:text-3xl">
-              Quinze offres. Trois parcours. Aucune règle cachée.
+              Choisissez comment vous voulez commencer.
             </p>
             <p className="mt-2 max-w-xl text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-on-dark-dim)]">
-              Comparez les parcours et lisez les règles avant de choisir.
+              Trois façons d’accéder à un compte Performance. Les règles sont les mêmes pour toutes.
             </p>
           </div>
           <Link href="/offres" className="wariba-cta-primary shrink-0">
@@ -82,10 +82,22 @@ export function PublicFooter({ LinkComponent: Link }: PublicFooterProps) {
           Le mot-symbole occupe la largeur, posé sur un horizon cobalt. C'est
           la dernière chose que la page dit ; elle doit dire WARIBA. */}
       <div className="wariba-footer-scene">
-        <div className="mx-auto max-w-[var(--wariba-shell-max)] px-[var(--wariba-shell-gutter)]">
+        <div className="relative z-[2] mx-auto max-w-[var(--wariba-shell-max)] px-[var(--wariba-shell-gutter)]">
+          {/* The most distant possible Performance Core: one ring, low, off to
+              the left, at 6 % opacity. Enough to suggest that WARIBA has
+              objects; far too faint to be one. */}
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 200 200"
+            className="pointer-events-none absolute -left-6 bottom-0 h-[150%] w-auto opacity-[0.07] sm:left-2"
+          >
+            <circle cx="100" cy="100" r="92" fill="none" stroke="#5C7FFF" strokeWidth="1.5" />
+            <circle cx="100" cy="100" r="64" fill="none" stroke="#5C7FFF" strokeWidth="1.5" />
+            <circle cx="100" cy="100" r="34" fill="none" stroke="#5C7FFF" strokeWidth="2" />
+          </svg>
           <p
             aria-hidden="true"
-            className="select-none text-center font-bold leading-[0.82] tracking-[-0.06em] text-[color:var(--wariba-on-dark)] opacity-[0.14]"
+            className="relative select-none text-center font-bold leading-[0.82] tracking-[-0.06em] text-[color:var(--wariba-on-dark)] opacity-[0.16]"
             style={{ fontSize: 'clamp(4rem, 19vw, 15rem)' }}
           >
             WARIBA

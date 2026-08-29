@@ -46,10 +46,10 @@ export function PayoutLadder({ steps, caption, className }: PayoutLadderProps) {
                 className={cx(
                   'relative flex flex-col justify-end rounded-t-[var(--wariba-radius-lg)] border border-b-0 px-1 pb-3 pt-3 text-center transition-colors sm:px-2',
                   step.state === 'current'
-                    ? 'border-[color:var(--commerce-accent-edge)] bg-[color:var(--wariba-color-ink-790)] shadow-[inset_0_1px_0_rgb(255_255_255/0.12),0_-12px_36px_-18px_rgb(49_87_245/0.8)]'
+                    ? 'border-[color:var(--commerce-accent-edge)] bg-[color:var(--wariba-surface-2)] shadow-[inset_0_1px_0_rgb(255_255_255/0.12),0_-12px_36px_-18px_rgb(49_87_245/0.8)]'
                     : step.state === 'done'
-                      ? 'border-[color:var(--commerce-rule)] bg-[color:var(--wariba-color-ink-880)]'
-                      : 'border-[color:var(--commerce-rule)] bg-[color:color-mix(in_srgb,var(--wariba-color-ink-880)_55%,transparent)]',
+                      ? 'border-[color:var(--commerce-rule)] bg-[color:var(--wariba-surface-1)]'
+                      : 'border-[color:var(--commerce-rule)] bg-[color:color-mix(in_srgb,var(--wariba-surface-1)_55%,transparent)]',
                 )}
                 style={{ height: `${height}%` }}
               >

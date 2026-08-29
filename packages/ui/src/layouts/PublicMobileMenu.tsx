@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { cx } from '../lib/cx';
 import type { LinkComponentType } from '../lib/link';
 import { ArrowRightIcon, ChevronRightIcon, CloseIcon } from '../icons/shell-icons';
-import { RouteGlyph } from '../signature/RouteGlyph';
+import { RouteScene } from '../signature/RouteScene';
 import { NAV_FAMILIES, NAV_PRIMARY } from './public-nav';
 
 export interface PublicMobileMenuProps {
@@ -48,7 +48,30 @@ export function PublicMobileMenu({
 }: PublicMobileMenuProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
+  const dockRef = useRef<HTMLDivElement | null>(null);
   const restoreTo = useRef<HTMLElement | null>(null);
+
+  /*
+   * The dock's real height, published to CSS.
+   *
+   * The scroll padding has to clear whatever the dock actually measures — two
+   * stacked 50px pills plus padding and the safe area — and that changes with
+   * the viewer's text size. Measuring beats a hard-coded 7.5rem that is wrong
+   * for anyone who has scaled their type up.
+   */
+  useEffect(() => {
+    if (!open) return;
+    const panel = panelRef.current;
+    const dock = dockRef.current;
+    if (!panel || !dock) return;
+
+    const publish = () => panel.style.setProperty('--wariba-drawer-dock', `${dock.offsetHeight}px`);
+    publish();
+
+    const observer = new ResizeObserver(publish);
+    observer.observe(dock);
+    return () => observer.disconnect();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -142,8 +165,15 @@ export function PublicMobileMenu({
          * shrink below its content and pushes the footer out of the panel
          * instead of scrolling. Without it the three-part drawer silently
          * degrades back into one long overflowing page.
+         *
+         * `scroll-pb-*` is the second half of the fix. The dock is a sibling,
+         * not an overlay, so nothing overlaps — but at 320px the last card
+         * could only ever reach the very bottom edge of the scrollport, right
+         * against the dock, which reads as occluded even when it is not. A
+         * scroll padding of one dock height plus the safe area means every card
+         * and every row can be brought fully clear of it.
          */}
-        <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto px-[var(--wariba-shell-gutter)] pt-2 pb-6">
+        <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto scroll-pb-[calc(var(--wariba-drawer-dock,7.5rem)+env(safe-area-inset-bottom))] px-[var(--wariba-shell-gutter)] pt-2 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
           <section aria-label="Parcours">
             <p className="text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase tracking-[0.14em] text-[color:var(--wariba-on-dark-dim)]">
               Parcours
@@ -159,7 +189,7 @@ export function PublicMobileMenu({
                     href={family.href}
                     className="wariba-focus-ring flex items-center gap-4 rounded-[var(--wariba-radius-xl)] border border-[color:var(--wariba-seam)] bg-[color:var(--wariba-surface-1)] p-4 shadow-[inset_0_1px_0_var(--wariba-inner-highlight)]"
                   >
-                    <RouteGlyph family={family.family} size={44} />
+                    <RouteScene family={family.family} variant="tile" />
                     <span className="min-w-0 flex-1">
                       <span className="block text-lg font-semibold text-[color:var(--wariba-on-dark)]">
                         {family.label}
@@ -180,7 +210,7 @@ export function PublicMobileMenu({
               href="/offres"
               className="wariba-focus-ring mt-4 inline-flex min-h-11 items-center gap-2 rounded-md text-[length:var(--wariba-font-size-body-sm)] font-semibold text-[color:var(--wariba-brand-300)]"
             >
-              Comparer les 15 offres
+              Comparer les parcours
               <ArrowRightIcon size="sm" />
             </Link>
           </section>
@@ -223,7 +253,10 @@ export function PublicMobileMenu({
          * is the shape that holds. Only the middle scrolls, so the CTA stays in
          * the thumb's reach at every scroll position and every height.
          */}
-        <div className="shrink-0 border-t border-[color:var(--wariba-seam)] bg-[color:var(--wariba-canvas-base)] px-[var(--wariba-shell-gutter)] pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <div
+          ref={dockRef}
+          className="shrink-0 border-t border-[color:var(--wariba-seam)] bg-[color:var(--wariba-canvas-base)] px-[var(--wariba-shell-gutter)] pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+        >
           <div className="flex flex-col gap-3">
             <Link href="/inscription" className="wariba-cta-primary w-full">
               Commencer
