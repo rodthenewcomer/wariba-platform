@@ -298,3 +298,29 @@ export function ProgressRing({
     </div>
   );
 }
+
+/**
+ * The `LIVE` pill (reference 32).
+ *
+ * A dot that breathes and a label that does not. It appears only where data
+ * genuinely streams — putting it on a static figure would be a claim about
+ * market activity that is not true, which is the one thing motion must never
+ * do on this product.
+ */
+export function LivePill({ label = 'EN DIRECT' }: { label?: string }) {
+  const reduced = useReducedMotion();
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-[color:var(--commerce-accent-edge)] bg-[color:var(--commerce-accent-wash)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[color:var(--wariba-color-cobalt-300)]">
+      {reduced ? (
+        <span className="size-1.5 rounded-full bg-[color:var(--wariba-color-cobalt-400)]" />
+      ) : (
+        <motion.span
+          className="size-1.5 rounded-full bg-[color:var(--wariba-color-cobalt-400)]"
+          animate={{ opacity: [1, 0.35, 1] }}
+          transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+        />
+      )}
+      {label}
+    </span>
+  );
+}

@@ -258,9 +258,1420 @@
     var(--wariba-component-workstation-ease-enter) both;
 }
 
+/*
+ * Phase 3.4.5A — the WARIBA global brand shell.
+ *
+ * ## What this layer is
+ *
+ * 3.4.5R painted the public surface dark, but it did it inside a
+ * `[data-wariba-section='public']` block: the names were `--commerce-*`, they
+ * only existed on marketing routes, and any later surface wanting the same
+ * canvas had to either re-declare them or reach for raw ramp values. That is
+ * how a design system acquires a second, unowned copy of itself.
+ *
+ * These are the same decisions, promoted to `:root` and named for their role
+ * rather than for the section that first needed them. The `--commerce-*`
+ * variables still exist below and now alias these, so nothing that already
+ * consumes them changes behaviour — the shell simply became the source.
+ *
+ * Every value resolves to an existing ramp token. No new hex enters the system
+ * here; what is new is that the roles have names a component can ask for.
+ */
+:root {
+  /* ── Canvas ──────────────────────────────────────────────────────────────
+     Four levels, because a dark product with one black is a page with borders
+     drawn on it. `deep` is the floor a page sits on, `base` is the page,
+     `elevated` is the chrome that floats over it. */
+  --wariba-canvas-deep: var(--wariba-color-ink-975);
+  --wariba-canvas-base: var(--wariba-color-ink-960);
+  --wariba-canvas-elevated: var(--wariba-color-ink-920);
+
+  /* ── Surfaces ────────────────────────────────────────────────────────────
+     What content actually sits on. 1 is a panel, 2 an interactive well inside
+     it, 3 the hovered state of that well; overlay is for anything floating. */
+  --wariba-surface-1: var(--wariba-color-ink-880);
+  --wariba-surface-2: var(--wariba-color-ink-790);
+  --wariba-surface-3: var(--wariba-color-ink-780);
+  --wariba-surface-overlay: color-mix(in srgb, var(--wariba-color-ink-960) 88%, transparent);
+
+  /* ── Brand ───────────────────────────────────────────────────────────────
+     Cobalt is the signature. 500 fills, 400 speaks on dark, 300 is a link,
+     600/700 are the depth a filled surface falls to. */
+  --wariba-brand-300: var(--wariba-color-cobalt-300);
+  --wariba-brand-400: var(--wariba-color-cobalt-400);
+  --wariba-brand-500: var(--wariba-color-cobalt-500);
+  --wariba-brand-600: var(--wariba-color-cobalt-600);
+  --wariba-brand-700: var(--wariba-color-cobalt-700);
+  --wariba-brand-wash: color-mix(in srgb, var(--wariba-color-cobalt-500) 12%, transparent);
+  --wariba-brand-edge: color-mix(in srgb, var(--wariba-color-cobalt-400) 42%, transparent);
+
+  /* ── Seams and rims ──────────────────────────────────────────────────────
+     Dark surfaces are not separated by shadow — it is invisible. They are
+     separated by a mixed seam and a 1px highlight along the top edge, which
+     is most of what makes a panel read as manufactured rather than drawn. */
+  --wariba-seam: color-mix(in srgb, var(--wariba-color-ink-700) 74%, transparent);
+  --wariba-seam-strong: color-mix(in srgb, var(--wariba-color-ink-650) 88%, transparent);
+  --wariba-inner-highlight: rgb(255 255 255 / 6%);
+  --wariba-inner-highlight-strong: rgb(255 255 255 / 10%);
+  --wariba-rim-primary: 0 0 0 1px var(--wariba-brand-edge);
+
+  /* ── Light ───────────────────────────────────────────────────────────────
+     One major ambient light per composition, and glow that means something:
+     the primary action, the selected thing, the focused thing. A card that
+     glows at rest has spent the budget on nothing. */
+  --wariba-glow-primary: 0 18px 48px -18px rgb(49 87 245 / 55%);
+  --wariba-glow-soft: 0 10px 30px -14px rgb(49 87 245 / 40%);
+  --wariba-ambient-cobalt:
+    radial-gradient(
+      68rem 40rem at 78% -12%,
+      color-mix(in srgb, var(--wariba-color-cobalt-700) 34%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      52rem 34rem at 4% 8%,
+      color-mix(in srgb, var(--wariba-color-cobalt-900) 30%, transparent),
+      transparent 58%
+    );
+
+  /* ── Type on dark ────────────────────────────────────────────────────────
+     ink-50 rather than pure white, which vibrates on near-black. `dim` is
+     ink-300 and not ink-500: the quiet tone is used for every 12px small-caps
+     label in the system, and ink-500 measures 2.66:1 there — quiet has to stay
+     legible or it is just invisible. */
+  --wariba-on-dark: var(--wariba-color-ink-50);
+  --wariba-on-dark-muted: var(--wariba-color-ink-200);
+  --wariba-on-dark-dim: var(--wariba-color-ink-300);
+
+  /* ── Shell measurements ──────────────────────────────────────────────────
+     The header height is a token because the mega-menu, the drawer and every
+     sticky rail in later phases all need to start exactly below it. */
+  --wariba-shell-header-height: 68px;
+  --wariba-shell-gutter: 1.25rem;
+  --wariba-shell-max: var(--wariba-size-marketing-container-max);
+
+  /* ── Motion vocabulary ───────────────────────────────────────────────────
+     Five categories, named for what they carry rather than for how long they
+     take, so a component asks for `panel` instead of remembering 240ms.
+     Durations reuse the canonical scale where one already existed. */
+  --wariba-motion-micro: var(--wariba-motion-duration-fast);
+  --wariba-motion-state: var(--wariba-motion-duration-default);
+  --wariba-motion-panel: var(--wariba-motion-duration-sheet);
+  --wariba-motion-enter: 450ms;
+  --wariba-motion-ambient: 9s;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --wariba-shell-gutter: 1.75rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --wariba-shell-gutter: 2.5rem;
+  }
+}
+
+/*
+ * The shell's ambient field.
+ *
+ * One gradient, no image, nothing to load. Sections that want plain canvas
+ * simply paint over it. This is the "one major ambient light per composition"
+ * rule made cheap enough that no page is tempted to invent its own.
+ */
+.wariba-ambient {
+  position: relative;
+  isolation: isolate;
+}
+
+/*
+ * The field without the positioning.
+ *
+ * `.wariba-ambient` sets `position: relative`, and because this stylesheet is
+ * un-layered while Tailwind's utilities live in `@layer utilities`, that
+ * declaration *beats* `absolute` in the cascade regardless of source order.
+ * The mobile drawer is `absolute inset-0` inside a `fixed inset-0` wrapper;
+ * adding the ambient class silently made it `relative`, so it left the
+ * viewport-sized box, grew to its content height, and pushed its own primary
+ * action 19px off the bottom of the screen.
+ *
+ * This variant paints the light and claims no position, for consumers that are
+ * already positioned. Any utility-shaped class in this file carries the same
+ * hazard: an un-layered rule outranks every Tailwind utility it collides with.
+ */
+.wariba-ambient-field {
+  isolation: isolate;
+}
+
+.wariba-ambient::before,
+.wariba-ambient-field::before {
+  position: absolute;
+  z-index: -1;
+  content: '';
+  inset: 0;
+  background: var(--wariba-ambient-cobalt);
+  pointer-events: none;
+}
+
+/*
+ * The focus ring, designed rather than tolerated.
+ *
+ * Two pixels of brand-400 held 3px off the element, so it reads as WARIBA's
+ * own mark rather than as the browser's. It is declared once, here, because
+ * the moment each component styles its own focus is the moment one of them
+ * decides the ring clashes and removes it.
+ */
+.wariba-focusable:focus-visible,
+.wariba-focus-ring:focus-visible {
+  outline: 2px solid var(--wariba-brand-400);
+  outline-offset: 3px;
+}
+
+/*
+ * The skip link.
+ *
+ * Off-screen rather than `display: none`, so it stays in the tab order, and it
+ * lands as a proper cobalt control when focused instead of a browser default
+ * on a black background.
+ */
+.wariba-skip-link {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: calc(var(--wariba-z-sticky) + 20);
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  border-radius: 9999px;
+  background: var(--wariba-brand-500);
+  padding-inline: 1.1rem;
+  color: #fff;
+  font-size: var(--wariba-font-size-body-sm);
+  font-weight: 700;
+  box-shadow: var(--wariba-glow-primary);
+  transform: translateY(-160%);
+  transition: transform var(--wariba-motion-state) var(--wariba-motion-ease-enter);
+}
+
+.wariba-skip-link:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wariba-skip-link {
+    transition: none;
+  }
+}
+
+/*
+ * The CTA system — Phase 3.4.5A §15.
+ *
+ * Three levels and no more. The primary is a filled cobalt pill and there is
+ * one per view; the secondary is elevated dark material; the tertiary is a
+ * link with an arrow. A fourth level is how a page ends up with five things
+ * competing to be pressed.
+ *
+ * White on brand-500 measures 6.4:1, so the label here is white rather than
+ * the near-black a light accent would demand. Hover intensifies light and does
+ * not move the button — a target that shifts under the cursor is a target that
+ * can be missed.
+ */
+.wariba-cta-primary,
+.wariba-cta-secondary {
+  display: inline-flex;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  padding: 0.8rem 1.5rem;
+  font-size: var(--wariba-font-size-body-sm);
+  font-weight: 700;
+  transition:
+    background-color var(--wariba-motion-micro) var(--wariba-motion-ease-standard),
+    border-color var(--wariba-motion-micro) var(--wariba-motion-ease-standard),
+    box-shadow var(--wariba-motion-micro) var(--wariba-motion-ease-standard),
+    transform var(--wariba-motion-duration-instant) var(--wariba-motion-ease-exit);
+}
+
+.wariba-cta-primary {
+  border: 1px solid transparent;
+  background: var(--wariba-brand-500);
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 var(--wariba-inner-highlight-strong),
+    var(--wariba-glow-soft);
+}
+
+.wariba-cta-primary:not(:disabled):hover {
+  background: var(--wariba-brand-400);
+  box-shadow:
+    inset 0 1px 0 var(--wariba-inner-highlight-strong),
+    var(--wariba-glow-primary);
+}
+
+.wariba-cta-secondary {
+  border: 1px solid var(--wariba-seam-strong);
+  background: color-mix(in srgb, var(--wariba-surface-1) 70%, transparent);
+  color: var(--wariba-on-dark);
+}
+
+.wariba-cta-secondary:hover {
+  border-color: var(--wariba-brand-edge);
+  background: var(--wariba-surface-1);
+}
+
+.wariba-cta-primary:not(:disabled):active,
+.wariba-cta-secondary:active {
+  transform: scale(0.985);
+}
+
+.wariba-cta-primary:disabled {
+  background: var(--wariba-surface-2);
+  color: var(--wariba-on-dark-dim);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.wariba-cta-primary:focus-visible,
+.wariba-cta-secondary:focus-visible {
+  outline: 2px solid var(--wariba-brand-400);
+  outline-offset: 3px;
+}
+
+/* Tertiary: a link that says where it goes. Never browser blue, never an
+   invisible grey. */
+.wariba-cta-tertiary {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--wariba-brand-300);
+  font-size: var(--wariba-font-size-body-sm);
+  font-weight: 600;
+  transition: color var(--wariba-motion-micro) var(--wariba-motion-ease-standard);
+}
+
+.wariba-cta-tertiary:hover {
+  color: var(--wariba-brand-400);
+}
+
+/*
+ * Typography roles for the public shell — Phase 3.4.5A §11.
+ *
+ * Named for their job so a section asks for "the title" rather than for a
+ * clamp() it copied from the last page. `text-wrap: balance` on the display
+ * sizes is what stops a four-word headline breaking one-word-per-line at
+ * awkward widths.
+ */
+.wariba-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--wariba-brand-300);
+  font-size: var(--wariba-font-size-label-sm);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.wariba-eyebrow::before {
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  background: currentcolor;
+  content: '';
+}
+
+.wariba-display {
+  max-width: 15ch;
+  color: var(--wariba-on-dark);
+  font-size: clamp(2.6rem, 7vw, 6rem);
+  font-weight: 650;
+  letter-spacing: -0.055em;
+  line-height: 0.95;
+  text-wrap: balance;
+}
+
+.wariba-section-title {
+  max-width: 20ch;
+  color: var(--wariba-on-dark);
+  font-size: clamp(2rem, 4.2vw, 3.9rem);
+  font-weight: 650;
+  letter-spacing: -0.045em;
+  line-height: 1.02;
+  text-wrap: balance;
+}
+
+.wariba-lead {
+  max-width: 62ch;
+  color: var(--wariba-on-dark-muted);
+  font-size: clamp(1rem, 1.4vw, 1.18rem);
+  line-height: 1.68;
+}
+
+/* Money, percentages, counts, identifiers. Applied by role rather than left to
+   each component to remember, because a column of figures whose separators do
+   not line up is the fastest way a financial product looks amateur. */
+.wariba-figure {
+  font-family: var(--wariba-font-family-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/*
+ * Surface primitives — §27–§29.
+ */
+.wariba-strong-surface {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--wariba-radius-2xl);
+  padding: clamp(1.75rem, 5vw, 3.5rem);
+}
+
+.wariba-strong-surface[data-tone='brand'] {
+  background: linear-gradient(150deg, var(--wariba-brand-500), var(--wariba-brand-700) 88%);
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 22%),
+    var(--wariba-glow-primary);
+}
+
+/* The specular sweep. Without it a large flat fill reads as a coloured
+   rectangle rather than as a lit surface. */
+.wariba-strong-surface[data-tone='brand']::after {
+  position: absolute;
+  content: '';
+  inset: 0;
+  background: radial-gradient(120% 80% at 12% -10%, rgb(255 255 255 / 20%), transparent 58%);
+  pointer-events: none;
+}
+
+.wariba-strong-surface[data-tone='deep'] {
+  border: 1px solid var(--wariba-seam);
+  background:
+    radial-gradient(
+      42rem 24rem at 84% 110%,
+      color-mix(in srgb, var(--wariba-brand-700) 46%, transparent),
+      transparent 66%
+    ),
+    var(--wariba-surface-1);
+  box-shadow: inset 0 1px 0 var(--wariba-inner-highlight);
+}
+
+.wariba-product-surface {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--wariba-seam);
+  border-radius: var(--wariba-radius-2xl);
+  background:
+    radial-gradient(
+      48rem 28rem at 82% 8%,
+      color-mix(in srgb, var(--wariba-brand-700) 34%, transparent),
+      transparent 64%
+    ),
+    var(--wariba-canvas-deep);
+  padding: clamp(1.5rem, 4vw, 3rem);
+  box-shadow: inset 0 1px 0 var(--wariba-inner-highlight);
+}
+
+.wariba-visual-card {
+  position: relative;
+  border-radius: var(--wariba-radius-2xl);
+  transition:
+    border-color var(--wariba-motion-state) var(--wariba-motion-ease-standard),
+    background-color var(--wariba-motion-state) var(--wariba-motion-ease-standard),
+    box-shadow var(--wariba-motion-state) var(--wariba-motion-ease-standard);
+}
+
+.wariba-visual-card[data-variant='panel'] {
+  border: 1px solid var(--wariba-seam);
+  background: var(--wariba-surface-1);
+  box-shadow: inset 0 1px 0 var(--wariba-inner-highlight);
+}
+
+.wariba-visual-card[data-variant='quiet'] {
+  border: 1px solid var(--wariba-seam);
+  background: color-mix(in srgb, var(--wariba-surface-1) 55%, transparent);
+}
+
+.wariba-visual-card[data-variant='accent'] {
+  overflow: hidden;
+  border: 1px solid transparent;
+  background: linear-gradient(
+    150deg,
+    var(--wariba-brand-500) 0%,
+    var(--wariba-brand-600) 58%,
+    var(--wariba-brand-700) 100%
+  );
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 22%),
+    var(--wariba-glow-primary);
+}
+
+.wariba-visual-card-interactive:hover {
+  border-color: var(--wariba-brand-edge);
+  background: var(--wariba-surface-2);
+  box-shadow:
+    inset 0 1px 0 var(--wariba-inner-highlight-strong),
+    var(--wariba-glow-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wariba-visual-card {
+    transition: none;
+  }
+}
+
+/*
+ * The footer's brand scene.
+ *
+ * A cobalt horizon rising from the bottom edge, with the wordmark sitting in
+ * it at 14% opacity. The gradient is the whole effect — one paint, no image,
+ * no element that has to load before the footer can render. The wordmark is
+ * `aria-hidden`: it is a texture, and a screen reader announcing "WARIBA" a
+ * fourth time at the end of every page is noise.
+ */
+.wariba-footer-scene {
+  position: relative;
+  overflow: hidden;
+  padding-block: clamp(1.5rem, 5vw, 3rem);
+  background:
+    radial-gradient(
+      120% 100% at 50% 118%,
+      color-mix(in srgb, var(--wariba-brand-700) 52%, transparent),
+      transparent 62%
+    ),
+    var(--wariba-canvas-base);
+}
+
+/* A hairline of brand along the top of the scene: the horizon needs an edge or
+   it reads as a smudge. */
+.wariba-footer-scene::before {
+  position: absolute;
+  content: '';
+  inset-inline: 0;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--wariba-brand-edge) 22%,
+    var(--wariba-brand-400) 50%,
+    var(--wariba-brand-edge) 78%,
+    transparent
+  );
+  opacity: 0.6;
+}
+
+/*
+ * Panel motion — §18 `panel`.
+ *
+ * The mega-menu drops, the drawer rises. Both are opacity plus a small
+ * translate on a single element, so the compositor does all of it and neither
+ * costs a layout. Reduced motion keeps the panel, drops the travel: the menu
+ * still has to make sense, it just arrives instead of moving.
+ */
+@keyframes wariba-panel-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes wariba-drawer-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.wariba-megamenu {
+  background: var(--wariba-surface-overlay);
+  backdrop-filter: blur(18px) saturate(140%);
+  animation: wariba-panel-drop var(--wariba-motion-panel) var(--wariba-motion-ease-enter) both;
+}
+
+.wariba-drawer {
+  animation: wariba-drawer-in var(--wariba-motion-panel) var(--wariba-motion-ease-enter) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wariba-cta-primary,
+  .wariba-cta-secondary,
+  .wariba-cta-tertiary {
+    transition: none;
+  }
+
+  .wariba-megamenu,
+  .wariba-drawer {
+    animation: none;
+  }
+}
+
+/*
+ * Phase 3.4.5R — the public surface, rebuilt dark.
+ *
+ * What was here before was a beige editorial system: bone-50 canvas, ink-950
+ * type, a black pill for the primary action. It was competent and it was
+ * wrong. A funded-trading product is judged in three seconds on a phone
+ * against ForTraders, FTMO and Topstep, and against those a cream page reads
+ * as a billing SaaS. The owner rejected the direction outright.
+ *
+ * The replacement is not "the same layout with dark colours". Three things
+ * change structurally:
+ *
+ * 1. **A material ladder instead of a page with borders.** Canvas, panel,
+ *    well, selected — four levels you can tell apart without reading. The Hub
+ *    has had this since Product OS 1.1; the public surface never did, which is
+ *    why its cards read as outlines rather than as objects.
+ *
+ * 2. **A saturation budget.** Cobalt is the loudest thing on the page, so it
+ *    is rationed: one filled cobalt surface per section, everything else
+ *    carries the colour in a figure, an arc, a rim or a selected state. The
+ *    mechanism that produces hierarchy here is fill-versus-outline, not size.
+ *    Four filled cards in a row and the mechanism is dead.
+ *
+ * 3. **Rim light instead of drop shadow.** A shadow under a dark card on a
+ *    dark canvas is invisible. What separates the levels is a 1px inner
+ *    highlight on the top edge — the surface catching a light from above —
+ *    and that single line is most of what makes a panel look manufactured
+ *    rather than drawn.
+ *
+ * Every value below resolves to an existing token. No new hex.
+ */
+[data-wariba-section='public'],
+[data-wariba-section='commerce'] {
+  /*
+   * Aliases onto the shell layer, not a second palette.
+   *
+   * These names came first — 3.4.5R defined the dark surface here before there
+   * was a global shell to define it in. They are kept because a good deal of
+   * commerce markup already asks for them by name, and they now resolve to the
+   * `:root` tokens above, so there is exactly one place a canvas decision is
+   * made. New code should ask the shell directly.
+   */
+  --commerce-canvas: var(--wariba-canvas-deep);
+  --commerce-shell-bg: var(--wariba-canvas-base);
+  --commerce-panel: var(--wariba-surface-1);
+  --commerce-well: var(--wariba-surface-2);
+  --commerce-well-hover: var(--wariba-surface-3);
+
+  --commerce-rule: var(--wariba-seam);
+  --commerce-rule-strong: var(--wariba-seam-strong);
+  --commerce-rim: var(--wariba-inner-highlight);
+  --commerce-rim-strong: var(--wariba-inner-highlight-strong);
+
+  --commerce-text: var(--wariba-on-dark);
+  --commerce-text-muted: var(--wariba-on-dark-muted);
+  --commerce-text-dim: var(--wariba-on-dark-dim);
+
+  --commerce-accent: var(--wariba-brand-500);
+  --commerce-accent-hover: var(--wariba-brand-400);
+  --commerce-accent-text: var(--wariba-brand-300);
+  --commerce-accent-wash: var(--wariba-brand-wash);
+  --commerce-accent-edge: var(--wariba-brand-edge);
+  --commerce-accent-glow: var(--wariba-glow-primary);
+
+  color: var(--commerce-text);
+  background: var(--commerce-canvas);
+}
+
+/* Kept as an alias: the shell owns the ambient field now (`.wariba-ambient`). */
+.commerce-ambient {
+  position: relative;
+  isolation: isolate;
+}
+
+.commerce-ambient::before {
+  position: absolute;
+  z-index: -1;
+  content: '';
+  inset: 0;
+  background: var(--wariba-ambient-cobalt);
+  pointer-events: none;
+}
+
+.commerce-shell {
+  width: 100%;
+  max-width: var(--wariba-size-marketing-container-max);
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+}
+
+.commerce-hero {
+  position: relative;
+  overflow: hidden;
+  background: var(--commerce-canvas);
+}
+
+/* A section that steps up one level off the canvas, for rhythm. */
+.commerce-band {
+  border-block: 1px solid var(--commerce-rule);
+  background: var(--commerce-shell-bg);
+}
+
+.commerce-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--commerce-accent-text);
+  font-size: var(--wariba-font-size-label-sm);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* The dot that precedes a kicker. Small, cobalt, and the cheapest possible
+   signal that a label is a WARIBA label rather than generic small-caps. */
+.commerce-kicker::before {
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  background: currentcolor;
+  content: '';
+}
+
+.commerce-display {
+  max-width: 15ch;
+  color: var(--commerce-text);
+  font-size: clamp(2.6rem, 7vw, 6rem);
+  font-weight: 650;
+  letter-spacing: -0.055em;
+  line-height: 0.95;
+  text-wrap: balance;
+}
+
+.commerce-section-title {
+  max-width: 20ch;
+  color: var(--commerce-text);
+  font-size: clamp(2rem, 4.2vw, 3.9rem);
+  font-weight: 650;
+  letter-spacing: -0.045em;
+  line-height: 1.02;
+  text-wrap: balance;
+}
+
+.commerce-lead {
+  max-width: 62ch;
+  color: var(--commerce-text-muted);
+  font-size: clamp(1rem, 1.4vw, 1.18rem);
+  line-height: 1.68;
+}
+
+/*
+ * Actions.
+ *
+ * The primary is a filled cobalt pill. White on #3157F5 measures 6.4:1, so
+ * the label is white here rather than the near-black a light accent would
+ * demand. The hover is luminance plus glow and no travel — a CTA that moves
+ * under the cursor is a CTA that can be missed.
+ */
+.commerce-primary-action,
+.commerce-secondary-action {
+  display: inline-flex;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  padding: 0.8rem 1.5rem;
+  font-size: var(--wariba-font-size-body-sm);
+  font-weight: 700;
+  transition:
+    background-color var(--wariba-motion-duration-fast) var(--wariba-motion-ease-standard),
+    border-color var(--wariba-motion-duration-fast) var(--wariba-motion-ease-standard),
+    box-shadow var(--wariba-motion-duration-fast) var(--wariba-motion-ease-standard),
+    transform var(--wariba-motion-duration-instant) var(--wariba-motion-ease-exit);
+}
+
+.commerce-primary-action {
+  border: 1px solid transparent;
+  background: var(--commerce-accent);
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 var(--commerce-rim-strong),
+    0 10px 30px -14px rgb(49 87 245 / 60%);
+}
+
+.commerce-primary-action:not(:disabled):hover {
+  background: var(--wariba-color-cobalt-400);
+  box-shadow:
+    inset 0 1px 0 var(--commerce-rim-strong),
+    var(--commerce-accent-glow);
+}
+
+.commerce-secondary-action {
+  border: 1px solid var(--commerce-rule-strong);
+  background: color-mix(in srgb, var(--wariba-color-ink-880) 70%, transparent);
+  color: var(--commerce-text);
+}
+
+.commerce-secondary-action:hover {
+  border-color: var(--commerce-accent-edge);
+  background: var(--commerce-panel);
+}
+
+.commerce-primary-action:not(:disabled):active,
+.commerce-secondary-action:active {
+  transform: scale(0.985);
+}
+
+.commerce-primary-action:disabled {
+  background: var(--commerce-well);
+  color: var(--commerce-text-dim);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.commerce-primary-action:focus-visible,
+.commerce-secondary-action:focus-visible,
+.commerce-choice:focus-visible,
+.commerce-size:focus-visible,
+.commerce-spec-toggle:focus-visible {
+  outline: 2px solid var(--wariba-color-cobalt-400);
+  outline-offset: 3px;
+}
+
+/*
+ * The panel: the level content actually lives on.
+ *
+ * Rim on top, mixed seam all round, one step up from the canvas. Everything
+ * that used to be `border + transparent` on the public surface becomes this.
+ */
+.commerce-panel {
+  position: relative;
+  border: 1px solid var(--commerce-rule);
+  border-radius: var(--wariba-radius-2xl);
+  background: var(--commerce-panel);
+  box-shadow: inset 0 1px 0 var(--commerce-rim);
+}
+
+.commerce-well {
+  border: 1px solid var(--commerce-rule);
+  border-radius: var(--wariba-radius-lg);
+  background: var(--commerce-well);
+}
+
+/*
+ * The one saturated surface a section is allowed.
+ *
+ * Reference 01: on a grid of six metric tiles exactly one is filled with the
+ * accent, and that is what tells the eye where to land. Use this at most once
+ * per section — the class is deliberately named for the budget it spends.
+ */
+.commerce-accent-tile {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: var(--wariba-radius-2xl);
+  background: linear-gradient(
+    150deg,
+    var(--wariba-color-cobalt-500) 0%,
+    var(--wariba-color-cobalt-600) 58%,
+    var(--wariba-color-cobalt-700) 100%
+  );
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 22%),
+    var(--commerce-accent-glow);
+}
+
+/* The specular sweep across a filled tile — the same trick that makes the
+   reference's metal plates read as metal, at a tenth of the cost. */
+.commerce-accent-tile::after {
+  position: absolute;
+  content: '';
+  inset: 0;
+  background: radial-gradient(120% 80% at 12% -10%, rgb(255 255 255 / 20%), transparent 58%);
+  pointer-events: none;
+}
+
+.commerce-family-intro {
+  min-width: 0;
+  border-bottom: 1px solid var(--commerce-rule);
+  padding: 1.75rem 1.25rem;
+}
+
+/*
+ * A choice card.
+ *
+ * Selected is a *field plus a rim*, never a flat fill: filling every selected
+ * card would spend the whole saturation budget on a radio group. Reference 35
+ * does exactly this — the chosen plan gets an outline and a faint wash while
+ * the accent stays reserved for the price.
+ */
+.commerce-choice {
+  position: relative;
+  min-width: 0;
+  border: 1px solid var(--commerce-rule);
+  border-radius: var(--wariba-radius-xl);
+  background: var(--commerce-panel);
+  padding: 1.35rem;
+  box-shadow: inset 0 1px 0 var(--commerce-rim);
+  transition:
+    border-color var(--wariba-motion-duration-interaction) var(--wariba-motion-ease-standard),
+    background-color var(--wariba-motion-duration-interaction) var(--wariba-motion-ease-standard),
+    box-shadow var(--wariba-motion-duration-interaction) var(--wariba-motion-ease-standard);
+}
+
+.commerce-choice:hover {
+  border-color: var(--commerce-rule-strong);
+  background: var(--wariba-color-ink-860);
+}
+
+.commerce-choice[data-active='true'] {
+  border-color: var(--commerce-accent-edge);
+  background:
+    linear-gradient(160deg, var(--commerce-accent-wash), transparent 70%), var(--commerce-panel);
+  box-shadow:
+    inset 0 1px 0 var(--commerce-rim-strong),
+    0 0 0 1px var(--commerce-accent-edge),
+    0 14px 40px -22px rgb(49 87 245 / 60%);
+}
+
+.commerce-choice-index {
+  color: var(--commerce-accent-text);
+  font-family: var(--wariba-font-family-mono);
+  font-size: var(--wariba-font-size-label-sm);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+/* Size pills. The selected one is the exception that *is* filled — it is a
+   single small object, not a card, so it does not eat the budget. */
+.commerce-size {
+  min-width: 0;
+  min-height: 48px;
+  border: 1px solid var(--commerce-rule);
+  border-radius: 9999px;
+  background: var(--commerce-well);
+  color: var(--commerce-text-muted);
+  font-family: var(--wariba-font-family-mono);
+  font-size: clamp(0.72rem, 2.8vw, 0.9rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background-color var(--wariba-motion-duration-interaction) var(--wariba-motion-ease-standard),
+    color var(--wariba-motion-duration-interaction) var(--wariba-motion-ease-standard),
+    border-color var(--wariba-motion-duration-interaction) var(--wariba-motion-ease-standard);
+}
+
+.commerce-size:hover {
+  border-color: var(--commerce-accent-edge);
+  color: var(--commerce-text);
+}
+
+.commerce-size[data-active='true'] {
+  border-color: transparent;
+  background: var(--commerce-accent);
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 var(--commerce-rim-strong),
+    0 8px 22px -12px rgb(49 87 245 / 70%);
+}
+
+/*
+ * A specification row: label and info on the left, value in a pill on the
+ * right (references 35, 38, 42). The pill is what stops a spec list reading
+ * as a paragraph with numbers in it.
+ */
+.commerce-spec-row {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--commerce-rule);
+  padding: 0.65rem 0;
+}
+
+.commerce-spec-row:last-child {
+  border-bottom: 0;
+}
+
+.commerce-spec-label {
+  min-width: 0;
+  color: var(--commerce-text-muted);
+  font-size: var(--wariba-font-size-body-sm);
+}
+
+.commerce-spec-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--commerce-rule-strong);
+  border-radius: 9999px;
+  background: var(--commerce-well);
+  padding: 0.3rem 0.7rem;
+  color: var(--commerce-text);
+  font-family: var(--wariba-font-family-mono);
+  font-size: var(--wariba-font-size-label-md);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/*
+ * A value that is a list rather than a figure.
+ *
+ * `white-space: nowrap` is right for "8 %" and wrong for the five-step share
+ * schedule, which is 225px of text and pushed the whole row off a 320px
+ * screen. Wrapping is scoped to the rows that need it so a percentage still
+ * never breaks across two lines.
+ */
+.commerce-spec-value[data-wrap='true'] {
+  white-space: normal;
+  text-align: right;
+}
+
+.commerce-spec-value[data-tone='accent'] {
+  border-color: var(--commerce-accent-edge);
+  background: var(--commerce-accent-wash);
+  color: var(--commerce-accent-text);
+}
+
+.commerce-spec-value[data-tone='emerald'] {
+  border-color: var(--wariba-accent-emerald-edge);
+  background: var(--wariba-accent-emerald-wash);
+  color: var(--wariba-accent-emerald);
+}
+
+.commerce-spec-value[data-tone='amber'] {
+  border-color: var(--wariba-accent-amber-edge);
+  background: var(--wariba-accent-amber-wash);
+  color: var(--wariba-accent-amber);
+}
+
+/* A value that just changed. 240ms of the role's colour, then back — enough
+   to catch the eye, short enough not to become decoration. */
+@keyframes commerce-value-flash {
+  0% {
+    border-color: var(--commerce-accent-edge);
+    background: color-mix(in srgb, var(--wariba-color-cobalt-500) 26%, transparent);
+  }
+  100% {
+    border-color: var(--commerce-rule-strong);
+    background: var(--commerce-well);
+  }
+}
+
+.commerce-spec-value[data-flash='true'] {
+  animation: commerce-value-flash 420ms var(--wariba-motion-ease-exit) both;
+}
+
+.commerce-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--commerce-rule-strong);
+  border-radius: 9999px;
+  padding: 0.2rem 0.6rem;
+  color: var(--commerce-text-dim);
+  font-size: var(--wariba-font-size-label-sm);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.commerce-badge[data-tone='accent'] {
+  border-color: var(--commerce-accent-edge);
+  background: var(--commerce-accent-wash);
+  color: var(--commerce-accent-text);
+}
+
+.commerce-badge[data-tone='emerald'] {
+  border-color: var(--wariba-accent-emerald-edge);
+  background: var(--wariba-accent-emerald-wash);
+  color: var(--wariba-accent-emerald);
+}
+
+.commerce-summary {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--commerce-rule);
+  border-radius: var(--wariba-radius-2xl);
+  background: var(--commerce-panel);
+  box-shadow: inset 0 1px 0 var(--commerce-rim);
+}
+
+.commerce-summary-main,
+.commerce-price-panel {
+  min-width: 0;
+  padding: 1.5rem;
+}
+
+.commerce-price-panel {
+  border-top: 1px solid var(--commerce-rule);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--wariba-color-cobalt-900) 26%, transparent),
+      transparent 44%
+    ),
+    var(--wariba-color-ink-920);
+}
+
+.commerce-stat {
+  min-width: 0;
+  background: var(--commerce-panel);
+  padding: 1.05rem;
+}
+
+.commerce-stat dt,
+.commerce-hero-ledger dt,
+.commerce-dark-stat dt {
+  color: var(--commerce-text-dim);
+  font-size: var(--wariba-font-size-label-sm);
+  letter-spacing: 0.04em;
+}
+
+.commerce-stat dd,
+.commerce-hero-ledger dd,
+.commerce-dark-stat dd {
+  margin-top: 0.35rem;
+  color: var(--commerce-text);
+  font-family: var(--wariba-font-family-mono);
+  font-size: var(--wariba-font-size-heading-sm);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.commerce-hero-ledger {
+  border: 1px solid var(--commerce-rule);
+  border-radius: var(--wariba-radius-2xl);
+  background: var(--commerce-panel);
+  padding: clamp(1.25rem, 4vw, 2rem);
+  box-shadow: inset 0 1px 0 var(--commerce-rim);
+}
+
+/* Kept as a named surface because routes reference it, but it is no longer
+   "the dark section" — the whole page is dark. It is now the *deepest*
+   section, used to sink a band below the canvas for contrast. */
+.commerce-performance-island {
+  border-block: 1px solid var(--commerce-rule);
+  background: var(--wariba-color-ink-975);
+}
+
+.commerce-dark-stat {
+  background: var(--commerce-panel);
+  padding: 1.25rem;
+}
+
+.commerce-checkout-rule {
+  border-left: 2px solid var(--commerce-accent-edge);
+  padding: 0.25rem 0 0.25rem 1rem;
+}
+
+.commerce-checkout-rule dt {
+  color: var(--commerce-text-dim);
+  font-size: var(--wariba-font-size-label-sm);
+}
+
+.commerce-checkout-rule dd {
+  margin-top: 0.25rem;
+  color: var(--commerce-text);
+  font-family: var(--wariba-font-family-mono);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.commerce-checkout-summary {
+  position: sticky;
+  bottom: calc(var(--hub-mobile-nav-height, 0px) + env(safe-area-inset-bottom) + 0.5rem);
+  z-index: var(--wariba-z-sticky);
+  border: 1px solid var(--commerce-rule);
+  border-radius: var(--wariba-radius-2xl);
+  background: var(--wariba-color-ink-920);
+  padding: 1.25rem;
+  box-shadow:
+    inset 0 1px 0 var(--commerce-rim),
+    0 24px 60px -28px rgb(0 0 0 / 80%);
+}
+
+/*
+ * The mobile pay bar (reference 48).
+ *
+ * Glass is allowed on exactly three surfaces in this system and this is one:
+ * the bar sits over scrolling content and has to stay legible without hiding
+ * what is behind it.
+ */
+.commerce-mobile-paybar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid var(--commerce-rule-strong);
+  background: color-mix(in srgb, var(--wariba-color-ink-960) 88%, transparent);
+  padding: 0.75rem max(1.25rem, env(safe-area-inset-right))
+    calc(0.75rem + env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left));
+  box-shadow: 0 -18px 44px rgb(0 0 0 / 55%);
+  backdrop-filter: blur(16px) saturate(140%);
+}
+
+/*
+ * A rule scene (reference 34).
+ *
+ * One rule, one full-bleed surface, a figure large enough to read across a
+ * room. This is the class that stops "Perte maximale 8 %" being a table row.
+ */
+.commerce-rule-scene {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--wariba-radius-2xl);
+  padding: clamp(1.75rem, 5vw, 3.5rem);
+}
+
+.commerce-rule-scene[data-tone='accent'] {
+  background: linear-gradient(
+    150deg,
+    var(--wariba-color-cobalt-500),
+    var(--wariba-color-cobalt-700) 88%
+  );
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 22%),
+    var(--commerce-accent-glow);
+}
+
+.commerce-rule-scene[data-tone='deep'] {
+  border: 1px solid var(--commerce-rule);
+  background:
+    radial-gradient(
+      42rem 24rem at 84% 110%,
+      color-mix(in srgb, var(--wariba-color-cobalt-700) 46%, transparent),
+      transparent 66%
+    ),
+    var(--commerce-panel);
+  box-shadow: inset 0 1px 0 var(--commerce-rim);
+}
+
+.commerce-rule-figure {
+  font-size: clamp(3.2rem, 11vw, 7rem);
+  font-weight: 680;
+  letter-spacing: -0.06em;
+  line-height: 0.88;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A struck-through rule — "we do not impose this" (reference 34). */
+.commerce-rule-absent {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  border: 1px solid var(--commerce-rule);
+  border-radius: var(--wariba-radius-lg);
+  background: var(--commerce-panel);
+  padding: 0.85rem 1rem;
+  color: var(--commerce-text-dim);
+  font-size: var(--wariba-font-size-body-sm);
+}
+
+.commerce-rule-absent s {
+  text-decoration-color: var(--wariba-accent-red);
+  text-decoration-thickness: 1.5px;
+}
+
+@media (min-width: 640px) {
+  .commerce-shell {
+    padding-inline: 1.75rem;
+  }
+
+  .commerce-family-intro {
+    padding: 2rem;
+  }
+
+  .commerce-summary-main,
+  .commerce-price-panel {
+    padding: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .commerce-shell {
+    padding-inline: 2.5rem;
+  }
+
+  .commerce-mobile-paybar {
+    display: none;
+  }
+
+  .commerce-family-intro {
+    border-right: 1px solid var(--commerce-rule);
+    border-bottom: 0;
+  }
+
+  .commerce-family-intro:last-child {
+    border-right: 0;
+  }
+
+  .commerce-summary {
+    grid-template-columns: minmax(0, 1.3fr) minmax(19rem, 0.7fr);
+  }
+
+  .commerce-price-panel {
+    border-top: 0;
+    border-left: 1px solid var(--commerce-rule);
+  }
+
+  .commerce-checkout-summary {
+    top: calc(var(--hub-header-height, 4rem) + 1.5rem);
+    bottom: auto;
+    padding: 1.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .commerce-primary-action,
+  .commerce-secondary-action,
+  .commerce-choice,
+  .commerce-size,
+  .commerce-spec-value {
+    transition: none;
+  }
+
+  .commerce-spec-value[data-flash='true'] {
+    animation: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .wariba-reveal {
     animation: none;
+  }
+}
+
+/*
+ * The skeleton sweep — 3.4.5R §13.
+ *
+ * A light travelling across a surface that is always present, rather than a
+ * surface fading in and out. On a dark canvas the second reads as a fault; a
+ * grid of them, synchronised, reads as a broken page. The 80ms neighbour
+ * offset (set per shape by the `index` prop) turns a blinking block into a
+ * wave.
+ *
+ * `background-position` on a wide gradient rather than a translated pseudo
+ * element: one paint, no extra node, and nothing to clip inside a rounded
+ * corner.
+ */
+@keyframes wariba-skeleton-sweep {
+  from {
+    background-position: 180% 0;
+  }
+  to {
+    background-position: -80% 0;
+  }
+}
+
+.wariba-skeleton {
+  background-color: var(--wariba-background-subtle);
+  background-image: linear-gradient(
+    100deg,
+    transparent 24%,
+    color-mix(in srgb, var(--wariba-color-cobalt-400) 14%, transparent) 46%,
+    color-mix(in srgb, var(--wariba-color-cobalt-300) 8%, transparent) 54%,
+    transparent 76%
+  );
+  background-repeat: no-repeat;
+  background-size: 220% 100%;
+  animation: wariba-skeleton-sweep 1600ms linear infinite;
+  animation-delay: var(--wariba-skeleton-delay, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wariba-skeleton {
+    background-image: none;
+    animation: none;
+  }
+}
+
+/*
+ * Entry reveal — 3.4.5R §11.
+ *
+ * ## Three implementations, and why this is the one that shipped
+ *
+ * **`whileInView` (motion).** `initial` is serialised into the server HTML, so
+ * every section below the fold shipped at `opacity: 0` and stayed there until
+ * hydration. Four of the homepage's six sections photographed as blank canvas.
+ *
+ * **IntersectionObserver, hidden in a layout effect.** Safe against no-JS, but
+ * Chromium's full-page capture expands the layout viewport instead of
+ * scrolling, so the observer never fired and the screenshots were still blank.
+ *
+ * **`animation-timeline: view()`.** Elegant, zero JS — and a page whose
+ * scrollport equals its own height has a zero-length scroll range, which makes
+ * the timeline inactive and freezes the animation on its first frame. Blank
+ * again, in exactly the situation the phase requires evidence from.
+ *
+ * So: a plain entry animation on load. It plays where anyone can actually see
+ * it — the first screenful — and below the fold it has long finished by the
+ * time it is scrolled to. What is lost is a fade synchronised to the scroll
+ * position. What is gained is that the content is visible in every browser,
+ * with or without JavaScript, in a screenshot, and on a page that does not
+ * scroll. That trade is not close: the animation was never the message.
+ */
+@keyframes wariba-reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+[data-reveal] {
+  animation: wariba-reveal-in 450ms var(--wariba-motion-ease-enter) var(--wariba-reveal-delay, 0ms)
+    both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    animation: none;
+  }
+}
+
+/*
+ * A line that draws itself.
+ *
+ * `both`, so the resting state is the finished path: a browser that refuses
+ * the animation shows the complete line rather than none of it.
+ */
+@keyframes wariba-draw {
+  from {
+    stroke-dashoffset: var(--wariba-draw-length, 600);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.wariba-draw {
+  animation: wariba-draw var(--wariba-draw-duration, 0.9s) var(--wariba-motion-ease-standard)
+    var(--wariba-draw-delay, 0s) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wariba-draw {
+    animation: none;
+    stroke-dashoffset: 0;
   }
 }
 
