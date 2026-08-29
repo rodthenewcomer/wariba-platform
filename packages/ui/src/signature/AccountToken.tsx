@@ -6,7 +6,11 @@ export interface AccountTokenProps {
   /** `5K`, `10K`, `25K`, `50K`, `100K` — rendered as the plate's outlined numeral. */
   sizeCode: string;
   family?: AccountTokenFamily;
-  /** Rendered width. The plate keeps a 4:3 ratio. */
+  /**
+   * Rendered width in pixels. Omit it and the plate fills its container
+   * instead — which is what a 320px screen needs, since a fixed 254px plate
+   * plus gutters and panel padding does not fit inside one.
+   */
   width?: number;
   className?: string;
 }
@@ -51,7 +55,7 @@ export interface AccountTokenProps {
 export function AccountToken({
   sizeCode,
   family = 'neutral',
-  width = 240,
+  width,
   className,
 }: AccountTokenProps) {
   const key = `${family}-${sizeCode}`.toLowerCase().replace(/[^a-z0-9-]/g, '');
@@ -63,11 +67,12 @@ export function AccountToken({
 
   const glow = FAMILY_GLOW[family];
 
+  const sized = width === undefined ? {} : { width, height: (width * 180) / 240 };
+
   return (
     <svg
       viewBox="0 0 240 180"
-      width={width}
-      height={(width * 180) / 240}
+      {...sized}
       role="img"
       aria-label={`Compte simulé de ${sizeCode}`}
       className={cx('block', className)}

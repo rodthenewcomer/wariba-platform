@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
+import { cx } from '@wariba/ui';
 
 /**
  * A block that arrives, rather than appearing — with no JavaScript at all.
@@ -48,7 +49,18 @@ export function Reveal({
   return (
     <Tag
       data-reveal=""
-      className={className}
+      /*
+       * `min-w-0` by default.
+       *
+       * `Reveal` almost always wraps a grid or flex item, and such an item
+       * defaults to `min-width: auto` — it refuses to shrink below its content.
+       * A `minmax(0, 1fr)` template says otherwise for desktop, and the
+       * single-column mobile case has nothing saying it at all, so a wrapped
+       * dashboard mockup pushed the homepage 4px past the viewport at both 390
+       * and 320. Harmless everywhere else, and it removes a whole class of
+       * overflow bug that only shows up on the narrowest screens.
+       */
+      className={cx('min-w-0', className)}
       style={
         delay
           ? ({ ['--wariba-reveal-delay' as string]: `${delay * 1000}ms` } as CSSProperties)

@@ -54,6 +54,14 @@ const CURVE = [
   0, 4, 2, 7, 5, 3, -2, -5, -3, 2, 8, 12, 10, 16, 21, 19, 25, 31, 29, 34, 38, 42,
 ] as const;
 
+/*
+ * `drawn` starts at 17 of 21, not at 12.
+ *
+ * A curve that occupies two thirds of its frame does not read as "in progress",
+ * it reads as clipped — and a hero whose chart looks broken is a hero that
+ * costs more than the animation wins. The four frames still extend the line;
+ * they now do it across the last fifth rather than the last third.
+ */
 const FRAMES: readonly Frame[] = [
   {
     balance: 10_284,
@@ -61,7 +69,7 @@ const FRAMES: readonly Frame[] = [
     days: 3,
     reservePercent: 62,
     eligible: 284,
-    drawn: 12,
+    drawn: 17,
     payoutReady: false,
   },
   {
@@ -70,7 +78,7 @@ const FRAMES: readonly Frame[] = [
     days: 3,
     reservePercent: 78,
     eligible: 412,
-    drawn: 15,
+    drawn: 19,
     payoutReady: false,
   },
   {
@@ -79,7 +87,7 @@ const FRAMES: readonly Frame[] = [
     days: 4,
     reservePercent: 91,
     eligible: 509,
-    drawn: 18,
+    drawn: 20,
     payoutReady: false,
   },
   {
@@ -88,7 +96,7 @@ const FRAMES: readonly Frame[] = [
     days: 5,
     reservePercent: 100,
     eligible: 631,
-    drawn: 22,
+    drawn: 21,
     payoutReady: true,
   },
 ];
@@ -97,7 +105,16 @@ const FINAL = FRAMES[FRAMES.length - 1]!;
 
 const XOF = (value: number) => `${Math.round(value).toLocaleString('fr-FR')}`;
 
-export function PerformanceShowcase() {
+export interface PerformanceShowcaseProps {
+  /**
+   * `compact` is the hero's version — balance, equity, the curve and the cycle.
+   * `full` adds the trading statistics, for the section that is *about* the
+   * dashboard rather than one that uses it as a hero prop.
+   */
+  variant?: 'compact' | 'full';
+}
+
+export function PerformanceShowcase({ variant = 'compact' }: PerformanceShowcaseProps = {}) {
   const reduced = useReducedMotion();
   const [step, setStep] = useState(0);
 
@@ -114,12 +131,13 @@ export function PerformanceShowcase() {
 
   return (
     <figure
-      className="commerce-panel m-0 overflow-hidden"
+      className="wariba-visual-card m-0 overflow-hidden"
+      data-variant="panel"
       data-testid="performance-showcase"
       aria-label="Démonstration du tableau de bord WARIBA"
     >
       {/* The shell. Nothing in this header ever moves. */}
-      <div className="flex items-center justify-between gap-3 border-b border-[color:var(--commerce-rule)] px-4 py-3 sm:px-5">
+      <div className="flex items-center justify-between gap-3 border-b border-[color:var(--wariba-seam)] px-4 py-3 sm:px-5">
         <div className="min-w-0">
           <p className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--wariba-color-ink-300)]">
             Démonstration · données fictives
@@ -157,7 +175,7 @@ export function PerformanceShowcase() {
 
         <EquityChart drawn={frame.drawn} />
 
-        <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-[color:var(--commerce-rule)] pt-4">
+        <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-[color:var(--wariba-seam)] pt-4">
           <div>
             <dt className="text-[11px] uppercase tracking-[0.1em] text-[color:var(--wariba-color-ink-300)]">
               Journées
@@ -193,19 +211,41 @@ export function PerformanceShowcase() {
           />
         </div>
 
+        {/* The trading statistics. Only in `full`: the hero has no room for
+            them, and a hero that shows nine numbers shows none. */}
+        {variant === 'full' ? (
+          <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-[color:var(--wariba-seam)] pt-4 sm:grid-cols-4">
+            {[
+              ['Taux de réussite', '58 %'],
+              ['Facteur de profit', '1,42'],
+              ['Gain moyen', '+184'],
+              ['Perte moyenne', '−121'],
+            ].map(([label, value]) => (
+              <div key={label}>
+                <dt className="text-[11px] uppercase tracking-[0.08em] text-[color:var(--wariba-on-dark-dim)]">
+                  {label}
+                </dt>
+                <dd className="wariba-figure mt-1 text-base font-bold text-[color:var(--wariba-on-dark)]">
+                  {value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
+
         {/*
          * The payout row keeps its height in both states. Letting it appear
          * and disappear would move every element below it — the one thing the
          * shell is not allowed to do.
          */}
-        <div className="mt-4 flex min-h-[44px] items-center justify-between gap-3 rounded-[var(--wariba-radius-lg)] border border-[color:var(--commerce-rule)] bg-[color:var(--wariba-color-ink-790)] px-3">
+        <div className="mt-4 flex min-h-[44px] items-center justify-between gap-3 rounded-[var(--wariba-radius-lg)] border border-[color:var(--wariba-seam)] bg-[color:var(--wariba-surface-2)] px-3">
           <span className="text-xs text-[color:var(--wariba-color-ink-300)]">Versement</span>
           <span
             className="inline-flex items-center gap-1.5 font-mono text-xs font-bold transition-colors duration-200"
             style={{
               color: frame.payoutReady
                 ? 'var(--wariba-accent-emerald)'
-                : 'var(--wariba-color-ink-500)',
+                : 'var(--wariba-on-dark-dim)',
             }}
           >
             <span
@@ -214,7 +254,7 @@ export function PerformanceShowcase() {
               style={{
                 background: frame.payoutReady
                   ? 'var(--wariba-accent-emerald)'
-                  : 'var(--wariba-color-ink-500)',
+                  : 'var(--wariba-on-dark-dim)',
               }}
             />
             {frame.payoutReady ? 'DISPONIBLE' : 'EN CONSTRUCTION'}
@@ -283,7 +323,7 @@ function EquityChart({ drawn }: { drawn: number }) {
           x2={width}
           y1={height * ratio}
           y2={height * ratio}
-          stroke="var(--commerce-rule)"
+          stroke="var(--wariba-seam)"
           strokeWidth="1"
         />
       ))}
