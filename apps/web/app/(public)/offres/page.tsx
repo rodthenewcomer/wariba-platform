@@ -27,16 +27,16 @@ export default async function OffersPage() {
     <>
       <section className="commerce-hero commerce-ambient">
         <div className="commerce-shell pb-16 pt-16 lg:pb-20 lg:pt-24">
-          <p className="commerce-kicker">15 offres · trois parcours · cinq tailles</p>
+          <p className="commerce-kicker">Trois parcours · cinq tailles de compte</p>
           <div className="mt-6 grid gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-end">
-            <h1 className="commerce-display">Le bon parcours commence par une règle comprise.</h1>
+            <h1 className="commerce-display">Choisissez comment vous voulez commencer.</h1>
             <div>
               <p className="commerce-lead">
-                Comparez ONE, FLEX et INSTANT avant de regarder le prix. Chaque choix affiche ce que
-                vous payez aujourd’hui, ce qui arrive ensuite, et les limites exactes.
+                Regardez ONE, FLEX et INSTANT avant le prix. Chaque choix vous dit ce que vous payez
+                aujourd’hui, ce qui vient ensuite, et où sont les limites.
               </p>
               <p className="mt-5 text-sm font-medium text-[color:var(--wariba-color-ink-300)]">
-                Prix contractuels en FCFA · environnement entièrement simulé
+                Prix en FCFA · environnement entièrement simulé
               </p>
             </div>
           </div>
@@ -65,7 +65,7 @@ export default async function OffersPage() {
                     <p className="mt-2 text-sm leading-relaxed text-[color:var(--wariba-color-ink-300)]">
                       {target
                         ? `Objectif ${formatRate(target)} · Perte maximale ${formatRate(offer.evaluationRules!.maximumLossRate)}`
-                        : `Performance immédiate · Perte maximale ${formatRate(offer.performanceRules.maximumLossRate)}`}
+                        : `Sans évaluation · Perte maximale ${formatRate(offer.performanceRules.maximumLossRate)}`}
                     </p>
                     <Link
                       href={meta.path}
@@ -88,9 +88,9 @@ export default async function OffersPage() {
       <section className="commerce-performance-island">
         <div className="commerce-shell grid gap-10 py-20 lg:grid-cols-2 lg:items-start lg:py-24">
           <Reveal>
-            <p className="commerce-kicker">Ce que WARIBA vend réellement</p>
+            <p className="commerce-kicker">Ce que vous achetez</p>
             <h2 className="commerce-section-title mt-5">
-              Une infrastructure de progression. Pas une promesse de gain.
+              Un cadre pour progresser. Pas une promesse de gain.
             </h2>
           </Reveal>
           <Reveal delay={0.08}>

@@ -327,13 +327,13 @@ export function OfferConfigurator({
     >
       <div className="commerce-shell">
         <div className="max-w-3xl">
-          <p className="commerce-kicker">Configurez votre parcours</p>
+          <p className="commerce-kicker">Votre choix</p>
           <h2 id="configurator-title" className="commerce-section-title mt-5">
-            Choisissez. Les règles se résolvent devant vous.
+            Choisissez. Les règles s’affichent au fur et à mesure.
           </h2>
           <p className="commerce-lead mt-5">
-            Les prix et les limites affichés viennent de la version exacte que votre compte
-            conservera. Rien n’est recalculé côté navigateur.
+            Les prix et les limites viennent des règles que votre compte gardera. Rien n’est
+            recalculé dans le navigateur.
           </p>
         </div>
 
@@ -453,8 +453,8 @@ export function OfferConfigurator({
             </dl>
 
             <p className="mt-6 text-xs leading-relaxed text-[color:var(--wariba-color-ink-300)]">
-              Version de règles {selected.policySemanticVersion} · attachée au compte au moment de
-              l’achat et immuable ensuite.
+              Règles version {selected.policySemanticVersion} · fixées le jour de l’achat, elles ne
+              changent plus.
             </p>
           </div>
 
@@ -504,11 +504,10 @@ export function OfferConfigurator({
               ) : (
                 <div className="mt-7">
                   <button type="button" disabled className="commerce-primary-action w-full">
-                    Achats bientôt disponibles
+                    Bientôt disponible
                   </button>
                   <p className="mt-3 text-xs leading-relaxed text-[color:var(--wariba-color-ink-300)]">
-                    Le catalogue est public. Le paiement reste fermé jusqu’à validation des
-                    capacités de lancement.
+                    Les parcours sont consultables. Le paiement ouvrira plus tard.
                   </p>
                 </div>
               )}
@@ -517,7 +516,7 @@ export function OfferConfigurator({
                 href={familyMeta.path}
                 className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-[color:var(--wariba-color-cobalt-300)] transition-colors hover:text-[color:var(--wariba-color-cobalt-400)]"
               >
-                Comprendre ce parcours
+                En savoir plus sur ce parcours
                 <ArrowRightIcon size="sm" />
               </Link>
 

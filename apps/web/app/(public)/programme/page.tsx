@@ -101,7 +101,7 @@ export default async function ProgramPage() {
                       <h3 className="mt-2 text-lg font-semibold text-[color:var(--wariba-color-ink-50)]">
                         {offer.entryPhase === 'evaluation'
                           ? 'Évaluation, puis Performance'
-                          : 'Performance immédiate'}
+                          : 'Sans évaluation'}
                       </h3>
                       <p className="mt-2 text-sm leading-relaxed text-[color:var(--wariba-color-ink-300)]">
                         {meta.description}
@@ -234,7 +234,7 @@ export default async function ProgramPage() {
                 part augmente à chaque cycle.
               </p>
               <Link href="/offres" className="commerce-primary-action mt-8">
-                Comparer les 15 offres
+                Voir les parcours
               </Link>
             </Reveal>
             <Reveal delay={0.1}>

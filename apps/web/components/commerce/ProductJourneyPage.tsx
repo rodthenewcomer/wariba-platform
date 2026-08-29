@@ -20,9 +20,9 @@ const FAMILY_TOKEN = {
 
 /** Each family owns a promise, said in four words, in its own voice. */
 const FAMILY_PROMISE = {
-  WARIBA_ONE: 'Un paiement. Une preuve.',
-  WARIBA_FLEX: 'Entrez léger. Payez après.',
-  WARIBA_INSTANT: 'Pas d’examen. Performance immédiate.',
+  WARIBA_ONE: 'Une évaluation. Une seule étape.',
+  WARIBA_FLEX: 'Commencez avec moins.',
+  WARIBA_INSTANT: 'Pas d’évaluation.',
 } as const;
 
 type Step = readonly [string, string, string];
@@ -113,7 +113,7 @@ export function ProductJourneyPage({
                 Configurer {meta.short}
               </Link>
               <Link href="/offres" className="commerce-secondary-action">
-                Comparer les parcours
+                Voir les autres parcours
               </Link>
             </div>
           </div>
@@ -157,8 +157,8 @@ export function ProductJourneyPage({
         <section className="commerce-band">
           <div className="commerce-shell py-20 lg:py-24">
             <Reveal>
-              <p className="commerce-kicker">Ce que vous payez, et quand</p>
-              <h2 className="commerce-section-title mt-5">Deux montants. Aucune surprise.</h2>
+              <p className="commerce-kicker">Ce que vous payez</p>
+              <h2 className="commerce-section-title mt-5">Deux montants, annoncés d’avance.</h2>
             </Reveal>
 
             <Reveal delay={0.08}>

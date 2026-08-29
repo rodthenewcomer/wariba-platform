@@ -43,11 +43,11 @@ export default async function HomePage() {
       <section className="commerce-hero commerce-ambient">
         <div className="commerce-shell grid items-center gap-14 pb-20 pt-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-16 lg:pb-28 lg:pt-24">
           <div>
-            <p className="commerce-kicker">Trading simulé · règles V2 immuables</p>
+            <p className="commerce-kicker">Trading simulé · règles publiées</p>
             <h1 className="commerce-display mt-6">Prouvez votre discipline.</h1>
             <p className="commerce-lead mt-6">
-              ONE pour construire la preuve, FLEX pour alléger l’entrée, INSTANT pour commencer
-              directement en Performance. Trois parcours, quinze offres, aucune règle cachée.
+              Trois façons d’accéder à un compte Performance simulé. Vous choisissez quand vous
+              payez ; les règles, elles, ne changent pas.
             </p>
 
             <ul className="mt-9 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
@@ -68,7 +68,7 @@ export default async function HomePage() {
 
             <div className="mt-10 flex flex-wrap gap-3">
               <Link href="/offres" className="commerce-primary-action">
-                Comparer les 15 offres
+                Voir les parcours
               </Link>
               <Link href="/programme" className="commerce-secondary-action">
                 Comment ça marche
@@ -76,8 +76,8 @@ export default async function HomePage() {
             </div>
 
             <p className="mt-6 text-sm text-[color:var(--wariba-color-ink-300)]">
-              Les achats publics restent fermés. Le catalogue et les règles sont visibles dès
-              maintenant.
+              Les achats ne sont pas encore ouverts. Les parcours et les règles, eux, sont déjà
+              consultables.
             </p>
           </div>
 
@@ -91,7 +91,7 @@ export default async function HomePage() {
       <section className="commerce-band">
         <div className="commerce-shell py-20 lg:py-28">
           <Reveal>
-            <p className="commerce-kicker">Choisir par intention</p>
+            <p className="commerce-kicker">Les trois parcours</p>
             <h2 className="commerce-section-title mt-5">Le prix vient après le parcours.</h2>
           </Reveal>
 
@@ -316,11 +316,11 @@ export default async function HomePage() {
         <div className="commerce-shell py-24 text-center lg:py-32">
           <Reveal>
             <h2 className="mx-auto max-w-3xl text-3xl font-semibold tracking-[-0.04em] text-[color:var(--wariba-color-ink-50)] sm:text-5xl">
-              Quinze offres visibles. Une sélection exacte, partageable et restaurable.
+              Choisissez comment vous voulez commencer.
             </h2>
             <div className="mt-9 flex flex-wrap justify-center gap-3">
               <Link href="/offres" className="commerce-primary-action">
-                Ouvrir le configurateur
+                Voir les parcours
               </Link>
               <Link href="/warix" className="commerce-secondary-action">
                 Découvrir WariX
@@ -343,10 +343,10 @@ export default async function HomePage() {
  * out; the shell icon set replaces them.
  */
 const HERO_FACTS = [
-  { Icon: CheckIcon, label: '15 offres', detail: 'Trois parcours, cinq tailles' },
-  { Icon: ShieldCheckIcon, label: 'Règles figées', detail: 'Version attachée au compte' },
-  { Icon: CloseIcon, label: 'Aucun dépôt', detail: 'Environnement simulé' },
-  { Icon: ArrowRightIcon, label: 'WariX inclus', detail: 'Poste de travail complet' },
+  { Icon: CheckIcon, label: 'Trois parcours', detail: 'Cinq tailles de compte' },
+  { Icon: ShieldCheckIcon, label: 'Règles figées', detail: 'Elles ne changent plus après l’achat' },
+  { Icon: CloseIcon, label: 'Aucun dépôt', detail: 'Vous ne confiez pas d’argent' },
+  { Icon: ArrowRightIcon, label: 'WariX inclus', detail: 'Le poste de travail, sans supplément' },
 ] as const;
 
 const ABSENT_RULES = [
