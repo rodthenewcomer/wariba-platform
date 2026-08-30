@@ -24,7 +24,7 @@ test.describe('Page d’accueil', { tag: ['@home'] }, () => {
      * One, not two.
      *
      * The hero used to carry a copy of the dashboard; 3.4.5B.1 replaced it with
-     * the Market Field, because WariX has its own section further down and a
+     * the WARIBA PATH, because WariX has its own section further down and a
      * product mockup in the hero spends that moment early. The dashboard now
      * appears once, where it is the subject.
      */
@@ -32,7 +32,23 @@ test.describe('Page d’accueil', { tag: ['@home'] }, () => {
     await expect(page.getByTestId('performance-showcase')).toBeVisible();
 
     /* And the hero carries the atmosphere instead. */
-    await expect(page.locator('.wariba-market-field')).toHaveCount(1);
+    const path = page.locator('.wariba-path');
+    await expect(path).toHaveCount(1);
+    await expect(path.locator('.wariba-path-desktop .wariba-path-bounds > path')).toHaveCount(2);
+    await expect(path.locator('#wp-track')).toHaveCount(1);
+
+    /* The signature must contain both directions. A path that only climbs is
+       the generic fintech silhouette this phase exists to remove. */
+    const verticalMoves = await path.locator('#wp-track').evaluate((element) => {
+      const track = element as SVGPathElement;
+      const length = track.getTotalLength();
+      const samples = Array.from({ length: 41 }, (_, index) =>
+        track.getPointAtLength((length * index) / 40),
+      );
+      return samples.slice(1).map((point, index) => point.y - samples[index]!.y);
+    });
+    expect(verticalMoves.some((move) => move > 1)).toBe(true);
+    expect(verticalMoves.some((move) => move < -1)).toBe(true);
     await expect(page.getByTestId('home-configurator')).toBeVisible();
     await expect(page.getByRole('img', { name: /perte maximale/i })).toBeVisible();
     await expect(page.getByRole('img', { name: /WariX/ })).toBeVisible();
@@ -90,5 +106,18 @@ test.describe('Page d’accueil', { tag: ['@home'] }, () => {
        correctly hidden, and asserting on it would pass only while a cascade
        bug was leaking it onto a phone. */
     await expect(page.getByRole('link', { name: 'Choisir mon parcours' })).toBeVisible();
+    await expect(page.locator('.wariba-path-mobile')).toHaveCSS('display', 'inline');
+  });
+
+  test('fige WARIBA PATH quand le mouvement est réduit', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/');
+
+    const path = page.locator('.wariba-path');
+    await expect(path).toHaveAttribute('data-animated', 'false');
+    await expect(path.locator('animateMotion')).toHaveCount(0);
+    await expect(path.locator('.wariba-path-desktop .wariba-path-bounds > path')).toHaveCount(2);
+    await expect(path.locator('.wariba-path-desktop #wp-track')).toHaveCount(1);
   });
 });

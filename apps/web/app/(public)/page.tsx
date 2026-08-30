@@ -10,7 +10,7 @@ import {
   ShieldCheckIcon,
 } from '@wariba/ui';
 import { PerformanceShowcase } from '../../components/marketing/PerformanceShowcase';
-import { WaribaMarketField } from '../../components/marketing/scenes/WaribaMarketField';
+import { WaribaPath } from '../../components/marketing/scenes/WaribaPath';
 import { HomeConfigurator } from '../../components/marketing/HomeConfigurator';
 import { OneTargetReactor } from '../../components/marketing/scenes/OneTargetReactor';
 import { InstantPortal } from '../../components/marketing/scenes/InstantPortal';
@@ -67,10 +67,10 @@ export default async function HomePage() {
           La promesse WARIBA, pas le produit. WariX a sa propre section plus
           bas : y montrer un terminal ici dépenserait ce moment en avance et
           laisserait la section produit sans rien de neuf à révéler. Le visuel
-          du héros est donc une atmosphère — le Market Field — et le texte
+          du héros est donc une atmosphère — WARIBA PATH — et le texte
           garde la priorité visuelle. */}
       <section className="relative isolate overflow-hidden">
-        <WaribaMarketField />
+        <WaribaPath />
 
         <div className="mx-auto max-w-[var(--wariba-shell-max)] px-[var(--wariba-shell-gutter)] pb-24 pt-16 lg:pb-36 lg:pt-28">
           <div className="min-w-0 max-w-[46rem]">
@@ -129,8 +129,8 @@ export default async function HomePage() {
                   était bancal : ce qui n'est ni un dépôt ni du capital, c'est le
                   montant affiché sur le compte. La phrase le nomme. */}
               <p className="mt-7 max-w-lg text-sm leading-relaxed text-[color:var(--wariba-on-dark-dim)]">
-                Le trading est entièrement simulé. Le montant du compte n’est ni un dépôt ni du
-                capital réel qui vous est confié.
+                Le trading est entièrement simulé. Le montant affiché sur votre compte n’est ni un
+                dépôt ni du capital réel qui vous est confié.
               </p>
               <p className="mt-2 text-sm text-[color:var(--wariba-on-dark-dim)]">
                 Les achats ne sont pas encore ouverts.
