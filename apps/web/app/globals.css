@@ -479,16 +479,18 @@
 }
 
 /*
- * The WARIBA Market Field — 3.4.5B.1.
+ * The WARIBA Market Field — 3.4.5B.1, elevated in 3.4.5B.1.1.
  *
- * The hero's atmosphere. Seven layers, all of them cheap: two CSS gradients, a
- * radial bloom, three SVG paths and sixteen small nodes. Nothing here paints
- * every frame — the only animated properties are `opacity` and, inside the
- * SVG, motion along a path, both of which the compositor handles.
+ * Three planes, and depth comes from their relationship rather than from any
+ * 3D: `back` is a hairline at 22 %, `mid` carries the market, `front` holds the
+ * events. Nothing parallaxes. Weight, contrast and permission to move are
+ * enough to make a still image read as deep.
  *
- * The field is decorative and `aria-hidden`. It must never win against the
- * headline, so its most active region is deliberately right of centre and the
- * text column is masked back to almost nothing.
+ * The halo is the other correction. It was a 44rem radial at 26 % and it had
+ * turned the right half of the hero into a navy field — the system's own law
+ * inverted. It is now 26rem at 15 %, and three small pooled lights sit on
+ * actual objects instead. Roughly 40 % less blue overall, with more places
+ * where cobalt is genuinely bright.
  */
 .wariba-market-field {
   position: absolute;
@@ -498,30 +500,31 @@
   pointer-events: none;
 }
 
-/*
- * Layer 2 — the grid.
- *
- * Meant to be felt rather than seen: 3.5 % white, 64px pitch, and a mask that
- * fades it toward the top so the field reads as having a horizon rather than
- * as wallpaper.
- */
+/* Meant to be felt, not seen. Masked to a horizon so the field has a floor. */
 .wariba-mf-grid {
   position: absolute;
   inset: 0;
   background-image:
-    repeating-linear-gradient(90deg, rgb(255 255 255 / 3.5%) 0 1px, transparent 1px 64px),
-    repeating-linear-gradient(0deg, rgb(255 255 255 / 3.5%) 0 1px, transparent 1px 64px);
-  mask-image: linear-gradient(180deg, transparent 4%, #000 46%, #000 82%, transparent);
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 3%) 0 1px, transparent 1px 64px),
+    repeating-linear-gradient(0deg, rgb(255 255 255 / 3%) 0 1px, transparent 1px 64px);
+  mask-image: linear-gradient(180deg, transparent 6%, #000 48%, #000 84%, transparent);
 }
 
-/* Layer 6 — one bloom, anchored right of the text column. */
+/*
+ * One bloom, and a small one.
+ *
+ * 26rem at 15 %, down from 44rem at 26 %. The brightness the hero lost here is
+ * given back by the pooled lights inside the SVG, which are attached to the
+ * paths and the crossings — light that has a reason to be where it is reads as
+ * depth; light spread over a third of the page reads as a tint.
+ */
 .wariba-mf-bloom {
   position: absolute;
   inset: 0;
   background: radial-gradient(
-    44rem 30rem at 74% 34%,
-    color-mix(in srgb, var(--wariba-brand-600) 26%, transparent),
-    transparent 66%
+    26rem 20rem at 72% 40%,
+    color-mix(in srgb, var(--wariba-brand-600) 15%, transparent),
+    transparent 68%
   );
 }
 
@@ -532,13 +535,121 @@
   height: 100%;
 }
 
+/* ── The three planes ── */
+.wariba-mf-back {
+  opacity: 0.22;
+}
+
+.wariba-mf-mid {
+  opacity: 0.92;
+}
+
+.wariba-mf-front {
+  opacity: 1;
+}
+
+/*
+ * The secondary path reveals itself once per loop rather than being simply
+ * present — the third beat of the fifteen-second sequence. `both` keeps it
+ * drawn at rest, so the static scene has the full composition.
+ */
+@keyframes wariba-mf-reveal {
+  0%,
+  46% {
+    stroke-dashoffset: 2200;
+  }
+  74%,
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.wariba-market-field[data-animated='true'] .wariba-mf-second {
+  stroke-dasharray: 2200;
+  animation: wariba-mf-reveal 15s ease-in-out infinite;
+}
+
+/*
+ * Ticks. At rest 16 % so the still image keeps them; animated they print and
+ * fade on a 15s cycle with long staggers, so ten of them never read as a
+ * blinking row.
+ */
+.wariba-mf-tick {
+  opacity: 0.16;
+}
+
+@keyframes wariba-mf-print {
+  0%,
+  88%,
+  100% {
+    opacity: 0.08;
+  }
+  6% {
+    opacity: 0.9;
+  }
+  26% {
+    opacity: 0.5;
+  }
+  58% {
+    opacity: 0.12;
+  }
+}
+
+.wariba-market-field[data-animated='true'] .wariba-mf-tick {
+  animation: wariba-mf-print 15s ease-in-out var(--mf-delay, 0s) infinite;
+}
+
+/*
+ * A pulse node: one expansion, then gone. Seven seconds apart so only one is
+ * ever open. `r` is animated rather than `scale` because the ring must grow
+ * from its own centre without a transform-origin on an SVG circle.
+ */
+.wariba-mf-pulse {
+  opacity: 0;
+}
+
+@keyframes wariba-mf-ping {
+  0% {
+    r: 6;
+    opacity: 0;
+    stroke-width: 2;
+  }
+  8% {
+    opacity: 0.75;
+  }
+  38% {
+    r: 34;
+    opacity: 0;
+    stroke-width: 0.75;
+  }
+  100% {
+    r: 34;
+    opacity: 0;
+  }
+}
+
+.wariba-market-field[data-animated='true'] .wariba-mf-pulse {
+  animation: wariba-mf-ping 15s ease-out var(--mf-delay, 0s) infinite;
+}
+
+.wariba-mf-cross {
+  opacity: 0.75;
+}
+
+/* The mobile plane is absent on desktop and the desktop planes are absent on
+   mobile: one SVG, two compositions, nothing rendered twice. */
+.wariba-mf-mobile-plane,
+.wariba-mf-signal-m {
+  display: none;
+}
+
 /*
  * The quiet zone.
  *
  * A wedge of canvas laid back over the left third, where the headline sits.
- * The alternative — moving the animation out of the way — would leave a hero
- * that is lively on one side and dead on the other. Masking keeps the field
- * continuous and simply turns its volume down under the text.
+ * Moving the animation out of the way instead would leave a hero that is alive
+ * on one side and dead on the other; masking keeps the field continuous and
+ * simply turns its volume down under the text.
  */
 .wariba-mf-quiet {
   position: absolute;
@@ -546,84 +657,76 @@
   background: linear-gradient(
     100deg,
     var(--wariba-canvas-deep) 0%,
-    color-mix(in srgb, var(--wariba-canvas-deep) 86%, transparent) 26%,
-    color-mix(in srgb, var(--wariba-canvas-deep) 40%, transparent) 46%,
-    transparent 66%
+    color-mix(in srgb, var(--wariba-canvas-deep) 88%, transparent) 24%,
+    color-mix(in srgb, var(--wariba-canvas-deep) 44%, transparent) 46%,
+    transparent 68%
   );
 }
 
 /*
- * Layer 5 — the pulse.
+ * Mobile — one trajectory, two signals, one pulse.
  *
- * At rest the ticks sit at 18 % so the static scene still has them; animated,
- * they breathe on a 14s cycle with long staggers. Each is visible for roughly
- * a fifth of the loop, which is what keeps six of them from ever reading as a
- * blinking row.
- */
-.wariba-mf-tick {
-  opacity: 0.18;
-}
-
-@keyframes wariba-mf-pulse {
-  0%,
-  86%,
-  100% {
-    opacity: 0.1;
-  }
-  8% {
-    opacity: 0.85;
-  }
-  30% {
-    opacity: 0.55;
-  }
-  60% {
-    opacity: 0.14;
-  }
-}
-
-.wariba-market-field[data-animated='true'] .wariba-mf-tick {
-  animation: wariba-mf-pulse 14s ease-in-out var(--mf-delay, 0s) infinite;
-}
-
-/*
- * Mobile carries less of everything.
- *
- * Half the grid pitch would be noise at 390px, the bloom has to move to the
- * top where there is room, and the quiet zone becomes vertical because the
- * headline sits above the field rather than beside it.
+ * The desktop composition at 390px is a grid and some faint marks: elegant, and
+ * dead. The fix is not to shrink the field but to replace it. One path sweeps
+ * the lower third, behind the gap between the copy and the disclosure — the
+ * only region on a phone where a line can be seen without competing with a
+ * word.
  */
 @media (max-width: 767px) {
+  .wariba-mf-back,
+  .wariba-mf-mid,
+  .wariba-mf-signal,
+  .wariba-mf-cross,
+  .wariba-mf-tick {
+    display: none;
+  }
+
+  .wariba-mf-mobile-plane,
+  .wariba-mf-signal-m {
+    display: initial;
+  }
+
   .wariba-mf-grid {
     background-image:
-      repeating-linear-gradient(90deg, rgb(255 255 255 / 3%) 0 1px, transparent 1px 44px),
-      repeating-linear-gradient(0deg, rgb(255 255 255 / 3%) 0 1px, transparent 1px 44px);
+      repeating-linear-gradient(90deg, rgb(255 255 255 / 2.5%) 0 1px, transparent 1px 46px),
+      repeating-linear-gradient(0deg, rgb(255 255 255 / 2.5%) 0 1px, transparent 1px 46px);
+    mask-image: linear-gradient(180deg, transparent 22%, #000 62%, #000);
   }
 
   .wariba-mf-bloom {
     background: radial-gradient(
-      26rem 20rem at 78% 16%,
-      color-mix(in srgb, var(--wariba-brand-600) 24%, transparent),
-      transparent 68%
+      18rem 14rem at 76% 78%,
+      color-mix(in srgb, var(--wariba-brand-600) 18%, transparent),
+      transparent 70%
     );
   }
 
+  /* Vertical, not diagonal: on a phone the headline is above the field rather
+     than beside it. */
+  /* The mask holds almost to the bottom: on a phone the copy runs far further
+     down the frame than on desktop, and the trajectory lives in the band under
+     it rather than beside it. */
   .wariba-mf-quiet {
     background: linear-gradient(
       180deg,
-      color-mix(in srgb, var(--wariba-canvas-deep) 62%, transparent) 0%,
-      color-mix(in srgb, var(--wariba-canvas-deep) 88%, transparent) 34%,
-      var(--wariba-canvas-deep) 74%
+      var(--wariba-canvas-deep) 0%,
+      color-mix(in srgb, var(--wariba-canvas-deep) 94%, transparent) 42%,
+      color-mix(in srgb, var(--wariba-canvas-deep) 72%, transparent) 68%,
+      color-mix(in srgb, var(--wariba-canvas-deep) 30%, transparent) 86%,
+      transparent
     );
   }
 }
 
 /*
- * Reduced motion is handled by not mounting the moving parts at all, so there
- * is nothing here to switch off. This rule exists for the case where the
- * preference changes after mount: the ticks stop, and the scene holds.
+ * Reduced motion is handled by never mounting the moving parts, so there is
+ * nothing here to switch off. These rules exist for the case where the
+ * preference changes after mount: everything stops and the scene holds.
  */
 @media (prefers-reduced-motion: reduce) {
-  .wariba-market-field[data-animated='true'] .wariba-mf-tick {
+  .wariba-market-field[data-animated='true'] .wariba-mf-tick,
+  .wariba-market-field[data-animated='true'] .wariba-mf-pulse,
+  .wariba-market-field[data-animated='true'] .wariba-mf-second {
     animation: none;
   }
 }

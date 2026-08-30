@@ -74,7 +74,10 @@ export default async function HomePage() {
 
         <div className="mx-auto max-w-[var(--wariba-shell-max)] px-[var(--wariba-shell-gutter)] pb-24 pt-16 lg:pb-36 lg:pt-28">
           <div className="min-w-0 max-w-[46rem]">
-            <p className="wariba-eyebrow">Trading simulé</p>
+            {/* La marque avant la mention. « TRADING SIMULÉ » seul faisait de
+                l'avertissement la première chose que WARIBA dit de lui-même —
+                la transparence reste entière, elle a juste un contexte. */}
+            <p className="wariba-eyebrow">WARIBA · Trading simulé</p>
 
             {/*
              * Deux propositions, deux bénéfices : la clarté puis le suivi.
@@ -101,9 +104,13 @@ export default async function HomePage() {
             />
 
             <div className="lg:pl-8">
+              {/* « choisissez votre façon de commencer » demandait au lecteur de
+                  faire le lien lui-même ; nommer les trois parcours va droit au
+                  but. Et « restent visibles en permanence » était administratif
+                  — « à tout moment » est ce qu'on dit vraiment. */}
               <p className="wariba-lead mt-8 max-w-[36rem]">
-                ONE, FLEX ou INSTANT : choisissez votre façon de commencer. Vos limites et votre
-                progression restent visibles en permanence.
+                Choisissez ONE, FLEX ou INSTANT. Suivez vos limites et votre progression à tout
+                moment.
               </p>
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -118,8 +125,12 @@ export default async function HomePage() {
 
               {/* La divulgation vit sous les CTA, séparée du titre : elle est
                   une information, pas un argument. */}
-              <p className="mt-7 max-w-md text-sm leading-relaxed text-[color:var(--wariba-on-dark-dim)]">
-                Trading entièrement simulé. Aucun dépôt ni capital réel ne vous est confié.
+              {/* Plus long, et plus juste. « Aucun dépôt ne vous est confié »
+                  était bancal : ce qui n'est ni un dépôt ni du capital, c'est le
+                  montant affiché sur le compte. La phrase le nomme. */}
+              <p className="mt-7 max-w-lg text-sm leading-relaxed text-[color:var(--wariba-on-dark-dim)]">
+                Le trading est entièrement simulé. Le montant du compte n’est ni un dépôt ni du
+                capital réel qui vous est confié.
               </p>
               <p className="mt-2 text-sm text-[color:var(--wariba-on-dark-dim)]">
                 Les achats ne sont pas encore ouverts.
