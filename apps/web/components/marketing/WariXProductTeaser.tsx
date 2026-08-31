@@ -24,8 +24,7 @@ export function WariXProductTeaser() {
       />
       <motion.div
         initial={reduced ? false : { opacity: 0, x: -28, y: 20, rotateY: -4 }}
-        whileInView={{ opacity: 1, x: 0, y: 0, rotateY: 0 }}
-        viewport={{ once: true, amount: 0.25 }}
+        animate={{ opacity: 1, x: 0, y: 0, rotateY: 0 }}
         transition={reduced ? { duration: 0 } : { duration: 0.78, ease: 'easeOut' }}
         {...(!reduced ? { whileHover: { y: -5, rotateY: 1 } } : {})}
         className="relative origin-center [perspective:1400px]"

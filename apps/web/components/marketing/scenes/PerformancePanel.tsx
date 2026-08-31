@@ -88,7 +88,7 @@ function Metric({
 }) {
   return (
     <div>
-      <p className="text-[9px] font-bold uppercase leading-tight tracking-[0.08em] text-white/60 sm:text-[10px] sm:tracking-[0.14em]">
+      <p className="text-[10px] font-bold uppercase leading-tight tracking-[0.06em] text-white/60 sm:text-[10px] sm:tracking-[0.14em]">
         {label}
       </p>
       <p

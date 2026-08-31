@@ -110,7 +110,7 @@ export function PathwaysSection({ one, flex, instant }: PathwaysSectionProps) {
         </nav>
 
         {/* ── Chapitre 1 · ONE — copie à gauche, visualisation à droite ── */}
-        <div className="mt-16 flex flex-col gap-10 sm:mt-20 lg:flex-row lg:items-center lg:gap-16">
+        <div className="mt-12 flex flex-col gap-8 sm:mt-20 lg:flex-row lg:items-center lg:gap-16">
           <Reveal className="min-w-0 lg:flex-1">
             <div className="flex items-center gap-3">
               <span className="wariba-figure text-xs font-bold text-[color:var(--wariba-brand-300)]">01</span>
@@ -157,10 +157,10 @@ export function PathwaysSection({ one, flex, instant }: PathwaysSectionProps) {
         {/* ── Chapitre 2 · FLEX — champ plein cobalt/indigo ── */}
         <Reveal
           delay={0.05}
-          className="mt-20 overflow-hidden rounded-[28px] border border-white/10 sm:mt-28"
+          className="mt-14 overflow-hidden rounded-[28px] border border-white/10 sm:mt-28"
         >
           <div
-            className="p-6 sm:p-10 lg:p-14"
+            className="p-5 sm:p-10 lg:p-14"
             style={{
               background:
                 'radial-gradient(circle at 18% 12%, color-mix(in srgb, var(--wariba-brand-400) 34%, transparent), transparent 46%), radial-gradient(circle at 82% 82%, color-mix(in srgb, var(--wariba-accent-cyan) 18%, transparent), transparent 48%), linear-gradient(160deg, color-mix(in srgb, var(--wariba-brand-700) 48%, var(--wariba-canvas-deep)) 0%, var(--wariba-canvas-base) 54%, var(--wariba-canvas-deep) 100%)',
@@ -174,7 +174,7 @@ export function PathwaysSection({ one, flex, instant }: PathwaysSectionProps) {
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#B9B2FF]">
                   WARIBA FLEX · {flex.sizeCode}
                 </p>
-                <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.14em] text-white/60">
+                <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.13em] text-white/60">
                   Exemple
                 </span>
               </div>
@@ -187,7 +187,7 @@ export function PathwaysSection({ one, flex, instant }: PathwaysSectionProps) {
               </p>
             </div>
 
-            <div className="mx-auto mt-10 w-full max-w-[720px] sm:mt-14">
+            <div className="mx-auto mt-8 w-full max-w-[720px] sm:mt-14">
               <FlexPaymentTimeline
                 sizeLabel={flex.sizeCode}
                 upfrontValue={flexUpfrontParts.value}
@@ -197,7 +197,7 @@ export function PathwaysSection({ one, flex, instant }: PathwaysSectionProps) {
               />
             </div>
 
-            <div className="mt-10 flex justify-center sm:mt-14">
+            <div className="mt-8 flex justify-center sm:mt-14">
               <Link href="/challenges/flex" className="wariba-cta-primary">
                 Découvrir FLEX
                 <ArrowRightIcon size="sm" />
@@ -207,7 +207,7 @@ export function PathwaysSection({ one, flex, instant }: PathwaysSectionProps) {
         </Reveal>
 
         {/* ── Chapitre 3 · INSTANT — produit à gauche, copie à droite (miroir de ONE) ── */}
-        <div className="mt-20 flex flex-col gap-10 sm:mt-28 lg:flex-row lg:items-center lg:gap-16">
+        <div className="mt-14 flex flex-col gap-8 sm:mt-28 lg:flex-row lg:items-center lg:gap-16">
           <Reveal delay={0.05} className="min-w-0 lg:flex-1">
             <InstantAccountPanel
               sizeLabel={instant.sizeCode}
@@ -240,7 +240,7 @@ export function PathwaysSection({ one, flex, instant }: PathwaysSectionProps) {
         </div>
 
         {/* ── Chapitre 4 · Performance, expliquée par le produit ── */}
-        <div className="mt-20 grid gap-10 sm:mt-28 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-center lg:gap-16">
+        <div className="mt-14 grid gap-8 sm:mt-28 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-center lg:gap-16">
           <Reveal>
             <div className="flex items-center gap-3">
               <span className="wariba-figure text-xs font-bold text-white/50">04</span>

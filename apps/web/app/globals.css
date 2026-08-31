@@ -4465,21 +4465,28 @@ body {
 }
 
 @media (max-width: 767px) {
+  /*
+   * Mobile rhythm pass — the five stacked cards previously carried min-heights
+   * sized for their most content-heavy state, which left `.proof-card-days`
+   * in particular with 100px+ of true dead space beneath a five-pill visual
+   * that never needed it. Trimmed per-card against what each one actually
+   * renders, not a uniform cut, so no card feels cramped.
+   */
   .proof-rail-heading { max-width: 23rem; }
-  .proof-rail-grid { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: 'price' 'days' 'rails' 'sizes' 'rules'; gap: 14px; margin: 32px 0 0; padding: 0; overflow: visible; scroll-snap-type: none; }
-  .proof-card, .proof-card-price, .proof-card-days, .proof-card-sizes, .proof-card-rails, .proof-card-rules { min-height: 0; padding: 23px; }
-  .proof-card-price { min-height: 340px; }
-  .proof-card-days { min-height: 314px; }
-  .proof-card-sizes { min-height: 326px; }
-  .proof-card-rails { min-height: 315px; }
-  .proof-card-rules { min-height: 250px; }
+  .proof-rail-grid { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: 'price' 'days' 'rails' 'sizes' 'rules'; gap: 10px; margin: 22px 0 0; padding: 0; overflow: visible; scroll-snap-type: none; }
+  .proof-card, .proof-card-price, .proof-card-days, .proof-card-sizes, .proof-card-rails, .proof-card-rules { min-height: 0; padding: 19px; }
+  .proof-card-price { min-height: 300px; }
+  .proof-card-days { min-height: 224px; }
+  .proof-card-sizes { min-height: 296px; }
+  .proof-card-rails { min-height: 288px; }
+  .proof-card-rules { min-height: 224px; }
   .proof-days-title { font-size: 2.15rem; }
-  .proof-days-visual { gap: 4px; margin-top: 30px; }
+  .proof-days-visual { gap: 4px; margin-top: 20px; }
   .proof-days-visual span { min-height: 32px; }
   .proof-policy-link { grid-template-columns: max-content 1fr max-content; gap: 5px; margin-top: 32px; }
   .proof-policy-link b { display: none; }
-  .proof-card-rules h3 { margin-top: 32px; }
-  .proof-rail-action { margin-top: 26px; }
+  .proof-card-rules h3 { margin-top: 24px; }
+  .proof-rail-action { margin-top: 22px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

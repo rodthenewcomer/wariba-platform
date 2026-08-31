@@ -2,8 +2,8 @@
 
 import { Fragment, type ComponentType } from 'react';
 import Link from 'next/link';
-import { motion } from 'motion/react';
 import { ArrowRightIcon, cx } from '@wariba/ui';
+import { Reveal } from '../../motion/Reveal';
 import { Connector } from './Connector';
 import { PhaseCard, type PhaseVisualProps } from './PhaseCard';
 import {
@@ -90,12 +90,7 @@ export function HowItWorksSection() {
       />
 
       <div className="mx-auto max-w-[var(--wariba-shell-max)] px-[var(--wariba-shell-gutter)]">
-        <motion.div
-          initial={reduced ? false : { opacity: 0, y: 14 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.5 }}
-          transition={{ duration: reduced ? 0 : 0.5, ease: [0.22, 1, 0.36, 1] }}
-        >
+        <Reveal>
           <p className="wariba-eyebrow">Comment ça marche</p>
           <h2 id="how-it-works-title" className="wariba-section-title mt-5 max-w-[16ch]">
             Comprenez WARIBA
@@ -106,9 +101,9 @@ export function HowItWorksSection() {
             Choisissez votre parcours, tradez, suivez votre progression et accédez à Performance
             selon votre formule.
           </p>
-        </motion.div>
+        </Reveal>
 
-        <div className="mt-9 flex flex-col lg:mt-11 lg:flex-row lg:items-stretch">
+        <div className="mt-7 flex flex-col lg:mt-11 lg:flex-row lg:items-stretch">
           {PHASES.map((phase, index) => (
             <Fragment key={phase.number}>
               <PhaseCard
@@ -130,19 +125,16 @@ export function HowItWorksSection() {
           ))}
         </div>
 
-        <motion.div
-          className="mt-12 flex flex-col items-center gap-2 text-center lg:mt-16"
-          initial={reduced ? false : { opacity: 0, y: 10 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.8 }}
-          transition={{ duration: reduced ? 0 : 0.4, delay: reduced ? 0 : 0.15 }}
+        <Reveal
+          className="mt-9 flex flex-col items-center gap-2 text-center lg:mt-16"
+          delay={0.15}
         >
           <Link href="/programme" className="how-it-works-cta wariba-cta-secondary">
             <span className={cx('how-it-works-cta-frame', ctaTracing && 'is-tracing')} aria-hidden="true" />
             Voir comment WARIBA fonctionne
             <ArrowRightIcon size="sm" className="how-it-works-cta-arrow" />
           </Link>
-        </motion.div>
+        </Reveal>
       </div>
     </section>
   );

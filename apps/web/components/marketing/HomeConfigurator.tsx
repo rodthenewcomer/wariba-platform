@@ -248,7 +248,7 @@ export function HomeConfigurator({ offers }: { offers: readonly CanonicalOfferRe
                 {meta.short} · {selected.sizeCode}
               </h3>
             </div>
-            <span className="mt-1 rounded-full border border-[color:var(--config-edge)] bg-[color:var(--config-wash)] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.13em] text-[color:var(--config-accent)]">
+            <span className="mt-1 rounded-full border border-[color:var(--config-edge)] bg-[color:var(--config-wash)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[color:var(--config-accent)]">
               Simulé
             </span>
           </div>
