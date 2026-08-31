@@ -66,6 +66,7 @@ export * from './layouts/PublicMobileMenu';
 export * from './layouts/FixedUiCoordinator';
 export * from './layouts/public-nav';
 export * from './layouts/PublicFooter';
+export * from './layouts/legal-disclosure';
 export * from './layouts/PlatformSidebar';
 export * from './layouts/MobileBottomNav';
 export * from './layouts/ControlSidebar';

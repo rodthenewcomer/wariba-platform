@@ -880,6 +880,21 @@ inventaire et rapport de clôture Phase 3.4.1.
 
 # 26. Historique des versions
 
+## v1.35 — 2026-08-31
+
+Roadmap finale verrouillée : `docs/08-delivery/WARIBA_FINAL_ROADMAP_2026-08-31.md`.
+Le Trader Hub devient une phase complète et obligatoire (Phase C) au même
+titre que le site public (Phase A) et WariX (Phase D), avec sa frontière de
+responsabilité réaffirmée face à WariX — gestion de la relation WARIBA
+(comptes, progression, performance, journal, payouts, billing, profil,
+support) contre workstation de trading. Séquence complète : site public →
+auth → Trader Hub → WariX → polish global → security hardening →
+certification complète → services de production → bêta privée → vrais
+utilisateurs → itération → lancement public. Treasury avancé, routing PSP
+intelligent et finance OS restent explicitement après le lancement. Ce
+document remplace la séquence à 4 étapes de §28, obsolète depuis la fusion
+du Prompt 09.
+
 ## v1.34 — 2026-08-27
 
 Phase 3.4.3A — `POLICY-GOV-004` verrouille V2 comme norme définitive,
@@ -1510,9 +1525,14 @@ Le passage à `LOCKED` est un acte humain explicite, daté ici.
 
 # 28. Prochaine action opérationnelle
 
+**Superseded par v1.35 (§26) — voir `docs/08-delivery/WARIBA_FINAL_ROADMAP_2026-08-31.md`.**
+La séquence à 4 étapes ci-dessous décrivait l'état du 2026-08-24 et
+s'arrêtait au merge du Prompt 09 ; elle est conservée pour mémoire, pas
+comme plan courant.
+
 Les Prompts 01 à 09 sont implémentés, audités et certifiés — y compris les
 Appendices 07-A à 07-D et 08-A, et les six jalons du Prompt 09 (v1.23
-ci-dessus). La séquence suivante est :
+ci-dessus). La séquence historique était :
 
 ```text
 1. Fusionner le Prompt 09 (WARIBA Control) après revue humaine
@@ -1522,6 +1542,10 @@ ci-dessus). La séquence suivante est :
 4. Ne pas ouvrir la vente publique avant les gates actuariels, juridiques,
    de réserve et de providers réels — PUBLIC_PRODUCTION_READY reste false
 ```
+
+Le point 4 reste vrai sans changement : `PUBLIC_PRODUCTION_READY` reste
+`false` jusqu'aux mêmes gates. La roadmap verrouillée v1.35 remplace les
+points 1 à 3 par les phases A à K.
 
 ---
 

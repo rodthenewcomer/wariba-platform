@@ -148,7 +148,9 @@ export const FOOTER_COLUMNS: readonly FooterColumn[] = [
   {
     title: 'Cadre légal',
     links: [
-      { href: '/legal/conditions', label: 'Conditions d’utilisation' },
+      { href: '/legal', label: 'Centre légal' },
+      { href: '/legal/mentions-legales', label: 'Mentions légales' },
+      { href: '/legal/conditions-utilisation', label: 'Conditions d’utilisation' },
       { href: '/legal/confidentialite', label: 'Confidentialité' },
       { href: '/legal/risques', label: 'Risques et simulation' },
     ],

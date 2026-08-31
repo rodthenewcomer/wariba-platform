@@ -189,7 +189,7 @@ export function PublicFooter({ LinkComponent: Link }: PublicFooterProps) {
               <ArrowRightIcon size="sm" />
             </Link>
             <Link
-              href="/legal/conditions"
+              href="/legal/conditions-utilisation"
               className="wariba-focus-ring inline-block rounded-md text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-on-dark-muted)] hover:text-[color:var(--wariba-on-dark)]"
             >
               Conditions d’utilisation
@@ -199,6 +199,12 @@ export function PublicFooter({ LinkComponent: Link }: PublicFooterProps) {
               className="wariba-focus-ring inline-block rounded-md text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-on-dark-muted)] hover:text-[color:var(--wariba-on-dark)]"
             >
               Confidentialité
+            </Link>
+            <Link
+              href="/legal"
+              className="wariba-focus-ring inline-block rounded-md text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-on-dark-muted)] hover:text-[color:var(--wariba-on-dark)]"
+            >
+              Centre légal
             </Link>
           </div>
 
