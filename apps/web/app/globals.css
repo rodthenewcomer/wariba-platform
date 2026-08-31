@@ -2161,6 +2161,156 @@
   }
 }
 
+/*
+ * Section 09 — Afrique francophone.
+ *
+ * The node entrance, label reveal and ambient pulse/ripple are pure CSS,
+ * staggered with `--s09-node-delay` / `--s09-pulse-delay` / `--s09-ripple-
+ * delay` per node — the same reason `[data-reveal]` above plays on load
+ * rather than on scroll-into-view: an IntersectionObserver-gated animation
+ * is blank in a full-page capture, because Chromium expands the layout
+ * viewport for that instead of scrolling it. Connectors reuse `.wariba-draw`
+ * rather than a second self-drawing implementation.
+ */
+@keyframes s09-node-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.s09-node-appear {
+  animation: s09-node-appear 500ms var(--wariba-motion-ease-enter) var(--s09-node-delay, 0ms) both;
+  /*
+   * `transform-origin: center` alone resolves against the *SVG viewport*,
+   * not the circle's own bounding box, unless `transform-box: fill-box`
+   * says otherwise — without it every scaled node drifts toward the
+   * viewport's top-left corner instead of growing from its own centre.
+   */
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes s09-label-appear {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.s09-label-appear {
+  animation: s09-label-appear 450ms var(--wariba-motion-ease-enter) var(--s09-node-delay, 0ms) both;
+}
+
+/* The node's own soft breathing glow — continuous, gentle, never a flash. */
+@keyframes s09-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.12);
+  }
+}
+
+.s09-node-pulse {
+  animation: s09-pulse 3.2s ease-in-out var(--s09-pulse-delay, 0ms) infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* The occasional outward wave — long duration and a per-node offset keep six
+   nodes from ever rippling in sync, so it reads as "alive", not "alarm". */
+@keyframes s09-ripple {
+  0% {
+    opacity: 0.45;
+    transform: scale(0.6);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(2.4);
+  }
+}
+
+.s09-node-ripple {
+  animation: s09-ripple 5.5s ease-out var(--s09-ripple-delay, 0ms) infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s09-node-appear,
+  .s09-label-appear {
+    animation: none;
+  }
+
+  .s09-node-pulse {
+    animation: none;
+    opacity: 0.6;
+  }
+
+  .s09-node-ripple {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* A cheap dot-grid, not a tile image — the map's cartographic texture. */
+.s09-map-field {
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--wariba-on-dark) 14%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 22px 22px;
+}
+
+/*
+ * Named grid areas, not `order` utilities: the map needs to sit between the
+ * header and the micro-modules/CTA on mobile but beside both of them on
+ * desktop, which plain flex/grid `order` cannot express across a column
+ * split. `header`/`extras` are two independent grid items on desktop so the
+ * map can occupy a single tall column beside both.
+ */
+.s09-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-areas: 'header' 'map' 'extras';
+  gap: 2.75rem;
+}
+
+.s09-grid-header {
+  grid-area: header;
+}
+
+.s09-grid-map {
+  grid-area: map;
+}
+
+.s09-grid-extras {
+  grid-area: extras;
+}
+
+@media (min-width: 1024px) {
+  .s09-grid {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    grid-template-areas: 'map header' 'map extras';
+    align-items: start;
+    gap: 3.5rem;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
