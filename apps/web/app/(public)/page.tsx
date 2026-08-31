@@ -36,7 +36,7 @@ export const dynamic = 'force-dynamic';
  * hero → three full scenes → configurator → a saturated colour field →
  * four-step scenes → a data visualisation → huge numbers → a dark product
  * surface → a living dashboard → a regional map → a contact preview → FAQ →
- * a ladder → a proof grid → photography → closing scene. The variation is
+ * closing scene → a ladder → a proof grid → photography. The variation is
  * the point: a page that alternates `text-left / card-right` nine times
  * reads as a template no matter how good each block is.
  *
@@ -231,7 +231,32 @@ export default async function HomePage() {
       {/* ───────────────  11 · Questions fréquentes  ─────────────── */}
       <FaqSection />
 
-      {/* ───────────────  12 · La perte maximale, expliquée par le visuel  ─────────────── */}
+      {/* ───────────────  12 · Clôture  ─────────────── */}
+      <PublicSection space="tight">
+        <Reveal>
+          <div className="wariba-strong-surface text-center" data-tone="deep">
+            <div className="relative z-[1] mx-auto max-w-2xl">
+              <h2 className="text-3xl font-semibold tracking-[-0.04em] text-[color:var(--wariba-on-dark)] sm:text-5xl">
+                Choisissez comment vous voulez commencer.
+              </h2>
+              <p className="wariba-lead mx-auto mt-5">
+                Comparez ONE, FLEX et INSTANT, et lisez les règles avant de vous lancer.
+              </p>
+              <div className="mt-9 flex flex-wrap justify-center gap-3">
+                <Link href="/offres" className="wariba-cta-primary">
+                  Comparer les parcours
+                  <ArrowRightIcon size="sm" />
+                </Link>
+                <Link href="/programme" className="wariba-cta-secondary">
+                  Comment ça marche
+                </Link>
+              </div>
+            </div>
+          </div>
+        </Reveal>
+      </PublicSection>
+
+      {/* ───────────────  13 · La perte maximale, expliquée par le visuel  ─────────────── */}
       <PublicSection tone="deep">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-center">
           <Reveal>
@@ -263,7 +288,7 @@ export default async function HomePage() {
         </div>
       </PublicSection>
 
-      {/* ───────────────  13 · Les chiffres, en objets  ─────────────── */}
+      {/* ───────────────  14 · Les chiffres, en objets  ─────────────── */}
       <PublicSection tone="band" space="tight">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
           <Reveal>
@@ -322,7 +347,7 @@ export default async function HomePage() {
         </p>
       </PublicSection>
 
-      {/* ───────────────  14 · Le tableau de bord vivant  ─────────────── */}
+      {/* ───────────────  15 · Le tableau de bord vivant  ─────────────── */}
       <PublicSection tone="band">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center">
           <Reveal>
@@ -342,7 +367,7 @@ export default async function HomePage() {
         </div>
       </PublicSection>
 
-      {/* ───────────────  15 · L'échelle de partage  ─────────────── */}
+      {/* ───────────────  16 · L'échelle de partage  ─────────────── */}
       <PublicSection>
         <div className="grid gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-center">
           <Reveal>
@@ -367,7 +392,7 @@ export default async function HomePage() {
         </div>
       </PublicSection>
 
-      {/* ───────────────  16 · Ce que WARIBA garantit vraiment  ─────────────── */}
+      {/* ───────────────  17 · Ce que WARIBA garantit vraiment  ─────────────── */}
       <PublicSection tone="deep" space="tight">
         <Reveal>
           <SectionHeader
@@ -411,30 +436,6 @@ export default async function HomePage() {
         </div>
       </PublicSection>
 
-      {/* ───────────────  17 · Clôture  ─────────────── */}
-      <PublicSection space="tight">
-        <Reveal>
-          <div className="wariba-strong-surface text-center" data-tone="deep">
-            <div className="relative z-[1] mx-auto max-w-2xl">
-              <h2 className="text-3xl font-semibold tracking-[-0.04em] text-[color:var(--wariba-on-dark)] sm:text-5xl">
-                Choisissez comment vous voulez commencer.
-              </h2>
-              <p className="wariba-lead mx-auto mt-5">
-                Comparez ONE, FLEX et INSTANT, et lisez les règles avant de vous lancer.
-              </p>
-              <div className="mt-9 flex flex-wrap justify-center gap-3">
-                <Link href="/offres" className="wariba-cta-primary">
-                  Comparer les parcours
-                  <ArrowRightIcon size="sm" />
-                </Link>
-                <Link href="/programme" className="wariba-cta-secondary">
-                  Comment ça marche
-                </Link>
-              </div>
-            </div>
-          </div>
-        </Reveal>
-      </PublicSection>
     </>
   );
 }
