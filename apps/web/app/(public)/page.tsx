@@ -1,20 +1,11 @@
 import Link from 'next/link';
 import { listCanonicalV2Offers } from '@wariba/application';
-import {
-  ArrowRightIcon,
-  PayoutLadder,
-  PublicSection,
-  SectionHeader,
-  ShieldCheckIcon,
-} from '@wariba/ui';
-import { PerformanceShowcase } from '../../components/marketing/PerformanceShowcase';
+import { ArrowRightIcon, PublicSection, SectionHeader } from '@wariba/ui';
 import { ProofRail } from '../../components/marketing/ProofRail';
 import { PathwaysSection } from '../../components/marketing/PathwaysSection';
 import { WaribaPath } from '../../components/marketing/scenes/WaribaPath';
 import { HomeConfigurator } from '../../components/marketing/HomeConfigurator';
-import { DrawdownScene } from '../../components/marketing/scenes/DrawdownScene';
 import { WariXProductTeaser } from '../../components/marketing/WariXProductTeaser';
-import { PerformanceDays } from '../../components/marketing/scenes/PerformanceDays';
 import { RiskField } from '../../components/marketing/RiskField';
 import { HowItWorksSection } from '../../components/marketing/how-it-works/HowItWorksSection';
 import { Section07Intelligence } from '../../components/marketing/section07/Section07Intelligence';
@@ -22,7 +13,6 @@ import { AfriqueFrancophoneSection } from '../../components/marketing/afrique-fr
 import { ContactPreviewSection } from '../../components/marketing/contact/ContactPreviewSection';
 import { FaqSection } from '../../components/marketing/faq/FaqSection';
 import { Reveal } from '../../components/motion/Reveal';
-import { formatNominal, formatRate } from '../../components/commerce/offer-ui';
 import { getDb } from '../../lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -32,13 +22,19 @@ export const dynamic = 'force-dynamic';
  *
  * ## The rhythm
  *
- * Seventeen sections and no two consecutive ones share a composition. Product
+ * Twelve sections and no two consecutive ones share a composition. Product
  * hero → three full scenes → configurator → a saturated colour field →
- * four-step scenes → a data visualisation → huge numbers → a dark product
- * surface → a living dashboard → a regional map → a contact preview → FAQ →
- * closing scene → a ladder → a proof grid → photography. The variation is
- * the point: a page that alternates `text-left / card-right` nine times
- * reads as a template no matter how good each block is.
+ * four-step scenes → a data visualisation → a dark product surface → a
+ * living dashboard → a regional map → a contact preview → FAQ → closing
+ * scene. The variation is the point: a page that alternates
+ * `text-left / card-right` nine times reads as a template no matter how
+ * good each block is.
+ *
+ * Section 12 (Clôture) used to close a longer page — a drawdown visual, a
+ * numbers grid, the live dashboard, the payout ladder and a guarantees grid
+ * all followed it. Those five were cut; what they showed (rules, risk,
+ * payouts, the dashboard) still lives on `/programme`, `/aide` and the
+ * product pages this homepage already links to.
  *
  * ## Every figure comes from the server
  *
@@ -52,17 +48,14 @@ export default async function HomePage() {
   const offers = await listCanonicalV2Offers(getDb());
 
   const one = offers.find((o) => o.productFamily === 'WARIBA_ONE' && o.sizeCode === '25K');
-  const flex = offers.find((o) => o.productFamily === 'WARIBA_FLEX' && o.sizeCode === '25K');
   const instant = offers.find((o) => o.productFamily === 'WARIBA_INSTANT' && o.sizeCode === '25K');
-  if (!one || !flex || !instant) throw new Error('Catalogue V2 canonique incomplet.');
+  if (!one || !instant) throw new Error('Catalogue V2 canonique incomplet.');
 
   /* Section 03 montre FLEX à sa taille d'entrée — 9 900 FCFA — pour que le
      chiffre corresponde exactement à celui déjà annoncé en Section 02
      (« Commencez dès 9 900 FCFA »). */
   const flexEntry = offers.find((o) => o.productFamily === 'WARIBA_FLEX' && o.sizeCode === '5K');
   if (!flexEntry) throw new Error('Catalogue V2 canonique incomplet.');
-
-  const ladder = one.performanceRules.payoutSplitSchedule;
 
   return (
     <>
@@ -254,186 +247,6 @@ export default async function HomePage() {
             </div>
           </div>
         </Reveal>
-      </PublicSection>
-
-      {/* ───────────────  13 · La perte maximale, expliquée par le visuel  ─────────────── */}
-      <PublicSection tone="deep">
-        <div className="grid gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-center">
-          <Reveal>
-            <SectionHeader
-              eyebrow="La règle qui compte"
-              title="Votre perte maximale, toujours visible."
-              lead="C’est la seule limite qui met fin à un compte. Elle est affichée en permanence dans votre espace, pendant que vous tradez."
-            />
-            <Link href="/aide/risque-regles" className="wariba-cta-secondary mt-8">
-              Comprendre les règles
-              <ArrowRightIcon size="sm" />
-            </Link>
-          </Reveal>
-          <Reveal delay={0.08}>
-            <div className="wariba-visual-card p-5 sm:p-7" data-variant="panel">
-              <DrawdownScene
-                familyLabel="ONE"
-                sizeLabel={one.sizeCode}
-                startBalance={formatNominal(one.nominalBalance)}
-                floorBalance={formatNominal(
-                  String(
-                    Number(one.nominalBalance) - Number(one.evaluationRules!.maximumLossAmount),
-                  ),
-                )}
-                maxLossRate={formatRate(one.evaluationRules!.maximumLossRate)}
-              />
-            </div>
-          </Reveal>
-        </div>
-      </PublicSection>
-
-      {/* ───────────────  14 · Les chiffres, en objets  ─────────────── */}
-      <PublicSection tone="band" space="tight">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-          <Reveal>
-            <div className="wariba-visual-card h-full p-6 sm:p-8" data-variant="accent">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">
-                Journées Performance · ONE {one.sizeCode}
-              </p>
-              <p className="commerce-rule-figure mt-4 text-white">
-                {one.performanceRules.performanceDaysRequired}
-              </p>
-              <p className="mt-3 max-w-md text-base leading-relaxed text-white/85">
-                Un cycle de versement s’ouvre après {one.performanceRules.performanceDaysRequired}{' '}
-                journées qualifiantes.
-              </p>
-              <div className="mt-7">
-                <PerformanceDays
-                  required={one.performanceRules.performanceDaysRequired}
-                  thresholdLabel={formatRate(one.performanceRules.performanceDayThresholdRate)}
-                  onAccent
-                />
-              </div>
-            </div>
-          </Reveal>
-
-          <Reveal delay={0.08}>
-            <div className="grid h-full gap-4">
-              {[
-                [
-                  'Meilleure journée',
-                  formatRate(one.performanceRules.bestDayMaximumRate),
-                  'Une seule séance ne peut pas porter tout votre résultat.',
-                ],
-                [
-                  'Réserve de sécurité',
-                  formatRate(one.performanceRules.permanentBufferRate),
-                  'Elle protège la suite de votre parcours, cycle après cycle.',
-                ],
-              ].map(([label, value, body]) => (
-                <div key={label} className="wariba-visual-card p-6" data-variant="panel">
-                  <p className="text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase tracking-[0.14em] text-[color:var(--wariba-on-dark-dim)]">
-                    {label}
-                  </p>
-                  <p className="wariba-figure mt-2 text-4xl font-bold tracking-[-0.03em] text-[color:var(--wariba-on-dark)]">
-                    {value}
-                  </p>
-                  <p className="mt-2 text-sm leading-relaxed text-[color:var(--wariba-on-dark-dim)]">
-                    {body}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </Reveal>
-        </div>
-        <p className="mt-5 text-sm text-[color:var(--wariba-on-dark-dim)]">
-          Valeurs de WARIBA ONE en taille {one.sizeCode}. Elles diffèrent sur FLEX et INSTANT.
-        </p>
-      </PublicSection>
-
-      {/* ───────────────  15 · Le tableau de bord vivant  ─────────────── */}
-      <PublicSection tone="band">
-        <div className="grid gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center">
-          <Reveal>
-            <PerformanceShowcase variant="full" />
-          </Reveal>
-          <Reveal delay={0.08}>
-            <SectionHeader
-              eyebrow="Votre suivi"
-              title="Vous savez toujours où vous en êtes."
-              lead="Solde, équité, journées validées, réserve et éligibilité au versement : les mêmes chiffres que ceux sur lesquels le serveur décide."
-            />
-            <Link href="/programme" className="wariba-cta-secondary mt-8">
-              Comment ça marche
-              <ArrowRightIcon size="sm" />
-            </Link>
-          </Reveal>
-        </div>
-      </PublicSection>
-
-      {/* ───────────────  16 · L'échelle de partage  ─────────────── */}
-      <PublicSection>
-        <div className="grid gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-center">
-          <Reveal>
-            <SectionHeader
-              eyebrow="Votre part"
-              title="Votre part évolue avec votre parcours."
-              lead="Le barème est attaché à votre compte le jour de l’achat. Un plafond propre à la taille s’applique, et une revue intervient après le cinquième cycle."
-            />
-          </Reveal>
-          <Reveal delay={0.08}>
-            <div className="wariba-visual-card p-6 sm:p-8" data-variant="panel">
-              <PayoutLadder
-                steps={ladder.map((share, index) => ({
-                  label: `Cycle ${index + 1}`,
-                  share: formatRate(share),
-                  state: index === 0 ? 'current' : 'upcoming',
-                }))}
-                caption={`Barème de WARIBA ONE en taille ${one.sizeCode}.`}
-              />
-            </div>
-          </Reveal>
-        </div>
-      </PublicSection>
-
-      {/* ───────────────  17 · Ce que WARIBA garantit vraiment  ─────────────── */}
-      <PublicSection tone="deep" space="tight">
-        <Reveal>
-          <SectionHeader
-            eyebrow="Ce sur quoi vous pouvez compter"
-            title="Pas de promesse. Des règles."
-          />
-        </Reveal>
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            [
-              'Vos règles ne changent plus',
-              'Elles sont attachées à votre compte au moment de l’achat.',
-            ],
-            [
-              'Votre risque est suivi en direct',
-              'Pendant la séance, pas dans un rapport du lendemain.',
-            ],
-            [
-              'Aucun dépôt, aucun capital confié',
-              'Le montant du compte est une unité de simulation.',
-            ],
-            ['Le serveur décide, pas l’écran', 'Prix d’exécution, risque, passage et versement.'],
-            [
-              'Chaque décision est traçable',
-              'Vous pouvez contester une décision et suivre son instruction.',
-            ],
-            ['Les prix sont en FCFA', 'Les équivalents en USD sont donnés à titre indicatif.'],
-          ].map(([title, body], index) => (
-            <Reveal key={title} delay={index * 0.05}>
-              <div className="wariba-visual-card h-full p-5" data-variant="panel">
-                <ShieldCheckIcon size="sm" className="text-[color:var(--wariba-brand-300)]" />
-                <h3 className="mt-4 text-base font-semibold text-[color:var(--wariba-on-dark)]">
-                  {title}
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-[color:var(--wariba-on-dark-dim)]">
-                  {body}
-                </p>
-              </div>
-            </Reveal>
-          ))}
-        </div>
       </PublicSection>
 
     </>
