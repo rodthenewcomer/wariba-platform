@@ -3102,72 +3102,24 @@
   color: var(--wariba-on-dark-dim);
 }
 
-/* Vertical stepper — FAQ 01, 05, 07. */
-.faq-stepper {
-  display: flex;
-  flex-direction: column;
-}
-
-.faq-vstep {
-  display: flex;
-  gap: 1rem;
-}
-
-.faq-vstep-rail {
-  position: relative;
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  align-items: center;
-}
-
-.faq-vstep-chip {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  flex: none;
-  border-radius: 9999px;
-  color: var(--wariba-on-dark);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--faq-accent, var(--wariba-brand-400)) 14%, transparent);
-  background: color-mix(in srgb, var(--faq-accent, var(--wariba-brand-400)) 88%, black 6%);
-  opacity: 0;
-  transform: scale(0.6);
-  animation: faq-chip-in 420ms var(--wariba-motion-ease-enter) var(--faq-delay, 0ms) both;
-}
-
 @keyframes faq-chip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
   to {
     opacity: 1;
     transform: scale(1);
   }
 }
 
-.faq-vstep-line {
-  width: 2px;
-  flex: 1 1 auto;
-  min-height: 1.5rem;
-  margin: 2px 0;
-  border-radius: 9999px;
-  background: var(--wariba-seam-strong);
-  transform-origin: top;
-  transform: scaleY(0);
-  animation: faq-line-draw 380ms var(--wariba-motion-ease-standard) var(--faq-delay, 0ms) both;
-}
-
 @keyframes faq-line-draw {
+  from {
+    transform: scaleY(0);
+  }
   to {
     transform: scaleY(1);
   }
-}
-
-.faq-vstep-body {
-  flex: 1 1 auto;
-  min-width: 0;
-  padding-bottom: 1.5rem;
-  opacity: 0;
-  animation: faq-body-in 380ms var(--wariba-motion-ease-enter) var(--faq-delay, 0ms) both;
 }
 
 @keyframes faq-body-in {
@@ -3181,33 +3133,367 @@
   }
 }
 
-.faq-vstep:last-child .faq-vstep-body {
-  padding-bottom: 0;
+/*
+ * Ecosystem map — FAQ 01. A hub (WARIBA) with three nodes hanging off it at
+ * once, not a chain: the three things WariX / Progression / Performance
+ * name don't happen in sequence, so a vertical stepper here would have
+ * implied an order the product doesn't have.
+ */
+.faq-eco {
+  position: relative;
+  height: 210px;
 }
 
-.faq-vstep-label {
-  margin: 0;
-  font-size: 0.98rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+.faq-eco-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.faq-eco-line {
+  fill: none;
+  stroke: var(--wariba-seam-strong);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: faq-eco-draw 520ms var(--wariba-motion-ease-standard) var(--faq-delay, 0ms) both;
+}
+
+@keyframes faq-eco-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.faq-eco-hub {
+  position: absolute;
+  left: 22%;
+  top: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  /* `translate(-50%,-50%)` centers this absolutely-positioned element on its
+     anchor point — it has to survive the entrance animation, so this gets
+     its own keyframe rather than the shared `faq-chip-in`, whose `to` state
+     would otherwise overwrite the whole `transform` property and leave the
+     hub off-center once the animation completes. */
+  transform: translate(-50%, -50%) scale(0.6);
+  opacity: 0;
+  animation: faq-eco-hub-in 380ms var(--wariba-motion-ease-enter) both;
+}
+
+@keyframes faq-eco-hub-in {
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.faq-eco-hub-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 9999px;
+  color: var(--wariba-on-dark);
+  background: color-mix(in srgb, var(--wariba-brand-400) 90%, black 4%);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--wariba-brand-400) 16%, transparent);
+}
+
+.faq-eco-hub-label {
+  font-family: var(--wariba-font-mono);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
   color: var(--wariba-on-dark);
 }
 
-.faq-vstep-caption {
-  margin: 0.2rem 0 0;
-  font-size: 0.78rem;
+.faq-eco-node {
+  position: absolute;
+  left: 78%;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  /* Same reasoning as `.faq-eco-hub` — the centering translate needs its
+     own keyframe so it survives past the entrance animation. */
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  animation: faq-eco-node-in 360ms var(--wariba-motion-ease-enter) var(--faq-delay, 0ms) both;
+}
+
+@keyframes faq-eco-node-in {
+  to {
+    opacity: 1;
+  }
+}
+
+.faq-eco-node-icon {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 9999px;
+  color: var(--wariba-on-dark);
+  background: var(--wariba-surface-2);
+  border: 1px solid var(--wariba-seam-strong);
+}
+
+.faq-eco-node-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--wariba-on-dark);
+  white-space: nowrap;
+}
+
+/*
+ * Verification gate — FAQ 05. "Vérification" is bracketed off from the
+ * plain nodes either side of it so it reads as a checkpoint the state
+ * passes *through*, not one more stop on a line.
+ */
+.faq-gate-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.faq-gate-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  opacity: 0;
+  animation: faq-chip-in 340ms var(--wariba-motion-ease-enter) var(--faq-delay, 0ms) both;
+}
+
+.faq-gate-node-gate {
+  flex-direction: row;
+  gap: 0.3rem;
+  padding: 0 0.35rem;
+}
+
+.faq-gate-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: none;
+  border-radius: 9999px;
+  color: var(--wariba-on-dark);
+  background: color-mix(in srgb, var(--wariba-brand-400) 85%, black 6%);
+}
+
+.faq-gate-node-gate .faq-gate-icon {
+  background: color-mix(in srgb, var(--wariba-accent-amber) 80%, black 8%);
+}
+
+.faq-gate-bracket {
+  width: 2px;
+  height: 2.6rem;
+  flex: none;
+  background: var(--wariba-accent-amber);
+  opacity: 0.6;
+}
+
+.faq-gate-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--wariba-on-dark-muted);
+  white-space: nowrap;
+}
+
+.faq-gate-node-gate .faq-gate-label {
+  writing-mode: horizontal-tb;
+}
+
+.faq-gate-connector {
+  flex: 1 1 auto;
+  height: 1.5px;
+  min-width: 0.75rem;
+  background: var(--wariba-seam-strong);
+  transform-origin: left;
+  transform: scaleX(0);
+  animation: faq-line-draw-h 320ms var(--wariba-motion-ease-standard) var(--faq-delay, 0ms) both;
+}
+
+@keyframes faq-line-draw-h {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.faq-gate-branches {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1.4rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--wariba-seam);
+  opacity: 0;
+  animation: faq-body-in 380ms var(--wariba-motion-ease-enter) var(--faq-delay, 0ms) both;
+}
+
+.faq-gate-branch {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--wariba-on-dark-muted);
+}
+
+.faq-gate-branch-token {
+  border-radius: 9999px;
+  padding: 0.15rem 0.55rem;
+  font-family: var(--wariba-font-mono);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--faq-accent);
+  border: 1px solid color-mix(in srgb, var(--faq-accent) 45%, transparent);
+}
+
+.faq-gate-branch-end {
+  color: var(--wariba-on-dark);
+  font-weight: 700;
+}
+
+.faq-gate-note {
+  margin: 0.6rem 0 0;
+  font-size: 0.72rem;
   color: var(--wariba-on-dark-dim);
 }
 
-.faq-vstep-callout {
-  margin-top: 0.6rem;
-  padding: 0.6rem 0.85rem;
-  border-radius: var(--wariba-radius-lg);
-  border: 1px solid color-mix(in srgb, var(--faq-accent, var(--wariba-brand-400)) 32%, var(--wariba-seam-strong));
-  background: color-mix(in srgb, var(--faq-accent, var(--wariba-brand-400)) 10%, transparent);
-  font-size: 0.72rem;
+@media (max-width: 419px) {
+  .faq-gate-row {
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 0.75rem;
+  }
+
+  .faq-gate-connector {
+    display: none;
+  }
+}
+
+/*
+ * Payout readiness — FAQ 07. A checklist that resolves into a separate
+ * request-state card, not a ladder: eligibility and the request itself are
+ * two different objects, matching how the real product treats them (a
+ * request that never becomes a second identical one).
+ */
+.faq-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.faq-checklist li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: var(--wariba-on-dark-muted);
+  opacity: 0;
+  animation: faq-body-in 320ms var(--wariba-motion-ease-enter) var(--faq-delay, 0ms) both;
+}
+
+.faq-checklist-mark {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  color: var(--wariba-on-dark);
+  background: color-mix(in srgb, var(--wariba-accent-emerald) 80%, black 6%);
+}
+
+.faq-readiness {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--wariba-seam);
+  opacity: 0;
+  animation: faq-body-in 320ms var(--wariba-motion-ease-enter) var(--faq-delay, 0ms) both;
+}
+
+.faq-readiness-count {
+  font-family: var(--wariba-font-mono);
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--wariba-accent-emerald);
+}
+
+.faq-readiness-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--wariba-on-dark);
+}
+
+.faq-request-card {
+  margin-top: 1rem;
+  border-radius: var(--wariba-radius-xl);
+  border: 1px solid var(--wariba-seam-strong);
+  background: var(--wariba-surface-1);
+  padding: 1rem 1.1rem;
+  opacity: 0;
+  animation: faq-chip-in 360ms var(--wariba-motion-ease-enter) var(--faq-delay, 0ms) both;
+}
+
+.faq-request-title {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--wariba-on-dark);
+}
+
+.faq-request-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.6rem;
+}
+
+.faq-request-status-label {
+  font-family: var(--wariba-font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wariba-on-dark-dim);
+}
+
+.faq-request-status-badge {
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--wariba-brand-400) 50%, transparent);
+  padding: 0.25rem 0.6rem;
+  font-family: var(--wariba-font-mono);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--wariba-brand-300);
+}
+
+.faq-request-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.72rem;
+  color: var(--wariba-on-dark-dim);
 }
 
 /* Pathway cards — FAQ 02, the section's strongest visual (default open). */
@@ -3499,6 +3785,10 @@
   border-radius: 9999px;
   background: var(--wariba-on-dark);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--faq-accent) 30%, transparent);
+  /* Static centering transform, kept in every keyframe stop below so the
+     marker never loses its `translate(-50%,-50%)` offset — same reasoning
+     as `.faq-eco-hub`. */
+  transform: translate(-50%, -50%) scale(0.4);
   opacity: 0;
   animation: faq-marker-in 300ms var(--wariba-motion-ease-enter) 750ms both;
 }
@@ -3530,9 +3820,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .faq-vstep-chip,
-  .faq-vstep-line,
-  .faq-vstep-body,
   .faq-pathway-card,
   .faq-passport,
   .faq-passport-badge,
@@ -3540,10 +3827,44 @@
   .faq-split-card,
   .faq-split-sign,
   .faq-rail-fill,
-  .faq-rail-marker {
+  .faq-gate-node,
+  .faq-gate-connector,
+  .faq-gate-branches,
+  .faq-checklist li,
+  .faq-readiness,
+  .faq-request-card {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
+  }
+
+  /*
+   * These three are absolutely positioned and centered via
+   * `translate(-50%, -50%)` — forcing `transform: none` here (as the group
+   * above does safely) would strip that centering and misplace them, so
+   * each keeps its own correct resting transform instead.
+   */
+  .faq-eco-hub {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: translate(-50%, -50%) scale(1) !important;
+  }
+
+  .faq-eco-node {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: translate(-50%, -50%) !important;
+  }
+
+  .faq-rail-marker {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: translate(-50%, -50%) scale(1) !important;
+  }
+
+  .faq-eco-line {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
   }
 }
 

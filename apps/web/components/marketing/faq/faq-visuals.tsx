@@ -1,17 +1,19 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties } from 'react';
 import { Icon } from '@wariba/ui';
 
 /**
- * Section 11's seven contextual visuals, rebuilt around five reusable
- * object types — a vertical stepper, a pathway card, a "passport" card, a
- * split comparison, and a dual risk rail — so an open answer reads as a
- * real product object, not a row of dots and mono labels. Pure CSS
- * animation (see the `.faq-*` rules in `globals.css`): every entrance plays
- * once on mount, and these components only ever mount while their row is
- * open, so there is nothing to pause, loop, or clean up.
+ * Section 11's seven contextual visuals. Each of the seven uses one of five
+ * distinct grammars — ecosystem map, pathway cards, a passport card, a
+ * split comparison, a verification gate, dual risk rails, or a readiness
+ * checklist — deliberately never the same silhouette twice, so an open
+ * answer reads as one of seven real product objects rather than the same
+ * dot-and-line component wearing different labels.
  *
- * No canonical numbers here — every FAQ answer is conceptual, so nothing
- * in these visuals can drift out of sync with real policy.
+ * Pure CSS animation throughout (see the `.faq-*` rules in `globals.css`):
+ * every entrance plays once on mount, and these components only ever mount
+ * while their row is open, so there is nothing to pause, loop, or clean up.
+ * No canonical numbers here — every FAQ answer is conceptual, so nothing in
+ * these visuals can drift out of sync with real policy.
  */
 
 function delayStyle(ms: number): CSSProperties {
@@ -92,54 +94,54 @@ function SimulatedTokenIcon() {
   );
 }
 
-interface StepDef {
-  icon: ReactNode;
-  label: string;
-  caption?: string;
-  callout?: string;
-}
+/*
+ * FAQ 01 — a hub-and-spoke ecosystem map, not a sequence. WARIBA is the one
+ * hub; WariX, Progression and Performance are three things that hang off it
+ * at once, which is the actual shape of the product (you don't "finish"
+ * WariX before Progression exists) — a linear chain would have implied an
+ * order that isn't true.
+ */
+const ECO_NODES = [
+  { id: 'warix', icon: <WariXIcon />, label: 'WariX', top: '14%' },
+  { id: 'progression', icon: <ProgressRingIcon />, label: 'Progression', top: '50%' },
+  { id: 'performance', icon: <PerformanceIcon />, label: 'Performance', top: '86%' },
+] as const;
 
-/** The vertical stepper shared by FAQ 01, 05 and 07 — one icon chip per milestone. */
-function VerticalStepper({ steps, accent }: { steps: readonly StepDef[]; accent: string }) {
-  return (
-    <div className="faq-stepper" style={accentStyle(accent)}>
-      {steps.map((step, index) => {
-        const isLast = index === steps.length - 1;
-        const delay = index * 160;
-        return (
-          <div key={step.label} className="faq-vstep">
-            <div className="faq-vstep-rail">
-              <span className="faq-vstep-chip" style={delayStyle(delay)}>
-                {step.icon}
-              </span>
-              {!isLast ? <span className="faq-vstep-line" style={delayStyle(delay + 120)} /> : null}
-            </div>
-            <div className="faq-vstep-body" style={delayStyle(delay + 80)}>
-              <p className="faq-vstep-label">{step.label}</p>
-              {step.caption ? <p className="faq-vstep-caption">{step.caption}</p> : null}
-              {step.callout ? <p className="faq-vstep-callout">{step.callout}</p> : null}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/** FAQ 01 — the product ecosystem, as four connected objects. */
 export function JourneyFlowVisual() {
   return (
     <div>
-      <p className="faq-visual-title">Le parcours produit</p>
-      <VerticalStepper
-        accent="var(--wariba-brand-400)"
-        steps={[
-          { icon: <WariBaMarkIcon />, label: 'WARIBA', caption: 'Votre point de départ' },
-          { icon: <WariXIcon />, label: 'WariX', caption: 'Où vous tradez' },
-          { icon: <ProgressRingIcon />, label: 'Progression', caption: 'Suivie en direct' },
-          { icon: <PerformanceIcon />, label: 'Performance', caption: 'Selon votre formule' },
-        ]}
-      />
+      <p className="faq-visual-title">L’écosystème WARIBA</p>
+      <div className="faq-eco">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="faq-eco-lines" aria-hidden="true">
+          {ECO_NODES.map((node, index) => (
+            <path
+              key={node.id}
+              d={`M22,50 L78,${node.top.replace('%', '')}`}
+              pathLength={100}
+              className="faq-eco-line"
+              style={delayStyle(index * 140)}
+            />
+          ))}
+        </svg>
+
+        <div className="faq-eco-hub">
+          <span className="faq-eco-hub-icon">
+            <WariBaMarkIcon />
+          </span>
+          <span className="faq-eco-hub-label">WARIBA</span>
+        </div>
+
+        {ECO_NODES.map((node, index) => (
+          <div
+            key={node.id}
+            className="faq-eco-node"
+            style={{ top: node.top, ...delayStyle(index * 140 + 220) }}
+          >
+            <span className="faq-eco-node-icon">{node.icon}</span>
+            <span className="faq-eco-node-label">{node.label}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -233,24 +235,57 @@ export function SimulatedDistinctionVisual() {
   );
 }
 
-/** FAQ 05 — reaching the objective still goes through verification. */
+/*
+ * FAQ 05 — a verification gate, not a timeline. "En vérification" is drawn
+ * as a checkpoint the state passes through (bracketed, distinct from the
+ * plain circles either side of it), and what comes after branches by
+ * family instead of continuing as one line — ONE and FLEX diverge exactly
+ * where the real product diverges.
+ */
 export function ValidationTimelineVisual() {
   return (
     <div>
       <p className="faq-visual-title">Après l’objectif</p>
-      <VerticalStepper
-        accent="var(--wariba-brand-400)"
-        steps={[
-          { icon: <CheckIcon />, label: 'Objectif atteint' },
-          { icon: <ClockIcon />, label: 'En vérification' },
-          {
-            icon: <CheckIcon />,
-            label: 'Validé',
-            callout: 'FLEX · une étape Activation s’ajoute ici avant Performance',
-          },
-          { icon: <PerformanceIcon />, label: 'Étape suivante' },
-        ]}
-      />
+      <div className="faq-gate-row">
+        <div className="faq-gate-node" style={delayStyle(0)}>
+          <span className="faq-gate-icon">
+            <CheckIcon />
+          </span>
+          <span className="faq-gate-label">Objectif</span>
+        </div>
+        <span className="faq-gate-connector" style={delayStyle(120)} />
+        <div className="faq-gate-node faq-gate-node-gate" style={delayStyle(220)}>
+          <span className="faq-gate-bracket faq-gate-bracket-left" aria-hidden="true" />
+          <span className="faq-gate-icon">
+            <ClockIcon />
+          </span>
+          <span className="faq-gate-label">Vérification</span>
+          <span className="faq-gate-bracket faq-gate-bracket-right" aria-hidden="true" />
+        </div>
+        <span className="faq-gate-connector" style={delayStyle(340)} />
+        <div className="faq-gate-node" style={delayStyle(440)}>
+          <span className="faq-gate-icon">
+            <CheckIcon />
+          </span>
+          <span className="faq-gate-label">Validé</span>
+        </div>
+      </div>
+
+      <div className="faq-gate-branches" style={delayStyle(560)}>
+        <div className="faq-gate-branch" style={accentStyle('var(--wariba-brand-400)')}>
+          <span className="faq-gate-branch-token">ONE</span>
+          <span aria-hidden="true">→</span>
+          <span className="faq-gate-branch-end">Performance</span>
+        </div>
+        <div className="faq-gate-branch" style={accentStyle('#B9B2FF')}>
+          <span className="faq-gate-branch-token">FLEX</span>
+          <span aria-hidden="true">→</span>
+          <span>Activation</span>
+          <span aria-hidden="true">→</span>
+          <span className="faq-gate-branch-end">Performance</span>
+        </div>
+      </div>
+      <p className="faq-gate-note">INSTANT commence déjà directement sur Performance.</p>
     </div>
   );
 }
@@ -278,7 +313,7 @@ export function RiskRailsVisual() {
         <div className="faq-rail-head">
           <span className="faq-rail-label">Perte maximale</span>
           <span className="faq-rail-status" style={accentStyle('var(--wariba-accent-amber)')}>
-            Limite du compte
+            Fin de compte possible
           </span>
         </div>
         <div className="faq-rail-track" style={accentStyle('var(--wariba-accent-amber)')}>
@@ -292,21 +327,43 @@ export function RiskRailsVisual() {
   );
 }
 
-/** FAQ 07 — payout eligibility as a ladder that stops at Review, never Approved. */
+/*
+ * FAQ 07 — a readiness checklist that resolves into a separate request-state
+ * card, not a ladder. "En revue" (not "en examen") matches the Help
+ * Center's own payout status table; the request card never shows Approved
+ * or Paid — those are real statuses this section deliberately doesn't
+ * reach for.
+ */
+const PAYOUT_CHECKS = ['Conditions du cycle', 'Conditions Performance', 'KYC si requis'] as const;
+
 export function PayoutLadderVisual() {
   return (
     <div>
       <p className="faq-visual-title">Éligibilité au payout</p>
-      <VerticalStepper
-        accent="var(--wariba-brand-400)"
-        steps={[
-          { icon: <CheckIcon />, label: 'Conditions' },
-          { icon: <CheckIcon />, label: 'KYC si requis' },
-          { icon: <CheckIcon />, label: 'Prêt à demander' },
-          { icon: <WariBaMarkIcon />, label: 'Demande' },
-          { icon: <ClockIcon />, label: 'Review', caption: 'Jamais garanti à l’avance' },
-        ]}
-      />
+      <ul className="faq-checklist">
+        {PAYOUT_CHECKS.map((label, index) => (
+          <li key={label} style={delayStyle(index * 140)}>
+            <span className="faq-checklist-mark">
+              <CheckIcon />
+            </span>
+            {label}
+          </li>
+        ))}
+      </ul>
+
+      <div className="faq-readiness" style={delayStyle(PAYOUT_CHECKS.length * 140)}>
+        <span className="faq-readiness-count">3/3</span>
+        <span className="faq-readiness-label">Demande disponible</span>
+      </div>
+
+      <div className="faq-request-card" style={delayStyle(PAYOUT_CHECKS.length * 140 + 220)}>
+        <p className="faq-request-title">Demande de payout</p>
+        <div className="faq-request-status-row">
+          <span className="faq-request-status-label">Statut</span>
+          <span className="faq-request-status-badge">En revue</span>
+        </div>
+        <p className="faq-request-note">Selon les règles applicables</p>
+      </div>
     </div>
   );
 }

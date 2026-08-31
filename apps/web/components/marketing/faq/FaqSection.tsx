@@ -55,7 +55,7 @@ const FAQ_ITEMS: readonly FaqItem[] = [
     category: 'Transparence',
     question: 'Est-ce que je trade avec de l’argent réel ?',
     answer:
-      'Non. WARIBA fonctionne avec des comptes de trading simulés. Les tailles affichées représentent une taille nominale simulée et ne constituent ni un dépôt bancaire ni un capital réel confié automatiquement au trader. WARIBA ne garantit ni revenus ni payouts.',
+      'Non. WARIBA utilise des comptes de trading simulés. Les tailles affichées sont nominales : elles ne représentent ni un dépôt bancaire ni un capital réel confié au trader. Les résultats et payouts dépendent des règles applicables au compte.',
     visual: <SimulatedDistinctionVisual />,
   },
   {
@@ -64,7 +64,7 @@ const FAQ_ITEMS: readonly FaqItem[] = [
     category: 'Progression',
     question: 'Que se passe-t-il quand j’atteins l’objectif ?',
     answer:
-      'Atteindre l’objectif ne signifie pas que l’étape suivante est débloquée instantanément. La réussite passe par l’état de vérification prévu par WARIBA. Pour FLEX, l’activation requise intervient ensuite avant Performance ; INSTANT, lui, commence déjà directement sur Performance.',
+      'Atteindre l’objectif ne débloque pas automatiquement l’étape suivante. La réussite passe d’abord par l’état de vérification prévu par WARIBA. Après validation : ONE peut accéder à Performance. FLEX passe par l’Activation avant Performance. INSTANT, lui, commence déjà directement sur Performance.',
     visual: <ValidationTimelineVisual />,
   },
   {
@@ -73,7 +73,7 @@ const FAQ_ITEMS: readonly FaqItem[] = [
     category: 'Risque',
     question: 'Que se passe-t-il si j’atteins une limite de risque ?',
     answer:
-      'Cela dépend du type de limite. Une limite quotidienne peut entraîner un blocage temporaire, tandis qu’une perte maximale dépassée peut mettre fin au compte selon la policy applicable. Les règles attachées à votre compte restent toujours la source de vérité.',
+      'Cela dépend du type de limite. Une limite quotidienne peut entraîner un blocage temporaire, tandis qu’une perte maximale dépassée peut mettre fin au compte selon les règles applicables. Les règles attachées à votre compte restent toujours la source de vérité.',
     visual: <RiskRailsVisual />,
   },
   {
@@ -82,7 +82,7 @@ const FAQ_ITEMS: readonly FaqItem[] = [
     category: 'Payouts',
     question: 'Quand puis-je demander un payout ?',
     answer:
-      'Sur un compte Performance, la demande devient possible lorsque les conditions applicables du cycle sont remplies et que les éventuelles étapes de vérification requises, comme le KYC lorsqu’il s’applique, sont satisfaites. L’éligibilité dépend de l’état réel de votre compte ; elle n’est jamais garantie à l’avance.',
+      'Sur un compte Performance, vous pouvez soumettre une demande de payout lorsque les conditions applicables à votre cycle sont remplies et que les vérifications requises, comme le KYC lorsqu’il s’applique, sont validées. La demande est ensuite examinée selon les règles applicables à votre compte.',
     visual: <PayoutLadderVisual />,
   },
 ] as const;
