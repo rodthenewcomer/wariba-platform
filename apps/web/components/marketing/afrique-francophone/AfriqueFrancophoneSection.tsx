@@ -40,14 +40,15 @@ export function AfriqueFrancophoneSection() {
 
           <Reveal delay={0.1} className="s09-grid-header">
             <p className="wariba-eyebrow">Afrique francophone</p>
-            <h2 id="afrique-francophone-title" className="wariba-section-title mt-5 max-w-[15ch]">
-              De Dakar à Cotonou,
-              <br />
-              une même expérience WARIBA.
+            <h2
+              id="afrique-francophone-title"
+              className="wariba-section-title s09-headline mt-5 max-w-[27ch]"
+            >
+              De Dakar à Cotonou, une même expérience WARIBA.
             </h2>
             <p className="wariba-lead mt-5 max-w-[30rem]">
-              Une plateforme pensée en français, avec des parcours clairs et une expérience
-              moderne pour une nouvelle génération de traders en Afrique de l’Ouest francophone.
+              Une plateforme pensée en français, avec une expérience moderne et des parcours
+              clairs pour les traders d’Afrique de l’Ouest francophone.
             </p>
           </Reveal>
 
@@ -55,7 +56,11 @@ export function AfriqueFrancophoneSection() {
             <ul className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:gap-x-8 sm:gap-y-3">
               {VALUE_RAIL.map((item) => (
                 <li key={item.label}>
-                  <p className="font-mono text-[0.65rem] font-bold uppercase tracking-[0.1em] text-[color:var(--wariba-brand-300)]">
+                  <p className="flex items-center gap-2 font-mono text-[0.7rem] font-bold uppercase tracking-[0.12em] text-[color:var(--wariba-brand-300)]">
+                    <span
+                      aria-hidden="true"
+                      className="h-1.5 w-1.5 rounded-full bg-[color:var(--wariba-color-cobalt-300)]"
+                    />
                     {item.label}
                   </p>
                   <p className="mt-1 text-sm text-[color:var(--wariba-on-dark-muted)]">{item.body}</p>
@@ -70,7 +75,9 @@ export function AfriqueFrancophoneSection() {
             <Link href="/afrique-francophone" className="s09-cta wariba-cta-secondary mt-8">
               <span className="s09-cta-frame" aria-hidden="true" />
               Découvrir notre vision
-              <ArrowRightIcon size="sm" />
+              <span className="s09-cta-arrow inline-flex">
+                <ArrowRightIcon size="sm" />
+              </span>
             </Link>
           </Reveal>
         </div>

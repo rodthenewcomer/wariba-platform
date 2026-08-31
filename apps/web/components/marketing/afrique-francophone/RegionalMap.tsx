@@ -45,6 +45,17 @@ const LABEL_OFFSET_MS = 150;
 const COMPACT_ON_MOBILE = new Set(['burkina-faso', 'togo', 'benin']);
 const COMPACT_LABEL = 'Ouagadougou · Lomé · Cotonou';
 
+/*
+ * Lomé and Cotonou sit ~40 units apart on a 900-wide viewBox — close enough,
+ * real geography, that their centered labels collided. Nudging each
+ * horizontally and anchoring it away from the other (rather than centered)
+ * keeps both readable without moving either node off its true coordinate.
+ */
+const LABEL_ADJUST: Partial<Record<string, { dx: number; anchor: 'start' | 'end' }>> = {
+  togo: { dx: -12, anchor: 'end' },
+  benin: { dx: 12, anchor: 'start' },
+};
+
 function nodeById(id: string): RegionalNode {
   const node = REGIONAL_NODES.find((candidate) => candidate.id === id);
   if (!node) throw new Error(`Unknown regional node "${id}".`);
@@ -135,7 +146,7 @@ export function RegionalMap() {
                     d={d}
                     fill="none"
                     stroke="var(--wariba-brand-400)"
-                    strokeOpacity="0.42"
+                    strokeOpacity="0.5"
                     strokeWidth="1.25"
                     strokeLinecap="round"
                     className="wariba-draw"
@@ -149,7 +160,18 @@ export function RegionalMap() {
                     }
                   />
                   <circle
-                    r={3.5}
+                    r={9}
+                    fill="var(--wariba-brand-400)"
+                    className="s09-connector-tail"
+                    style={
+                      {
+                        offsetPath: `path('${d}')`,
+                        '--s09-head-delay': `${timing.delayMs}ms`,
+                      } as CSSProperties
+                    }
+                  />
+                  <circle
+                    r={4.5}
                     fill="var(--wariba-on-dark)"
                     className="s09-connector-head"
                     style={
@@ -172,13 +194,14 @@ export function RegionalMap() {
               const rippleDelay = delay + 1100 + index * 260;
               const labelAbove = node.y > MAP_VIEW_HEIGHT * 0.5;
               const isAnchor = id === 'cote-ivoire';
+              const labelAdjust = LABEL_ADJUST[id];
 
               return (
                 <g key={id}>
                   <circle
                     cx={node.x}
                     cy={node.y}
-                    r={isAnchor ? 17 : 13}
+                    r={isAnchor ? 21 : 16}
                     fill="var(--wariba-brand-400)"
                     className="s09-node-appear s09-node-ripple"
                     style={
@@ -192,7 +215,7 @@ export function RegionalMap() {
                   <circle
                     cx={node.x}
                     cy={node.y}
-                    r={isAnchor ? 9 : 7}
+                    r={isAnchor ? 11 : 8.5}
                     fill="none"
                     stroke="var(--wariba-brand-400)"
                     strokeWidth="1.5"
@@ -208,7 +231,7 @@ export function RegionalMap() {
                   <circle
                     cx={node.x}
                     cy={node.y}
-                    r={isAnchor ? 4 : 3.25}
+                    r={isAnchor ? 5 : 4}
                     fill="var(--wariba-color-cobalt-300)"
                     stroke="var(--wariba-color-carbon-980)"
                     strokeWidth="1.5"
@@ -217,14 +240,14 @@ export function RegionalMap() {
                   />
 
                   <text
-                    x={node.x}
-                    y={labelAbove ? node.y - (isAnchor ? 20 : 16) : node.y + (isAnchor ? 28 : 24)}
-                    textAnchor="middle"
+                    x={node.x + (labelAdjust?.dx ?? 0)}
+                    y={labelAbove ? node.y - (isAnchor ? 26 : 22) : node.y + (isAnchor ? 34 : 30)}
+                    textAnchor={labelAdjust?.anchor ?? 'middle'}
                     className={`s09-label-appear font-mono font-bold ${
                       COMPACT_ON_MOBILE.has(id) ? 'hidden sm:inline' : ''
                     }`}
                     style={{ '--s09-node-delay': `${labelDelay}ms` } as CSSProperties}
-                    fontSize={isAnchor ? 13 : 11}
+                    fontSize={isAnchor ? 15 : 13}
                     letterSpacing="0.02em"
                     fill="var(--wariba-on-dark)"
                   >

@@ -2326,10 +2326,40 @@
 
 .s09-connector-head {
   animation: s09-connector-head 700ms var(--wariba-motion-ease-standard) var(--s09-head-delay, 0ms) both;
+  filter: drop-shadow(0 0 5px var(--wariba-brand-400));
+}
+
+/*
+ * A soft blurred echo riding the same path a beat behind the head, so the
+ * travelling light reads as a comet with a trail rather than a single dot —
+ * requested after the first pass felt too faint mid-animation. Settles to
+ * fully transparent with the head; nothing lingers once the arc has lit.
+ */
+@keyframes s09-connector-tail {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.5;
+  }
+  85% {
+    opacity: 0.5;
+  }
+  100% {
+    offset-distance: 96%;
+    opacity: 0;
+  }
+}
+
+.s09-connector-tail {
+  animation: s09-connector-tail 700ms var(--wariba-motion-ease-standard) var(--s09-head-delay, 0ms) both;
+  filter: blur(4px);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .s09-connector-head {
+  .s09-connector-head,
+  .s09-connector-tail {
     animation: none;
     opacity: 0;
   }
@@ -2394,8 +2424,28 @@
  * trigger conditions, and this one fires once on a fixed post-entrance
  * delay instead of a JS "sequence finished" flag.
  */
+/*
+ * The headline was reading as the section's whole point, with the map
+ * demoted to background texture. Trimming its size ~10% and widening its
+ * measure (see the component's `max-w-[27ch]`) lets the eye land on the map
+ * first, matching `.wariba-section-title`'s clamp shape so it still scales
+ * smoothly, just off a smaller ceiling.
+ */
+.s09-headline {
+  font-size: clamp(1.85rem, 3.8vw, 3.5rem);
+}
+
 .s09-cta {
   position: relative;
+}
+
+.s09-cta-arrow {
+  transition: transform var(--wariba-motion-micro) var(--wariba-motion-ease-standard);
+}
+
+.s09-cta:hover .s09-cta-arrow,
+.s09-cta:focus-visible .s09-cta-arrow {
+  transform: translateX(4px);
 }
 
 .s09-cta-frame {
