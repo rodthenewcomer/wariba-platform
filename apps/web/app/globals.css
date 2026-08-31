@@ -2164,13 +2164,16 @@
 /*
  * Section 09 — Afrique francophone.
  *
- * The node entrance, label reveal and ambient pulse/ripple are pure CSS,
- * staggered with `--s09-node-delay` / `--s09-pulse-delay` / `--s09-ripple-
- * delay` per node — the same reason `[data-reveal]` above plays on load
- * rather than on scroll-into-view: an IntersectionObserver-gated animation
- * is blank in a full-page capture, because Chromium expands the layout
- * viewport for that instead of scrolling it. Connectors reuse `.wariba-draw`
- * rather than a second self-drawing implementation.
+ * The node entrance, label reveal, country-silhouette fade and ambient
+ * pulse/ripple are pure CSS, staggered with `--s09-node-delay` /
+ * `--s09-pulse-delay` / `--s09-ripple-delay` per node — the same reason
+ * `[data-reveal]` above plays on load rather than on scroll-into-view: an
+ * IntersectionObserver-gated animation is blank in a full-page capture,
+ * because Chromium expands the layout viewport for that instead of
+ * scrolling it. Connectors reuse `.wariba-draw` rather than a second
+ * self-drawing implementation; the travelling light head rides the same
+ * path via CSS motion-path (`offset-path`), a progressive enhancement that
+ * simply doesn't move on a browser without support — the arc is still there.
  */
 @keyframes s09-node-appear {
   from {
@@ -2276,12 +2279,71 @@
   background-size: 22px 22px;
 }
 
+/* The six focus-country silhouettes resolving from darkness. */
+@keyframes s09-country-appear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.s09-country-appear {
+  animation: s09-country-appear 900ms var(--wariba-motion-ease-enter) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s09-country-appear {
+    animation: none;
+  }
+}
+
+/*
+ * The small light that briefly travels a connector arc as it draws — CSS
+ * motion-path, not a second hand-rolled coordinate system. `offset-path`
+ * takes the exact same `d` the connector line uses, so the head rides the
+ * real curve rather than an approximation of it. Unsupported browsers just
+ * never move this dot; `.wariba-draw` on the line itself still communicates
+ * the connection.
+ */
+@keyframes s09-connector-head {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+
+.s09-connector-head {
+  animation: s09-connector-head 700ms var(--wariba-motion-ease-standard) var(--s09-head-delay, 0ms) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s09-connector-head {
+    animation: none;
+    opacity: 0;
+  }
+}
+
 /*
  * Named grid areas, not `order` utilities: the map needs to sit between the
- * header and the micro-modules/CTA on mobile but beside both of them on
+ * header and the value rail/CTA on mobile but beside both of them on
  * desktop, which plain flex/grid `order` cannot express across a column
  * split. `header`/`extras` are two independent grid items on desktop so the
- * map can occupy a single tall column beside both.
+ * map can occupy a single tall column beside both. The map's column is
+ * deliberately wide (≈63/37) and carries no border or surface colour of its
+ * own — it shares the section's plain black, the one thing that keeps it
+ * reading as atmosphere rather than a second panel.
  */
 .s09-grid {
   display: grid;
@@ -2304,10 +2366,83 @@
 
 @media (min-width: 1024px) {
   .s09-grid {
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
     grid-template-areas: 'map header' 'map extras';
-    align-items: start;
-    gap: 3.5rem;
+    align-items: center;
+    column-gap: 1.5rem;
+    row-gap: 2rem;
+  }
+
+  /* The map's right edge dissolves toward the copy rather than stopping at a
+     hard boundary — the fade zone is what lets the two grid areas read as
+     one composition instead of two boxes side by side. */
+  .s09-grid-map {
+    mask-image: linear-gradient(to right, black 62%, transparent 96%);
+    -webkit-mask-image: linear-gradient(to right, black 62%, transparent 96%);
+  }
+
+  .s09-grid-header,
+  .s09-grid-extras {
+    margin-left: -4vw;
+  }
+}
+
+/*
+ * Section 09's CTA — a traced border, adapted from `.how-it-works-cta`'s
+ * technique (conic-gradient ring, masked to a hairline). Kept as its own
+ * class rather than a shared one: each of this page's fancy CTAs owns its
+ * trigger conditions, and this one fires once on a fixed post-entrance
+ * delay instead of a JS "sequence finished" flag.
+ */
+.s09-cta {
+  position: relative;
+}
+
+.s09-cta-frame {
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.s09-cta-frame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  /*
+   * Reuses `--how-it-works-angle` (registered via `@property` above) and its
+   * `how-it-works-trace` keyframe rather than declaring a second interpolable
+   * angle property — each element animating it gets its own value, `inherits:
+   * false` only governs propagation to children, not isolation between
+   * unrelated elements sharing the name.
+   */
+  background: conic-gradient(
+    from var(--how-it-works-angle, 0deg),
+    transparent 0%,
+    color-mix(in srgb, var(--wariba-brand-400) 90%, transparent) 10%,
+    transparent 28%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.9;
+  animation: how-it-works-trace 3s ease-out 1 var(--s09-cta-trace-delay, 3.2s) both;
+}
+
+.s09-cta:hover .s09-cta-frame::before,
+.s09-cta:focus-visible .s09-cta-frame::before {
+  animation: how-it-works-trace 1.6s ease-out 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s09-cta-frame::before {
+    animation: none;
   }
 }
 

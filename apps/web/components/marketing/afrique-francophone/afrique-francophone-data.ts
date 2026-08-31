@@ -1,48 +1,40 @@
 /**
- * Section 09's regional dataset — the six francophone West African markets
- * WARIBA is built with in mind.
- *
- * This is brand cartography, not a geodata set: node positions are a
- * stylised, topologically honest approximation (Dakar west, Bamako/
- * Ouagadougou inland north, Abidjan/Lomé/Cotonou along the coast east of
- * Abidjan) inside a fixed viewBox — not real coordinates, and not a claim of
- * surveying accuracy.
+ * Section 09's hand-authored regional constants. The geography itself —
+ * country shapes, capital coordinates — lives in `afrique-francophone-geo.ts`
+ * and is generated, never edited by hand; this file is everything about
+ * *how* that geography is told as a story: the order the network lights up
+ * in, and the copy-adjacent lists that don't need real coordinates.
  */
 
-export interface RegionalNode {
-  id: string;
-  country: string;
-  city: string;
-  /** Position inside the map's `0 0 440 380` viewBox. */
-  x: number;
-  y: number;
-}
-
-/** Entrance order — the sequence nodes light up in. */
-export const REGIONAL_NODES: readonly RegionalNode[] = [
-  { id: 'senegal', country: 'Sénégal', city: 'Dakar', x: 42, y: 150 },
-  { id: 'cote-ivoire', country: 'Côte d’Ivoire', city: 'Abidjan', x: 176, y: 300 },
-  { id: 'burkina-faso', country: 'Burkina Faso', city: 'Ouagadougou', x: 230, y: 128 },
-  { id: 'mali', country: 'Mali', city: 'Bamako', x: 150, y: 108 },
-  { id: 'togo', country: 'Togo', city: 'Lomé', x: 270, y: 292 },
-  { id: 'benin', country: 'Bénin', city: 'Cotonou', x: 312, y: 280 },
+/**
+ * The lighting sequence — Abidjan first, as WARIBA's anchor market, then two
+ * branches fanning out from it: east along the coast (Lomé, Cotonou), then
+ * inland and north (Ouagadougou, Bamako, Dakar).
+ */
+export const NODE_SEQUENCE: readonly string[] = [
+  'cote-ivoire',
+  'togo',
+  'benin',
+  'burkina-faso',
+  'mali',
+  'senegal',
 ] as const;
 
-/** A small connected graph, not a full mesh — five links across six nodes. */
+/** Connector arcs, drawn in this order — each pair lights its target node on arrival. */
 export const REGIONAL_CONNECTORS: readonly [string, string][] = [
-  ['senegal', 'mali'],
-  ['mali', 'burkina-faso'],
-  ['mali', 'cote-ivoire'],
   ['cote-ivoire', 'togo'],
   ['togo', 'benin'],
+  ['cote-ivoire', 'burkina-faso'],
+  ['burkina-faso', 'mali'],
+  ['mali', 'senegal'],
 ] as const;
 
-/** Country ribbon — display order, independent of the map's entrance order. */
+/** The country line beneath the copy — display order, not the map's lighting order. */
 export const RIBBON_COUNTRIES: readonly string[] = [
   'Côte d’Ivoire',
-  'Bénin',
-  'Togo',
+  'Sénégal',
   'Mali',
   'Burkina Faso',
-  'Sénégal',
+  'Togo',
+  'Bénin',
 ] as const;

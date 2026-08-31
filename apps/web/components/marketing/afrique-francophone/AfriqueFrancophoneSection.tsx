@@ -4,91 +4,72 @@ import { Reveal } from '../../motion/Reveal';
 import { RegionalMap } from './RegionalMap';
 import { RIBBON_COUNTRIES } from './afrique-francophone-data';
 
-const MICRO_MODULES = [
-  {
-    title: 'Français d’abord',
-    body: 'Une expérience pensée pour être claire et lisible.',
-  },
-  {
-    title: '6 marchés prioritaires',
-    body: 'Une vision régionale ciblée, pas un message générique.',
-  },
-  {
-    title: 'Une même expérience WARIBA',
-    body: 'Une identité produit moderne, cohérente et ambitieuse.',
-  },
+const VALUE_RAIL = [
+  { label: 'Français d’abord', body: 'Une expérience claire' },
+  { label: '6 marchés prioritaires', body: 'Une vision régionale' },
+  { label: 'WARIBA', body: 'Une même expérience' },
 ] as const;
 
 /**
  * Section 09 — Afrique francophone.
  *
- * Not an "about us, offices and headcount" section — WARIBA has neither to
- * show truthfully. What is true and worth saying: the product is being
- * built with a specific region and language in mind. So the copy stays in
- * the register of focus and intention (marchés prioritaires, une
- * expérience pensée d'abord en français) and never claims a local office, a
- * regulated presence, or a support desk in any of the six markets the map
- * highlights — see `afrique-francophone-data.ts` for what the map itself
- * does and doesn't claim.
+ * Rebuilt from a first pass that read as a technical network diagram in a
+ * bordered card next to a generic marketing column. The idea now: the
+ * region itself — real West African geography, not abstract nodes — *is*
+ * the section's atmosphere, and the copy sits close against it rather than
+ * in a separate panel. What stays true from the first pass: no claim of a
+ * local office, a regulated presence, or a support desk in any of the six
+ * markets — the language stays in the register of focus and intention
+ * ("marchés prioritaires", "une expérience... pensée en français"). See
+ * `afrique-francophone-geo.ts` for what the map's geography does and
+ * doesn't claim.
  */
 export function AfriqueFrancophoneSection() {
   return (
     <section
       aria-labelledby="afrique-francophone-title"
-      className="relative isolate overflow-hidden bg-[color:var(--wariba-color-carbon-980)] py-20 lg:py-28"
+      className="relative isolate overflow-hidden bg-[color:var(--wariba-color-carbon-980)] py-20 lg:flex lg:min-h-[92vh] lg:items-center lg:py-24"
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_18%_40%,color-mix(in_srgb,var(--wariba-brand-700)_16%,transparent),transparent_55%)]"
-      />
-
-      <div className="mx-auto max-w-[var(--wariba-shell-max)] px-[var(--wariba-shell-gutter)]">
+      <div className="mx-auto w-full max-w-[var(--wariba-shell-max)] px-[var(--wariba-shell-gutter)]">
         <div className="s09-grid">
-          <Reveal className="s09-grid-header">
+          <div className="s09-grid-map">
+            <Reveal>
+              <RegionalMap />
+            </Reveal>
+          </div>
+
+          <Reveal delay={0.1} className="s09-grid-header">
             <p className="wariba-eyebrow">Afrique francophone</p>
-            <h2 id="afrique-francophone-title" className="wariba-section-title mt-5 max-w-[16ch]">
-              Pensé pour les traders
+            <h2 id="afrique-francophone-title" className="wariba-section-title mt-5 max-w-[15ch]">
+              De Dakar à Cotonou,
               <br />
-              d’Afrique francophone.
+              une même expérience WARIBA.
             </h2>
-            <p className="wariba-lead mt-5 max-w-[34rem]">
-              WARIBA se construit avec une attention particulière pour la Côte d’Ivoire, le Bénin,
-              le Togo, le Mali, le Burkina Faso et le Sénégal — avec une expérience claire, moderne
-              et pensée d’abord en français.
+            <p className="wariba-lead mt-5 max-w-[30rem]">
+              Une plateforme pensée en français, avec des parcours clairs et une expérience
+              moderne pour une nouvelle génération de traders en Afrique de l’Ouest francophone.
             </p>
           </Reveal>
 
-          <Reveal delay={0.08} className="s09-grid-map">
-            <RegionalMap />
-          </Reveal>
-
-          <Reveal delay={0.14} className="s09-grid-extras">
-            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-              {MICRO_MODULES.map((module) => (
-                <div key={module.title} className="wariba-visual-card p-4 sm:p-5" data-variant="quiet">
-                  <p className="text-[0.65rem] font-bold uppercase tracking-[0.1em] text-[color:var(--wariba-brand-300)]">
-                    {module.title}
+          <Reveal delay={0.16} className="s09-grid-extras">
+            <ul className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:gap-x-8 sm:gap-y-3">
+              {VALUE_RAIL.map((item) => (
+                <li key={item.label}>
+                  <p className="font-mono text-[0.65rem] font-bold uppercase tracking-[0.1em] text-[color:var(--wariba-brand-300)]">
+                    {item.label}
                   </p>
-                  <p className="mt-1.5 text-sm leading-relaxed text-[color:var(--wariba-on-dark-muted)]">
-                    {module.body}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            <ul className="mt-6 flex flex-wrap gap-2">
-              {RIBBON_COUNTRIES.map((country) => (
-                <li key={country}>
-                  <span className="wariba-visual-card-interactive inline-flex items-center gap-1.5 rounded-full border border-[color:var(--wariba-seam)] bg-[color:var(--wariba-surface-1)] px-3 py-1.5 font-mono text-[0.6rem] font-bold uppercase tracking-[0.08em] text-[color:var(--wariba-on-dark-muted)] transition-colors duration-200">
-                    <span aria-hidden="true" className="size-1.5 rounded-full bg-[color:var(--wariba-brand-400)]" />
-                    {country}
-                  </span>
+                  <p className="mt-1 text-sm text-[color:var(--wariba-on-dark-muted)]">{item.body}</p>
                 </li>
               ))}
             </ul>
 
-            <Link href="/afrique-francophone" className="wariba-cta-secondary mt-7">
-              Découvrir notre vision pour l’Afrique francophone
+            <p className="mt-7 font-mono text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-[color:var(--wariba-on-dark-dim)]">
+              {RIBBON_COUNTRIES.join(' · ')}
+            </p>
+
+            <Link href="/afrique-francophone" className="s09-cta wariba-cta-secondary mt-8">
+              <span className="s09-cta-frame" aria-hidden="true" />
+              Découvrir notre vision
               <ArrowRightIcon size="sm" />
             </Link>
           </Reveal>
