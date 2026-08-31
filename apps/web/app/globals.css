@@ -2947,13 +2947,13 @@
 
 @media (min-width: 1024px) {
   .faq-row-panel {
-    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-    align-items: start;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    align-items: center;
     padding-left: calc(9rem + 1.25rem);
   }
 
   .faq-row-visual {
-    padding: 0 0 0 2rem;
+    padding: 0 0 0 2.5rem;
     border-top: none;
     border-left: 1px solid var(--wariba-seam);
   }
@@ -3080,6 +3080,470 @@
   .faq-closing-keywords {
     max-width: 20rem;
     justify-content: flex-end;
+  }
+}
+
+/*
+ * FAQ open-state visual language — five reusable object types (stepper,
+ * pathway card, passport card, split comparison, dual rail) so seven
+ * answers read as one coherent product-object system rather than either
+ * seven unrelated widgets or seven identical dot-and-line rows. Every
+ * entrance plays once on mount — these visuals are only ever mounted while
+ * their row is open (`FaqKnowledgeStack` conditionally renders them), so a
+ * plain CSS `animation ... both` needs no JS and can never replay stale.
+ */
+.faq-visual-title {
+  margin: 0 0 1.1rem;
+  font-family: var(--wariba-font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wariba-on-dark-dim);
+}
+
+/* Vertical stepper — FAQ 01, 05, 07. */
+.faq-stepper {
+  display: flex;
+  flex-direction: column;
+}
+
+.faq-vstep {
+  display: flex;
+  gap: 1rem;
+}
+
+.faq-vstep-rail {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+}
+
+.faq-vstep-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
+  border-radius: 9999px;
+  color: var(--wariba-on-dark);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--faq-accent, var(--wariba-brand-400)) 14%, transparent);
+  background: color-mix(in srgb, var(--faq-accent, var(--wariba-brand-400)) 88%, black 6%);
+  opacity: 0;
+  transform: scale(0.6);
+  animation: faq-chip-in 420ms var(--wariba-motion-ease-enter) var(--faq-delay, 0ms) both;
+}
+
+@keyframes faq-chip-in {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.faq-vstep-line {
+  width: 2px;
+  flex: 1 1 auto;
+  min-height: 1.5rem;
+  margin: 2px 0;
+  border-radius: 9999px;
+  background: var(--wariba-seam-strong);
+  transform-origin: top;
+  transform: scaleY(0);
+  animation: faq-line-draw 380ms var(--wariba-motion-ease-standard) var(--faq-delay, 0ms) both;
+}
+
+@keyframes faq-line-draw {
+  to {
+    transform: scaleY(1);
+  }
+}
+
+.faq-vstep-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-bottom: 1.5rem;
+  opacity: 0;
+  animation: faq-body-in 380ms var(--wariba-motion-ease-enter) var(--faq-delay, 0ms) both;
+}
+
+@keyframes faq-body-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.faq-vstep:last-child .faq-vstep-body {
+  padding-bottom: 0;
+}
+
+.faq-vstep-label {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--wariba-on-dark);
+}
+
+.faq-vstep-caption {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  color: var(--wariba-on-dark-dim);
+}
+
+.faq-vstep-callout {
+  margin-top: 0.6rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--wariba-radius-lg);
+  border: 1px solid color-mix(in srgb, var(--faq-accent, var(--wariba-brand-400)) 32%, var(--wariba-seam-strong));
+  background: color-mix(in srgb, var(--faq-accent, var(--wariba-brand-400)) 10%, transparent);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--wariba-on-dark-muted);
+}
+
+/* Pathway cards — FAQ 02, the section's strongest visual (default open). */
+.faq-pathway-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.faq-pathway-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--wariba-radius-xl);
+  border: 1px solid color-mix(in srgb, var(--faq-accent) 28%, var(--wariba-seam-strong));
+  background: color-mix(in srgb, var(--faq-accent) 7%, var(--wariba-surface-1));
+  overflow: hidden;
+  opacity: 0;
+  animation: faq-chip-in 420ms var(--wariba-motion-ease-enter) var(--faq-delay, 0ms) both;
+}
+
+.faq-pathway-header {
+  padding: 0.7rem 0.7rem 0.6rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--faq-accent) 30%, var(--wariba-seam-strong));
+  background: color-mix(in srgb, var(--faq-accent) 16%, transparent);
+}
+
+.faq-pathway-token {
+  font-family: var(--wariba-font-mono);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--faq-accent);
+}
+
+.faq-pathway-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.85rem 0.7rem;
+}
+
+.faq-pathway-step {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--wariba-on-dark-muted);
+}
+
+.faq-pathway-step-dot {
+  width: 5px;
+  height: 5px;
+  flex: none;
+  border-radius: 9999px;
+  background: var(--faq-accent);
+}
+
+.faq-pathway-step-connector {
+  margin-left: 2px;
+  width: 1px;
+  height: 0.7rem;
+  background: var(--wariba-seam-strong);
+}
+
+.faq-pathway-end {
+  margin-top: 0.15rem;
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--faq-accent) 55%, transparent);
+  padding: 0.3rem 0.6rem;
+  font-family: var(--wariba-font-mono);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--wariba-on-dark);
+  box-shadow: 0 0 14px -6px var(--faq-accent);
+}
+
+.faq-pathway-arrow {
+  display: flex;
+  align-items: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--faq-accent);
+}
+
+/* Performance "passport" card — FAQ 03. */
+.faq-passport {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--wariba-radius-2xl);
+  border: 1px solid color-mix(in srgb, var(--wariba-accent-emerald) 32%, var(--wariba-seam-strong));
+  background:
+    radial-gradient(60% 90% at 10% 0%, color-mix(in srgb, var(--wariba-accent-emerald) 14%, transparent), transparent),
+    var(--wariba-canvas-deep);
+  padding: 1.25rem 1.4rem 1.1rem;
+  opacity: 0;
+  animation: faq-chip-in 460ms var(--wariba-motion-ease-enter) both;
+}
+
+.faq-passport-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.faq-passport-brand {
+  font-family: var(--wariba-font-mono);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--wariba-on-dark-dim);
+}
+
+.faq-passport-badge {
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--wariba-accent-emerald) 50%, transparent);
+  padding: 0.25rem 0.6rem;
+  font-family: var(--wariba-font-mono);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--wariba-accent-emerald);
+  opacity: 0;
+  animation: faq-body-in 300ms var(--wariba-motion-ease-enter) 380ms both;
+}
+
+.faq-passport-wordmark {
+  margin: 1.1rem 0 0.2rem;
+  font-size: 1.9rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--wariba-on-dark);
+}
+
+.faq-passport-note {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--wariba-on-dark-dim);
+}
+
+.faq-passport-edge {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--wariba-accent-emerald), transparent);
+  transform: scaleX(0);
+  animation: faq-line-draw-x 600ms var(--wariba-motion-ease-standard) 260ms both;
+}
+
+@keyframes faq-line-draw-x {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Simulated vs. real-capital split — FAQ 04. */
+.faq-split {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.faq-split-card {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: var(--wariba-radius-xl);
+  padding: 1rem 1.1rem;
+  opacity: 0;
+  animation: faq-chip-in 420ms var(--wariba-motion-ease-enter) var(--faq-delay, 0ms) both;
+}
+
+.faq-split-card[data-active='true'] {
+  border: 1px solid color-mix(in srgb, var(--wariba-brand-400) 40%, var(--wariba-seam-strong));
+  background: color-mix(in srgb, var(--wariba-brand-500) 12%, var(--wariba-surface-1));
+}
+
+.faq-split-card[data-active='false'] {
+  border: 1px solid var(--wariba-seam);
+  background: var(--wariba-surface-1);
+  filter: grayscale(0.6);
+  opacity: 0.55;
+  animation: faq-body-in 420ms var(--wariba-motion-ease-enter) var(--faq-delay, 0ms) both;
+}
+
+.faq-split-icon {
+  display: inline-flex;
+  color: var(--wariba-on-dark-dim);
+}
+
+.faq-split-card[data-active='true'] .faq-split-icon {
+  color: var(--wariba-brand-300);
+}
+
+.faq-split-label {
+  margin: 0.6rem 0 0;
+  font-family: var(--wariba-font-mono);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wariba-on-dark-dim);
+}
+
+.faq-split-card[data-active='true'] .faq-split-value {
+  color: var(--wariba-brand-300);
+}
+
+.faq-split-value {
+  margin: 0.35rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--wariba-on-dark-muted);
+}
+
+.faq-split-sign {
+  flex: none;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--wariba-on-dark-dim);
+  opacity: 0;
+  animation: faq-body-in 300ms var(--wariba-motion-ease-enter) 500ms both;
+}
+
+/* Dual risk rails — FAQ 06. */
+.faq-rails {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+.faq-rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.55rem;
+}
+
+.faq-rail-label {
+  font-family: var(--wariba-font-mono);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wariba-on-dark);
+}
+
+.faq-rail-status {
+  border-radius: 9999px;
+  padding: 0.25rem 0.6rem;
+  font-family: var(--wariba-font-mono);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--faq-accent);
+  border: 1px solid color-mix(in srgb, var(--faq-accent) 45%, transparent);
+}
+
+.faq-rail-track {
+  position: relative;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--wariba-seam-strong);
+  overflow: visible;
+}
+
+.faq-rail-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--faq-accent);
+  transform-origin: left;
+  transform: scaleX(0);
+  animation: faq-line-draw-x 700ms var(--wariba-motion-ease-standard) 150ms both;
+}
+
+.faq-rail-marker {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  background: var(--wariba-on-dark);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--faq-accent) 30%, transparent);
+  opacity: 0;
+  animation: faq-marker-in 300ms var(--wariba-motion-ease-enter) 750ms both;
+}
+
+@keyframes faq-marker-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.faq-rail-limit {
+  position: absolute;
+  top: -0.2rem;
+  right: 0;
+  bottom: -0.2rem;
+  width: 2px;
+  background: var(--wariba-on-dark-dim);
+}
+
+.faq-rail-foot {
+  margin-top: 0.5rem;
+  font-size: 0.72rem;
+  color: var(--wariba-on-dark-dim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .faq-vstep-chip,
+  .faq-vstep-line,
+  .faq-vstep-body,
+  .faq-pathway-card,
+  .faq-passport,
+  .faq-passport-badge,
+  .faq-passport-edge,
+  .faq-split-card,
+  .faq-split-sign,
+  .faq-rail-fill,
+  .faq-rail-marker {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
 
