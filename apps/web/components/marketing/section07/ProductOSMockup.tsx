@@ -44,7 +44,7 @@ export function ProductOSMockup({
         <div className="flex items-center gap-3">
           <SurfaceSwitcher active={surface} onSelect={selectSurface} />
           <div className="hidden sm:block">
-            <LivePill label="EN DIRECT" />
+            <LivePill label="MODE DÉMO" />
           </div>
         </div>
       </div>

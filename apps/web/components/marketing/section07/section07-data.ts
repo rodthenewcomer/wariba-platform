@@ -13,15 +13,22 @@
 export type Section07Direction = 'LONG' | 'SHORT';
 export type Section07Range = '7J' | '30J' | '90J';
 
-function formatAmount(value: number): string {
-  return `$${Math.round(Math.abs(value)).toLocaleString('en-US')}`;
+/** `1284` → `"1 284 €"` — French grouping, always unsigned. */
+export function formatEuro(value: number): string {
+  return `${Math.round(Math.abs(value)).toLocaleString('fr-FR')} €`;
 }
 
-/** `341` → `"+$341"`, `-163` → `"−$163"` — a sign the eye can read without color. */
+/** `341` → `"+341 €"`, `-163` → `"−163 €"` — a sign the eye can read without color. */
 export function formatSigned(value: number): string {
-  if (value > 0) return `+${formatAmount(value)}`;
-  if (value < 0) return `−${formatAmount(value)}`;
-  return formatAmount(value);
+  if (value > 0) return `+${formatEuro(value)}`;
+  if (value < 0) return `−${formatEuro(value)}`;
+  return formatEuro(value);
+}
+
+/** `-1.8` → `"−1,8 %"`, `0` → `"0,0 %"` — for a figure that reads naturally negative, like drawdown. */
+export function formatSignedPercent(value: number, digits = 1): string {
+  const sign = value < 0 ? '−' : value > 0 ? '+' : '';
+  return `${sign}${formatPercent(Math.abs(value), digits)}`;
 }
 
 /** `1.74` → `"1,74"` — French decimal comma, two places. */
@@ -66,7 +73,7 @@ export const ACCOUNT: Section07Account = {
   riskRemainingLabel: '82 % restant',
   nextAction: {
     title: 'Continuez à trader dans les limites actuelles.',
-    detail: 'Votre risque quotidien est encore large aujourd’hui.',
+    detail: 'Votre risque quotidien reste confortable.',
   },
 };
 
@@ -250,23 +257,34 @@ export const ANALYTICS_BY_RANGE: Record<Section07Range, Section07AnalyticsFrame>
     bestDayValue: 341.2,
     tradesCount: 38,
     expectancyValue: 33.8,
+    /*
+     * Shaped as believable cumulative performance, not a staircase: a small
+     * early drawdown, recovery, a consolidation band, an acceleration into a
+     * local top, one meaningful pullback, recovery into a new high, a
+     * smaller late pullback, then continuation to the period's close.
+     */
     points: [
       point('11 avr', -180, 2, 0),
-      point('13 avr', -240, 3, 33.3),
-      point('15 avr', -90, 3, 33.3),
-      point('17 avr', 40, 2, 100),
-      point('19 avr', 120, 3, 66.7),
-      point('21 avr', 215, 2, 100),
-      point('23 avr', 310, 4, 75),
-      point('25 avr', 440, 3, 66.7),
-      point('27 avr', 385, 2, 0),
-      point('29 avr', 520, 3, 100),
-      point('1 mai', 710, 4, 75),
-      point('3 mai', 640, 2, 0),
-      point('5 mai', 845, 3, 66.7),
-      point('7 mai', 920, 2, 50),
-      point('8 mai', 1080, 2, 100),
-      point('9 mai', 990, 1, 0),
+      point('12 avr', -230, 1, 0),
+      point('13 avr', -160, 2, 50),
+      point('14 avr', -80, 1, 100),
+      point('15 avr', 40, 2, 100),
+      point('16 avr', 120, 2, 100),
+      point('17 avr', 205, 2, 50),
+      point('18 avr', 280, 1, 100),
+      point('19 avr', 365, 2, 50),
+      point('20 avr', 455, 2, 100),
+      point('22 avr', 510, 1, 100),
+      point('23 avr', 470, 2, 0),
+      point('25 avr', 590, 2, 100),
+      point('26 avr', 680, 1, 100),
+      point('28 avr', 790, 2, 50),
+      point('29 avr', 910, 2, 100),
+      point('30 avr', 845, 1, 0),
+      point('1 mai', 980, 2, 100),
+      point('3 mai', 1080, 1, 100),
+      point('5 mai', 1165, 2, 50),
+      point('7 mai', 1095, 1, 0),
       point('10 mai', 1284.4, 2, 100),
     ],
   },
@@ -299,15 +317,27 @@ export const ANALYTICS_BY_RANGE: Record<Section07Range, Section07AnalyticsFrame>
   },
 };
 
+export interface Section07EquityPoint {
+  label: string;
+  balance: number;
+  equity: number;
+  /** Distance from the running equity high, always ≤ 0 — the classic drawdown read. */
+  drawdownPercent: number;
+}
+
 /** Balance vs equity secondary visual — derived, not authored twice. */
 export function balanceEquitySeries(
   frame: Section07AnalyticsFrame,
   baseline = 25_000,
-): readonly { label: string; balance: number; equity: number }[] {
+): readonly Section07EquityPoint[] {
+  let peak = baseline;
   return frame.points.map((entry, index) => {
     const balance = baseline + entry.value;
     const wobble = Math.sin(index * 1.7) * Math.max(18, Math.abs(entry.value) * 0.04);
-    return { label: entry.label, balance, equity: balance + wobble };
+    const equity = balance + wobble;
+    peak = Math.max(peak, equity);
+    const drawdownPercent = ((equity - peak) / peak) * 100;
+    return { label: entry.label, balance, equity, drawdownPercent };
   });
 }
 

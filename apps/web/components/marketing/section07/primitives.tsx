@@ -1,8 +1,8 @@
 'use client';
 
-import { motion } from 'motion/react';
+import { animate, motion, useMotionValue, useTransform } from 'motion/react';
 import { cx } from '@wariba/ui';
-import { useId, type ReactNode } from 'react';
+import { useEffect, useId, type ReactNode } from 'react';
 import type { Section07Direction } from './section07-data';
 
 /**
@@ -190,6 +190,11 @@ export function SectionLabel({ children }: { children: ReactNode }) {
  * under Analytics' win rate. One implementation, two colour treatments: a
  * cobalt→ice-blue sweep for the ring, a plain cobalt fill for the donut, so
  * the two read as related but not identical instruments.
+ *
+ * `trackStyle="segmented"` breaks the track into evenly spaced milestone
+ * ticks (Trader Hub's progression, where each tick is a point toward the
+ * objective) instead of the plain continuous track Analytics' win-rate
+ * donut uses — the two rings should never be visually interchangeable.
  */
 export function RadialGauge({
   percent,
@@ -201,6 +206,10 @@ export function RadialGauge({
   label,
   reduced,
   delay = 0,
+  trackStyle = 'solid',
+  segments = 10,
+  showTicks = false,
+  headDot = false,
   children,
 }: {
   percent: number;
@@ -212,12 +221,37 @@ export function RadialGauge({
   label: string;
   reduced: boolean;
   delay?: number;
+  trackStyle?: 'solid' | 'segmented';
+  segments?: number;
+  showTicks?: boolean;
+  headDot?: boolean;
   children?: ReactNode;
 }) {
   const gradientId = useId();
   const clamped = Math.min(100, Math.max(0, percent));
   const radius = (size - thickness) / 2;
   const circumference = 2 * Math.PI * radius;
+  const center = size / 2;
+
+  const segmentGapDeg = 5;
+  const segmentSpanLength = (circumference / segments) * (1 - segmentGapDeg / (360 / segments));
+  const segmentGapLength = circumference / segments - segmentSpanLength;
+
+  const headProgress = useMotionValue(0);
+  useEffect(() => {
+    if (!headDot || reduced) {
+      headProgress.set(clamped);
+      return;
+    }
+    const controls = animate(headProgress, clamped, {
+      duration: 0.85,
+      delay,
+      ease: [0.22, 1, 0.36, 1],
+    });
+    return () => controls.stop();
+  }, [headProgress, headDot, reduced, clamped, delay]);
+  const headX = useTransform(headProgress, (value) => center + radius * Math.cos((value / 100) * 2 * Math.PI));
+  const headY = useTransform(headProgress, (value) => center + radius * Math.sin((value / 100) * 2 * Math.PI));
 
   return (
     <div
@@ -237,16 +271,17 @@ export function RadialGauge({
           </linearGradient>
         </defs>
         <circle
-          cx={size / 2}
-          cy={size / 2}
+          cx={center}
+          cy={center}
           r={radius}
           fill="none"
           stroke={trackColor}
           strokeWidth={thickness}
+          strokeDasharray={trackStyle === 'segmented' ? `${segmentSpanLength} ${segmentGapLength}` : undefined}
         />
         <motion.circle
-          cx={size / 2}
-          cy={size / 2}
+          cx={center}
+          cy={center}
           r={radius}
           fill="none"
           stroke={`url(#${gradientId})`}
@@ -257,6 +292,28 @@ export function RadialGauge({
           animate={{ strokeDashoffset: circumference * (1 - clamped / 100) }}
           transition={{ duration: reduced ? 0 : 0.85, delay: reduced ? 0 : delay, ease: [0.22, 1, 0.36, 1] }}
         />
+        {showTicks
+          ? [0, 25, 50, 75].map((tickPercent) => {
+              const theta = (tickPercent / 100) * 2 * Math.PI;
+              const inner = radius - thickness / 2 - 2.5;
+              const outer = radius + thickness / 2 + 2.5;
+              return (
+                <line
+                  key={tickPercent}
+                  x1={center + inner * Math.cos(theta)}
+                  y1={center + inner * Math.sin(theta)}
+                  x2={center + outer * Math.cos(theta)}
+                  y2={center + outer * Math.sin(theta)}
+                  stroke="var(--wariba-on-dark-dim)"
+                  strokeWidth={1}
+                  strokeOpacity={0.4}
+                />
+              );
+            })
+          : null}
+        {headDot ? (
+          <motion.circle r={3} fill="var(--wariba-on-dark)" cx={headX} cy={headY} style={{ opacity: reduced ? 0 : 0.9 }} />
+        ) : null}
       </svg>
       {children ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center">{children}</div>
@@ -265,19 +322,21 @@ export function RadialGauge({
   );
 }
 
-/** A compact bento tile: label, a large value, and an optional small delta line. */
+/** A compact bento tile: label, a large value, an optional delta line, and an optional micro-visual. */
 export function KpiTile({
   label,
   value,
   valueClassName,
   delta,
   className,
+  children,
 }: {
   label: string;
   value: ReactNode;
   valueClassName?: string;
   delta?: string;
   className?: string;
+  children?: ReactNode;
 }) {
   return (
     <div
@@ -299,6 +358,7 @@ export function KpiTile({
       {delta ? (
         <p className="mt-1 text-[0.65rem] text-[color:var(--wariba-on-dark-dim)]">{delta}</p>
       ) : null}
+      {children}
     </div>
   );
 }

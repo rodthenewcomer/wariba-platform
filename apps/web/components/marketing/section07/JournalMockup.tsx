@@ -145,13 +145,16 @@ export function JournalMockup({ onInteract }: { onInteract: () => void }) {
                 {trade.durationLabel}
               </dd>
             </div>
+          </dl>
+
+          <div className="mt-4 grid grid-cols-2 gap-4 border-t border-[color:var(--wariba-seam)] pt-4">
             <div>
               <dt className="text-[0.6rem] uppercase tracking-[0.08em] text-[color:var(--wariba-on-dark-dim)]">
                 Résultat
               </dt>
               <dd
                 className={cx(
-                  'wariba-figure mt-1 text-sm font-semibold',
+                  'wariba-figure mt-1 text-lg font-bold',
                   positive
                     ? 'text-[color:var(--wariba-accent-emerald)]'
                     : 'text-[color:var(--wariba-accent-red)]',
@@ -168,11 +171,11 @@ export function JournalMockup({ onInteract }: { onInteract: () => void }) {
                 {trade.session}
               </dd>
             </div>
-          </dl>
+          </div>
         </div>
 
         <div className="wariba-visual-card p-5 sm:p-6" data-variant="panel">
-          <SectionLabel>NOTE</SectionLabel>
+          <SectionLabel>CONTEXTE</SectionLabel>
           <p className="mt-2 text-sm leading-relaxed text-[color:var(--wariba-on-dark-muted)]">
             {trade.note}
           </p>

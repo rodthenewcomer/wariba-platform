@@ -66,6 +66,8 @@ export function TraderHubMockup() {
             reduced={reduced}
             size={148}
             thickness={13}
+            trackStyle="segmented"
+            segments={10}
           >
             <AnimatedNumber
               value={ACCOUNT.progressPercent}
