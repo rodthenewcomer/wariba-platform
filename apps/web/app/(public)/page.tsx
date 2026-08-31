@@ -17,6 +17,8 @@ import { DrawdownScene } from '../../components/marketing/scenes/DrawdownScene';
 import { WariXProductTeaser } from '../../components/marketing/WariXProductTeaser';
 import { PerformanceDays } from '../../components/marketing/scenes/PerformanceDays';
 import { RiskField } from '../../components/marketing/RiskField';
+import { HowItWorksSection } from '../../components/marketing/how-it-works/HowItWorksSection';
+import { Section07Intelligence } from '../../components/marketing/section07/Section07Intelligence';
 import { Reveal } from '../../components/motion/Reveal';
 import { formatNominal, formatRate, formatXof } from '../../components/commerce/offer-ui';
 import { getDb } from '../../lib/db';
@@ -145,10 +147,13 @@ export default async function HomePage() {
         <ProofRail />
       </PublicSection>
 
-      {/* ───────────────  3 · ONE / FLEX / INSTANT pathways  ─────────────── */}
+      {/* ───────────────  3 · Comment ça marche, en quatre étapes  ─────────────── */}
+      <HowItWorksSection />
+
+      {/* ───────────────  4 · ONE / FLEX / INSTANT pathways  ─────────────── */}
       <PathwaysSection one={one} flex={flexEntry} instant={instant} />
 
-      {/* ───────────────  4 · Le configurateur  ─────────────── */}
+      {/* ───────────────  5 · Le configurateur  ─────────────── */}
       <PublicSection tone="band">
         <Reveal>
           <SectionHeader
@@ -171,10 +176,10 @@ export default async function HomePage() {
         </Reveal>
       </PublicSection>
 
-      {/* ───────────────  5 · Risque visible  ─────────────── */}
+      {/* ───────────────  6 · Risque visible  ─────────────── */}
       <RiskField />
 
-      {/* ───────────────  6 · WariX, l’espace de trading  ─────────────── */}
+      {/* ───────────────  7 · WariX, l’espace de trading  ─────────────── */}
       <section
         className="relative isolate overflow-hidden bg-[color:var(--wariba-color-carbon-980)]"
         aria-labelledby="warix-teaser-title"
@@ -213,61 +218,10 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ───────────────  7 · Comment ça marche, en quatre scènes  ─────────────── */}
-      <PublicSection>
-        <Reveal>
-          <SectionHeader eyebrow="Le parcours" title="Quatre étapes, dans cet ordre." />
-        </Reveal>
-        <ol className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            {
-              step: '01',
-              title: 'Choisissez',
-              body: 'Un parcours, une taille. Les règles sont fixées le jour de l’achat.',
-              scene: <MiniPlate />,
-            },
-            {
-              step: '02',
-              title: 'Tradez',
-              body: 'Sur WariX, avec vos limites suivies en direct pendant la séance.',
-              scene: <MiniCandles />,
-            },
-            {
-              step: '03',
-              title: 'Progressez',
-              body: 'Atteignez l’objectif sans franchir votre perte maximale.',
-              scene: <MiniTarget />,
-            },
-            {
-              step: '04',
-              title: 'Performance',
-              body: 'Vous passez sur le compte Performance et ouvrez vos cycles.',
-              scene: <MiniCore />,
-            },
-          ].map((item, index) => (
-            <Reveal as="li" key={item.step} delay={index * 0.06}>
-              <article className="wariba-visual-card h-full overflow-hidden" data-variant="panel">
-                <div className="flex h-[132px] items-center justify-center bg-[color:var(--wariba-canvas-deep)]">
-                  {item.scene}
-                </div>
-                <div className="p-5">
-                  <span className="wariba-figure text-xs font-bold text-[color:var(--wariba-brand-300)]">
-                    {item.step}
-                  </span>
-                  <h3 className="mt-2 text-lg font-semibold text-[color:var(--wariba-on-dark)]">
-                    {item.title}
-                  </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-[color:var(--wariba-on-dark-dim)]">
-                    {item.body}
-                  </p>
-                </div>
-              </article>
-            </Reveal>
-          ))}
-        </ol>
-      </PublicSection>
+      {/* ───────────────  8 · Journal, Analytics, Trader Hub  ─────────────── */}
+      <Section07Intelligence />
 
-      {/* ───────────────  8 · La perte maximale, expliquée par le visuel  ─────────────── */}
+      {/* ───────────────  9 · La perte maximale, expliquée par le visuel  ─────────────── */}
       <PublicSection tone="deep">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-center">
           <Reveal>
@@ -299,7 +253,7 @@ export default async function HomePage() {
         </div>
       </PublicSection>
 
-      {/* ───────────────  9 · Les chiffres, en objets  ─────────────── */}
+      {/* ───────────────  10 · Les chiffres, en objets  ─────────────── */}
       <PublicSection tone="band" space="tight">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
           <Reveal>
@@ -358,7 +312,7 @@ export default async function HomePage() {
         </p>
       </PublicSection>
 
-      {/* ───────────────  10 · Le tableau de bord vivant  ─────────────── */}
+      {/* ───────────────  11 · Le tableau de bord vivant  ─────────────── */}
       <PublicSection tone="band">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center">
           <Reveal>
@@ -378,7 +332,7 @@ export default async function HomePage() {
         </div>
       </PublicSection>
 
-      {/* ───────────────  11 · L'échelle de partage  ─────────────── */}
+      {/* ───────────────  12 · L'échelle de partage  ─────────────── */}
       <PublicSection>
         <div className="grid gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-center">
           <Reveal>
@@ -403,7 +357,7 @@ export default async function HomePage() {
         </div>
       </PublicSection>
 
-      {/* ───────────────  12 · Ce que WARIBA garantit vraiment  ─────────────── */}
+      {/* ───────────────  13 · Ce que WARIBA garantit vraiment  ─────────────── */}
       <PublicSection tone="deep" space="tight">
         <Reveal>
           <SectionHeader
@@ -447,7 +401,7 @@ export default async function HomePage() {
         </div>
       </PublicSection>
 
-      {/* ───────────────  13 · Questions fréquentes  ─────────────── */}
+      {/* ───────────────  14 · Questions fréquentes  ─────────────── */}
       <PublicSection tone="band">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)]">
           <Reveal>
@@ -505,7 +459,7 @@ export default async function HomePage() {
         </div>
       </PublicSection>
 
-      {/* ───────────────  14 · Clôture  ─────────────── */}
+      {/* ───────────────  15 · Clôture  ─────────────── */}
       <PublicSection space="tight">
         <Reveal>
           <div className="wariba-strong-surface text-center" data-tone="deep">
@@ -533,129 +487,3 @@ export default async function HomePage() {
   );
 }
 
-/* ── Vignettes des quatre étapes ──
-   Volontairement minuscules et sans dépendance : elles marquent l'étape, elles
-   ne racontent pas l'histoire. Les objets qui la racontent sont plus haut. */
-
-function MiniPlate() {
-  return (
-    <svg viewBox="0 0 120 90" aria-hidden="true" className="h-[84px] w-auto">
-      <rect x="14" y="16" width="92" height="60" rx="14" fill="#2A2F3A" />
-      <rect x="22" y="23" width="76" height="46" rx="10" fill="#0A0A0B" />
-      <text
-        x="60"
-        y="53"
-        textAnchor="middle"
-        fontSize="18"
-        fontWeight="700"
-        fill="none"
-        stroke="#9DB4FF"
-        strokeWidth="1"
-      >
-        25K
-      </text>
-      <rect x="38" y="70" width="44" height="2" rx="1" fill="#5C7FFF" opacity="0.8" />
-    </svg>
-  );
-}
-
-/* Named fields rather than a tuple: destructuring a nested array literal makes
-   every element `T | undefined` under `noUncheckedIndexedAccess`. */
-const CANDLE_SPECS = [
-  { x: 24, y: 34, h: 58, up: true },
-  { x: 44, y: 26, h: 50, up: true },
-  { x: 64, y: 40, h: 66, up: false },
-  { x: 84, y: 18, h: 44, up: true },
-] as const;
-
-function MiniCandles() {
-  return (
-    <svg viewBox="0 0 120 90" aria-hidden="true" className="h-[84px] w-auto">
-      {CANDLE_SPECS.map(({ x, y, h, up }) => (
-        <g key={x}>
-          <line
-            x1={x}
-            y1={y - 8}
-            x2={x}
-            y2={y + h + 8}
-            stroke={up ? '#36B37E' : '#F46E6E'}
-            strokeWidth="1.5"
-          />
-          <rect
-            x={x - 6}
-            y={y}
-            width="12"
-            height={h}
-            rx="2"
-            fill={up ? '#36B37E' : '#F46E6E'}
-            opacity="0.9"
-          />
-        </g>
-      ))}
-    </svg>
-  );
-}
-
-function MiniTarget() {
-  return (
-    <svg viewBox="0 0 120 90" aria-hidden="true" className="h-[84px] w-auto">
-      <circle
-        cx="60"
-        cy="45"
-        r="32"
-        fill="none"
-        stroke="#5C7FFF"
-        strokeOpacity="0.25"
-        strokeWidth="2"
-      />
-      <circle
-        cx="60"
-        cy="45"
-        r="20"
-        fill="none"
-        stroke="#5C7FFF"
-        strokeOpacity="0.5"
-        strokeWidth="2"
-      />
-      <circle cx="60" cy="45" r="7" fill="#5C7FFF" />
-      <path
-        d="M12 74 C 30 68, 44 58, 56 50"
-        fill="none"
-        stroke="#9DB4FF"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function MiniCore() {
-  return (
-    <svg viewBox="0 0 120 90" aria-hidden="true" className="h-[84px] w-auto">
-      <circle cx="60" cy="45" r="30" fill="#1A1C21" />
-      <circle
-        cx="60"
-        cy="45"
-        r="30"
-        fill="none"
-        stroke="#36B37E"
-        strokeOpacity="0.35"
-        strokeWidth="2"
-      />
-      <circle cx="60" cy="45" r="16" fill="#36B37E" fillOpacity="0.28" />
-      <circle cx="60" cy="45" r="7" fill="#36B37E" />
-      {[0, 72, 144, 216, 288].map((a) => (
-        <rect
-          key={a}
-          x="57"
-          y="6"
-          width="6"
-          height="12"
-          rx="3"
-          fill="#5A6273"
-          transform={`rotate(${a} 60 45)`}
-        />
-      ))}
-    </svg>
-  );
-}

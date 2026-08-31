@@ -824,6 +824,70 @@
     transform: translateX(4px);
   }
 
+  /*
+   * "Comment ça marche"'s CTA — a traced border rather than a filled
+   * pill, because the section's job is to send the visitor onward, not to
+   * close a sale. `.how-it-works-cta-frame` is a sibling `<span>` sized
+   * around the button (not a `::before` on the button itself) because its
+   * own `::before` carries the conic-gradient ring, masked down to a 1px
+   * outline with the padding-box/border-box exclusion trick. It stays
+   * static at rest — the trace is a single pass, played once by JS after
+   * the section's phase sequence finishes (`.is-tracing`, added when
+   * `ctaTracing` flips true) and once again on every hover/focus, never on
+   * a loop. `@property` makes the angle interpolable; without it the
+   * browser would still render the ring, just snap through it unanimated.
+   */
+  .how-it-works-cta {
+    position: relative;
+  }
+
+  .how-it-works-cta-frame {
+    position: absolute;
+    inset: -3px;
+    border-radius: 9999px;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .how-it-works-cta-frame::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: conic-gradient(
+      from var(--how-it-works-angle, 0deg),
+      transparent 0%,
+      color-mix(in srgb, var(--wariba-brand-400) 90%, transparent) 10%,
+      transparent 28%,
+      transparent 100%
+    );
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0.9;
+  }
+
+  .how-it-works-cta-frame.is-tracing::before {
+    animation: how-it-works-trace 3s ease-out 1;
+  }
+
+  .how-it-works-cta:hover .how-it-works-cta-frame::before,
+  .how-it-works-cta:focus-visible .how-it-works-cta-frame::before {
+    animation: how-it-works-trace 1.6s ease-out 1;
+  }
+
+  .how-it-works-cta-arrow {
+    transition: transform var(--wariba-motion-micro) var(--wariba-motion-ease-standard);
+  }
+
+  .how-it-works-cta:hover .how-it-works-cta-arrow,
+  .how-it-works-cta:focus-visible .how-it-works-cta-arrow {
+    transform: translateX(4px);
+  }
+
   .wariba-cta-primary:not(:disabled):active,
   .wariba-cta-secondary:active {
     transform: scale(0.985);
@@ -1175,13 +1239,22 @@
   .wariba-cta-primary,
   .wariba-cta-secondary,
   .wariba-cta-tertiary,
-  .warix-teaser-cta-arrow {
+  .warix-teaser-cta-arrow,
+  .how-it-works-cta-arrow {
     transition: none;
   }
 
   .wariba-megamenu,
   .wariba-drawer {
     animation: none;
+  }
+
+  .how-it-works-cta-frame::before,
+  .how-it-works-cta-frame.is-tracing::before,
+  .how-it-works-cta:hover .how-it-works-cta-frame::before,
+  .how-it-works-cta:focus-visible .how-it-works-cta-frame::before {
+    animation: none;
+    opacity: 0.55;
   }
 }
 
@@ -2027,6 +2100,18 @@
  * with or without JavaScript, in a screenshot, and on a page that does not
  * scroll. That trade is not close: the animation was never the message.
  */
+@property --how-it-works-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes how-it-works-trace {
+  to {
+    --how-it-works-angle: 360deg;
+  }
+}
+
 @keyframes wariba-reveal-in {
   from {
     opacity: 0;
