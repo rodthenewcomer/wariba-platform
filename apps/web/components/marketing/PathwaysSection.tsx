@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { CanonicalOfferReadModel } from '@wariba/application';
 import { ArrowRightIcon, SectionHeader } from '@wariba/ui';
 import { Reveal } from '../motion/Reveal';
+import { MobilePathwaySwitcher, type MobilePathwayFamily } from './pathways/MobilePathwaySwitcher';
 import { OneEvaluationPanel } from './scenes/OneEvaluationPanel';
 import { FlexPaymentTimeline } from './scenes/FlexPaymentTimeline';
 import { InstantAccountPanel } from './scenes/InstantAccountPanel';
@@ -59,6 +60,92 @@ export function PathwaysSection({ one, flex, instant }: PathwaysSectionProps) {
   const instantMaximumLoss = formatRate(instant.performanceRules.maximumLossRate);
   const instantExposure = formatMultiple(instant.performanceRules.grossExposureMaximumMultiple);
 
+  /*
+   * Mobile's one-family-at-a-time presentation, built from the exact same
+   * copy and canonical numbers as the three desktop chapters below — never
+   * a second source of truth. `visual` is each chapter's existing panel,
+   * server-rendered here and handed to a client component as a plain
+   * ReactNode: `MobilePathwaySwitcher` only ever picks which of these three
+   * already-built trees to show, it never touches `one`/`flex`/`instant`.
+   */
+  const mobilePathwayFamilies: readonly MobilePathwayFamily[] = [
+    {
+      id: 'one',
+      tabLabel: 'ONE',
+      accent: 'var(--wariba-brand-400)',
+      eyebrowNumber: '01',
+      eyebrowLabel: 'WARIBA ONE',
+      title: (
+        <>
+          Une évaluation.
+          <span className="block">Un seul paiement.</span>
+        </>
+      ),
+      supportingCopy: 'Atteignez l’objectif, puis passez sur Performance. Aucun frais d’activation.',
+      chips: [`Objectif ${oneTarget}`, 'Paiement unique', 'Aucun frais d’activation'],
+      visual: (
+        <OneEvaluationPanel
+          sizeLabel={one.sizeCode}
+          targetLabel={oneTarget}
+          progressPercent={80}
+          progressLabel={oneProgressLabel}
+          maximumLossLabel={oneMaximumLoss}
+          upfrontLabel={oneUpfront}
+        />
+      ),
+      ctaLabel: 'Découvrir ONE',
+      ctaHref: '/challenges/one',
+      ctaVariant: 'secondary',
+    },
+    {
+      id: 'flex',
+      tabLabel: 'FLEX',
+      accent: '#B9B2FF',
+      eyebrowNumber: '02',
+      eyebrowLabel: `WARIBA FLEX · ${flex.sizeCode}`,
+      title: (
+        <>
+          Commencez maintenant.
+          <span className="block">Payez le reste après votre réussite.</span>
+        </>
+      ),
+      supportingCopy: 'Un premier paiement aujourd’hui. L’activation n’est due que si vous réussissez.',
+      visual: (
+        <FlexPaymentTimeline
+          sizeLabel={flex.sizeCode}
+          upfrontValue={flexUpfrontParts.value}
+          upfrontCurrency={flexUpfrontParts.currency}
+          evaluationRateLabel={flexEvaluationRate}
+          activationLabel={flexActivation}
+        />
+      ),
+      ctaLabel: 'Découvrir FLEX',
+      ctaHref: '/challenges/flex',
+      ctaVariant: 'primary',
+    },
+    {
+      id: 'instant',
+      tabLabel: 'INSTANT',
+      accent: 'var(--wariba-accent-cyan)',
+      eyebrowNumber: '03',
+      eyebrowLabel: 'WARIBA INSTANT',
+      title: <>Pas d’évaluation.</>,
+      supportingCopy: 'Commencez directement sur Performance, avec des limites plus serrées.',
+      visual: (
+        <InstantAccountPanel
+          sizeLabel={instant.sizeCode}
+          balanceLabel={instantBalance}
+          dailyLossLabel={instantDailyLoss}
+          maximumLossLabel={instantMaximumLoss}
+          exposureLabel={instantExposure}
+        />
+      ),
+      ctaLabel: 'Découvrir INSTANT',
+      ctaHref: '/challenges/instant',
+      ctaVariant: 'secondary',
+    },
+  ];
+
   return (
     <section
       aria-labelledby="pathways-title"
@@ -109,8 +196,18 @@ export function PathwaysSection({ one, flex, instant }: PathwaysSectionProps) {
           ))}
         </nav>
 
-        {/* ── Chapitre 1 · ONE — copie à gauche, visualisation à droite ── */}
-        <div className="mt-12 flex flex-col gap-8 sm:mt-20 lg:flex-row lg:items-center lg:gap-16">
+        {/*
+         * Chapitres 1–3 (ONE / FLEX / INSTANT) — desktop only below `lg`.
+         * Mobile gets one active pathway at a time via `MobilePathwaySwitcher`
+         * instead of three full scenes stacked in sequence; see that
+         * component and `mobilePathwayFamilies` above for why this never
+         * duplicates canonical data. `hidden lg:block` rather than removing
+         * this subtree on mobile keeps the split purely CSS-driven — no
+         * window-width branching, no hydration mismatch risk.
+         */}
+        <div className="hidden lg:block">
+          {/* ── Chapitre 1 · ONE — copie à gauche, visualisation à droite ── */}
+          <div className="mt-12 flex flex-col gap-8 sm:mt-20 lg:flex-row lg:items-center lg:gap-16">
           <Reveal className="min-w-0 lg:flex-1">
             <div className="flex items-center gap-3">
               <span className="wariba-figure text-xs font-bold text-[color:var(--wariba-brand-300)]">01</span>
@@ -238,6 +335,14 @@ export function PathwaysSection({ one, flex, instant }: PathwaysSectionProps) {
             </Link>
           </Reveal>
         </div>
+        </div>
+
+        {/* ── Mobile only: one active pathway at a time ── */}
+        <MobilePathwaySwitcher
+          families={mobilePathwayFamilies}
+          defaultFamilyId="flex"
+          className="mt-12 lg:hidden"
+        />
 
         {/* ── Chapitre 4 · Performance, expliquée par le produit ── */}
         <div className="mt-14 grid gap-8 sm:mt-28 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-center lg:gap-16">
