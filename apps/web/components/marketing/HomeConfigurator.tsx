@@ -1,11 +1,19 @@
 'use client';
 
-import { useMemo, useState, type KeyboardEvent } from 'react';
+import { useMemo, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'motion/react';
 import { AccountToken, ArrowRightIcon, CheckIcon } from '@wariba/ui';
 import type { CanonicalOfferReadModel } from '@wariba/application';
-import { FAMILY_META, FAMILY_ORDER, formatRate, formatXof, xofParts } from '../commerce/offer-ui';
+import {
+  checkoutHref,
+  FAMILY_META,
+  FAMILY_ORDER,
+  formatMultiple,
+  formatRate,
+  formatXof,
+  xofParts,
+} from '../commerce/offer-ui';
 import { useHydratedReducedMotion } from '../motion/useHydratedReducedMotion';
 
 const FAMILY_TOKEN = {
@@ -14,61 +22,63 @@ const FAMILY_TOKEN = {
   WARIBA_INSTANT: 'instant',
 } as const;
 
-/**
- * The homepage's account chooser.
- *
- * ## Why it is not the `/offres` configurator
- *
- * `/offres` is where someone decides; the homepage is where they discover the
- * decision exists. So this one leads with the object — the account plate, large
- * enough to be the section's visual hook — and shows six resolved rules rather
- * than ten. Anyone who wants the full sheet is one click away.
- *
- * ## Selection is local, and the URL is not touched
- *
- * The homepage is not a shareable configuration, so there is nothing to
- * restore: no router call, no server round trip, no `?offre=` on `/`. Choosing
- * a size costs a re-render and nothing else.
- *
- * ## Every figure is server-derived
- *
- * Price, target, daily limit, maximum loss, best day and split all come from
- * the canonical offer. The FLEX total is read, never computed here — a
- * marketing surface that does arithmetic on money is a second source of truth
- * waiting to disagree with the first.
- */
+const FAMILY_STYLE = {
+  WARIBA_ONE: {
+    accent: 'var(--wariba-brand-400)',
+    wash: 'var(--wariba-brand-wash)',
+    edge: 'var(--wariba-brand-edge)',
+  },
+  WARIBA_FLEX: {
+    accent: 'var(--wariba-color-violet-400)',
+    wash: 'color-mix(in srgb, var(--wariba-color-violet-500) 18%, transparent)',
+    edge: 'color-mix(in srgb, var(--wariba-color-violet-400) 52%, transparent)',
+  },
+  WARIBA_INSTANT: {
+    accent: 'var(--wariba-accent-cyan)',
+    wash: 'color-mix(in srgb, var(--wariba-accent-cyan) 12%, transparent)',
+    edge: 'color-mix(in srgb, var(--wariba-accent-cyan) 38%, transparent)',
+  },
+} as const;
+
+/** Local account configurator; all prices and rules are read from V2 offer models. */
 export function HomeConfigurator({ offers }: { offers: readonly CanonicalOfferReadModel[] }) {
   const reduced = useHydratedReducedMotion();
   const [family, setFamily] = useState<CanonicalOfferReadModel['productFamily']>('WARIBA_ONE');
   const [sizeCode, setSizeCode] = useState('25K');
-
   const familyOffers = useMemo(
     () => offers.filter((offer) => offer.productFamily === family),
     [offers, family],
   );
   const selected =
     familyOffers.find((offer) => offer.sizeCode === sizeCode) ?? familyOffers[0] ?? offers[0];
-
   if (!selected) return null;
 
   const meta = FAMILY_META[selected.productFamily];
-  const isFlex = selected.productFamily === 'WARIBA_FLEX';
   const evaluation = selected.evaluationRules;
-  const performance = selected.performanceRules;
-
-  const rows: Array<[string, string, boolean?]> = [
-    evaluation
-      ? ['Objectif', formatRate(evaluation.profitTargetRate), true]
-      : ['Départ', 'Performance directe', true],
-    ['Limite quotidienne', formatRate(evaluation?.dailyLossRate ?? performance.dailyLossRate)],
-    ['Perte maximale', formatRate(evaluation?.maximumLossRate ?? performance.maximumLossRate)],
-    [
-      'Meilleure journée',
-      formatRate(evaluation?.bestDayMaximumRate ?? performance.bestDayMaximumRate),
-    ],
-    ['Réserve de sécurité', formatRate(performance.permanentBufferRate)],
-    ['Journées Performance', `${performance.performanceDaysRequired}`],
-  ];
+  const isFlex = selected.productFamily === 'WARIBA_FLEX';
+  const isInstant = selected.productFamily === 'WARIBA_INSTANT';
+  const theme = FAMILY_STYLE[selected.productFamily];
+  const headingPrice = xofParts(selected.upfrontPrice);
+  const ctaIsPurchase = selected.purchaseEnabled;
+  const coreState = isInstant ? 'Performance directe' : isFlex ? 'Paiement scindé' : 'Évaluation';
+  const facts = isFlex
+    ? [
+        ['Objectif', formatRate(evaluation?.profitTargetRate ?? '0')],
+        ['Perte maximale', formatRate(evaluation?.maximumLossRate ?? '0')],
+      ]
+    : isInstant
+      ? [
+          ['Perte maximale', formatRate(selected.performanceRules.maximumLossRate)],
+          ['Limite quotidienne', formatRate(selected.performanceRules.dailyLossRate)],
+          ['Exposition', formatMultiple(selected.performanceRules.grossExposureMaximumMultiple)],
+          ['Départ', 'Performance directe'],
+        ]
+      : [
+          ['Objectif', formatRate(evaluation?.profitTargetRate ?? '0')],
+          ['Perte maximale', formatRate(evaluation?.maximumLossRate ?? '0')],
+          ['Limite quotidienne', formatRate(evaluation?.dailyLossRate ?? '0')],
+          ['Activation', formatXof(selected.activationPrice)],
+        ];
 
   const roving = (
     event: KeyboardEvent<HTMLButtonElement>,
@@ -88,152 +98,282 @@ export function HomeConfigurator({ offers }: { offers: readonly CanonicalOfferRe
     if (next === undefined) return;
     event.preventDefault();
     apply(next);
-    const radios =
-      event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="radio"]');
-    radios?.[next]?.focus();
+    event.currentTarget.parentElement
+      ?.querySelectorAll<HTMLButtonElement>('[role="radio"]')
+      [next]?.focus();
   };
 
   return (
-    <div
-      className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-center"
+    <section
+      aria-label="Configurateur de compte WARIBA"
+      className="overflow-hidden rounded-[var(--wariba-radius-2xl)] border border-[color:var(--wariba-seam-strong)] bg-[color:var(--wariba-canvas-deep)] shadow-[inset_0_1px_0_var(--wariba-inner-highlight)]"
       data-testid="home-configurator"
       data-offer-id={selected.offerId}
+      style={
+        {
+          '--config-accent': theme.accent,
+          '--config-wash': theme.wash,
+          '--config-edge': theme.edge,
+        } as CSSProperties
+      }
     >
-      {/* ── L'objet ── */}
-      <div className="relative flex min-w-0 items-center justify-center rounded-[var(--wariba-radius-2xl)] border border-[color:var(--wariba-seam)] bg-[color:var(--wariba-canvas-deep)] p-6 shadow-[inset_0_1px_0_var(--wariba-inner-highlight)] sm:p-12">
+      <div className="border-b border-[color:var(--wariba-seam)] p-3 sm:p-5">
         <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 rounded-[var(--wariba-radius-2xl)]"
-          style={{
-            background:
-              'radial-gradient(60% 55% at 50% 46%, color-mix(in srgb, var(--wariba-brand-600) 26%, transparent), transparent 70%)',
-          }}
-        />
-        {/* Le cadre ne bouge pas ; seule la plaque change. */}
-        <div className="relative aspect-[254/190] w-full max-w-[254px]">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={`${selected.productFamily}-${selected.sizeCode}`}
-              initial={reduced ? false : { opacity: 0, scale: 0.97 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: reduced ? 1 : 0 }}
-              transition={{ duration: reduced ? 0 : 0.22, ease: [0.2, 0, 0, 1] }}
-              className="absolute inset-0"
-            >
-              <AccountToken
-                sizeCode={selected.sizeCode}
-                family={FAMILY_TOKEN[selected.productFamily]}
-                className="h-full w-full"
-              />
-            </motion.div>
-          </AnimatePresence>
+          className="relative grid grid-cols-3 rounded-[16px] border border-[color:var(--wariba-seam)] bg-[color:var(--wariba-surface-1)] p-1.5"
+          role="radiogroup"
+          aria-label="Parcours"
+        >
+          {FAMILY_ORDER.map((option, index) => {
+            const active = option === family;
+            return (
+              <button
+                key={option}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                tabIndex={active ? 0 : -1}
+                onClick={() => setFamily(option)}
+                onKeyDown={(event) =>
+                  roving(event, index, FAMILY_ORDER.length, (next) =>
+                    setFamily(FAMILY_ORDER[next]!),
+                  )
+                }
+                className="wariba-focus-ring relative z-10 flex min-h-14 flex-col items-center justify-center rounded-[11px] px-2 text-xs font-bold tracking-[0.08em] text-[color:var(--wariba-on-dark-dim)] transition-colors duration-[var(--wariba-motion-state)] sm:min-h-[4.25rem] sm:text-sm"
+              >
+                {active ? (
+                  <motion.span
+                    layoutId="config-family-indicator"
+                    className="absolute inset-0 -z-10 rounded-[10px] border border-[color:var(--config-edge)] bg-[color:var(--config-wash)]"
+                    transition={{ duration: reduced ? 0 : 0.2, ease: [0.2, 0, 0, 1] }}
+                  />
+                ) : null}
+                <span className={active ? 'text-[color:var(--config-accent)]' : undefined}>
+                  {FAMILY_META[option].short}
+                </span>
+                <span className="mt-0.5 hidden text-[9px] font-medium normal-case tracking-normal text-[color:var(--wariba-on-dark-dim)] lg:block">
+                  {option === 'WARIBA_ONE'
+                    ? 'Une évaluation'
+                    : option === 'WARIBA_FLEX'
+                      ? 'Payez en deux temps'
+                      : 'Accès direct'}
+                </span>
+              </button>
+            );
+          })}
         </div>
-      </div>
-
-      {/* ── Le choix ── */}
-      <div className="min-w-0">
-        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Parcours">
-          {FAMILY_ORDER.map((option, index) => (
-            <button
-              key={option}
-              type="button"
-              role="radio"
-              aria-checked={option === family}
-              tabIndex={option === family ? 0 : -1}
-              onClick={() => setFamily(option)}
-              onKeyDown={(event) =>
-                roving(event, index, FAMILY_ORDER.length, (next) => setFamily(FAMILY_ORDER[next]!))
-              }
-              className="commerce-size min-w-0 flex-1 px-2 sm:px-4"
-              data-active={option === family ? 'true' : 'false'}
-            >
-              {FAMILY_META[option].short}
-            </button>
-          ))}
-        </div>
-
         <div
-          className="mt-3 grid grid-cols-5 gap-2"
+          className="mt-3 grid grid-cols-5 gap-1.5 sm:gap-2"
           role="radiogroup"
           aria-label="Taille du compte"
         >
-          {familyOffers.map((offer, index) => (
-            <button
-              key={offer.offerId}
-              type="button"
-              role="radio"
-              aria-checked={offer.sizeCode === selected.sizeCode}
-              tabIndex={offer.sizeCode === selected.sizeCode ? 0 : -1}
-              onClick={() => setSizeCode(offer.sizeCode)}
-              onKeyDown={(event) =>
-                roving(event, index, familyOffers.length, (next) =>
-                  setSizeCode(familyOffers[next]!.sizeCode),
-                )
-              }
-              className="commerce-size"
-              data-active={offer.sizeCode === selected.sizeCode ? 'true' : 'false'}
-            >
-              {offer.sizeCode}
-            </button>
-          ))}
-        </div>
-
-        <dl className="mt-7">
-          {rows.map(([label, value, accent]) => (
-            <div key={label} className="commerce-spec-row">
-              <dt className="commerce-spec-label">{label}</dt>
-              <dd>
-                <span className="commerce-spec-value" data-tone={accent ? 'accent' : undefined}>
-                  {value}
-                </span>
-              </dd>
-            </div>
-          ))}
-        </dl>
-
-        {/* ── Le prix ── */}
-        <div className="mt-7 rounded-[var(--wariba-radius-xl)] border border-[color:var(--wariba-seam)] bg-[color:var(--wariba-surface-1)] p-5">
-          <p className="text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase tracking-[0.14em] text-[color:var(--wariba-on-dark-dim)]">
-            {isFlex ? 'À régler aujourd’hui' : 'Paiement unique'}
-          </p>
-          <p className="wariba-figure mt-1.5 text-4xl font-bold tracking-[-0.03em] text-[color:var(--wariba-on-dark)]">
-            {xofParts(selected.upfrontPrice).value}{' '}
-            <span className="text-xl font-semibold text-[color:var(--wariba-on-dark-dim)]">
-              {xofParts(selected.upfrontPrice).currency}
-            </span>
-          </p>
-
-          {/* FLEX ne cache jamais son second montant ni son total. */}
-          {isFlex ? (
-            <dl className="mt-4 space-y-2 border-t border-[color:var(--wariba-seam)] pt-4 text-sm">
-              <div className="flex items-baseline justify-between gap-4">
-                <dt className="text-[color:var(--wariba-on-dark-dim)]">Après réussite</dt>
-                <dd className="wariba-figure font-semibold text-[color:var(--wariba-on-dark-muted)]">
-                  {formatXof(selected.activationPrice)}
-                </dd>
-              </div>
-              <div className="flex items-baseline justify-between gap-4">
-                <dt className="text-[color:var(--wariba-on-dark-dim)]">Total si vous réussissez</dt>
-                <dd className="wariba-figure font-bold text-[color:var(--wariba-on-dark)]">
-                  {formatXof(selected.totalPriceIfSuccess)}
-                </dd>
-              </div>
-              <p className="flex items-start gap-2 pt-1 text-xs leading-relaxed text-[color:var(--wariba-on-dark-dim)]">
-                <CheckIcon
-                  size="sm"
-                  className="mt-0.5 shrink-0 text-[color:var(--wariba-accent-emerald)]"
-                />
-                Si vous ne réussissez pas, l’activation n’est jamais prélevée.
-              </p>
-            </dl>
-          ) : null}
-
-          <Link href={meta.path} className="wariba-cta-primary mt-5 w-full">
-            Découvrir {meta.short}
-            <ArrowRightIcon size="sm" />
-          </Link>
+          {familyOffers.map((offer, index) => {
+            const active = offer.sizeCode === selected.sizeCode;
+            return (
+              <button
+                key={offer.offerId}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                tabIndex={active ? 0 : -1}
+                onClick={() => setSizeCode(offer.sizeCode)}
+                onKeyDown={(event) =>
+                  roving(event, index, familyOffers.length, (next) =>
+                    setSizeCode(familyOffers[next]!.sizeCode),
+                  )
+                }
+                className="wariba-focus-ring min-h-12 rounded-[11px] border px-1 font-mono text-xs font-bold transition-[border-color,background-color,color,box-shadow] duration-[var(--wariba-motion-state)] sm:min-h-14 sm:text-sm"
+                style={
+                  active
+                    ? {
+                        borderColor: 'var(--config-edge)',
+                        backgroundColor: 'var(--config-wash)',
+                        color: 'var(--config-accent)',
+                        boxShadow:
+                          'inset 0 0 0 1px var(--config-edge), 0 10px 24px -16px var(--config-accent)',
+                      }
+                    : { borderColor: 'var(--wariba-seam)', color: 'var(--wariba-on-dark-dim)' }
+                }
+              >
+                {offer.sizeCode}
+              </button>
+            );
+          })}
         </div>
       </div>
+
+      <div className="grid lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
+        <div className="relative flex min-h-[360px] items-center justify-center overflow-hidden border-b border-[color:var(--wariba-seam)] bg-[color:var(--wariba-canvas-base)] px-6 py-10 lg:min-h-[490px] lg:border-b-0 lg:border-r lg:px-12">
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 bg-[radial-gradient(58%_56%_at_50%_52%,var(--config-wash),transparent_72%)]"
+          />
+          <div className="relative w-full max-w-[390px]">
+            <div className="mb-8 flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.16em] text-[color:var(--wariba-on-dark-muted)]">
+              <span>WARIBA {meta.short}</span>
+              <span className="text-[color:var(--config-accent)]">Compte simulé</span>
+            </div>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={`${selected.productFamily}-${selected.sizeCode}`}
+                initial={reduced ? false : { opacity: 0, scale: 0.96, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={reduced ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 1.02, y: -5 }}
+                transition={{ duration: reduced ? 0 : 0.22, ease: [0.2, 0, 0, 1] }}
+              >
+                <AccountToken
+                  sizeCode={selected.sizeCode}
+                  family={FAMILY_TOKEN[selected.productFamily]}
+                  className="h-auto w-full drop-shadow-[0_24px_42px_rgb(0_0_0_/_0.38)]"
+                />
+              </motion.div>
+            </AnimatePresence>
+            <div className="mt-8 flex items-center justify-between border-t border-[color:var(--wariba-seam)] pt-5">
+              <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-[color:var(--wariba-on-dark-dim)]">
+                Statut de départ
+              </span>
+              <span className="text-sm font-bold text-[color:var(--config-accent)]">
+                {coreState}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 sm:p-8 lg:p-11">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[color:var(--wariba-on-dark-dim)]">
+                Votre formule
+              </p>
+              <h3 className="mt-2 text-2xl font-semibold tracking-[-0.045em] text-[color:var(--wariba-on-dark)] sm:text-3xl">
+                {meta.short} · {selected.sizeCode}
+              </h3>
+            </div>
+            <span className="mt-1 rounded-full border border-[color:var(--config-edge)] bg-[color:var(--config-wash)] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.13em] text-[color:var(--config-accent)]">
+              Simulé
+            </span>
+          </div>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={selected.offerId}
+              initial={reduced ? false : { opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduced ? { opacity: 1, y: 0 } : { opacity: 0, y: -5 }}
+              transition={{ duration: reduced ? 0 : 0.18, ease: [0.2, 0, 0, 1] }}
+            >
+              {isFlex ? (
+                <FlexFormula
+                  upfront={headingPrice}
+                  activation={formatXof(selected.activationPrice)}
+                  total={formatXof(selected.totalPriceIfSuccess)}
+                />
+              ) : (
+                <div className="mt-8 border-b border-[color:var(--wariba-seam)] pb-7">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[color:var(--wariba-on-dark-dim)]">
+                    {isInstant ? 'Prix aujourd’hui' : 'Paiement aujourd’hui'}
+                  </p>
+                  <p className="wariba-figure mt-2 text-[clamp(2.55rem,5vw,4rem)] font-bold leading-none tracking-[-0.055em] text-[color:var(--wariba-on-dark)]">
+                    {headingPrice.value}{' '}
+                    <span className="text-[0.37em] font-semibold tracking-[-0.02em] text-[color:var(--wariba-on-dark-dim)]">
+                      {headingPrice.currency}
+                    </span>
+                  </p>
+                  {isInstant ? (
+                    <p className="mt-3 text-sm font-semibold text-[color:var(--config-accent)]">
+                      Pas d’évaluation.
+                    </p>
+                  ) : null}
+                </div>
+              )}
+              <dl className="mt-8 grid grid-cols-2 gap-x-6 gap-y-5">
+                {facts.map(([label, value]) => (
+                  <div key={label} className="border-t border-[color:var(--wariba-seam)] pt-3">
+                    <dt className="text-[10px] font-bold uppercase tracking-[0.13em] text-[color:var(--wariba-on-dark-dim)]">
+                      {label}
+                    </dt>
+                    <dd className="wariba-figure mt-1.5 text-base font-bold tracking-[-0.02em] text-[color:var(--wariba-on-dark)] sm:text-lg">
+                      {value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </motion.div>
+          </AnimatePresence>
+          <Link
+            href={ctaIsPurchase ? checkoutHref(selected) : meta.path}
+            className="wariba-cta-primary mt-9 w-full"
+          >
+            {ctaIsPurchase
+              ? `Choisir ${meta.short} ${selected.sizeCode}`
+              : `Voir ${meta.short} ${selected.sizeCode}`}
+            <ArrowRightIcon size="sm" />
+          </Link>
+          {!ctaIsPurchase ? (
+            <p className="mt-3 text-center text-xs text-[color:var(--wariba-on-dark-dim)]">
+              Achats actuellement indisponibles.
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FlexFormula({
+  upfront,
+  activation,
+  total,
+}: {
+  upfront: { value: string; currency: string };
+  activation: string;
+  total: string;
+}) {
+  return (
+    <div className="mt-8 border-b border-[color:var(--wariba-seam)] pb-7">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[color:var(--wariba-on-dark-dim)]">
+            Aujourd’hui
+          </p>
+          <p className="wariba-figure mt-2 text-[clamp(2.15rem,4.2vw,3.3rem)] font-bold leading-none tracking-[-0.055em] text-[color:var(--wariba-on-dark)]">
+            {upfront.value}{' '}
+            <span className="text-[0.37em] font-semibold text-[color:var(--wariba-on-dark-dim)]">
+              {upfront.currency}
+            </span>
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[color:var(--wariba-on-dark-dim)]">
+            Après réussite
+          </p>
+          <p className="wariba-figure mt-2 text-[clamp(1.35rem,2.5vw,2rem)] font-bold leading-none text-[color:var(--config-accent)]">
+            {activation}
+          </p>
+        </div>
+      </div>
+      <div className="mt-6 grid grid-cols-[auto_1fr_auto] items-center gap-3">
+        <span className="size-2 rounded-full bg-[color:var(--config-accent)]" aria-hidden="true" />
+        <span
+          className="h-px bg-[linear-gradient(90deg,var(--config-accent),color-mix(in_srgb,var(--config-accent)_18%,transparent))]"
+          aria-hidden="true"
+        />
+        <span
+          className="size-2 rounded-full border-2 border-[color:var(--config-accent)]"
+          aria-hidden="true"
+        />
+      </div>
+      <div className="mt-2 flex items-center justify-between gap-4 text-xs text-[color:var(--wariba-on-dark-dim)]">
+        <span>Vous commencez</span>
+        <span className="flex items-center gap-1.5 font-semibold text-[color:var(--config-accent)]">
+          <CheckIcon size="sm" /> Évaluation réussie
+        </span>
+        <span className="text-right">Activation</span>
+      </div>
+      <p className="mt-4 text-xs text-[color:var(--wariba-on-dark-dim)]">
+        Total si vous réussissez :{' '}
+        <span className="wariba-figure font-bold text-[color:var(--wariba-on-dark-muted)]">
+          {total}
+        </span>
+      </p>
     </div>
   );
 }

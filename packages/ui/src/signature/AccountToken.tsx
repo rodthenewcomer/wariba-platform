@@ -185,7 +185,7 @@ const FAMILY_GLOW: Record<AccountTokenFamily, string> = {
      along it, not a jump off it. A green INSTANT plate would read as a
      different company's product, which costs more than it wins. */
   one: '#4C74FF',
-  flex: '#7C6BFF',
+  flex: 'var(--wariba-color-violet-400)',
   instant: '#3FB8C4',
   neutral: '#3157F5',
 };

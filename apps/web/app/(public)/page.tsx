@@ -153,9 +153,16 @@ export default async function HomePage() {
       <PublicSection tone="band">
         <Reveal>
           <SectionHeader
-            eyebrow="Votre compte"
-            title="Trouvez le compte qui vous convient."
-            lead="Choisissez un parcours et une taille : les règles et le prix s’affichent immédiatement."
+            eyebrow="Configurez votre compte"
+            title={
+              <>
+                Choisissez votre compte.
+                <span className="block text-[color:var(--wariba-on-dark-muted)]">
+                  Voyez l’essentiel avant de commencer.
+                </span>
+              </>
+            }
+            lead="Parcours, taille, prix et règles : comparez en quelques secondes."
           />
         </Reveal>
         <Reveal delay={0.08}>
