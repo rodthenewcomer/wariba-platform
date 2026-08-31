@@ -68,5 +68,12 @@ export function useSurfaceRotation() {
     setHasInteracted(true);
   }
 
-  return { sectionRef, surface, selectSurface, markInteracted, reduced, isAutoPlaying: !hasInteracted };
+  return {
+    sectionRef,
+    surface,
+    selectSurface,
+    markInteracted,
+    reduced,
+    isAutoPlaying: !hasInteracted,
+  };
 }

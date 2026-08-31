@@ -172,7 +172,14 @@ export function MiniSparkline({
       aria-hidden="true"
       className="shrink-0"
     >
-      <polyline points={line} fill="none" stroke={color} strokeWidth="1.75" strokeLinejoin="round" strokeLinecap="round" />
+      <polyline
+        points={line}
+        fill="none"
+        stroke={color}
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -250,8 +257,14 @@ export function RadialGauge({
     });
     return () => controls.stop();
   }, [headProgress, headDot, reduced, clamped, delay]);
-  const headX = useTransform(headProgress, (value) => center + radius * Math.cos((value / 100) * 2 * Math.PI));
-  const headY = useTransform(headProgress, (value) => center + radius * Math.sin((value / 100) * 2 * Math.PI));
+  const headX = useTransform(
+    headProgress,
+    (value) => center + radius * Math.cos((value / 100) * 2 * Math.PI),
+  );
+  const headY = useTransform(
+    headProgress,
+    (value) => center + radius * Math.sin((value / 100) * 2 * Math.PI),
+  );
 
   return (
     <div
@@ -277,7 +290,9 @@ export function RadialGauge({
           fill="none"
           stroke={trackColor}
           strokeWidth={thickness}
-          strokeDasharray={trackStyle === 'segmented' ? `${segmentSpanLength} ${segmentGapLength}` : undefined}
+          strokeDasharray={
+            trackStyle === 'segmented' ? `${segmentSpanLength} ${segmentGapLength}` : undefined
+          }
         />
         <motion.circle
           cx={center}
@@ -290,7 +305,11 @@ export function RadialGauge({
           strokeDasharray={circumference}
           initial={reduced ? false : { strokeDashoffset: circumference }}
           animate={{ strokeDashoffset: circumference * (1 - clamped / 100) }}
-          transition={{ duration: reduced ? 0 : 0.85, delay: reduced ? 0 : delay, ease: [0.22, 1, 0.36, 1] }}
+          transition={{
+            duration: reduced ? 0 : 0.85,
+            delay: reduced ? 0 : delay,
+            ease: [0.22, 1, 0.36, 1],
+          }}
         />
         {showTicks
           ? [0, 25, 50, 75].map((tickPercent) => {
@@ -312,7 +331,13 @@ export function RadialGauge({
             })
           : null}
         {headDot ? (
-          <motion.circle r={3} fill="var(--wariba-on-dark)" cx={headX} cy={headY} style={{ opacity: reduced ? 0 : 0.9 }} />
+          <motion.circle
+            r={3}
+            fill="var(--wariba-on-dark)"
+            cx={headX}
+            cy={headY}
+            style={{ opacity: reduced ? 0 : 0.9 }}
+          />
         ) : null}
       </svg>
       {children ? (
@@ -339,13 +364,7 @@ export function KpiTile({
   children?: ReactNode;
 }) {
   return (
-    <div
-      className={cx(
-        'wariba-visual-card min-w-0 p-4 sm:p-5',
-        className,
-      )}
-      data-variant="panel"
-    >
+    <div className={cx('wariba-visual-card min-w-0 p-4 sm:p-5', className)} data-variant="panel">
       <SectionLabel>{label}</SectionLabel>
       <p
         className={cx(

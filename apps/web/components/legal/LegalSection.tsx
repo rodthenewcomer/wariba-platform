@@ -10,7 +10,10 @@ export interface LegalSectionProps {
 /** One numbered chapter inside a legal page's "Texte complet". Body text uses `legal-body-text` spacing via Tailwind prose utilities on children. */
 export function LegalSection({ id, number, title, children }: LegalSectionProps) {
   return (
-    <section id={id} className="scroll-mt-28 border-t border-[color:var(--wariba-seam)] pt-8 first:border-t-0 first:pt-0">
+    <section
+      id={id}
+      className="scroll-mt-28 border-t border-[color:var(--wariba-seam)] pt-8 first:border-t-0 first:pt-0"
+    >
       <h2 className="flex items-baseline gap-3 text-[length:var(--wariba-font-size-heading-sm)] font-semibold text-[color:var(--wariba-on-dark)]">
         <span className="shrink-0 text-[length:var(--wariba-font-size-body-sm)] font-semibold text-[color:var(--wariba-brand-300)]">
           {number}

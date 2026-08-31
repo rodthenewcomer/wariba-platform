@@ -71,8 +71,8 @@ export default function TradingSimulePage() {
       <LegalSection id="taille-nominale" number="2" title="Taille nominale">
         <p>
           La « taille de compte » affichée (par exemple 25K, 50K, 100K) est une taille nominale
-          utilisée pour calculer les règles et les résultats simulés. Elle ne constitue ni un dépôt, ni
-          un solde bancaire, ni des fonds confiés à WARIBA.
+          utilisée pour calculer les règles et les résultats simulés. Elle ne constitue ni un dépôt,
+          ni un solde bancaire, ni des fonds confiés à WARIBA.
         </p>
         <LegalCallout tone="info" title="Aucun lien patrimonial">
           {NOMINAL_SIZE_SEPARATION_STATEMENT}
@@ -81,8 +81,8 @@ export default function TradingSimulePage() {
 
       <LegalSection id="ordres-simules" number="3" title="Ordres simulés">
         <p>
-          Les ordres passés sur un compte WARIBA sont exécutés contre un moteur de simulation, pas sur
-          un marché réel ni via un courtier tiers exécutant pour le compte de l’utilisateur.
+          Les ordres passés sur un compte WARIBA sont exécutés contre un moteur de simulation, pas
+          sur un marché réel ni via un courtier tiers exécutant pour le compte de l’utilisateur.
         </p>
       </LegalSection>
 
@@ -111,16 +111,16 @@ export default function TradingSimulePage() {
       <LegalSection id="difference-reel" number="7" title="Différence avec le trading réel">
         <ul>
           <li>
-            <strong>Liquidité et profondeur de marché</strong> — un environnement simulé ne reproduit
-            pas nécessairement le carnet d’ordres réel d’un marché.
+            <strong>Liquidité et profondeur de marché</strong> — un environnement simulé ne
+            reproduit pas nécessairement le carnet d’ordres réel d’un marché.
           </li>
           <li>
             <strong>Slippage et latence</strong> — le modèle de slippage simulé peut différer d’une
             exécution réelle.
           </li>
           <li>
-            <strong>Exécution</strong> — l’exécution simulée est déterministe selon le moteur WARIBA,
-            pas soumise aux mêmes aléas qu’un marché réel.
+            <strong>Exécution</strong> — l’exécution simulée est déterministe selon le moteur
+            WARIBA, pas soumise aux mêmes aléas qu’un marché réel.
           </li>
         </ul>
       </LegalSection>
@@ -151,7 +151,10 @@ export default function TradingSimulePage() {
         <p>
           Un payout WARIBA, lorsque les conditions du compte sont remplies, est un versement
           contractuel lié aux règles du programme — pas un retrait de capital investi. Voir{' '}
-          <a href="/legal/payouts" className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]">
+          <a
+            href="/legal/payouts"
+            className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]"
+          >
             Payouts
           </a>
           .
@@ -161,8 +164,8 @@ export default function TradingSimulePage() {
       <LegalSection id="pas-de-garantie" number="12" title="Pas de performance future garantie">
         <p>
           Aucune représentation n’est faite selon laquelle un résultat obtenu dans WARIBA se
-          reproduirait sur un marché réel, ni qu’une performance simulée passée indique une performance
-          future.
+          reproduirait sur un marché réel, ni qu’une performance simulée passée indique une
+          performance future.
         </p>
       </LegalSection>
     </LegalPageShell>

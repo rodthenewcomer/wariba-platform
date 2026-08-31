@@ -13,9 +13,29 @@ interface AccountPassport {
 }
 
 const PASSPORTS: readonly AccountPassport[] = [
-  { position: 'left', accent: 'var(--wariba-brand-400)', title: 'ONE', line1: 'Évaluation', line2: 'Paiement unique', delay: 0 },
-  { position: 'center', accent: '#B9B2FF', title: 'FLEX', line1: 'Évaluation', line2: 'Paiement en 2 temps', delay: 120 },
-  { position: 'right', accent: 'var(--wariba-accent-cyan)', title: 'INSTANT', line1: 'Performance directe', delay: 240 },
+  {
+    position: 'left',
+    accent: 'var(--wariba-brand-400)',
+    title: 'ONE',
+    line1: 'Évaluation',
+    line2: 'Paiement unique',
+    delay: 0,
+  },
+  {
+    position: 'center',
+    accent: '#B9B2FF',
+    title: 'FLEX',
+    line1: 'Évaluation',
+    line2: 'Paiement en 2 temps',
+    delay: 120,
+  },
+  {
+    position: 'right',
+    accent: 'var(--wariba-accent-cyan)',
+    title: 'INSTANT',
+    line1: 'Performance directe',
+    delay: 240,
+  },
 ] as const;
 
 /**
@@ -70,7 +90,9 @@ export function ClosingSection() {
                 <p className="closing-passport-brand">WARIBA</p>
                 <p className="closing-passport-title">{passport.title}</p>
                 <p className="closing-passport-line">{passport.line1}</p>
-                {passport.line2 ? <p className="closing-passport-subline">{passport.line2}</p> : null}
+                {passport.line2 ? (
+                  <p className="closing-passport-subline">{passport.line2}</p>
+                ) : null}
                 <span className="closing-passport-edge" aria-hidden="true" />
               </div>
             </div>

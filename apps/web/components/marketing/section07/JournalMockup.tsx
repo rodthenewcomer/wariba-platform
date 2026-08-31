@@ -21,7 +21,8 @@ function formatPrice(value: number): string {
 export function JournalMockup({ onInteract }: { onInteract: () => void }) {
   const reduced = useHydratedReducedMotion();
   const [selectedId, setSelectedId] = useState(JOURNAL_TRADES[0]!.id);
-  const trade = JOURNAL_TRADES.find((candidate) => candidate.id === selectedId) ?? JOURNAL_TRADES[0]!;
+  const trade =
+    JOURNAL_TRADES.find((candidate) => candidate.id === selectedId) ?? JOURNAL_TRADES[0]!;
   const positive = trade.resultValue >= 0;
 
   function select(id: string) {
@@ -214,7 +215,9 @@ function TradePathChart({
   };
 
   const linePoints = values.map((value, index) => coordinate(value, index));
-  const linePath = linePoints.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ');
+  const linePath = linePoints
+    .map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`)
+    .join(' ');
   const entry = linePoints[0]!;
   const exit = linePoints[linePoints.length - 1]!;
 

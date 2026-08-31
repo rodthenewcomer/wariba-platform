@@ -13,28 +13,49 @@ export function LegalCountryMatrix() {
         <thead>
           <tr className="border-b border-[color:var(--wariba-seam)] bg-[color:var(--wariba-canvas-elevated)]">
             <th className="px-4 py-3 font-semibold text-[color:var(--wariba-on-dark)]">Marché</th>
-            <th className="px-4 py-3 font-semibold text-[color:var(--wariba-on-dark)]">Autorité vie privée</th>
-            <th className="px-4 py-3 font-semibold text-[color:var(--wariba-on-dark)]">Transactions électroniques</th>
-            <th className="px-4 py-3 font-semibold text-[color:var(--wariba-on-dark)]">Protection du consommateur</th>
-            <th className="px-4 py-3 font-semibold text-[color:var(--wariba-on-dark)]">LBC/FT/FP</th>
+            <th className="px-4 py-3 font-semibold text-[color:var(--wariba-on-dark)]">
+              Autorité vie privée
+            </th>
+            <th className="px-4 py-3 font-semibold text-[color:var(--wariba-on-dark)]">
+              Transactions électroniques
+            </th>
+            <th className="px-4 py-3 font-semibold text-[color:var(--wariba-on-dark)]">
+              Protection du consommateur
+            </th>
+            <th className="px-4 py-3 font-semibold text-[color:var(--wariba-on-dark)]">
+              LBC/FT/FP
+            </th>
           </tr>
         </thead>
         <tbody>
           {COUNTRY_SOURCES.map((row) => (
-            <tr key={row.country} className="border-b border-[color:var(--wariba-seam)] last:border-b-0">
-              <td className="px-4 py-3 font-semibold text-[color:var(--wariba-on-dark)]">{row.country}</td>
-              <td className="px-4 py-3 text-[color:var(--wariba-on-dark-muted)]">{row.authority}</td>
-              <td className="px-4 py-3 text-[color:var(--wariba-on-dark-muted)]">{row.digitalTransactions.text}</td>
+            <tr
+              key={row.country}
+              className="border-b border-[color:var(--wariba-seam)] last:border-b-0"
+            >
+              <td className="px-4 py-3 font-semibold text-[color:var(--wariba-on-dark)]">
+                {row.country}
+              </td>
+              <td className="px-4 py-3 text-[color:var(--wariba-on-dark-muted)]">
+                {row.authority}
+              </td>
+              <td className="px-4 py-3 text-[color:var(--wariba-on-dark-muted)]">
+                {row.digitalTransactions.text}
+              </td>
               <td className="px-4 py-3 text-[color:var(--wariba-on-dark-muted)]">
                 {row.consumer.text}
                 {row.consumer.unconfirmed ? (
-                  <span className="ml-1.5 text-[color:var(--wariba-accent-amber)]">(à confirmer)</span>
+                  <span className="ml-1.5 text-[color:var(--wariba-accent-amber)]">
+                    (à confirmer)
+                  </span>
                 ) : null}
               </td>
               <td className="px-4 py-3 text-[color:var(--wariba-on-dark-muted)]">
                 {row.aml.text}
                 {row.aml.unconfirmed ? (
-                  <span className="ml-1.5 text-[color:var(--wariba-accent-amber)]">(à confirmer)</span>
+                  <span className="ml-1.5 text-[color:var(--wariba-accent-amber)]">
+                    (à confirmer)
+                  </span>
                 ) : null}
               </td>
             </tr>

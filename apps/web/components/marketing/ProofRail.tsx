@@ -19,12 +19,15 @@ export function ProofRail() {
     if (!target || hasRevealedDays) return;
     let revealTimer: number | undefined;
 
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry?.isIntersecting) {
-        observer.disconnect();
-        revealTimer = window.setTimeout(() => setHasRevealedDays(true), 180);
-      }
-    }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          observer.disconnect();
+          revealTimer = window.setTimeout(() => setHasRevealedDays(true), 180);
+        }
+      },
+      { threshold: 0.15, rootMargin: '0px 0px -8% 0px' },
+    );
 
     observer.observe(target);
     return () => {
@@ -51,7 +54,9 @@ export function ProofRail() {
             <strong>9 900</strong>
             <em>FCFA</em>
           </p>
-          <p className="proof-card-copy">Un premier paiement aujourd’hui. Le reste seulement après réussite.</p>
+          <p className="proof-card-copy">
+            Un premier paiement aujourd’hui. Le reste seulement après réussite.
+          </p>
           <div className="proof-price-signature" aria-hidden="true">
             <span>W</span>
             <i />
@@ -89,7 +94,12 @@ export function ProofRail() {
           </div>
           <div className="proof-payment-brands">
             <Image src="/brands/payments/wave.png" alt="Wave" width={800} height={450} />
-            <Image src="/brands/payments/orange-money.png" alt="Orange Money" width={2958} height={1347} />
+            <Image
+              src="/brands/payments/orange-money.png"
+              alt="Orange Money"
+              width={2958}
+              height={1347}
+            />
           </div>
           <h3>Versements sur Wave et Orange Money</h3>
           <p className="proof-card-note">Selon votre pays.</p>

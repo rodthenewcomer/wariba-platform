@@ -212,7 +212,12 @@ export interface Section07AnalyticsFrame {
   points: readonly Section07AnalyticsPoint[];
 }
 
-function point(label: string, value: number, trades: number, winRatePercent: number): Section07AnalyticsPoint {
+function point(
+  label: string,
+  value: number,
+  trades: number,
+  winRatePercent: number,
+): Section07AnalyticsPoint {
   return { label, value, trades, winRatePercent };
 }
 

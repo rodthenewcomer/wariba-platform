@@ -112,7 +112,12 @@ export function JourneyFlowVisual() {
     <div>
       <p className="faq-visual-title">L’écosystème WARIBA</p>
       <div className="faq-eco">
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="faq-eco-lines" aria-hidden="true">
+        <svg
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          className="faq-eco-lines"
+          aria-hidden="true"
+        >
           {ECO_NODES.map((node, index) => (
             <path
               key={node.id}

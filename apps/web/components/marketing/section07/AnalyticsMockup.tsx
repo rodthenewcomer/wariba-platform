@@ -87,7 +87,10 @@ export function AnalyticsMockup({ onInteract }: { onInteract: () => void }) {
   const activePoint = frame.points[activeIndex]!;
   const equitySeries = balanceEquitySeries(frame);
   const latestEquity = equitySeries[equitySeries.length - 1]!;
-  const equityActiveIndex = Math.min(equityHoverIndex ?? equitySeries.length - 1, equitySeries.length - 1);
+  const equityActiveIndex = Math.min(
+    equityHoverIndex ?? equitySeries.length - 1,
+    equitySeries.length - 1,
+  );
   const equityActivePoint = equitySeries[equityActiveIndex]!;
 
   return (
@@ -127,7 +130,10 @@ export function AnalyticsMockup({ onInteract }: { onInteract: () => void }) {
           <ProfitFactorRatio value={frame.profitFactorValue} reduced={skipEntrance} />
         </KpiTile>
 
-        <div className="wariba-visual-card flex min-w-0 flex-col items-center justify-center gap-1 p-3 sm:p-4" data-variant="panel">
+        <div
+          className="wariba-visual-card flex min-w-0 flex-col items-center justify-center gap-1 p-3 sm:p-4"
+          data-variant="panel"
+        >
           <RadialGauge
             percent={frame.winRatePercent}
             label="Taux de réussite"
@@ -225,7 +231,11 @@ export function AnalyticsMockup({ onInteract }: { onInteract: () => void }) {
               }}
               initial={skipEntrance ? false : { opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: skipEntrance ? 0 : 0.3, delay: skipEntrance ? 0 : 1.1, ease: [0.22, 1, 0.36, 1] }}
+              transition={{
+                duration: skipEntrance ? 0 : 0.3,
+                delay: skipEntrance ? 0 : 1.1,
+                ease: [0.22, 1, 0.36, 1],
+              }}
             >
               <p className="font-mono text-[0.6rem] font-semibold tracking-[0.1em] text-[color:var(--wariba-on-dark-dim)]">
                 {activePoint.label.toUpperCase()}
@@ -241,7 +251,10 @@ export function AnalyticsMockup({ onInteract }: { onInteract: () => void }) {
                     className="wariba-figure whitespace-nowrap text-base"
                   />
                 </span>
-                <span className="h-7 w-px shrink-0 bg-[color:var(--wariba-seam)]" aria-hidden="true" />
+                <span
+                  className="h-7 w-px shrink-0 bg-[color:var(--wariba-seam)]"
+                  aria-hidden="true"
+                />
                 <span>
                   <span className="block text-[0.58rem] uppercase tracking-[0.08em] text-[color:var(--wariba-on-dark-dim)]">
                     Trades
@@ -298,15 +311,24 @@ export function AnalyticsMockup({ onInteract }: { onInteract: () => void }) {
 
           <div className="mt-2 flex items-center gap-4 text-[0.6rem] font-semibold uppercase tracking-[0.08em] text-[color:var(--wariba-on-dark-dim)]">
             <span className="inline-flex items-center gap-1.5">
-              <span aria-hidden="true" className="h-[2px] w-3 rounded-full bg-[color:var(--wariba-brand-400)]" />
+              <span
+                aria-hidden="true"
+                className="h-[2px] w-3 rounded-full bg-[color:var(--wariba-brand-400)]"
+              />
               Solde
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span aria-hidden="true" className="h-[2px] w-3 rounded-full bg-[color:var(--wariba-accent-cyan)]" />
+              <span
+                aria-hidden="true"
+                className="h-[2px] w-3 rounded-full bg-[color:var(--wariba-accent-cyan)]"
+              />
               Équité
             </span>
             <span className="inline-flex items-center gap-1.5 opacity-70">
-              <span aria-hidden="true" className="h-[2px] w-3 rounded-full border-t border-dashed border-[color:var(--wariba-accent-amber)]" />
+              <span
+                aria-hidden="true"
+                className="h-[2px] w-3 rounded-full border-t border-dashed border-[color:var(--wariba-accent-amber)]"
+              />
               Drawdown
             </span>
           </div>
@@ -352,13 +374,21 @@ export function AnalyticsMockup({ onInteract }: { onInteract: () => void }) {
           value={<AnimatedNumber value={frame.averageLossValue} format={formatSigned} />}
         >
           <NegativeHistogram
-            bars={[0.55, 0.85, 0.65, 1, 0.7].map((ratio) => Math.abs(frame.averageLossValue) * ratio)}
+            bars={[0.55, 0.85, 0.65, 1, 0.7].map(
+              (ratio) => Math.abs(frame.averageLossValue) * ratio,
+            )}
             reduced={skipEntrance}
           />
         </KpiTile>
-        <KpiTile label="TRADES" value={<AnimatedNumber value={frame.tradesCount} format={formatCount} />}>
+        <KpiTile
+          label="TRADES"
+          value={<AnimatedNumber value={frame.tradesCount} format={formatCount} />}
+        >
           <ActivityDots
-            weights={Array.from({ length: 8 }, (_, index) => (Math.sin((frame.tradesCount + index) * 1.3) + 1) / 2)}
+            weights={Array.from(
+              { length: 8 },
+              (_, index) => (Math.sin((frame.tradesCount + index) * 1.3) + 1) / 2,
+            )}
             reduced={skipEntrance}
           />
         </KpiTile>
@@ -404,7 +434,9 @@ function AnalyticsChart({
 
   const zeroY = CHART_HEIGHT - ((0 - min) / span) * (CHART_HEIGHT - 24) - 12;
   const linePoints = points.map((point, index) => coordinate(point.value, index));
-  const linePath = linePoints.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ');
+  const linePath = linePoints
+    .map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`)
+    .join(' ');
   const areaPath = `0,${CHART_HEIGHT} ${linePath} ${CHART_WIDTH},${CHART_HEIGHT}`;
   const active = linePoints[activeIndex]!;
 
@@ -478,14 +510,26 @@ function AnalyticsChart({
         shapeRendering="geometricPrecision"
         initial={skipEntrance ? false : { pathLength: 0 }}
         animate={{ pathLength: 1 }}
-        transition={{ duration: skipEntrance ? 0 : 0.8, delay: skipEntrance ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
+        transition={{
+          duration: skipEntrance ? 0 : 0.8,
+          delay: skipEntrance ? 0 : 0.2,
+          ease: [0.22, 1, 0.36, 1],
+        }}
       />
       <motion.circle
         r={13}
         fill="url(#s07-analytics-head-glow)"
-        initial={skipEntrance ? { opacity: 1, cx: active.x, cy: active.y } : { opacity: 0, cx: active.x, cy: active.y }}
+        initial={
+          skipEntrance
+            ? { opacity: 1, cx: active.x, cy: active.y }
+            : { opacity: 0, cx: active.x, cy: active.y }
+        }
         animate={{ opacity: 1, cx: active.x, cy: active.y }}
-        transition={{ duration: reduced ? 0 : 0.3, delay: skipEntrance ? 0 : 1, ease: [0.22, 1, 0.36, 1] }}
+        transition={{
+          duration: reduced ? 0 : 0.3,
+          delay: skipEntrance ? 0 : 1,
+          ease: [0.22, 1, 0.36, 1],
+        }}
       />
       <motion.circle
         r={5}
@@ -498,7 +542,11 @@ function AnalyticsChart({
             : { opacity: 0, scale: 0.4, cx: active.x, cy: active.y }
         }
         animate={{ opacity: 1, scale: 1, cx: active.x, cy: active.y }}
-        transition={{ duration: reduced ? 0 : 0.3, delay: skipEntrance ? 0 : 1, ease: [0.22, 1, 0.36, 1] }}
+        transition={{
+          duration: reduced ? 0 : 0.3,
+          delay: skipEntrance ? 0 : 1,
+          ease: [0.22, 1, 0.36, 1],
+        }}
       />
     </svg>
   );
@@ -527,7 +575,9 @@ function BalanceEquityChart({
   const xFor = (index: number) => (index / (series.length - 1 || 1)) * MINI_WIDTH;
 
   const linePath = (key: 'balance' | 'equity') =>
-    series.map((entry, index) => `${xFor(index).toFixed(1)},${yFor(entry[key]).toFixed(1)}`).join(' ');
+    series
+      .map((entry, index) => `${xFor(index).toFixed(1)},${yFor(entry[key]).toFixed(1)}`)
+      .join(' ');
   const areaPath = `0,${MINI_HEIGHT} ${linePath('equity')} ${MINI_WIDTH},${MINI_HEIGHT}`;
 
   /* Drawdown rides its own compact band along the chart's floor — always ≤
@@ -587,7 +637,11 @@ function BalanceEquityChart({
         strokeLinecap="round"
         initial={skipEntrance ? false : { pathLength: 0, opacity: 0 }}
         animate={{ pathLength: 1, opacity: 0.4 }}
-        transition={{ duration: skipEntrance ? 0 : 0.6, delay: skipEntrance ? 0 : 0.5, ease: [0.22, 1, 0.36, 1] }}
+        transition={{
+          duration: skipEntrance ? 0 : 0.6,
+          delay: skipEntrance ? 0 : 0.5,
+          ease: [0.22, 1, 0.36, 1],
+        }}
       />
 
       <motion.polyline
@@ -600,7 +654,11 @@ function BalanceEquityChart({
         strokeLinecap="round"
         initial={skipEntrance ? false : { pathLength: 0, opacity: 0 }}
         animate={{ pathLength: 1, opacity: 1 }}
-        transition={{ duration: skipEntrance ? 0 : 0.7, delay: skipEntrance ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}
+        transition={{
+          duration: skipEntrance ? 0 : 0.7,
+          delay: skipEntrance ? 0 : 0.3,
+          ease: [0.22, 1, 0.36, 1],
+        }}
       />
       <motion.polyline
         points={linePath('balance')}
@@ -611,12 +669,37 @@ function BalanceEquityChart({
         strokeLinecap="round"
         initial={skipEntrance ? false : { pathLength: 0 }}
         animate={{ pathLength: 1 }}
-        transition={{ duration: skipEntrance ? 0 : 0.7, delay: skipEntrance ? 0 : 0.15, ease: [0.22, 1, 0.36, 1] }}
+        transition={{
+          duration: skipEntrance ? 0 : 0.7,
+          delay: skipEntrance ? 0 : 0.15,
+          ease: [0.22, 1, 0.36, 1],
+        }}
       />
 
-      <line x1={activeX} x2={activeX} y1="0" y2={MINI_HEIGHT} stroke="var(--wariba-seam)" strokeWidth="1" />
-      <circle cx={activeX} cy={yFor(active.equity)} r={3} fill="var(--wariba-accent-cyan)" stroke="var(--wariba-color-carbon-980)" strokeWidth="1.5" />
-      <circle cx={activeX} cy={yFor(active.balance)} r={3} fill="var(--wariba-brand-400)" stroke="var(--wariba-color-carbon-980)" strokeWidth="1.5" />
+      <line
+        x1={activeX}
+        x2={activeX}
+        y1="0"
+        y2={MINI_HEIGHT}
+        stroke="var(--wariba-seam)"
+        strokeWidth="1"
+      />
+      <circle
+        cx={activeX}
+        cy={yFor(active.equity)}
+        r={3}
+        fill="var(--wariba-accent-cyan)"
+        stroke="var(--wariba-color-carbon-980)"
+        strokeWidth="1.5"
+      />
+      <circle
+        cx={activeX}
+        cy={yFor(active.balance)}
+        r={3}
+        fill="var(--wariba-brand-400)"
+        stroke="var(--wariba-color-carbon-980)"
+        strokeWidth="1.5"
+      />
     </svg>
   );
 }

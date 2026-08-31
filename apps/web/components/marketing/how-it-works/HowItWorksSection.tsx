@@ -75,8 +75,16 @@ const PHASES: readonly Phase[] = [
  * points there rather than standing up a second, competing URL.
  */
 export function HowItWorksSection() {
-  const { sectionRef, reduced, inView, started, isActive, connectorTravelMs, connectorDelayMs, ctaTracing } =
-    useJourneySequence();
+  const {
+    sectionRef,
+    reduced,
+    inView,
+    started,
+    isActive,
+    connectorTravelMs,
+    connectorDelayMs,
+    ctaTracing,
+  } = useJourneySequence();
 
   return (
     <section
@@ -125,12 +133,12 @@ export function HowItWorksSection() {
           ))}
         </div>
 
-        <Reveal
-          className="mt-9 flex flex-col items-center gap-2 text-center lg:mt-16"
-          delay={0.15}
-        >
+        <Reveal className="mt-9 flex flex-col items-center gap-2 text-center lg:mt-16" delay={0.15}>
           <Link href="/programme" className="how-it-works-cta wariba-cta-secondary">
-            <span className={cx('how-it-works-cta-frame', ctaTracing && 'is-tracing')} aria-hidden="true" />
+            <span
+              className={cx('how-it-works-cta-frame', ctaTracing && 'is-tracing')}
+              aria-hidden="true"
+            />
             Voir comment WARIBA fonctionne
             <ArrowRightIcon size="sm" className="how-it-works-cta-arrow" />
           </Link>

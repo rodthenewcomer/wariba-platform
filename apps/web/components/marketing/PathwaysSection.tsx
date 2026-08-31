@@ -81,7 +81,8 @@ export function PathwaysSection({ one, flex, instant }: PathwaysSectionProps) {
           <span className="block">Un seul paiement.</span>
         </>
       ),
-      supportingCopy: 'Atteignez l’objectif, puis passez sur Performance. Aucun frais d’activation.',
+      supportingCopy:
+        'Atteignez l’objectif, puis passez sur Performance. Aucun frais d’activation.',
       chips: [`Objectif ${oneTarget}`, 'Paiement unique', 'Aucun frais d’activation'],
       visual: (
         <OneEvaluationPanel
@@ -109,7 +110,8 @@ export function PathwaysSection({ one, flex, instant }: PathwaysSectionProps) {
           <span className="block">Payez le reste après votre réussite.</span>
         </>
       ),
-      supportingCopy: 'Un premier paiement aujourd’hui. L’activation n’est due que si vous réussissez.',
+      supportingCopy:
+        'Un premier paiement aujourd’hui. L’activation n’est due que si vous réussissez.',
       visual: (
         <FlexPaymentTimeline
           sizeLabel={flex.sizeCode}
@@ -208,133 +210,135 @@ export function PathwaysSection({ one, flex, instant }: PathwaysSectionProps) {
         <div className="hidden lg:block">
           {/* ── Chapitre 1 · ONE — copie à gauche, visualisation à droite ── */}
           <div className="mt-12 flex flex-col gap-8 sm:mt-20 lg:flex-row lg:items-center lg:gap-16">
-          <Reveal className="min-w-0 lg:flex-1">
-            <div className="flex items-center gap-3">
-              <span className="wariba-figure text-xs font-bold text-[color:var(--wariba-brand-300)]">01</span>
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[color:var(--wariba-brand-300)]">
-                WARIBA ONE
-              </p>
-            </div>
-            <h3 className="mt-4 text-3xl font-semibold tracking-[-0.045em] text-white sm:text-4xl">
-              Une évaluation.
-              <span className="block">Un seul paiement.</span>
-            </h3>
-            <p className="mt-4 max-w-md text-base leading-relaxed text-white/62">
-              Atteignez l’objectif, puis passez sur Performance. Aucun frais d’activation.
-            </p>
-            <ul className="mt-6 flex flex-wrap gap-2">
-              {[`Objectif ${oneTarget}`, 'Paiement unique', 'Aucun frais d’activation'].map(
-                (chip) => (
-                  <li
-                    key={chip}
-                    className="rounded-full border border-[color:var(--wariba-brand-edge)] bg-[color:var(--wariba-brand-wash)] px-3 py-1.5 text-xs font-semibold text-white/85"
-                  >
-                    {chip}
-                  </li>
-                ),
-              )}
-            </ul>
-            <Link href="/challenges/one" className="wariba-cta-secondary mt-7">
-              Découvrir ONE
-              <ArrowRightIcon size="sm" />
-            </Link>
-          </Reveal>
-          <Reveal delay={0.05} className="min-w-0 lg:flex-1">
-            <OneEvaluationPanel
-              sizeLabel={one.sizeCode}
-              targetLabel={oneTarget}
-              progressPercent={80}
-              progressLabel={oneProgressLabel}
-              maximumLossLabel={oneMaximumLoss}
-              upfrontLabel={oneUpfront}
-            />
-          </Reveal>
-        </div>
-
-        {/* ── Chapitre 2 · FLEX — champ plein cobalt/indigo ── */}
-        <Reveal
-          delay={0.05}
-          className="mt-14 overflow-hidden rounded-[28px] border border-white/10 sm:mt-28"
-        >
-          <div
-            className="p-5 sm:p-10 lg:p-14"
-            style={{
-              background:
-                'radial-gradient(circle at 18% 12%, color-mix(in srgb, var(--wariba-brand-400) 34%, transparent), transparent 46%), radial-gradient(circle at 82% 82%, color-mix(in srgb, var(--wariba-accent-cyan) 18%, transparent), transparent 48%), linear-gradient(160deg, color-mix(in srgb, var(--wariba-brand-700) 48%, var(--wariba-canvas-deep)) 0%, var(--wariba-canvas-base) 54%, var(--wariba-canvas-deep) 100%)',
-            }}
-          >
-            <div className="max-w-xl">
+            <Reveal className="min-w-0 lg:flex-1">
               <div className="flex items-center gap-3">
-                <span className="wariba-figure text-xs font-bold text-[color:var(--wariba-brand-200)]">
-                  02
+                <span className="wariba-figure text-xs font-bold text-[color:var(--wariba-brand-300)]">
+                  01
                 </span>
-                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#B9B2FF]">
-                  WARIBA FLEX · {flex.sizeCode}
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[color:var(--wariba-brand-300)]">
+                  WARIBA ONE
                 </p>
-                <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.13em] text-white/60">
-                  Exemple
-                </span>
               </div>
               <h3 className="mt-4 text-3xl font-semibold tracking-[-0.045em] text-white sm:text-4xl">
-                Commencez maintenant.
-                <span className="block">Payez le reste après votre réussite.</span>
+                Une évaluation.
+                <span className="block">Un seul paiement.</span>
               </h3>
-              <p className="mt-4 text-base leading-relaxed text-white/68">
-                Un premier paiement aujourd’hui. L’activation n’est due que si vous réussissez.
+              <p className="mt-4 max-w-md text-base leading-relaxed text-white/62">
+                Atteignez l’objectif, puis passez sur Performance. Aucun frais d’activation.
               </p>
-            </div>
-
-            <div className="mx-auto mt-8 w-full max-w-[720px] sm:mt-14">
-              <FlexPaymentTimeline
-                sizeLabel={flex.sizeCode}
-                upfrontValue={flexUpfrontParts.value}
-                upfrontCurrency={flexUpfrontParts.currency}
-                evaluationRateLabel={flexEvaluationRate}
-                activationLabel={flexActivation}
-              />
-            </div>
-
-            <div className="mt-8 flex justify-center sm:mt-14">
-              <Link href="/challenges/flex" className="wariba-cta-primary">
-                Découvrir FLEX
+              <ul className="mt-6 flex flex-wrap gap-2">
+                {[`Objectif ${oneTarget}`, 'Paiement unique', 'Aucun frais d’activation'].map(
+                  (chip) => (
+                    <li
+                      key={chip}
+                      className="rounded-full border border-[color:var(--wariba-brand-edge)] bg-[color:var(--wariba-brand-wash)] px-3 py-1.5 text-xs font-semibold text-white/85"
+                    >
+                      {chip}
+                    </li>
+                  ),
+                )}
+              </ul>
+              <Link href="/challenges/one" className="wariba-cta-secondary mt-7">
+                Découvrir ONE
                 <ArrowRightIcon size="sm" />
               </Link>
-            </div>
+            </Reveal>
+            <Reveal delay={0.05} className="min-w-0 lg:flex-1">
+              <OneEvaluationPanel
+                sizeLabel={one.sizeCode}
+                targetLabel={oneTarget}
+                progressPercent={80}
+                progressLabel={oneProgressLabel}
+                maximumLossLabel={oneMaximumLoss}
+                upfrontLabel={oneUpfront}
+              />
+            </Reveal>
           </div>
-        </Reveal>
 
-        {/* ── Chapitre 3 · INSTANT — produit à gauche, copie à droite (miroir de ONE) ── */}
-        <div className="mt-14 flex flex-col gap-8 sm:mt-28 lg:flex-row lg:items-center lg:gap-16">
-          <Reveal delay={0.05} className="min-w-0 lg:flex-1">
-            <InstantAccountPanel
-              sizeLabel={instant.sizeCode}
-              balanceLabel={instantBalance}
-              dailyLossLabel={instantDailyLoss}
-              maximumLossLabel={instantMaximumLoss}
-              exposureLabel={instantExposure}
-            />
-          </Reveal>
-          <Reveal className="min-w-0 lg:flex-1">
-            <div className="flex items-center gap-3">
-              <span className="wariba-figure text-xs font-bold text-[color:var(--wariba-accent-cyan)]">
-                03
-              </span>
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[color:var(--wariba-accent-cyan)]">
-                WARIBA INSTANT
-              </p>
+          {/* ── Chapitre 2 · FLEX — champ plein cobalt/indigo ── */}
+          <Reveal
+            delay={0.05}
+            className="mt-14 overflow-hidden rounded-[28px] border border-white/10 sm:mt-28"
+          >
+            <div
+              className="p-5 sm:p-10 lg:p-14"
+              style={{
+                background:
+                  'radial-gradient(circle at 18% 12%, color-mix(in srgb, var(--wariba-brand-400) 34%, transparent), transparent 46%), radial-gradient(circle at 82% 82%, color-mix(in srgb, var(--wariba-accent-cyan) 18%, transparent), transparent 48%), linear-gradient(160deg, color-mix(in srgb, var(--wariba-brand-700) 48%, var(--wariba-canvas-deep)) 0%, var(--wariba-canvas-base) 54%, var(--wariba-canvas-deep) 100%)',
+              }}
+            >
+              <div className="max-w-xl">
+                <div className="flex items-center gap-3">
+                  <span className="wariba-figure text-xs font-bold text-[color:var(--wariba-brand-200)]">
+                    02
+                  </span>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#B9B2FF]">
+                    WARIBA FLEX · {flex.sizeCode}
+                  </p>
+                  <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.13em] text-white/60">
+                    Exemple
+                  </span>
+                </div>
+                <h3 className="mt-4 text-3xl font-semibold tracking-[-0.045em] text-white sm:text-4xl">
+                  Commencez maintenant.
+                  <span className="block">Payez le reste après votre réussite.</span>
+                </h3>
+                <p className="mt-4 text-base leading-relaxed text-white/68">
+                  Un premier paiement aujourd’hui. L’activation n’est due que si vous réussissez.
+                </p>
+              </div>
+
+              <div className="mx-auto mt-8 w-full max-w-[720px] sm:mt-14">
+                <FlexPaymentTimeline
+                  sizeLabel={flex.sizeCode}
+                  upfrontValue={flexUpfrontParts.value}
+                  upfrontCurrency={flexUpfrontParts.currency}
+                  evaluationRateLabel={flexEvaluationRate}
+                  activationLabel={flexActivation}
+                />
+              </div>
+
+              <div className="mt-8 flex justify-center sm:mt-14">
+                <Link href="/challenges/flex" className="wariba-cta-primary">
+                  Découvrir FLEX
+                  <ArrowRightIcon size="sm" />
+                </Link>
+              </div>
             </div>
-            <h3 className="mt-4 text-3xl font-semibold tracking-[-0.045em] text-white sm:text-4xl">
-              Pas d’évaluation.
-            </h3>
-            <p className="mt-4 max-w-md text-base leading-relaxed text-white/62">
-              Commencez directement sur Performance, avec des limites plus serrées.
-            </p>
-            <Link href="/challenges/instant" className="wariba-cta-secondary mt-7">
-              Découvrir INSTANT
-              <ArrowRightIcon size="sm" />
-            </Link>
           </Reveal>
-        </div>
+
+          {/* ── Chapitre 3 · INSTANT — produit à gauche, copie à droite (miroir de ONE) ── */}
+          <div className="mt-14 flex flex-col gap-8 sm:mt-28 lg:flex-row lg:items-center lg:gap-16">
+            <Reveal delay={0.05} className="min-w-0 lg:flex-1">
+              <InstantAccountPanel
+                sizeLabel={instant.sizeCode}
+                balanceLabel={instantBalance}
+                dailyLossLabel={instantDailyLoss}
+                maximumLossLabel={instantMaximumLoss}
+                exposureLabel={instantExposure}
+              />
+            </Reveal>
+            <Reveal className="min-w-0 lg:flex-1">
+              <div className="flex items-center gap-3">
+                <span className="wariba-figure text-xs font-bold text-[color:var(--wariba-accent-cyan)]">
+                  03
+                </span>
+                <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[color:var(--wariba-accent-cyan)]">
+                  WARIBA INSTANT
+                </p>
+              </div>
+              <h3 className="mt-4 text-3xl font-semibold tracking-[-0.045em] text-white sm:text-4xl">
+                Pas d’évaluation.
+              </h3>
+              <p className="mt-4 max-w-md text-base leading-relaxed text-white/62">
+                Commencez directement sur Performance, avec des limites plus serrées.
+              </p>
+              <Link href="/challenges/instant" className="wariba-cta-secondary mt-7">
+                Découvrir INSTANT
+                <ArrowRightIcon size="sm" />
+              </Link>
+            </Reveal>
+          </div>
         </div>
 
         {/* ── Mobile only: one active pathway at a time ── */}

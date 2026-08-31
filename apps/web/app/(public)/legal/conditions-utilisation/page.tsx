@@ -2,7 +2,11 @@ import { LegalPageShell } from '../../../../components/legal/LegalPageShell';
 import { LegalSection } from '../../../../components/legal/LegalSection';
 import { LegalCallout } from '../../../../components/legal/LegalCallout';
 import { REGIONAL_SOURCES } from '../../../../components/legal/legal-sources';
-import { MERCHANT_BOUNDARY_STATEMENT, PAYIN_CLAUSE, PAYOUT_FUNDING_CLAUSE } from '../../../../components/legal/legal-payment-architecture';
+import {
+  MERCHANT_BOUNDARY_STATEMENT,
+  PAYIN_CLAUSE,
+  PAYOUT_FUNDING_CLAUSE,
+} from '../../../../components/legal/legal-payment-architecture';
 
 const TOC = [
   { id: 'objet', label: 'Objet' },
@@ -54,16 +58,19 @@ export default function ConditionsUtilisationPage() {
       <LegalSection id="objet" number="1" title="Objet">
         <p>
           Les présentes conditions régissent l’accès et l’utilisation des services WARIBA&nbsp;: les
-          programmes ONE, FLEX et INSTANT, les Évaluations, les comptes WARIBA Performance, l’interface
-          WariX et le Trader Hub.
+          programmes ONE, FLEX et INSTANT, les Évaluations, les comptes WARIBA Performance,
+          l’interface WariX et le Trader Hub.
         </p>
       </LegalSection>
 
       <LegalSection id="operateur" number="2" title="Opérateur">
         <p>
-          WARIBA est exploité par Lagoon Technologies, société enregistrée à Abidjan, Côte d’Ivoire. Voir
-          les{' '}
-          <a href="/legal/mentions-legales" className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]">
+          WARIBA est exploité par Lagoon Technologies, société enregistrée à Abidjan, Côte d’Ivoire.
+          Voir les{' '}
+          <a
+            href="/legal/mentions-legales"
+            className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]"
+          >
             mentions légales
           </a>{' '}
           pour l’identité complète de l’opérateur.
@@ -73,29 +80,32 @@ export default function ConditionsUtilisationPage() {
       <LegalSection id="acceptation" number="3" title="Acceptation électronique">
         <p>
           L’utilisateur accepte les présentes conditions par une action explicite (case à cocher ou
-          confirmation équivalente) avant l’achat d’un programme. Cette acceptation est horodatée et la
-          version des conditions ainsi acceptée reste attachée au compte&nbsp;: une révision ultérieure
-          des conditions ne s’applique pas rétroactivement à un compte déjà créé.
+          confirmation équivalente) avant l’achat d’un programme. Cette acceptation est horodatée et
+          la version des conditions ainsi acceptée reste attachée au compte&nbsp;: une révision
+          ultérieure des conditions ne s’applique pas rétroactivement à un compte déjà créé.
         </p>
       </LegalSection>
 
       <LegalSection id="acces-age" number="4" title="Accès et âge minimum">
         <p>
-          L’utilisation des services WARIBA est réservée aux personnes juridiquement majeures dans leur
-          pays de résidence, avec un minimum de 18 ans.
+          L’utilisation des services WARIBA est réservée aux personnes juridiquement majeures dans
+          leur pays de résidence, avec un minimum de 18 ans.
         </p>
         <LegalCallout tone="caution" title="Politique d’âge — valeur par défaut prudente">
-          Ce seuil de 18 ans est appliqué par défaut, dans l’attente d’une confirmation formelle de la
-          politique d’âge par pays. Il n’est pas présenté comme définitivement validé juridiquement dans
-          chacun des six marchés visés.
+          Ce seuil de 18 ans est appliqué par défaut, dans l’attente d’une confirmation formelle de
+          la politique d’âge par pays. Il n’est pas présenté comme définitivement validé
+          juridiquement dans chacun des six marchés visés.
         </LegalCallout>
       </LegalSection>
 
       <LegalSection id="pays-eligibles" number="5" title="Pays éligibles">
         <p>
-          WARIBA vise actuellement la Côte d’Ivoire, le Sénégal, le Bénin, le Togo, le Mali et le Burkina
-          Faso. Voir{' '}
-          <a href="/legal/disponibilite-pays" className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]">
+          WARIBA vise actuellement la Côte d’Ivoire, le Sénégal, le Bénin, le Togo, le Mali et le
+          Burkina Faso. Voir{' '}
+          <a
+            href="/legal/disponibilite-pays"
+            className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]"
+          >
             Disponibilité par pays
           </a>{' '}
           pour le détail des règles applicables marché par marché.
@@ -104,17 +114,17 @@ export default function ConditionsUtilisationPage() {
 
       <LegalSection id="compte" number="6" title="Compte et sécurité">
         <p>
-          L’utilisateur est responsable de la confidentialité de ses identifiants et de toute activité
-          effectuée depuis son compte. Toute suspicion de compromission doit être signalée sans délai au
-          support.
+          L’utilisateur est responsable de la confidentialité de ses identifiants et de toute
+          activité effectuée depuis son compte. Toute suspicion de compromission doit être signalée
+          sans délai au support.
         </p>
       </LegalSection>
 
       <LegalSection id="description-wariba" number="7" title="Description de WARIBA">
         <LegalCallout tone="info" title="Simulation, pas capital réel">
-          WARIBA fournit un environnement de trading simulé et un parcours d’évaluation. Il ne fournit
-          pas de compte de courtage réel, ne reçoit pas de dépôt d’investissement et ne garantit aucun
-          capital réel.
+          WARIBA fournit un environnement de trading simulé et un parcours d’évaluation. Il ne
+          fournit pas de compte de courtage réel, ne reçoit pas de dépôt d’investissement et ne
+          garantit aucun capital réel.
         </LegalCallout>
         <p>{MERCHANT_BOUNDARY_STATEMENT}</p>
       </LegalSection>
@@ -122,12 +132,12 @@ export default function ConditionsUtilisationPage() {
       <LegalSection id="parcours" number="8" title="ONE, FLEX, INSTANT">
         <ul>
           <li>
-            <strong>ONE</strong> — une évaluation à une étape. Un objectif atteint peut ouvrir un compte
-            WARIBA Performance.
+            <strong>ONE</strong> — une évaluation à une étape. Un objectif atteint peut ouvrir un
+            compte WARIBA Performance.
           </li>
           <li>
-            <strong>FLEX</strong> — un premier paiement réduit, avec un solde qui n’est dû qu’en cas de
-            réussite de l’évaluation.
+            <strong>FLEX</strong> — un premier paiement réduit, avec un solde qui n’est dû qu’en cas
+            de réussite de l’évaluation.
           </li>
           <li>
             <strong>INSTANT</strong> — pas d’évaluation&nbsp;: accès direct à un compte WARIBA
@@ -138,9 +148,9 @@ export default function ConditionsUtilisationPage() {
 
       <LegalSection id="performance" number="9" title="Performance et WARIBA Review">
         <p>
-          WARIBA Performance reste un environnement simulé. Après le dernier payout payé d’un cycle, le
-          compte entre dans WARIBA Review&nbsp;: cette étape ne garantit ni une allocation de capital
-          réel, ni un sixième payout, ni une relation d’emploi.
+          WARIBA Performance reste un environnement simulé. Après le dernier payout payé d’un cycle,
+          le compte entre dans WARIBA Review&nbsp;: cette étape ne garantit ni une allocation de
+          capital réel, ni un sixième payout, ni une relation d’emploi.
         </p>
       </LegalSection>
 
@@ -148,7 +158,10 @@ export default function ConditionsUtilisationPage() {
         <p>
           Les règles de perte quotidienne, de perte maximale et les autres règles du programme sont
           celles publiées et attachées au compte au moment de l’achat (« rule snapshot »). Voir{' '}
-          <a href="/legal/risques" className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]">
+          <a
+            href="/legal/risques"
+            className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]"
+          >
             Risques et règles de trading
           </a>
           .
@@ -158,17 +171,20 @@ export default function ConditionsUtilisationPage() {
       <LegalSection id="paiements" number="11" title="Paiements et activation FLEX">
         <p>
           Le prix contractuel et le montant final sont exprimés en FCFA/XOF. Pour FLEX, le solde
-          d’activation est dû uniquement en cas de réussite de l’évaluation, selon les règles publiées au
-          moment de l’achat.
+          d’activation est dû uniquement en cas de réussite de l’évaluation, selon les règles
+          publiées au moment de l’achat.
         </p>
         <p>{PAYIN_CLAUSE}</p>
       </LegalSection>
 
       <LegalSection id="payouts" number="12" title="Payouts">
         <p>
-          Lorsque les conditions applicables sont remplies, une demande de payout peut être soumise et
-          traitée selon les règles du compte et les vérifications applicables. Voir{' '}
-          <a href="/legal/payouts" className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]">
+          Lorsque les conditions applicables sont remplies, une demande de payout peut être soumise
+          et traitée selon les règles du compte et les vérifications applicables. Voir{' '}
+          <a
+            href="/legal/payouts"
+            className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]"
+          >
             Payouts
           </a>
           .
@@ -178,9 +194,12 @@ export default function ConditionsUtilisationPage() {
 
       <LegalSection id="kyc" number="13" title="KYC / conformité">
         <p>
-          Une vérification d’identité peut être demandée avant qu’une demande de payout ne soit traitée.
-          Voir{' '}
-          <a href="/legal/lbc-kyc" className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]">
+          Une vérification d’identité peut être demandée avant qu’une demande de payout ne soit
+          traitée. Voir{' '}
+          <a
+            href="/legal/lbc-kyc"
+            className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]"
+          >
             LBC / KYC
           </a>
           .
@@ -212,8 +231,12 @@ export default function ConditionsUtilisationPage() {
 
       <LegalSection id="propriete" number="17" title="Propriété intellectuelle">
         <p>
-          Le nom WARIBA, son logo et son interface restent la propriété de Lagoon Technologies. Voir les{' '}
-          <a href="/legal/mentions-legales" className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]">
+          Le nom WARIBA, son logo et son interface restent la propriété de Lagoon Technologies. Voir
+          les{' '}
+          <a
+            href="/legal/mentions-legales"
+            className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]"
+          >
             mentions légales
           </a>
           .
@@ -222,17 +245,24 @@ export default function ConditionsUtilisationPage() {
 
       <LegalSection id="responsabilite" number="18" title="Responsabilité et force majeure">
         <p>
-          WARIBA n’est pas responsable des pertes résultant d’un trading réel effectué en dehors de son
-          environnement simulé. La responsabilité de WARIBA peut être limitée en cas d’événement hors de
-          son contrôle raisonnable (force majeure, panne d’un prestataire tiers).
+          WARIBA n’est pas responsable des pertes résultant d’un trading réel effectué en dehors de
+          son environnement simulé. La responsabilité de WARIBA peut être limitée en cas d’événement
+          hors de son contrôle raisonnable (force majeure, panne d’un prestataire tiers).
         </p>
       </LegalSection>
 
-      <LegalSection id="protection-consommateur" number="19" title="Protection du consommateur et réclamations">
+      <LegalSection
+        id="protection-consommateur"
+        number="19"
+        title="Protection du consommateur et réclamations"
+      >
         <p>
-          Rien dans les présentes conditions ne prive un utilisateur des protections impératives qui lui
-          sont accordées par la loi de son pays de résidence. Voir{' '}
-          <a href="/legal/reclamations-litiges" className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]">
+          Rien dans les présentes conditions ne prive un utilisateur des protections impératives qui
+          lui sont accordées par la loi de son pays de résidence. Voir{' '}
+          <a
+            href="/legal/reclamations-litiges"
+            className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]"
+          >
             Réclamations et litiges
           </a>
           .
@@ -248,11 +278,14 @@ export default function ConditionsUtilisationPage() {
 
       <LegalSection id="droit-juridiction" number="21" title="Droit applicable et juridiction">
         <p>
-          Les présentes conditions sont régies, dans la mesure permise, par le droit applicable en Côte
-          d’Ivoire, sans priver un consommateur des protections impératives qui lui sont accordées par la
-          loi de son pays de résidence.
+          Les présentes conditions sont régies, dans la mesure permise, par le droit applicable en
+          Côte d’Ivoire, sans priver un consommateur des protections impératives qui lui sont
+          accordées par la loi de son pays de résidence.
         </p>
-        <LegalCallout tone="caution" title="Rédaction finale soumise à revue par un conseil juridique">
+        <LegalCallout
+          tone="caution"
+          title="Rédaction finale soumise à revue par un conseil juridique"
+        >
           Cette clause décrit l’intention&nbsp;: elle n’a pas encore été validée par un conseil
           spécialisé en droit UEMOA/fintech dans chacun des six marchés visés.
         </LegalCallout>

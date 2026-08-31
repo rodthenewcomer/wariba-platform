@@ -42,23 +42,27 @@ export default function RemboursementsPage() {
         <p>{PAYIN_CLAUSE}</p>
         <p>
           Chaque commande porte une référence propre. WARIBA la reconnaît&nbsp;: même si la
-          confirmation d’un paiement arrive deux fois, un seul compte est créé et un seul montant est
-          débité.
+          confirmation d’un paiement arrive deux fois, un seul compte est créé et un seul montant
+          est débité.
         </p>
       </LegalSection>
 
       <LegalSection id="confirmation" number="2" title="Confirmation et double paiement">
         <p>
-          En cas de doute sur le statut d’une commande, l’utilisateur doit d’abord vérifier ce statut
-          dans son espace Facturation avant de recréer une commande, puis contacter le support si le
-          statut reste incertain.
+          En cas de doute sur le statut d’une commande, l’utilisateur doit d’abord vérifier ce
+          statut dans son espace Facturation avant de recréer une commande, puis contacter le
+          support si le statut reste incertain.
         </p>
       </LegalSection>
 
-      <LegalSection id="echec-erreur" number="3" title="Échec de paiement et erreur technique de facturation">
+      <LegalSection
+        id="echec-erreur"
+        number="3"
+        title="Échec de paiement et erreur technique de facturation"
+      >
         <p>
-          Un paiement échoué ou une erreur technique de facturation constatée est traitée au cas par cas
-          par le support, sur la base des preuves de transaction disponibles côté prestataire de
+          Un paiement échoué ou une erreur technique de facturation constatée est traitée au cas par
+          cas par le support, sur la base des preuves de transaction disponibles côté prestataire de
           paiement.
         </p>
       </LegalSection>
@@ -72,25 +76,25 @@ export default function RemboursementsPage() {
 
       <LegalSection id="evaluation-activee" number="5" title="Évaluation déjà activée">
         <p>
-          Une fois qu’une Évaluation est activée et que le trading a commencé sur le compte, l’accès au
-          service a été délivré&nbsp;: cet état est pris en compte dans le traitement de toute demande
-          ultérieure.
+          Une fois qu’une Évaluation est activée et que le trading a commencé sur le compte, l’accès
+          au service a été délivré&nbsp;: cet état est pris en compte dans le traitement de toute
+          demande ultérieure.
         </p>
       </LegalSection>
 
       <LegalSection id="flex-activation" number="6" title="FLEX — frais initial et activation">
         <p>
-          Pour FLEX, le premier paiement couvre l’accès à l’Évaluation. Le solde d’activation n’est dû
-          qu’en cas de réussite, selon les règles publiées au moment de l’achat.
+          Pour FLEX, le premier paiement couvre l’accès à l’Évaluation. Le solde d’activation n’est
+          dû qu’en cas de réussite, selon les règles publiées au moment de l’achat.
         </p>
       </LegalSection>
 
       <LegalSection id="demandes" number="7" title="Demandes de remboursement">
         <LegalCallout tone="caution" title="Politique définitive non verrouillée">
-          La politique définitive de remboursement de WARIBA n’est pas encore arrêtée. Aucun délai ni
-          aucune condition de remboursement n’est publié tant que cette décision n’est pas prise&nbsp;:
-          WARIBA préfère laisser cette section ouverte plutôt que d’inventer un délai. Toute demande est,
-          en attendant, examinée individuellement via le support.
+          La politique définitive de remboursement de WARIBA n’est pas encore arrêtée. Aucun délai
+          ni aucune condition de remboursement n’est publié tant que cette décision n’est pas
+          prise&nbsp;: WARIBA préfère laisser cette section ouverte plutôt que d’inventer un délai.
+          Toute demande est, en attendant, examinée individuellement via le support.
         </LegalCallout>
       </LegalSection>
 
@@ -104,16 +108,19 @@ export default function RemboursementsPage() {
 
       <LegalSection id="fraude" number="9" title="Fraude et contestations bancaires">
         <p>
-          Une contestation de paiement (chargeback) initiée sans avoir d’abord contacté le support peut
-          entraîner une revue du compte concerné, dans le respect des règles applicables au prestataire
-          de paiement utilisé.
+          Une contestation de paiement (chargeback) initiée sans avoir d’abord contacté le support
+          peut entraîner une revue du compte concerné, dans le respect des règles applicables au
+          prestataire de paiement utilisé.
         </p>
       </LegalSection>
 
       <LegalSection id="litiges" number="10" title="Litiges">
         <p>
           Un désaccord persistant sur un paiement suit le processus décrit sur la page{' '}
-          <a href="/legal/reclamations-litiges" className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]">
+          <a
+            href="/legal/reclamations-litiges"
+            className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]"
+          >
             Réclamations et litiges
           </a>
           .

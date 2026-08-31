@@ -30,7 +30,11 @@ export function SelectPathVisual({ reduced }: PhaseVisualProps) {
         style={{ borderColor: 'var(--wariba-seam)', background: 'var(--wariba-surface-2)' }}
         initial={reduced ? false : { opacity: 0, x: 0, y: 8, rotate: 0, scale: 0.92 }}
         animate={{ opacity: 0.82, x: -36, y: 10, rotate: -7, scale: 0.85 }}
-        transition={{ duration: reduced ? 0 : 0.4, delay: reduced ? 0 : 0.1, ease: [0.22, 1, 0.36, 1] }}
+        transition={{
+          duration: reduced ? 0 : 0.4,
+          delay: reduced ? 0 : 0.1,
+          ease: [0.22, 1, 0.36, 1],
+        }}
       >
         <span style={{ color: 'var(--wariba-brand-300)' }}>ONE</span>
       </motion.div>
@@ -40,7 +44,11 @@ export function SelectPathVisual({ reduced }: PhaseVisualProps) {
         style={{ borderColor: 'var(--wariba-seam)', background: 'var(--wariba-surface-2)' }}
         initial={reduced ? false : { opacity: 0, x: 0, y: 8, rotate: 0, scale: 0.92 }}
         animate={{ opacity: 0.82, x: 36, y: 10, rotate: 7, scale: 0.85 }}
-        transition={{ duration: reduced ? 0 : 0.4, delay: reduced ? 0 : 0.18, ease: [0.22, 1, 0.36, 1] }}
+        transition={{
+          duration: reduced ? 0 : 0.4,
+          delay: reduced ? 0 : 0.18,
+          ease: [0.22, 1, 0.36, 1],
+        }}
       >
         <span style={{ color: 'var(--wariba-accent-cyan)' }}>INSTANT</span>
       </motion.div>
@@ -55,7 +63,11 @@ export function SelectPathVisual({ reduced }: PhaseVisualProps) {
         }}
         initial={reduced ? false : { opacity: 0, y: 6, scale: 0.92 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: reduced ? 0 : 0.4, delay: reduced ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}
+        transition={{
+          duration: reduced ? 0 : 0.4,
+          delay: reduced ? 0 : 0.3,
+          ease: [0.22, 1, 0.36, 1],
+        }}
       >
         <span>FLEX</span>
         <motion.span
@@ -63,7 +75,13 @@ export function SelectPathVisual({ reduced }: PhaseVisualProps) {
           style={{ background: `color-mix(in srgb, ${FLEX_COLOR} 26%, transparent)` }}
           initial={reduced ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: reduced ? 0 : 0.32, delay: reduced ? 0 : 0.68, type: 'spring', stiffness: 320, damping: 18 }}
+          transition={{
+            duration: reduced ? 0 : 0.32,
+            delay: reduced ? 0 : 0.68,
+            type: 'spring',
+            stiffness: 320,
+            damping: 18,
+          }}
         >
           25K
         </motion.span>
@@ -100,14 +118,20 @@ export function TradeTerminalVisual({ reduced }: PhaseVisualProps) {
         className="absolute inset-0 overflow-hidden rounded-xl border"
         style={{
           borderColor: 'color-mix(in srgb, #4E8CFF 32%, var(--wariba-seam))',
-          background: 'linear-gradient(180deg, var(--wariba-surface-2), var(--wariba-color-carbon-980))',
+          background:
+            'linear-gradient(180deg, var(--wariba-surface-2), var(--wariba-color-carbon-980))',
         }}
         initial={reduced ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: reduced ? 0 : 0.3 }}
       >
-        <div className="flex items-center justify-between border-b px-2.5 py-1.5" style={{ borderColor: 'var(--wariba-seam)' }}>
-          <span className="font-mono text-[0.6rem] font-bold text-[color:var(--wariba-on-dark)]">XAUUSD</span>
+        <div
+          className="flex items-center justify-between border-b px-2.5 py-1.5"
+          style={{ borderColor: 'var(--wariba-seam)' }}
+        >
+          <span className="font-mono text-[0.6rem] font-bold text-[color:var(--wariba-on-dark)]">
+            XAUUSD
+          </span>
           <span
             className="rounded border px-1.5 py-0.5 font-mono text-[0.55rem] font-semibold"
             style={{ borderColor: 'var(--wariba-seam)', color: '#8FB4FF' }}
@@ -129,10 +153,17 @@ export function TradeTerminalVisual({ reduced }: PhaseVisualProps) {
             <motion.span
               key={index}
               className="w-full origin-bottom rounded-[1px]"
-              style={{ height: candle.height, background: candle.up ? 'var(--wariba-accent-emerald)' : 'var(--wariba-accent-red)' }}
+              style={{
+                height: candle.height,
+                background: candle.up ? 'var(--wariba-accent-emerald)' : 'var(--wariba-accent-red)',
+              }}
               initial={reduced ? false : { scaleY: 0 }}
               animate={{ scaleY: 1 }}
-              transition={{ duration: reduced ? 0 : 0.28, delay: reduced ? 0 : 0.16 + index * 0.045, ease: [0.22, 1, 0.36, 1] }}
+              transition={{
+                duration: reduced ? 0 : 0.28,
+                delay: reduced ? 0 : 0.16 + index * 0.045,
+                ease: [0.22, 1, 0.36, 1],
+              }}
             />
           ))}
           <motion.span
@@ -159,7 +190,10 @@ export function TradeTerminalVisual({ reduced }: PhaseVisualProps) {
         <div className="flex gap-1.5 px-2.5 pb-2">
           <motion.span
             className="flex-1 rounded-md py-1 text-center font-mono text-[0.56rem] font-bold"
-            style={{ background: 'var(--wariba-accent-emerald-wash)', color: 'var(--wariba-accent-emerald)' }}
+            style={{
+              background: 'var(--wariba-accent-emerald-wash)',
+              color: 'var(--wariba-accent-emerald)',
+            }}
             initial={reduced ? false : { opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: reduced ? 0 : 0.22, delay: reduced ? 0 : 0.74 }}
@@ -168,7 +202,10 @@ export function TradeTerminalVisual({ reduced }: PhaseVisualProps) {
           </motion.span>
           <motion.span
             className="flex-1 rounded-md py-1 text-center font-mono text-[0.56rem] font-bold"
-            style={{ background: 'var(--wariba-accent-red-wash)', color: 'var(--wariba-accent-red)' }}
+            style={{
+              background: 'var(--wariba-accent-red-wash)',
+              color: 'var(--wariba-accent-red)',
+            }}
             initial={reduced ? false : { opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: reduced ? 0 : 0.22, delay: reduced ? 0 : 0.8 }}
@@ -183,7 +220,11 @@ export function TradeTerminalVisual({ reduced }: PhaseVisualProps) {
             style={{ background: '#4E8CFF' }}
             initial={reduced ? false : { width: 0 }}
             animate={{ width: '62%' }}
-            transition={{ duration: reduced ? 0 : 0.5, delay: reduced ? 0 : 0.92, ease: [0.22, 1, 0.36, 1] }}
+            transition={{
+              duration: reduced ? 0 : 0.5,
+              delay: reduced ? 0 : 0.92,
+              ease: [0.22, 1, 0.36, 1],
+            }}
           />
         </div>
       </motion.div>
@@ -204,19 +245,27 @@ export function ProgressVisual({ reduced }: PhaseVisualProps) {
           gradientFrom="var(--wariba-brand-400)"
           gradientTo="var(--wariba-accent-cyan)"
         >
-          <span className="font-mono text-xl font-bold text-[color:var(--wariba-on-dark)]">64%</span>
+          <span className="font-mono text-xl font-bold text-[color:var(--wariba-on-dark)]">
+            64%
+          </span>
         </RadialGauge>
         <div className="min-w-0 flex-1">
           <p className="text-[0.58rem] uppercase tracking-[0.08em] text-[color:var(--wariba-on-dark-dim)]">
             Risque restant
           </p>
-          <p className="wariba-figure mt-0.5 text-lg font-semibold text-[color:var(--wariba-accent-emerald)]">82%</p>
+          <p className="wariba-figure mt-0.5 text-lg font-semibold text-[color:var(--wariba-accent-emerald)]">
+            82%
+          </p>
           <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[color:var(--wariba-track)]">
             <motion.div
               className="h-full rounded-full bg-[color:var(--wariba-accent-emerald)]"
               initial={reduced ? false : { width: 0 }}
               animate={{ width: '82%' }}
-              transition={{ duration: reduced ? 0 : 0.6, delay: reduced ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}
+              transition={{
+                duration: reduced ? 0 : 0.6,
+                delay: reduced ? 0 : 0.3,
+                ease: [0.22, 1, 0.36, 1],
+              }}
             />
           </div>
         </div>
@@ -230,10 +279,17 @@ export function ProgressVisual({ reduced }: PhaseVisualProps) {
         <div className="relative mt-2 h-1 rounded-full bg-[color:var(--wariba-track)]">
           <motion.div
             className="h-full rounded-full"
-            style={{ background: 'linear-gradient(90deg, var(--wariba-brand-400), var(--wariba-accent-cyan))' }}
+            style={{
+              background:
+                'linear-gradient(90deg, var(--wariba-brand-400), var(--wariba-accent-cyan))',
+            }}
             initial={reduced ? false : { width: 0 }}
             animate={{ width: '64%' }}
-            transition={{ duration: reduced ? 0 : 0.7, delay: reduced ? 0 : 0.45, ease: [0.22, 1, 0.36, 1] }}
+            transition={{
+              duration: reduced ? 0 : 0.7,
+              delay: reduced ? 0 : 0.45,
+              ease: [0.22, 1, 0.36, 1],
+            }}
           />
           <motion.span
             className="absolute -top-1 -translate-x-1/2 rounded-full border-2"
@@ -246,7 +302,11 @@ export function ProgressVisual({ reduced }: PhaseVisualProps) {
             }}
             initial={reduced ? { opacity: 1, left: '64%' } : { opacity: 0, left: '0%' }}
             animate={{ opacity: 1, left: '64%' }}
-            transition={{ duration: reduced ? 0 : 0.7, delay: reduced ? 0 : 0.45, ease: [0.22, 1, 0.36, 1] }}
+            transition={{
+              duration: reduced ? 0 : 0.7,
+              delay: reduced ? 0 : 0.45,
+              ease: [0.22, 1, 0.36, 1],
+            }}
           />
         </div>
         <motion.p
@@ -286,7 +346,12 @@ export function PerformanceVisual({ reduced }: PhaseVisualProps) {
         </motion.span>
       </div>
 
-      <svg viewBox="0 0 200 36" className="h-7 w-full" aria-hidden="true" preserveAspectRatio="none">
+      <svg
+        viewBox="0 0 200 36"
+        className="h-7 w-full"
+        aria-hidden="true"
+        preserveAspectRatio="none"
+      >
         <motion.path
           d="M20,4 C 70,4 88,30 100,30"
           fill="none"
@@ -295,7 +360,11 @@ export function PerformanceVisual({ reduced }: PhaseVisualProps) {
           strokeOpacity="0.55"
           initial={reduced ? false : { pathLength: 0 }}
           animate={{ pathLength: 1 }}
-          transition={{ duration: reduced ? 0 : 0.5, delay: reduced ? 0 : 0.36, ease: [0.22, 1, 0.36, 1] }}
+          transition={{
+            duration: reduced ? 0 : 0.5,
+            delay: reduced ? 0 : 0.36,
+            ease: [0.22, 1, 0.36, 1],
+          }}
         />
         <motion.path
           d="M180,4 C 130,10 108,24 100,30"
@@ -305,7 +374,11 @@ export function PerformanceVisual({ reduced }: PhaseVisualProps) {
           strokeOpacity="0.55"
           initial={reduced ? false : { pathLength: 0 }}
           animate={{ pathLength: 1 }}
-          transition={{ duration: reduced ? 0 : 0.5, delay: reduced ? 0 : 0.44, ease: [0.22, 1, 0.36, 1] }}
+          transition={{
+            duration: reduced ? 0 : 0.5,
+            delay: reduced ? 0 : 0.44,
+            ease: [0.22, 1, 0.36, 1],
+          }}
         />
       </svg>
 
@@ -318,7 +391,11 @@ export function PerformanceVisual({ reduced }: PhaseVisualProps) {
         }}
         initial={reduced ? { opacity: 1, y: 0 } : { opacity: 0.35, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: reduced ? 0 : 0.4, delay: reduced ? 0 : 0.58, ease: [0.22, 1, 0.36, 1] }}
+        transition={{
+          duration: reduced ? 0 : 0.4,
+          delay: reduced ? 0 : 0.58,
+          ease: [0.22, 1, 0.36, 1],
+        }}
       >
         {reduced ? null : (
           <motion.span
@@ -329,7 +406,13 @@ export function PerformanceVisual({ reduced }: PhaseVisualProps) {
             }}
             initial={{ x: '-140%' }}
             animate={{ x: '240%' }}
-            transition={{ duration: 1.6, delay: 1.1, repeat: Infinity, repeatDelay: 2.4, ease: 'easeInOut' }}
+            transition={{
+              duration: 1.6,
+              delay: 1.1,
+              repeat: Infinity,
+              repeatDelay: 2.4,
+              ease: 'easeInOut',
+            }}
           />
         )}
         <span className="font-mono text-[0.55rem] font-bold uppercase tracking-[0.14em] text-[color:var(--wariba-on-dark-dim)]">
@@ -344,7 +427,9 @@ export function PerformanceVisual({ reduced }: PhaseVisualProps) {
         >
           PERFORMANCE
         </span>
-        <span className="font-mono text-[0.6rem] text-[color:var(--wariba-on-dark-muted)]">25K · Compte simulé</span>
+        <span className="font-mono text-[0.6rem] text-[color:var(--wariba-on-dark-muted)]">
+          25K · Compte simulé
+        </span>
       </motion.div>
     </div>
   );

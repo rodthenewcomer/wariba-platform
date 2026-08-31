@@ -265,4 +265,6 @@ export const COUNTRY_SOURCES: readonly CountryLegalSources[] = [
 export const AML_SOURCES: readonly LegalSourceRef[] = COUNTRY_SOURCES.map((c) => c.aml);
 
 /** Flat list of every national privacy source, for the Confidentialité page. */
-export const PRIVACY_SOURCES: readonly LegalSourceRef[] = COUNTRY_SOURCES.map((c) => c.personalData);
+export const PRIVACY_SOURCES: readonly LegalSourceRef[] = COUNTRY_SOURCES.map(
+  (c) => c.personalData,
+);

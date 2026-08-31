@@ -25,36 +25,36 @@ des traders sur un marché live.
 
 ## Ce qui est construit
 
-| Domaine                       | Fonctionnalités                                                                                                                                       |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Domaine                       | Fonctionnalités                                                                                                                                                 |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Site public**               | Homepage à 12 sections, Legal Center (11 pages + hub, `/legal`), footer avec divulgation réglementaire UEMOA/AMF-UMOA/BCEAO, `/contact`, `/afrique-francophone` |
-| **Commerce & activation**     | Catalogue cinq tailles (5K–100K), checkout sandbox, consentement versionné, activation de compte idempotente                                          |
-| **Moteur de risque**          | DLL 3 % soft lock, Maximum Loss 10 % EOD trailing, Best Day Rule 50 %, éligibilité de profit sous 60 s, snapshots quotidiens                          |
-| **WariX — exécution**         | Market orders, Stop Loss / Take Profit, clôture partielle (25/50/75/personnalisée), Close All atomique, réduction en file pendant une donnée obsolète |
-| **WariX — ordres en attente** | Achat/Vente Limit/Stop server-authoritative (GTC), déclenchement sur tick réel, lignes glissables sur le graphique                                    |
-| **WariX — alertes de prix**   | Franchissement de seuil (pas d'égalité), évaluation serveur, centre de notifications                                                                  |
-| **WariX — graphique**         | Chandeliers `lightweight-charts`, intervalles professionnels `1m` à `1M`, historique durable paginé, raccord historique/temps réel sans doublon       |
-| **WariX — poste de travail**  | Baseline WX1 acceptée et gelée, rail utilitaire droit 48 px, graphique dimensionné par son conteneur, adaptation mobile et reduced motion             |
-| **Trader Hub**                | État de compte, mission, historique de journées, fil d'activité, multi-comptes                                                                        |
-| **Support & contestations**   | Demandes suivies sous référence, fil en ajout seul garanti par trigger, contestation liée à sa preuve, files opérateur dans Control                   |
-| **Centre d'aide**             | 77 articles servis, recherche classée et insensible aux accents, valeurs de règle lues depuis la policy publiée, lien reason code → article           |
-| **Control**                   | Panneau staff RBAC (support/risk/finance/compliance/admin) — intégrité, utilisateurs, payouts, support, contestations                                 |
-| **Fiabilité**                 | RLS Postgres sur chaque table sensible, idempotence sur chaque commande financière, resync WebSocket sur reconnexion                                  |
+| **Commerce & activation**     | Catalogue cinq tailles (5K–100K), checkout sandbox, consentement versionné, activation de compte idempotente                                                    |
+| **Moteur de risque**          | DLL 3 % soft lock, Maximum Loss 10 % EOD trailing, Best Day Rule 50 %, éligibilité de profit sous 60 s, snapshots quotidiens                                    |
+| **WariX — exécution**         | Market orders, Stop Loss / Take Profit, clôture partielle (25/50/75/personnalisée), Close All atomique, réduction en file pendant une donnée obsolète           |
+| **WariX — ordres en attente** | Achat/Vente Limit/Stop server-authoritative (GTC), déclenchement sur tick réel, lignes glissables sur le graphique                                              |
+| **WariX — alertes de prix**   | Franchissement de seuil (pas d'égalité), évaluation serveur, centre de notifications                                                                            |
+| **WariX — graphique**         | Chandeliers `lightweight-charts`, intervalles professionnels `1m` à `1M`, historique durable paginé, raccord historique/temps réel sans doublon                 |
+| **WariX — poste de travail**  | Baseline WX1 acceptée et gelée, rail utilitaire droit 48 px, graphique dimensionné par son conteneur, adaptation mobile et reduced motion                       |
+| **Trader Hub**                | État de compte, mission, historique de journées, fil d'activité, multi-comptes                                                                                  |
+| **Support & contestations**   | Demandes suivies sous référence, fil en ajout seul garanti par trigger, contestation liée à sa preuve, files opérateur dans Control                             |
+| **Centre d'aide**             | 77 articles servis, recherche classée et insensible aux accents, valeurs de règle lues depuis la policy publiée, lien reason code → article                     |
+| **Control**                   | Panneau staff RBAC (support/risk/finance/compliance/admin) — intégrité, utilisateurs, payouts, support, contestations                                           |
+| **Fiabilité**                 | RLS Postgres sur chaque table sensible, idempotence sur chaque commande financière, resync WebSocket sur reconnexion                                            |
 
 ## Routes publiques
 
-| Route                                            | Description                                             |
-| ------------------------------------------------ | ------------------------------------------------------- |
-| `/`, `/programme`, `/warix`, `/offres`           | Site public — vitrine, programme, terminal démo, tarifs |
-| `/challenges/{one,flex,instant}`                 | Pages parcours ONE / FLEX / INSTANT                      |
-| `/contact`, `/afrique-francophone`               | Contact, section régionale Afrique francophone           |
+| Route                                            | Description                                                                                                                                                                  |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`, `/programme`, `/warix`, `/offres`           | Site public — vitrine, programme, terminal démo, tarifs                                                                                                                      |
+| `/challenges/{one,flex,instant}`                 | Pages parcours ONE / FLEX / INSTANT                                                                                                                                          |
+| `/contact`, `/afrique-francophone`               | Contact, section régionale Afrique francophone                                                                                                                               |
 | `/legal`, `/legal/*`                             | Legal Center — hub + 11 pages (mentions légales, CGU, trading simulé, risques, payouts, remboursements, confidentialité, cookies, LBC/KYC, disponibilité pays, réclamations) |
-| `/aide`, `/aide/{catégorie}/{article}`           | Centre d'aide public                                    |
-| `/support`                                       | Explication publique, et système de support authentifié |
-| `/inscription`, `/login`, `/mot-de-passe-oublie` | Authentification                                        |
-| `/catalog`, `/checkout`                          | Achat d'un compte WARIBA ONE                            |
-| `/hub`, `/trade`, `/comptes`, `/payouts`         | Espace trader authentifié                               |
-| `/control/*`                                     | Espace staff (RBAC support/finance/admin)               |
+| `/aide`, `/aide/{catégorie}/{article}`           | Centre d'aide public                                                                                                                                                         |
+| `/support`                                       | Explication publique, et système de support authentifié                                                                                                                      |
+| `/inscription`, `/login`, `/mot-de-passe-oublie` | Authentification                                                                                                                                                             |
+| `/catalog`, `/checkout`                          | Achat d'un compte WARIBA ONE                                                                                                                                                 |
+| `/hub`, `/trade`, `/comptes`, `/payouts`         | Espace trader authentifié                                                                                                                                                    |
+| `/control/*`                                     | Espace staff (RBAC support/finance/admin)                                                                                                                                    |
 
 ## Sources de vérité
 

@@ -57,7 +57,8 @@ export function Connector({
           <motion.span
             className="absolute left-1/2 size-1.5 -translate-x-1/2 rounded-full bg-[color:var(--wariba-color-cobalt-300)] lg:hidden"
             style={{
-              boxShadow: '0 0 12px 3px color-mix(in srgb, var(--wariba-brand-400) 65%, transparent)',
+              boxShadow:
+                '0 0 12px 3px color-mix(in srgb, var(--wariba-brand-400) 65%, transparent)',
             }}
             initial={{ opacity: 0, scale: 0.6, top: '0%' }}
             animate={{ opacity: [0, 1, 1, 0], scale: [0.6, 1.1, 1, 0.8], top: ['0%', '100%'] }}
@@ -66,7 +67,8 @@ export function Connector({
           <motion.span
             className="absolute top-1/2 hidden size-1.5 -translate-y-1/2 rounded-full bg-[color:var(--wariba-color-cobalt-300)] lg:block"
             style={{
-              boxShadow: '0 0 12px 3px color-mix(in srgb, var(--wariba-brand-400) 65%, transparent)',
+              boxShadow:
+                '0 0 12px 3px color-mix(in srgb, var(--wariba-brand-400) 65%, transparent)',
             }}
             initial={{ opacity: 0, scale: 0.6, left: '0%' }}
             animate={{ opacity: [0, 1, 1, 0], scale: [0.6, 1.1, 1, 0.8], left: ['0%', '100%'] }}

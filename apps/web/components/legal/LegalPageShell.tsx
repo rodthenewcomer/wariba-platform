@@ -75,10 +75,12 @@ export function LegalPageShell({
 
           <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-on-dark-dim)]">
             <span>
-              Dernière mise à jour&nbsp;: <span className="text-[color:var(--wariba-on-dark-muted)]">{lastUpdated}</span>
+              Dernière mise à jour&nbsp;:{' '}
+              <span className="text-[color:var(--wariba-on-dark-muted)]">{lastUpdated}</span>
             </span>
             <span>
-              Version&nbsp;: <span className="text-[color:var(--wariba-on-dark-muted)]">{version}</span>
+              Version&nbsp;:{' '}
+              <span className="text-[color:var(--wariba-on-dark-muted)]">{version}</span>
             </span>
             <span>
               Opéré par&nbsp;
@@ -106,8 +108,14 @@ export function LegalPageShell({
             </p>
             <ul className="mt-3 grid gap-2.5">
               {enClair.map((line) => (
-                <li key={line} className="flex items-start gap-2.5 text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-on-dark)]">
-                  <CheckIcon size="sm" className="mt-0.5 shrink-0 text-[color:var(--wariba-brand-300)]" />
+                <li
+                  key={line}
+                  className="flex items-start gap-2.5 text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-on-dark)]"
+                >
+                  <CheckIcon
+                    size="sm"
+                    className="mt-0.5 shrink-0 text-[color:var(--wariba-brand-300)]"
+                  />
                   {line}
                 </li>
               ))}
@@ -124,7 +132,10 @@ export function LegalPageShell({
         <details className="group rounded-[var(--wariba-radius-lg)] border border-[color:var(--wariba-seam)]">
           <summary className="wariba-focus-ring flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 rounded-[var(--wariba-radius-lg)] px-4 py-3 text-[length:var(--wariba-font-size-body-sm)] font-semibold text-[color:var(--wariba-on-dark)] marker:content-none">
             Sur cette page
-            <ChevronDownIcon size="sm" className="shrink-0 text-[color:var(--wariba-on-dark-dim)] transition-transform duration-[var(--wariba-motion-state)] group-open:rotate-180" />
+            <ChevronDownIcon
+              size="sm"
+              className="shrink-0 text-[color:var(--wariba-on-dark-dim)] transition-transform duration-[var(--wariba-motion-state)] group-open:rotate-180"
+            />
           </summary>
           <ul className="grid gap-1 px-4 pb-4">
             {toc.map((item) => (
@@ -174,11 +185,17 @@ export function LegalPageShell({
           <details className="group">
             <summary className="wariba-focus-ring flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-md text-[length:var(--wariba-font-size-body-sm)] font-semibold text-[color:var(--wariba-on-dark)] marker:content-none">
               Voir les références juridiques
-              <ChevronDownIcon size="sm" className="text-[color:var(--wariba-on-dark-dim)] transition-transform duration-[var(--wariba-motion-state)] group-open:rotate-180" />
+              <ChevronDownIcon
+                size="sm"
+                className="text-[color:var(--wariba-on-dark-dim)] transition-transform duration-[var(--wariba-motion-state)] group-open:rotate-180"
+              />
             </summary>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {sources.map((source) => (
-                <div key={source.id} className="rounded-[var(--wariba-radius-lg)] border border-[color:var(--wariba-seam)] px-4 py-3">
+                <div
+                  key={source.id}
+                  className="rounded-[var(--wariba-radius-lg)] border border-[color:var(--wariba-seam)] px-4 py-3"
+                >
                   <p className="text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase tracking-[0.08em] text-[color:var(--wariba-on-dark-dim)]">
                     {source.institution}
                     {source.country ? ` · ${source.country}` : ''}
@@ -244,8 +261,8 @@ export function LegalPageShell({
             Historique
           </p>
           <p className="mt-3 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-on-dark-muted)]">
-            <span className="font-semibold text-[color:var(--wariba-on-dark)]">v{version}</span> — Publication initiale ·{' '}
-            {lastUpdated}
+            <span className="font-semibold text-[color:var(--wariba-on-dark)]">v{version}</span> —
+            Publication initiale · {lastUpdated}
           </p>
         </div>
       </div>

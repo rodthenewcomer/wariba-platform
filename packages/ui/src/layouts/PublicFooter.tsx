@@ -209,8 +209,9 @@ export function PublicFooter({ LinkComponent: Link }: PublicFooterProps) {
           </div>
 
           <p className="mt-8 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-on-dark-dim)]">
-            © 2026 {LEGAL_OPERATOR.legalName}. WARIBA. Tous droits réservés. {LEGAL_OPERATOR.registeredOffice}.
-            Bêta privée — documents juridiques en validation locale.
+            © 2026 {LEGAL_OPERATOR.legalName}. WARIBA. Tous droits réservés.{' '}
+            {LEGAL_OPERATOR.registeredOffice}. Bêta privée — documents juridiques en validation
+            locale.
           </p>
         </div>
       </div>

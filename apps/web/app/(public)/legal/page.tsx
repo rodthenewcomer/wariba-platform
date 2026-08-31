@@ -14,9 +14,9 @@ export default function LegalCenterPage() {
             Centre légal
           </h1>
           <p className="mt-4 max-w-2xl text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-on-dark-muted)]">
-            Onze pages, une frontière commune&nbsp;: WARIBA est un service numérique de simulation et
-            d’évaluation de trading. Chaque page couvre un sujet précis plutôt qu’un seul document
-            générique qui tenterait de tout contenir.
+            Onze pages, une frontière commune&nbsp;: WARIBA est un service numérique de simulation
+            et d’évaluation de trading. Chaque page couvre un sujet précis plutôt qu’un seul
+            document générique qui tenterait de tout contenir.
           </p>
         </div>
       </div>

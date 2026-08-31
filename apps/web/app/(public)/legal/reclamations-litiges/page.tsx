@@ -39,16 +39,19 @@ export default function ReclamationsLitigesPage() {
     >
       <LegalSection id="avant-de-deposer" number="1" title="Avant de déposer">
         <p>
-          Vérifiez d’abord le statut de votre commande, de votre demande de payout ou de votre dossier
-          d’identité dans votre espace WARIBA&nbsp;: une partie des questions se résout sans réclamation
-          formelle.
+          Vérifiez d’abord le statut de votre commande, de votre demande de payout ou de votre
+          dossier d’identité dans votre espace WARIBA&nbsp;: une partie des questions se résout sans
+          réclamation formelle.
         </p>
       </LegalSection>
 
       <LegalSection id="support-simple" number="2" title="Demande de support simple">
         <p>
           Pour une question courante, contactez support@wariba.app ou passez par la page{' '}
-          <a href="/support" className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]">
+          <a
+            href="/support"
+            className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]"
+          >
             Nous contacter
           </a>
           .
@@ -66,46 +69,51 @@ export default function ReclamationsLitigesPage() {
         <ul>
           <li>Référence du compte, de la commande ou de la demande concernée.</li>
           <li>Description factuelle du problème.</li>
-          <li>Toute preuve utile (capture d’écran, référence de transaction, échange antérieur).</li>
+          <li>
+            Toute preuve utile (capture d’écran, référence de transaction, échange antérieur).
+          </li>
         </ul>
       </LegalSection>
 
       <LegalSection id="examen-interne" number="5" title="Examen interne">
         <LegalCallout tone="info" title="Un délai raisonnable, pas un chiffre inventé">
-          WARIBA accuse réception et traite les réclamations dans un délai raisonnable, compte tenu de
-          leur nature et des obligations applicables. Aucun délai fixe (24h, 48h, 7 jours…) n’est promis
-          ici tant qu’un engagement de service n’a pas été verrouillé.
+          WARIBA accuse réception et traite les réclamations dans un délai raisonnable, compte tenu
+          de leur nature et des obligations applicables. Aucun délai fixe (24h, 48h, 7 jours…) n’est
+          promis ici tant qu’un engagement de service n’a pas été verrouillé.
         </LegalCallout>
       </LegalSection>
 
       <LegalSection id="types" number="6" title="Facturation, payout, KYC, confidentialité">
         <p>
-          Une réclamation liée à la facturation, à une demande de payout, à une vérification d’identité
-          ou à un traitement de données personnelles suit ce même chemin, avec les preuves conservées
-          côté WARIBA (séquences, snapshots, dossiers) nécessaires à son examen.
+          Une réclamation liée à la facturation, à une demande de payout, à une vérification
+          d’identité ou à un traitement de données personnelles suit ce même chemin, avec les
+          preuves conservées côté WARIBA (séquences, snapshots, dossiers) nécessaires à son examen.
         </p>
       </LegalSection>
 
       <LegalSection id="appel" number="7" title="Appel et reconsidération">
         <p>
           Si l’utilisateur conteste la décision issue de l’examen interne, il peut demander une
-          reconsidération en apportant un élément nouveau. Cette reconsidération reste un examen interne
-          — elle ne remplace pas un recours devant une autorité compétente.
+          reconsidération en apportant un élément nouveau. Cette reconsidération reste un examen
+          interne — elle ne remplace pas un recours devant une autorité compétente.
         </p>
       </LegalSection>
 
       <LegalSection id="droits-consommateur" number="8" title="Droits du consommateur">
         <p>
-          Rien dans ce processus ne prive l’utilisateur de son droit de saisir l’autorité de protection
-          du consommateur ou de protection des données de son pays de résidence, ou une juridiction
-          compétente.
+          Rien dans ce processus ne prive l’utilisateur de son droit de saisir l’autorité de
+          protection du consommateur ou de protection des données de son pays de résidence, ou une
+          juridiction compétente.
         </p>
       </LegalSection>
 
       <LegalSection id="droit-juridiction" number="9" title="Droit applicable et juridiction">
         <p>
           Voir la clause de droit applicable et de juridiction dans les{' '}
-          <a href="/legal/conditions-utilisation#droit-juridiction" className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]">
+          <a
+            href="/legal/conditions-utilisation#droit-juridiction"
+            className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]"
+          >
             Conditions d’utilisation
           </a>
           , qui s’applique également au règlement des litiges.

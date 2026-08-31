@@ -83,7 +83,9 @@ export function PhaseCard({
       <h3 className="mt-4 text-lg font-semibold leading-snug text-[color:var(--wariba-on-dark)] sm:text-xl">
         {title}
       </h3>
-      <p className="mt-2 text-sm leading-relaxed text-[color:var(--wariba-on-dark-muted)]">{copy}</p>
+      <p className="mt-2 text-sm leading-relaxed text-[color:var(--wariba-on-dark-muted)]">
+        {copy}
+      </p>
 
       <div className="relative mt-5 min-h-[11rem] flex-1">
         {started || reduced ? <Visual reduced={reduced} /> : null}

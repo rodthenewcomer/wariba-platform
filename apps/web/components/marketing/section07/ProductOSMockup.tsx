@@ -39,7 +39,10 @@ export function ProductOSMockup({
           <span className="text-sm font-bold tracking-[-0.02em] text-[color:var(--wariba-on-dark)]">
             WARIBA
           </span>
-          <AccountBadge productLabel={`${ACCOUNT.productLabel} ${ACCOUNT.sizeLabel}`} stateLabel={ACCOUNT.stateLabel} />
+          <AccountBadge
+            productLabel={`${ACCOUNT.productLabel} ${ACCOUNT.sizeLabel}`}
+            stateLabel={ACCOUNT.stateLabel}
+          />
         </div>
         <div className="flex items-center gap-3">
           <SurfaceSwitcher active={surface} onSelect={selectSurface} />

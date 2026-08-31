@@ -41,41 +41,45 @@ export default function MentionsLegalesPage() {
     >
       <LegalSection id="editeur" number="1" title="Éditeur du service">
         <p>
-          Le site wariba.app et les services WARIBA associés (ONE, FLEX, INSTANT, WARIBA Performance,
-          WariX) sont édités par Lagoon Technologies.
+          Le site wariba.app et les services WARIBA associés (ONE, FLEX, INSTANT, WARIBA
+          Performance, WariX) sont édités par Lagoon Technologies.
         </p>
       </LegalSection>
 
       <LegalSection id="operateur" number="2" title="Opérateur">
         <p>
-          Raison sociale&nbsp;: Lagoon Technologies. La forme juridique exacte (SARL, SA ou équivalent
-          OHADA) n’est pas encore publiée sur ce site&nbsp;: elle sera ajoutée ici dès sa confirmation
-          documentaire, conformément au droit des sociétés commerciales OHADA applicable en Côte
-          d’Ivoire.
+          Raison sociale&nbsp;: Lagoon Technologies. La forme juridique exacte (SARL, SA ou
+          équivalent OHADA) n’est pas encore publiée sur ce site&nbsp;: elle sera ajoutée ici dès sa
+          confirmation documentaire, conformément au droit des sociétés commerciales OHADA
+          applicable en Côte d’Ivoire.
         </p>
       </LegalSection>
 
       <LegalSection id="siege" number="3" title="Siège et adresse">
         <p>Siège social&nbsp;: Abidjan, Côte d’Ivoire.</p>
         <LegalCallout tone="caution" title="Adresse complète en cours de vérification">
-          L’adresse postale précise du siège n’est pas encore publiée. WARIBA n’affiche pas d’adresse
-          approximative ou inventée à sa place — cette ligne sera complétée dès confirmation.
+          L’adresse postale précise du siège n’est pas encore publiée. WARIBA n’affiche pas
+          d’adresse approximative ou inventée à sa place — cette ligne sera complétée dès
+          confirmation.
         </LegalCallout>
       </LegalSection>
 
       <LegalSection id="immatriculation" number="4" title="Immatriculation">
         <LegalCallout tone="caution" title="RCCM et identifiant fiscal non encore publiés">
-          Le numéro de Registre du Commerce et du Crédit Mobilier (RCCM) et l’identifiant fiscal (NCC)
-          de Lagoon Technologies ne sont pas encore confirmés dans les systèmes WARIBA. Aucun numéro
-          n’est inventé pour combler cet espace&nbsp;: les deux identifiants seront publiés ici dès
-          leur vérification documentaire.
+          Le numéro de Registre du Commerce et du Crédit Mobilier (RCCM) et l’identifiant fiscal
+          (NCC) de Lagoon Technologies ne sont pas encore confirmés dans les systèmes WARIBA. Aucun
+          numéro n’est inventé pour combler cet espace&nbsp;: les deux identifiants seront publiés
+          ici dès leur vérification documentaire.
         </LegalCallout>
       </LegalSection>
 
       <LegalSection id="contact" number="5" title="Contact">
         <p>
           Support et questions générales&nbsp;: support@wariba.app, ou via la page{' '}
-          <a href="/contact" className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]">
+          <a
+            href="/contact"
+            className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]"
+          >
             Contact
           </a>
           .
@@ -84,17 +88,17 @@ export default function MentionsLegalesPage() {
 
       <LegalSection id="hebergeur" number="6" title="Hébergeur">
         <LegalCallout tone="caution" title="Nom de l’hébergeur en cours de confirmation">
-          L’infrastructure technique de WARIBA est hébergée par un ou plusieurs prestataires cloud. Le
-          nom et l’adresse exacts de l’hébergeur seront publiés ici dès confirmation interne, plutôt
-          que devinés.
+          L’infrastructure technique de WARIBA est hébergée par un ou plusieurs prestataires cloud.
+          Le nom et l’adresse exacts de l’hébergeur seront publiés ici dès confirmation interne,
+          plutôt que devinés.
         </LegalCallout>
       </LegalSection>
 
       <LegalSection id="propriete-intellectuelle" number="7" title="Propriété intellectuelle">
         <p>
           Le nom WARIBA, son logo, son interface, ses contenus pédagogiques et l’environnement WariX
-          sont la propriété de Lagoon Technologies ou de ses concédants. Toute reproduction, extraction
-          ou réutilisation substantielle, sans autorisation écrite, est interdite.
+          sont la propriété de Lagoon Technologies ou de ses concédants. Toute reproduction,
+          extraction ou réutilisation substantielle, sans autorisation écrite, est interdite.
         </p>
       </LegalSection>
 
@@ -109,9 +113,9 @@ export default function MentionsLegalesPage() {
       <LegalSection id="nature-service" number="9" title="Nature du service WARIBA">
         <LegalCallout tone="info" title="La frontière centrale">
           WARIBA est un service numérique de simulation et d’évaluation de trading. Les comptes,
-          ordres, tailles nominales et résultats WARIBA sont simulés. WARIBA ne collecte pas l’argent
-          des utilisateurs pour l’investir, ne fournit pas de compte de courtage réel, ne gère pas de
-          portefeuille client et ne fournit pas de conseil en investissement.
+          ordres, tailles nominales et résultats WARIBA sont simulés. WARIBA ne collecte pas
+          l’argent des utilisateurs pour l’investir, ne fournit pas de compte de courtage réel, ne
+          gère pas de portefeuille client et ne fournit pas de conseil en investissement.
         </LegalCallout>
       </LegalSection>
 

@@ -44,7 +44,10 @@ export default function ConfidentialitePage() {
         <p>
           Le responsable du traitement des données personnelles collectées par WARIBA est Lagoon
           Technologies. Voir les{' '}
-          <a href="/legal/mentions-legales" className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]">
+          <a
+            href="/legal/mentions-legales"
+            className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]"
+          >
             mentions légales
           </a>{' '}
           pour son identité complète.
@@ -54,20 +57,27 @@ export default function ConfidentialitePage() {
       <LegalSection id="donnees-collectees" number="2" title="Données collectées">
         <ul>
           <li>Identité de compte et contact (nom, e-mail).</li>
-          <li>Données de vérification d’identité (KYC), lorsqu’une demande de payout la requiert.</li>
+          <li>
+            Données de vérification d’identité (KYC), lorsqu’une demande de payout la requiert.
+          </li>
           <li>Métadonnées de paiement et de transaction (référence, statut, prestataire).</li>
           <li>Activité de trading et de simulation sur le compte.</li>
           <li>Télémétrie WariX nécessaire au fonctionnement du terminal.</li>
-          <li>Journaux techniques de sécurité (appareil, adresse IP, événements d’authentification).</li>
+          <li>
+            Journaux techniques de sécurité (appareil, adresse IP, événements d’authentification).
+          </li>
           <li>Demandes de support, contestations et dossiers de conformité.</li>
         </ul>
       </LegalSection>
 
       <LegalSection id="cookies" number="3" title="Cookies">
         <p>
-          WARIBA utilise des cookies strictement nécessaires à l’authentification et à la sécurité de la
-          session. Voir la page{' '}
-          <a href="/legal/cookies" className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]">
+          WARIBA utilise des cookies strictement nécessaires à l’authentification et à la sécurité
+          de la session. Voir la page{' '}
+          <a
+            href="/legal/cookies"
+            className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]"
+          >
             Cookies
           </a>{' '}
           pour l’inventaire complet et à jour.
@@ -85,18 +95,18 @@ export default function ConfidentialitePage() {
 
       <LegalSection id="prestataires" number="5" title="Prestataires">
         <p>
-          Certaines données peuvent être partagées avec des prestataires nécessaires au service&nbsp;:
-          prestataires de paiement, hébergement cloud, et, lorsqu’un fournisseur KYC est intégré, un
-          prestataire de vérification d’identité. Aucune donnée n’est partagée à des fins publicitaires
-          tierces.
+          Certaines données peuvent être partagées avec des prestataires nécessaires au
+          service&nbsp;: prestataires de paiement, hébergement cloud, et, lorsqu’un fournisseur KYC
+          est intégré, un prestataire de vérification d’identité. Aucune donnée n’est partagée à des
+          fins publicitaires tierces.
         </p>
       </LegalSection>
 
       <LegalSection id="transferts" number="6" title="Transferts internationaux">
         <p>
           Lorsque des données doivent être transférées hors de votre pays — par exemple vers un
-          prestataire cloud ou de paiement situé ailleurs — WARIBA applique les exigences prévues par la
-          loi applicable, y compris les autorisations, formalités ou garanties requises.
+          prestataire cloud ou de paiement situé ailleurs — WARIBA applique les exigences prévues
+          par la loi applicable, y compris les autorisations, formalités ou garanties requises.
         </p>
       </LegalSection>
 
@@ -111,10 +121,11 @@ export default function ConfidentialitePage() {
 
       <LegalSection id="droits" number="8" title="Vos droits">
         <p>
-          Selon la loi applicable à votre pays de résidence, vous pouvez disposer d’un droit d’accès, de
-          rectification, de suppression (lorsqu’applicable), d’opposition, et de retrait du consentement
-          lorsqu’un traitement en dépend. Une procédure authentifiée permet d’exercer ces droits, sans
-          supprimer les preuves que WARIBA doit légalement ou contractuellement conserver.
+          Selon la loi applicable à votre pays de résidence, vous pouvez disposer d’un droit
+          d’accès, de rectification, de suppression (lorsqu’applicable), d’opposition, et de retrait
+          du consentement lorsqu’un traitement en dépend. Une procédure authentifiée permet
+          d’exercer ces droits, sans supprimer les preuves que WARIBA doit légalement ou
+          contractuellement conserver.
         </p>
       </LegalSection>
 
@@ -128,8 +139,8 @@ export default function ConfidentialitePage() {
         </ul>
         <LegalCallout tone="caution" title="Formalités en cours de cartographie">
           Les formalités préalables (enregistrement, déclaration ou autorisation) auprès de ces
-          autorités ne sont pas toutes confirmées comme complètes à ce jour. Voir le mémo de conformité
-          interne pour l’état exact, marché par marché.
+          autorités ne sont pas toutes confirmées comme complètes à ce jour. Voir le mémo de
+          conformité interne pour l’état exact, marché par marché.
         </LegalCallout>
       </LegalSection>
 
@@ -143,9 +154,12 @@ export default function ConfidentialitePage() {
 
       <LegalSection id="mineurs" number="11" title="Mineurs">
         <p>
-          WARIBA n’est pas destiné aux personnes n’ayant pas atteint la majorité légale dans leur pays
-          de résidence. Voir{' '}
-          <a href="/legal/conditions-utilisation" className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]">
+          WARIBA n’est pas destiné aux personnes n’ayant pas atteint la majorité légale dans leur
+          pays de résidence. Voir{' '}
+          <a
+            href="/legal/conditions-utilisation"
+            className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]"
+          >
             Conditions d’utilisation
           </a>
           .
@@ -154,8 +168,8 @@ export default function ConfidentialitePage() {
 
       <LegalSection id="modifications" number="12" title="Modifications">
         <p>
-          Cette politique peut être mise à jour. La date de dernière mise à jour, en haut de cette page,
-          reflète la version en vigueur.
+          Cette politique peut être mise à jour. La date de dernière mise à jour, en haut de cette
+          page, reflète la version en vigueur.
         </p>
       </LegalSection>
     </LegalPageShell>

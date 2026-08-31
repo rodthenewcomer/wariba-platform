@@ -126,7 +126,9 @@ export function MobilePathwaySwitcher({
             <h3 className="mt-4 text-2xl font-semibold tracking-[-0.045em] text-white">
               {selected.title}
             </h3>
-            <p className="mt-3 text-base leading-relaxed text-white/62">{selected.supportingCopy}</p>
+            <p className="mt-3 text-base leading-relaxed text-white/62">
+              {selected.supportingCopy}
+            </p>
 
             {selected.chips?.length ? (
               <ul className="mt-5 flex flex-wrap gap-2">

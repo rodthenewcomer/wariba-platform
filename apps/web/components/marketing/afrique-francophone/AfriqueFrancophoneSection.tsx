@@ -47,8 +47,8 @@ export function AfriqueFrancophoneSection() {
               De Dakar à Cotonou, une même expérience WARIBA.
             </h2>
             <p className="wariba-lead mt-5 max-w-[30rem]">
-              Une plateforme pensée en français, avec une expérience moderne et des parcours
-              clairs pour les traders d’Afrique de l’Ouest francophone.
+              Une plateforme pensée en français, avec une expérience moderne et des parcours clairs
+              pour les traders d’Afrique de l’Ouest francophone.
             </p>
           </Reveal>
 
@@ -63,7 +63,9 @@ export function AfriqueFrancophoneSection() {
                     />
                     {item.label}
                   </p>
-                  <p className="mt-1 text-sm text-[color:var(--wariba-on-dark-muted)]">{item.body}</p>
+                  <p className="mt-1 text-sm text-[color:var(--wariba-on-dark-muted)]">
+                    {item.body}
+                  </p>
                 </li>
               ))}
             </ul>

@@ -49,7 +49,10 @@ export default function DisponibilitePaysPage() {
       <LegalSection id="residence-age" number="2" title="Résidence et âge">
         <p>
           L’accès à WARIBA dépend du pays de résidence déclaré et de l’âge de l’utilisateur. Voir{' '}
-          <a href="/legal/conditions-utilisation" className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]">
+          <a
+            href="/legal/conditions-utilisation"
+            className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]"
+          >
             Conditions d’utilisation
           </a>{' '}
           pour la politique d’âge applicable.
@@ -58,32 +61,32 @@ export default function DisponibilitePaysPage() {
 
       <LegalSection id="kyc-paiement" number="3" title="KYC et disponibilité de paiement">
         <p>
-          La disponibilité effective des moyens de paiement et des méthodes de payout dépend du pays et
-          des prestataires tiers actifs sur ce marché à un instant donné.
+          La disponibilité effective des moyens de paiement et des méthodes de payout dépend du pays
+          et des prestataires tiers actifs sur ce marché à un instant donné.
         </p>
       </LegalSection>
 
       <LegalSection id="restrictions" number="4" title="Sanctions et restrictions">
         <p>
           L’accès à WARIBA peut être restreint dans un pays ou pour un utilisateur donné en cas
-          d’obligation légale, de sanction applicable, ou de restriction imposée par un prestataire de
-          paiement.
+          d’obligation légale, de sanction applicable, ou de restriction imposée par un prestataire
+          de paiement.
         </p>
       </LegalSection>
 
       <LegalSection id="matrice" number="5" title="Matrice par pays">
         <LegalCountryMatrix />
         <LegalCallout tone="caution" title="Tableau informatif — pas une déclaration d’agrément">
-          Ce tableau indique quels cadres légaux nationaux s’appliquent. Il ne signifie à aucun moment
-          que WARIBA est « agréé » ou « licencié » dans l’un de ces pays.
+          Ce tableau indique quels cadres légaux nationaux s’appliquent. Il ne signifie à aucun
+          moment que WARIBA est « agréé » ou « licencié » dans l’un de ces pays.
         </LegalCallout>
       </LegalSection>
 
       <LegalSection id="paiements-transfrontaliers" number="6" title="Paiements transfrontaliers">
         <p>
           Certains flux de paiement peuvent franchir une frontière au sein de l’UEMOA. Ces flux sont
-          traités par des prestataires tiers, dans le cadre du Règlement n°06/2024/CM/UEMOA relatif aux
-          relations financières extérieures.
+          traités par des prestataires tiers, dans le cadre du Règlement n°06/2024/CM/UEMOA relatif
+          aux relations financières extérieures.
         </p>
         <p>{MERCHANT_BOUNDARY_STATEMENT}</p>
       </LegalSection>
@@ -97,9 +100,9 @@ export default function DisponibilitePaysPage() {
 
       <LegalSection id="responsabilite" number="8" title="Responsabilité de l’utilisateur">
         <p>
-          Il appartient à l’utilisateur de vérifier que l’utilisation de WARIBA est conforme à la loi de
-          son propre pays de résidence, y compris les droits de consommation et de protection des
-          données qui lui sont propres.
+          Il appartient à l’utilisateur de vérifier que l’utilisation de WARIBA est conforme à la
+          loi de son propre pays de résidence, y compris les droits de consommation et de protection
+          des données qui lui sont propres.
         </p>
       </LegalSection>
     </LegalPageShell>

@@ -36,31 +36,32 @@ export default function CookiesPage() {
     >
       <LegalSection id="definition" number="1" title="Qu’est-ce qu’un cookie ?">
         <p>
-          Un cookie est un petit fichier déposé par un site dans le navigateur, utilisé pour reconnaître
-          une session ou mémoriser une préférence.
+          Un cookie est un petit fichier déposé par un site dans le navigateur, utilisé pour
+          reconnaître une session ou mémoriser une préférence.
         </p>
       </LegalSection>
 
       <LegalSection id="necessaires" number="2" title="Cookies nécessaires">
         <p>
           WARIBA utilise un cookie de session d’authentification, géré par notre fournisseur
-          d’infrastructure (Supabase), pour vous maintenir connecté et sécuriser votre session. Sans ce
-          cookie, l’accès à votre compte n’est pas possible.
+          d’infrastructure (Supabase), pour vous maintenir connecté et sécuriser votre session. Sans
+          ce cookie, l’accès à votre compte n’est pas possible.
         </p>
       </LegalSection>
 
       <LegalSection id="analytics-marketing" number="3" title="Analytics et marketing">
         <LegalCallout tone="verified" title="Aucun cookie de suivi installé à ce jour">
-          À la date de cette page, WARIBA n’installe aucun cookie Google Analytics, Meta Pixel, TikTok
-          Pixel, Hotjar ou équivalent. Cette section sera mise à jour si un outil de mesure est ajouté —
-          jamais silencieusement.
+          À la date de cette page, WARIBA n’installe aucun cookie Google Analytics, Meta Pixel,
+          TikTok Pixel, Hotjar ou équivalent. Cette section sera mise à jour si un outil de mesure
+          est ajouté — jamais silencieusement.
         </LegalCallout>
       </LegalSection>
 
       <LegalSection id="tiers" number="4" title="Cookies tiers au paiement">
         <p>
-          Lors d’un paiement, le prestataire de paiement tiers peut poser ses propres cookies techniques
-          ou de sécurité, en dehors du contrôle direct de WARIBA, selon sa propre politique.
+          Lors d’un paiement, le prestataire de paiement tiers peut poser ses propres cookies
+          techniques ou de sécurité, en dehors du contrôle direct de WARIBA, selon sa propre
+          politique.
         </p>
       </LegalSection>
 
@@ -69,17 +70,31 @@ export default function CookiesPage() {
           <table className="w-full min-w-[520px] border-collapse text-left">
             <thead>
               <tr className="border-b border-[color:var(--wariba-seam)] bg-[color:var(--wariba-canvas-elevated)]">
-                <th className="px-4 py-3 font-semibold text-[color:var(--wariba-on-dark)]">Catégorie</th>
-                <th className="px-4 py-3 font-semibold text-[color:var(--wariba-on-dark)]">Finalité</th>
-                <th className="px-4 py-3 font-semibold text-[color:var(--wariba-on-dark)]">Durée</th>
-                <th className="px-4 py-3 font-semibold text-[color:var(--wariba-on-dark)]">Nécessaire</th>
+                <th className="px-4 py-3 font-semibold text-[color:var(--wariba-on-dark)]">
+                  Catégorie
+                </th>
+                <th className="px-4 py-3 font-semibold text-[color:var(--wariba-on-dark)]">
+                  Finalité
+                </th>
+                <th className="px-4 py-3 font-semibold text-[color:var(--wariba-on-dark)]">
+                  Durée
+                </th>
+                <th className="px-4 py-3 font-semibold text-[color:var(--wariba-on-dark)]">
+                  Nécessaire
+                </th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td className="px-4 py-3 text-[color:var(--wariba-on-dark-muted)]">Session / authentification</td>
-                <td className="px-4 py-3 text-[color:var(--wariba-on-dark-muted)]">Maintenir la connexion et sécuriser la session</td>
-                <td className="px-4 py-3 text-[color:var(--wariba-on-dark-muted)]">Durée de la session</td>
+                <td className="px-4 py-3 text-[color:var(--wariba-on-dark-muted)]">
+                  Session / authentification
+                </td>
+                <td className="px-4 py-3 text-[color:var(--wariba-on-dark-muted)]">
+                  Maintenir la connexion et sécuriser la session
+                </td>
+                <td className="px-4 py-3 text-[color:var(--wariba-on-dark-muted)]">
+                  Durée de la session
+                </td>
                 <td className="px-4 py-3 text-[color:var(--wariba-accent-emerald)]">Oui</td>
               </tr>
               <tr>
@@ -89,7 +104,9 @@ export default function CookiesPage() {
                 <td className="px-4 py-3 text-[color:var(--wariba-on-dark-dim)]">Aucun installé</td>
               </tr>
               <tr>
-                <td className="px-4 py-3 text-[color:var(--wariba-on-dark-muted)]">Marketing / publicité</td>
+                <td className="px-4 py-3 text-[color:var(--wariba-on-dark-muted)]">
+                  Marketing / publicité
+                </td>
                 <td className="px-4 py-3 text-[color:var(--wariba-on-dark-muted)]">—</td>
                 <td className="px-4 py-3 text-[color:var(--wariba-on-dark-muted)]">—</td>
                 <td className="px-4 py-3 text-[color:var(--wariba-on-dark-dim)]">Aucun installé</td>
@@ -102,16 +119,16 @@ export default function CookiesPage() {
       <LegalSection id="consentement" number="6" title="Consentement et contrôle">
         <p>
           Les cookies strictement nécessaires ne requièrent pas de consentement séparé, car ils sont
-          indispensables au service demandé. Tout cookie non essentiel ajouté à l’avenir serait soumis
-          au consentement préalable de l’utilisateur, retirable à tout moment. Vous pouvez également
-          bloquer ou supprimer les cookies via les réglages de votre navigateur.
+          indispensables au service demandé. Tout cookie non essentiel ajouté à l’avenir serait
+          soumis au consentement préalable de l’utilisateur, retirable à tout moment. Vous pouvez
+          également bloquer ou supprimer les cookies via les réglages de votre navigateur.
         </p>
       </LegalSection>
 
       <LegalSection id="mises-a-jour" number="7" title="Mises à jour">
         <p>
-          Cet inventaire est tenu à jour à chaque évolution technique. La date de dernière mise à jour,
-          en haut de cette page, reflète l’état réel du site à cette date.
+          Cet inventaire est tenu à jour à chaque évolution technique. La date de dernière mise à
+          jour, en haut de cette page, reflète l’état réel du site à cette date.
         </p>
       </LegalSection>
     </LegalPageShell>

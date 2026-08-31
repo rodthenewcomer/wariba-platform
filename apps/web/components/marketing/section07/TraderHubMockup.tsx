@@ -53,7 +53,10 @@ export function TraderHubMockup() {
               </span>
             </p>
             <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[color:var(--wariba-brand-edge)] bg-[color:var(--wariba-brand-wash)] px-2.5 py-1 text-[0.6rem] font-bold uppercase tracking-[0.1em] text-[color:var(--wariba-brand-300)]">
-              <span aria-hidden="true" className="size-1.5 rounded-full bg-[color:var(--wariba-brand-400)]" />
+              <span
+                aria-hidden="true"
+                className="size-1.5 rounded-full bg-[color:var(--wariba-brand-400)]"
+              />
               {ACCOUNT.stateLabel}
             </span>
           </div>
@@ -86,7 +89,9 @@ export function TraderHubMockup() {
             >
               {ACCOUNT.progressLabel}
             </motion.p>
-            <p className="mt-1 text-xs text-[color:var(--wariba-on-dark-dim)]">{ACCOUNT.targetLabel}</p>
+            <p className="mt-1 text-xs text-[color:var(--wariba-on-dark-dim)]">
+              {ACCOUNT.targetLabel}
+            </p>
             <p className="mt-4 inline-block rounded-md border border-[color:var(--wariba-seam)] bg-[color:var(--wariba-surface-2)] px-2.5 py-1.5 text-[0.65rem] text-[color:var(--wariba-on-dark-muted)]">
               {ACCOUNT.nextMilestoneLabel}
             </p>
@@ -95,11 +100,7 @@ export function TraderHubMockup() {
       </motion.div>
 
       {/* TOP RIGHT — next action */}
-      <motion.div
-        className="wariba-visual-card p-5 sm:p-6"
-        data-variant="accent"
-        variants={ITEM}
-      >
+      <motion.div className="wariba-visual-card p-5 sm:p-6" data-variant="accent" variants={ITEM}>
         <SectionLabel>PROCHAINE ACTION</SectionLabel>
         <p className="mt-2.5 text-base font-semibold leading-snug text-white sm:text-lg">
           {ACCOUNT.nextAction.title}
@@ -108,11 +109,7 @@ export function TraderHubMockup() {
       </motion.div>
 
       {/* MID RIGHT — risk status */}
-      <motion.div
-        className="wariba-visual-card p-5 sm:p-6"
-        data-variant="panel"
-        variants={ITEM}
-      >
+      <motion.div className="wariba-visual-card p-5 sm:p-6" data-variant="panel" variants={ITEM}>
         <div className="flex items-center justify-between gap-3">
           <SectionLabel>RISQUE DISPONIBLE</SectionLabel>
           <span className="wariba-figure text-sm font-semibold text-[color:var(--wariba-accent-emerald)]">

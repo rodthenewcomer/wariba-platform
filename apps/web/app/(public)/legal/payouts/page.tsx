@@ -34,8 +34,8 @@ function PayoutDistinctionRail() {
         Payout ≠ rendement d’investissement
       </p>
       <p className="mt-3 text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-on-dark-muted)]">
-        Un payout n’est jamais décrit comme un intérêt, un salaire ou un dividende. C’est un versement
-        contractuel, conditionné aux règles publiées du compte concerné.
+        Un payout n’est jamais décrit comme un intérêt, un salaire ou un dividende. C’est un
+        versement contractuel, conditionné aux règles publiées du compte concerné.
       </p>
     </div>
   );
@@ -59,31 +59,34 @@ export default function PayoutsPage() {
     >
       <LegalSection id="definition" number="1" title="Ce qu’est un payout WARIBA">
         <p>
-          Un payout WARIBA est un versement contractuel lié aux règles du programme simulé souscrit par
-          l’utilisateur. Il ne constitue ni un rendement sur investissement, ni un intérêt, ni un
-          salaire, ni une promesse de revenu.
+          Un payout WARIBA est un versement contractuel lié aux règles du programme simulé souscrit
+          par l’utilisateur. Il ne constitue ni un rendement sur investissement, ni un intérêt, ni
+          un salaire, ni une promesse de revenu.
         </p>
       </LegalSection>
 
       <LegalSection id="performance-only" number="2" title="Comptes Performance uniquement">
         <p>
-          Les demandes de payout concernent uniquement les comptes WARIBA Performance ayant atteint les
-          conditions publiées pour le cycle en cours.
+          Les demandes de payout concernent uniquement les comptes WARIBA Performance ayant atteint
+          les conditions publiées pour le cycle en cours.
         </p>
       </LegalSection>
 
       <LegalSection id="readiness" number="3" title="Prêt à demander">
         <p>
-          Lorsqu’un compte devient prêt à demander selon les règles applicables, une demande peut être
-          soumise. « Prêt à demander » est un état calculé à partir des règles du compte, pas une
-          décision discrétionnaire.
+          Lorsqu’un compte devient prêt à demander selon les règles applicables, une demande peut
+          être soumise. « Prêt à demander » est un état calculé à partir des règles du compte, pas
+          une décision discrétionnaire.
         </p>
       </LegalSection>
 
       <LegalSection id="kyc" number="4" title="KYC applicable">
         <p>
           Une vérification d’identité peut être requise avant le traitement d’une demande. Voir{' '}
-          <a href="/legal/lbc-kyc" className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]">
+          <a
+            href="/legal/lbc-kyc"
+            className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]"
+          >
             LBC / KYC
           </a>
           .
@@ -92,8 +95,8 @@ export default function PayoutsPage() {
 
       <LegalSection id="soumission" number="5" title="Soumission de la demande">
         <p>
-          La demande est soumise via le Trader Hub, rattachée au compte concerné, et traitée selon les
-          règles du compte et les vérifications d’identité ou de conformité applicables.
+          La demande est soumise via le Trader Hub, rattachée au compte concerné, et traitée selon
+          les règles du compte et les vérifications d’identité ou de conformité applicables.
         </p>
       </LegalSection>
 
@@ -103,7 +106,8 @@ export default function PayoutsPage() {
             <strong>En revue</strong> — WARIBA vérifie la demande.
           </li>
           <li>
-            <strong>Approuvé</strong> — la décision est positive. Aucun paiement n’est encore confirmé.
+            <strong>Approuvé</strong> — la décision est positive. Aucun paiement n’est encore
+            confirmé.
           </li>
           <li>
             <strong>En traitement</strong> — le transfert a été soumis ou est en cours chez le
@@ -134,8 +138,8 @@ export default function PayoutsPage() {
           Les paiements peuvent être traités par des prestataires tiers autorisés, selon leur
           disponibilité et les règles applicables. WARIBA peut travailler avec un ou plusieurs
           prestataires selon le pays et la méthode de versement. Lagoon Technologies reste le
-          marchand et l’opérateur du service WARIBA&nbsp;; elle ne se substitue pas à ces prestataires
-          et ne devient pas elle-même un établissement de paiement.
+          marchand et l’opérateur du service WARIBA&nbsp;; elle ne se substitue pas à ces
+          prestataires et ne devient pas elle-même un établissement de paiement.
         </p>
       </LegalSection>
 
@@ -155,8 +159,8 @@ export default function PayoutsPage() {
 
       <LegalSection id="devise" number="11" title="Devise et frais de change">
         <p>
-          Les montants sont exprimés en FCFA/XOF. Un équivalent dans une autre devise, s’il est affiché,
-          est informatif et peut différer du taux appliqué par le prestataire de paiement.
+          Les montants sont exprimés en FCFA/XOF. Un équivalent dans une autre devise, s’il est
+          affiché, est informatif et peut différer du taux appliqué par le prestataire de paiement.
         </p>
       </LegalSection>
 
@@ -170,9 +174,12 @@ export default function PayoutsPage() {
 
       <LegalSection id="fiscalite-reclamation" number="13" title="Fiscalité et réclamations">
         <p>
-          Le traitement fiscal d’un payout relève de la responsabilité de l’utilisateur dans son pays de
-          résidence. Une réclamation liée à un payout suit le processus décrit sur la page{' '}
-          <a href="/legal/reclamations-litiges" className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]">
+          Le traitement fiscal d’un payout relève de la responsabilité de l’utilisateur dans son
+          pays de résidence. Une réclamation liée à un payout suit le processus décrit sur la page{' '}
+          <a
+            href="/legal/reclamations-litiges"
+            className="text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]"
+          >
             Réclamations et litiges
           </a>
           .
