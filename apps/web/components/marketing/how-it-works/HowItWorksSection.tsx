@@ -7,6 +7,7 @@ import { ArrowRightIcon, cx } from '@wariba/ui';
 import { Connector } from './Connector';
 import { PhaseCard, type PhaseVisualProps } from './PhaseCard';
 import {
+  PERFORMANCE_GOLD,
   PerformanceVisual,
   ProgressVisual,
   SelectPathVisual,
@@ -53,7 +54,7 @@ const PHASES: readonly Phase[] = [
     label: 'Étape Performance',
     title: 'Accédez à Performance.',
     copy: 'ONE et FLEX y accèdent après leur parcours. INSTANT y commence directement.',
-    accentColor: 'var(--wariba-accent-emerald)',
+    accentColor: PERFORMANCE_GOLD,
     Visual: PerformanceVisual,
   },
 ];

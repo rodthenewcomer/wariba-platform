@@ -12,6 +12,16 @@ import type { PhaseVisualProps } from './PhaseCard';
 
 const FLEX_COLOR = '#8C7CFF';
 
+/**
+ * The Performance badge is the journey's payoff moment, so it gets a
+ * one-off gold treatment rather than a role from the shared accent
+ * palette (globals.css) — those six colours encode product state
+ * (healthy, warning, breach…) and gold isn't one of them here, it's
+ * a reward finish.
+ */
+export const PERFORMANCE_GOLD = '#E8B34A';
+const PERFORMANCE_GOLD_BRIGHT = '#FFE29A';
+
 export function SelectPathVisual({ reduced }: PhaseVisualProps) {
   return (
     <div className="relative flex h-full min-h-[9.5rem] items-center justify-center">
@@ -300,20 +310,38 @@ export function PerformanceVisual({ reduced }: PhaseVisualProps) {
       </svg>
 
       <motion.div
-        className="relative mx-auto flex w-full max-w-[13.5rem] flex-col items-center gap-1 rounded-xl border-2 px-4 py-3"
+        className="relative mx-auto flex w-full max-w-[13.5rem] flex-col items-center gap-1 overflow-hidden rounded-xl border-2 px-4 py-3"
         style={{
-          borderColor: 'var(--wariba-accent-emerald-edge)',
-          background:
-            'linear-gradient(160deg, color-mix(in srgb, var(--wariba-accent-emerald) 14%, var(--wariba-surface-1)), var(--wariba-surface-1))',
+          borderColor: PERFORMANCE_GOLD,
+          background: `linear-gradient(160deg, color-mix(in srgb, ${PERFORMANCE_GOLD} 22%, var(--wariba-surface-1)), var(--wariba-surface-1))`,
+          boxShadow: `0 0 28px 2px color-mix(in srgb, ${PERFORMANCE_GOLD} 45%, transparent), 0 14px 32px -14px color-mix(in srgb, ${PERFORMANCE_GOLD} 65%, transparent)`,
         }}
         initial={reduced ? { opacity: 1, y: 0 } : { opacity: 0.35, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: reduced ? 0 : 0.4, delay: reduced ? 0 : 0.58, ease: [0.22, 1, 0.36, 1] }}
       >
+        {reduced ? null : (
+          <motion.span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 w-1/3 -skew-x-12"
+            style={{
+              background: `linear-gradient(90deg, transparent, color-mix(in srgb, ${PERFORMANCE_GOLD_BRIGHT} 55%, transparent), transparent)`,
+            }}
+            initial={{ x: '-140%' }}
+            animate={{ x: '240%' }}
+            transition={{ duration: 1.6, delay: 1.1, repeat: Infinity, repeatDelay: 2.4, ease: 'easeInOut' }}
+          />
+        )}
         <span className="font-mono text-[0.55rem] font-bold uppercase tracking-[0.14em] text-[color:var(--wariba-on-dark-dim)]">
           WARIBA
         </span>
-        <span className="font-mono text-base font-bold uppercase tracking-[0.08em] text-[color:var(--wariba-accent-emerald)]">
+        <span
+          className="font-mono text-base font-bold uppercase tracking-[0.08em]"
+          style={{
+            color: PERFORMANCE_GOLD_BRIGHT,
+            textShadow: `0 0 12px color-mix(in srgb, ${PERFORMANCE_GOLD} 65%, transparent)`,
+          }}
+        >
           PERFORMANCE
         </span>
         <span className="font-mono text-[0.6rem] text-[color:var(--wariba-on-dark-muted)]">25K · Compte simulé</span>
