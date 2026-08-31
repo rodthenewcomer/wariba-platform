@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="WARIBA">
+  <rect width="64" height="64" rx="12" fill="#00122e"/>
+  <path d="M13 17h8l5 25 6-17h7l5 17 4-25h7l-7 31h-8l-5-15-6 15h-8z" fill="#f7f3ea"/>
+  <path d="M48 17h7l-1.5 7h-7z" fill="#b76e45"/>
+</svg>

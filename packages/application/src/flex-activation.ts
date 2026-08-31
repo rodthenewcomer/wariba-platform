@@ -1,4 +1,8 @@
-import type { Db } from '@wariba/database';
+import {
+  createFlexActivationObligationInTransaction,
+  type Db,
+  type FlexActivationObligationResult,
+} from '@wariba/database';
 import { formatMoney } from './account-policy-rules';
 
 /**
@@ -23,7 +27,18 @@ import { formatMoney } from './account-policy-rules';
  */
 export type FlexActivationStatus = 'activation_due' | 'paid' | 'fulfilled' | 'expired';
 
+/** Application boundary used when a passed FLEX Evaluation enters commerce. */
+export async function ensureFlexActivationObligation(
+  db: Db,
+  params: { evaluationAccountId: string; now: Date },
+): Promise<FlexActivationObligationResult> {
+  return db
+    .transaction()
+    .execute((trx) => createFlexActivationObligationInTransaction(trx, params));
+}
+
 export interface FlexActivationObligationView {
+  activationOrderId: string;
   status: FlexActivationStatus;
   amount: string;
   amountFormatted: string;
@@ -60,13 +75,22 @@ export async function loadFlexActivationObligation(
   if (!evaluationAccountId) return null;
   const row = await db
     .selectFrom('app.flex_activation_obligations')
-    .select(['status', 'amount_snapshot', 'currency_snapshot', 'due_at', 'paid_at', 'fulfilled_at'])
+    .select([
+      'activation_order_id',
+      'status',
+      'amount_snapshot',
+      'currency_snapshot',
+      'due_at',
+      'paid_at',
+      'fulfilled_at',
+    ])
     .where('evaluation_account_id', '=', evaluationAccountId)
     .orderBy('created_at', 'desc')
     .executeTakeFirst();
   if (!row) return null;
 
   return {
+    activationOrderId: row.activation_order_id,
     status: row.status,
     amount: row.amount_snapshot,
     amountFormatted: formatMoney(row.amount_snapshot, row.currency_snapshot),
@@ -80,6 +104,7 @@ export async function loadFlexActivationObligation(
 }
 
 export interface FlexActivationNotice {
+  activationOrderId: string;
   status: FlexActivationStatus;
   title: string;
   body: string;
@@ -108,6 +133,7 @@ export function flexActivationNotice(
   switch (obligation.status) {
     case 'activation_due':
       return {
+        activationOrderId: obligation.activationOrderId,
         status: obligation.status,
         title: 'Évaluation réussie',
         body: 'Dernière étape : activez votre compte Performance.',
@@ -119,6 +145,7 @@ export function flexActivationNotice(
       };
     case 'paid':
       return {
+        activationOrderId: obligation.activationOrderId,
         status: obligation.status,
         title: 'Activation confirmée',
         body: 'Votre compte Performance est en cours de préparation.',
@@ -130,6 +157,7 @@ export function flexActivationNotice(
       };
     case 'fulfilled':
       return {
+        activationOrderId: obligation.activationOrderId,
         status: obligation.status,
         title: 'Votre compte WARIBA Performance est prêt',
         body: 'Vos règles Performance sont attachées à ce compte.',
@@ -141,6 +169,7 @@ export function flexActivationNotice(
       };
     case 'expired':
       return {
+        activationOrderId: obligation.activationOrderId,
         status: obligation.status,
         title: 'Délai d’activation dépassé',
         body: 'La période d’activation de ce compte Performance est terminée.',

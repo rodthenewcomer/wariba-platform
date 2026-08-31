@@ -24,6 +24,8 @@ export async function createUserProfile(db: Db, params: CreateUserProfileParams)
 export interface AcceptSandboxDisclosureParams {
   userId: string;
   locale: string;
+  /** Exact server-resolved V2 policy. Omitted only for the historical V1 flow. */
+  policyVersionId?: string;
   correlationId?: string;
   now?: () => Date;
 }
@@ -35,23 +37,29 @@ export interface AcceptedSandboxDisclosure {
 }
 
 /**
- * Records the current published WARIBA ONE simulated-account disclosure.
- * The server resolves the policy version; the browser cannot consent to an
- * invented or retired version. The unique index makes concurrent retries a
- * no-op while the audit row records only the first acceptance.
+ * Records a simulated-account disclosure against the exact policy shown at
+ * checkout. The caller resolves the policy from the canonical offer or FLEX
+ * obligation; a browser-supplied UUID is never trusted as that resolution.
  */
 export async function acceptSandboxDisclosure(
   db: Db,
   params: AcceptSandboxDisclosureParams,
 ): Promise<AcceptedSandboxDisclosure> {
   return db.transaction().execute(async (trx) => {
-    const policy = await trx
+    let policyQuery = trx
       .selectFrom('app.policy_versions')
-      .select(['id', 'semantic_version', 'machine_hash', 'human_document_hash'])
-      .where('program', '=', 'WARIBA_ONE')
-      .where('status', '=', 'published')
-      .orderBy('effective_from', 'desc')
-      .executeTakeFirstOrThrow(() => new Error('No published WARIBA_ONE policy version.'));
+      .select(['id', 'semantic_version', 'machine_hash', 'human_document_hash']);
+    if (params.policyVersionId) {
+      policyQuery = policyQuery.where('id', '=', params.policyVersionId);
+    } else {
+      policyQuery = policyQuery
+        .where('program', '=', 'WARIBA_ONE')
+        .where('status', '=', 'published')
+        .orderBy('created_at', 'desc');
+    }
+    const policy = await policyQuery.executeTakeFirstOrThrow(
+      () => new Error('No eligible simulated-account policy version.'),
+    );
     const timestamp = params.now?.() ?? new Date();
     const inserted = await trx
       .insertInto('app.user_consents')

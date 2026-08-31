@@ -287,6 +287,12 @@ describeIfDb('V2 provisioning foundation — real database', () => {
         .returning('id')
         .executeTakeFirstOrThrow();
 
+      await trx
+        .updateTable('app.product_versions')
+        .set({ activation_price_amount: '999999.00' })
+        .where('id', '=', offer.productVersionId)
+        .execute();
+
       const due = await createFlexActivationObligationInTransaction(trx, {
         evaluationAccountId: evaluation.id,
         now,

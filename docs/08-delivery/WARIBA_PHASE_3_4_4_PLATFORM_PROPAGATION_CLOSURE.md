@@ -174,7 +174,7 @@ ce qui est un contrat plus fort que le préfixe nu qu’elle testait.
 
 Restaient deux échecs après le correctif de harness :
 
-**`warix-w1.spec.ts` — nom accessible du compte.** Une seconde régression réelle
+**`warix-w1.spec.ts` — nom accessible du compte, corrigé et re-vérifié.** Une seconde régression réelle
 de cette phase, et pas seulement un contrat de test à mettre à jour. Le
 `aria-label` du sélecteur de compte se composait de `programLabel` seul, ce qui
 était complet tant que ce libellé confondait produit et phase (« WARIBA
@@ -183,13 +183,15 @@ purement disparu du nom accessible : un utilisateur de lecteur d’écran ne
 pouvait plus distinguer une Évaluation ONE de son successeur Performance — la
 seule distinction que ce contrôle existe pour porter. La phase est réintégrée.
 
-**`client-navigation-reliability.spec.ts` — 19/20.** Ce test mesure la fiabilité
-de navigation sur vingt tentatives. Télémétrie du run : `actionSuccess: 20`,
-`actionStatuses: [200] ×20`, exactement **une** ligne d’acquittement écrite
-(l’invariant d’idempotence tient), `navigationSuccess: 19`, `reloadRequired: 1`,
-durée maximale 11,2 s contre 857 ms au minimum. Aucune donnée n’est fausse; une
-navigation sur vingt n’a pas atteint sa destination dans le délai, sur une
-machine qui faisait tourner en parallèle la stack Supabase et vingt onglets.
+**`client-navigation-reliability.spec.ts` — 19/20, puis 20/20.** Ce test mesure
+la fiabilité de navigation sur vingt tentatives. Au premier run :
+`actionSuccess: 20`, `actionStatuses: [200] ×20`, exactement **une** ligne
+d’acquittement écrite — l’invariant d’idempotence tenait —, mais
+`navigationSuccess: 19` et une durée maximale de 11,2 s contre 857 ms au
+minimum. Rejoué seul, il rend `navigationSuccess: 20`, `reloadRequired: 0`, avec
+une durée maximale de 2,5 s. Le 19/20 était de la contention machine, pas un
+défaut : la stack Supabase, vingt onglets et une campagne complète tournaient
+en parallèle.
 
 ### Deux blocages d’environnement rencontrés, et ce qu’ils étaient
 

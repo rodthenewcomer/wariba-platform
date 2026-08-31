@@ -2,29 +2,34 @@ import { describe, expect, it } from 'vitest';
 import { checkoutInputSchema, sandboxWebhookEventSchema } from '../src/commerce';
 
 describe('checkoutInputSchema', () => {
-  it('accepts a valid product code and idempotency key', () => {
+  it('accepts a canonical V2 offer identity and idempotency key', () => {
     const result = checkoutInputSchema.safeParse({
-      productCode: '10K',
+      kind: 'initial_purchase',
+      offerId: 'FLEX-10',
       idempotencyKey: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
       acceptSimulatedAccountDisclosure: true,
     });
     expect(result.success).toBe(true);
   });
 
-  it('accepts each of the five candidate tiers', () => {
-    for (const productCode of ['5K', '10K', '25K', '50K', '100K']) {
-      const result = checkoutInputSchema.safeParse({
-        productCode,
-        idempotencyKey: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-        acceptSimulatedAccountDisclosure: true,
-      });
-      expect(result.success).toBe(true);
+  it('accepts all three V2 families and five public sizes', () => {
+    for (const family of ['ONE', 'FLEX', 'INSTANT']) {
+      for (const size of ['5', '10', '25', '50', '100']) {
+        const result = checkoutInputSchema.safeParse({
+          kind: 'initial_purchase',
+          offerId: `${family}-${size}`,
+          idempotencyKey: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+          acceptSimulatedAccountDisclosure: true,
+        });
+        expect(result.success).toBe(true);
+      }
     }
   });
 
   it('rejects an unknown product code', () => {
     const result = checkoutInputSchema.safeParse({
-      productCode: '1M',
+      kind: 'initial_purchase',
+      offerId: 'ONE-1000',
       idempotencyKey: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
       acceptSimulatedAccountDisclosure: true,
     });
@@ -32,20 +37,26 @@ describe('checkoutInputSchema', () => {
   });
 
   it('has no amount/price/currency field at all — the schema shape itself enforces server-only pricing', () => {
-    const shapeKeys = Object.keys(checkoutInputSchema.shape);
-    expect(shapeKeys).toEqual([
-      'productCode',
-      'idempotencyKey',
-      'acceptSimulatedAccountDisclosure',
-    ]);
+    const shapeKeys = checkoutInputSchema.options.flatMap((option) => Object.keys(option.shape));
     expect(shapeKeys).not.toContain('amount');
     expect(shapeKeys).not.toContain('price');
     expect(shapeKeys).not.toContain('currency');
   });
 
+  it('accepts an existing FLEX activation order without a client-supplied amount', () => {
+    expect(
+      checkoutInputSchema.safeParse({
+        kind: 'flex_activation',
+        activationOrderId: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        acceptSimulatedAccountDisclosure: true,
+      }).success,
+    ).toBe(true);
+  });
+
   it('requires an explicit simulated-account disclosure acceptance', () => {
     const result = checkoutInputSchema.safeParse({
-      productCode: '10K',
+      kind: 'initial_purchase',
+      offerId: 'ONE-10',
       idempotencyKey: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
     });
     expect(result.success).toBe(false);

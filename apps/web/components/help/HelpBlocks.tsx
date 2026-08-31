@@ -206,7 +206,7 @@ function RuleTable({
   return (
     <div
       data-testid="help-rule-table"
-      className="rounded-[var(--wariba-radius-xl)] border border-[color:var(--wariba-color-cobalt-700)] bg-[color:var(--wariba-color-ink-900)] p-4 sm:p-5"
+      className="rounded-[var(--wariba-radius-xl)] border border-[color:var(--commerce-accent-edge)] bg-[color:var(--wariba-color-ink-900)] p-4 sm:p-5"
     >
       {/*
        * « Règles appliquées à votre compte » — sur une page publique.

@@ -206,6 +206,18 @@ export interface PurchaseOrderDTO {
   userId: string;
 }
 
+export interface CommerceOrderStatusDTO extends PurchaseOrderDTO {
+  orderKind: 'initial_purchase' | 'flex_activation';
+  productFamily: 'WARIBA_ONE' | 'WARIBA_FLEX' | 'WARIBA_INSTANT';
+  productCode: ProductCode;
+  nominalBalance: string;
+  policyVersionId: string;
+  policyVersion: string;
+  activationDueAt: string | null;
+  accountId: string | null;
+  accountPublicId: string | null;
+}
+
 export interface CreatePurchaseOrderParams {
   userId: string;
   productCode: ProductCode;
@@ -345,6 +357,119 @@ export async function getOrderForUser(
   return order ? toPurchaseOrderDTO(order) : undefined;
 }
 
+export async function getCommerceOrderStatusForUser(
+  db: Db,
+  orderId: string,
+  userId: string,
+): Promise<CommerceOrderStatusDTO | undefined> {
+  const row = await db
+    .selectFrom('app.purchase_orders as purchase')
+    .innerJoin('app.product_versions as version', 'version.id', 'purchase.product_version_id')
+    .innerJoin('app.products as product', 'product.id', 'version.product_id')
+    .innerJoin('app.policy_versions as policy', 'policy.id', 'purchase.policy_version_id')
+    .select([
+      'purchase.id',
+      'purchase.status',
+      'purchase.total_amount',
+      'purchase.total_currency',
+      'purchase.product_version_id',
+      'purchase.user_id',
+      'purchase.order_kind',
+      'purchase.product_family',
+      'purchase.source_evaluation_account_id',
+      'purchase.activation_due_at',
+      'product.code',
+      'product.nominal_balance',
+      'policy.id as policy_version_id',
+      'policy.semantic_version',
+    ])
+    .where('purchase.id', '=', orderId)
+    .where('purchase.user_id', '=', userId)
+    .executeTakeFirst();
+  if (!row || row.product_family === null) return undefined;
+  const account = row.source_evaluation_account_id
+    ? await db
+        .selectFrom('app.trading_accounts')
+        .select(['id', 'public_id'])
+        .where('source_evaluation_account_id', '=', row.source_evaluation_account_id)
+        .executeTakeFirst()
+    : await db
+        .selectFrom('app.trading_accounts')
+        .select(['id', 'public_id'])
+        .where('source_purchase_order_id', '=', row.id)
+        .executeTakeFirst();
+  return {
+    id: row.id,
+    status: row.status,
+    totalAmount: row.total_amount,
+    totalCurrency: row.total_currency,
+    productVersionId: row.product_version_id,
+    userId: row.user_id,
+    orderKind: row.order_kind,
+    productFamily: row.product_family,
+    productCode: row.code as ProductCode,
+    nominalBalance: row.nominal_balance,
+    policyVersionId: row.policy_version_id,
+    policyVersion: row.semantic_version,
+    activationDueAt: row.activation_due_at?.toISOString() ?? null,
+    accountId: account?.id ?? null,
+    accountPublicId: account?.public_id ?? null,
+  };
+}
+
+export type PreparePaymentResult =
+  | { kind: 'ready'; order: PurchaseOrderDTO }
+  | { kind: 'not_found' }
+  | { kind: 'expired' }
+  | { kind: 'already_processed'; status: string }
+  | { kind: 'unavailable'; status: string };
+
+/** Reopens a failed attempt on the same order; no second order or price lookup. */
+export async function preparePurchaseOrderForPayment(
+  db: Db,
+  params: { orderId: string; userId: string; now?: Date },
+): Promise<PreparePaymentResult> {
+  return db.transaction().execute(async (trx) => {
+    const now = params.now ?? new Date();
+    const order = await trx
+      .selectFrom('app.purchase_orders')
+      .selectAll()
+      .where('id', '=', params.orderId)
+      .where('user_id', '=', params.userId)
+      .forUpdate()
+      .executeTakeFirst();
+    if (!order) return { kind: 'not_found' };
+    if (order.activation_due_at && now > order.activation_due_at) {
+      if (order.source_evaluation_account_id) {
+        await trx
+          .updateTable('app.flex_activation_obligations')
+          .set({ status: 'expired', updated_at: now })
+          .where('activation_order_id', '=', order.id)
+          .where('status', '=', 'activation_due')
+          .execute();
+      }
+      return { kind: 'expired' };
+    }
+    if (order.status === 'paid' || order.status === 'fulfilled') {
+      return { kind: 'already_processed', status: order.status };
+    }
+    if (order.status === 'payment_failed') {
+      assertPurchaseOrderTransition('payment_failed', 'pending_payment');
+      await trx
+        .updateTable('app.purchase_orders')
+        .set({ status: 'pending_payment', updated_at: now })
+        .where('id', '=', order.id)
+        .where('status', '=', 'payment_failed')
+        .execute();
+      order.status = 'pending_payment';
+    }
+    if (order.status !== 'pending_payment') {
+      return { kind: 'unavailable', status: order.status };
+    }
+    return { kind: 'ready', order: toPurchaseOrderDTO(order) };
+  });
+}
+
 export interface RecordPaymentAttemptParams {
   purchaseOrderId: string;
   providerReference: string;
@@ -368,7 +493,13 @@ export async function recordPaymentAttempt(
       attempt_key: params.purchaseOrderId,
     })
     .onConflict((oc) =>
-      oc.columns(['provider', 'attempt_key']).where('attempt_key', 'is not', null).doNothing(),
+      oc.columns(['provider', 'attempt_key']).where('attempt_key', 'is not', null).doUpdateSet({
+        status: 'initiated',
+        provider_reference: params.providerReference,
+        amount: params.amount,
+        currency: params.currency,
+        updated_at: new Date(),
+      }),
     )
     .execute();
 }
@@ -382,6 +513,8 @@ export interface ProcessPaymentWebhookEventParams {
   currency: string;
   payload: unknown;
   signatureValid: boolean;
+  /** False only for a trusted local sandbox run; production always enforces readiness. */
+  enforceCapabilityReadiness?: boolean;
 }
 
 export type ProcessPaymentWebhookEventResult =
@@ -531,6 +664,9 @@ export async function processPaymentWebhookEvent(
         ? await activateV2PerformanceFromOrderInTransaction(trx, {
             purchaseOrderId: order.id,
             now: timestamp,
+            ...(params.enforceCapabilityReadiness !== undefined && {
+              enforceCapabilityReadiness: params.enforceCapabilityReadiness,
+            }),
           })
         : await activateEvaluationAccountInTransaction(trx, {
             purchaseOrderId: order.id,
@@ -538,6 +674,9 @@ export async function processPaymentWebhookEvent(
             nominalBalance: productVersion.nominal_balance,
             currency: productVersion.nominal_currency,
             now: () => timestamp,
+            ...(params.enforceCapabilityReadiness !== undefined && {
+              enforceCapabilityReadiness: params.enforceCapabilityReadiness,
+            }),
           });
     await markProcessed();
     return { kind: 'confirmed', account };

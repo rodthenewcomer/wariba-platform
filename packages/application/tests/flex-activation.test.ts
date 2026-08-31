@@ -10,6 +10,7 @@ function obligation(
   overrides: Partial<FlexActivationObligationView> = {},
 ): FlexActivationObligationView {
   return {
+    activationOrderId: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
     status,
     amount: '450.00',
     amountFormatted: '450 USD',

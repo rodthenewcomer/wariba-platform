@@ -146,10 +146,8 @@ function ArchiveBody({
  */
 function FlexActivationNoticeBlock({
   notice,
-  accountId,
 }: {
   notice: NonNullable<AccountOverviewItem['flexActivation']>;
-  accountId: string;
 }) {
   return (
     <div
@@ -191,7 +189,7 @@ function FlexActivationNoticeBlock({
 
       {notice.actionLabel && notice.status === 'activation_due' ? (
         <div className="pt-1">
-          <ActionLink href={`/hub?account=${accountId}`} size="sm">
+          <ActionLink href={`/checkout?activation=${notice.activationOrderId}`} size="sm">
             {notice.actionLabel}
           </ActionLink>
         </div>
@@ -281,9 +279,7 @@ export function AccountCard({ item }: { item: AccountOverviewItem }) {
         <StatusPill tone={lifecycle.tone}>{lifecycle.label}</StatusPill>
       </div>
 
-      {flexActivation ? (
-        <FlexActivationNoticeBlock notice={flexActivation} accountId={account.id} />
-      ) : null}
+      {flexActivation ? <FlexActivationNoticeBlock notice={flexActivation} /> : null}
 
       {archive ? (
         <ArchiveBody account={account} archive={archive} />

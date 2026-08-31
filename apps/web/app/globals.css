@@ -803,6 +803,27 @@
     background: var(--wariba-surface-1);
   }
 
+  /*
+   * Section 06's WariX CTA reads as product exploration, not purchase — so its
+   * hover stays a restrained cobalt accent rather than the site-wide
+   * `.wariba-cta-secondary` treatment. Scoped to this one CTA so it never
+   * bleeds into the secondary buttons used elsewhere on the page.
+   */
+  .warix-teaser-cta:hover {
+    border-color: var(--wariba-brand-400);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--wariba-brand-400) 55%, transparent),
+      inset 0 0 22px -10px var(--wariba-brand-500);
+  }
+
+  .warix-teaser-cta-arrow {
+    transition: transform var(--wariba-motion-micro) var(--wariba-motion-ease-standard);
+  }
+
+  .warix-teaser-cta:hover .warix-teaser-cta-arrow,
+  .warix-teaser-cta:focus-visible .warix-teaser-cta-arrow {
+    transform: translateX(4px);
+  }
+
   .wariba-cta-primary:not(:disabled):active,
   .wariba-cta-secondary:active {
     transform: scale(0.985);
@@ -1153,7 +1174,8 @@
 @media (prefers-reduced-motion: reduce) {
   .wariba-cta-primary,
   .wariba-cta-secondary,
-  .wariba-cta-tertiary {
+  .wariba-cta-tertiary,
+  .warix-teaser-cta-arrow {
     transition: none;
   }
 

@@ -60,7 +60,10 @@ export function PathwaysSection({ one, flex, instant }: PathwaysSectionProps) {
   const instantExposure = formatMultiple(instant.performanceRules.grossExposureMaximumMultiple);
 
   return (
-    <section aria-labelledby="pathways-title" className="relative overflow-hidden bg-[#060709]">
+    <section
+      aria-labelledby="pathways-title"
+      className="relative overflow-hidden bg-[color:var(--wariba-canvas-deep)]"
+    >
       <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-white/10" />
 
       <div className="mx-auto max-w-[var(--wariba-shell-max)] px-[var(--wariba-shell-gutter)] py-20 sm:py-28">
@@ -79,12 +82,42 @@ export function PathwaysSection({ one, flex, instant }: PathwaysSectionProps) {
           />
         </Reveal>
 
+        <nav
+          aria-label="Les quatre étapes du parcours WARIBA"
+          className="mt-12 hidden border-y border-white/10 lg:grid lg:grid-cols-4"
+        >
+          {[
+            ['01', 'ONE', 'Évaluation'],
+            ['02', 'FLEX', 'Paiement scindé'],
+            ['03', 'INSTANT', 'Accès direct'],
+            ['04', 'PERFORMANCE', 'Cycles de versement'],
+          ].map(([number, label, detail], index) => (
+            <div
+              key={label}
+              className={`flex items-center gap-4 py-4 ${index ? 'border-l border-white/10 pl-5' : ''}`}
+            >
+              <span className="wariba-figure text-xs font-bold text-[color:var(--wariba-brand-300)]">
+                {number}
+              </span>
+              <span>
+                <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-white/80">
+                  {label}
+                </span>
+                <span className="mt-0.5 block text-xs text-white/45">{detail}</span>
+              </span>
+            </div>
+          ))}
+        </nav>
+
         {/* ── Chapitre 1 · ONE — copie à gauche, visualisation à droite ── */}
-        <div className="mt-20 flex flex-col gap-10 sm:mt-24 lg:flex-row lg:items-center lg:gap-16">
+        <div className="mt-16 flex flex-col gap-10 sm:mt-20 lg:flex-row lg:items-center lg:gap-16">
           <Reveal className="min-w-0 lg:flex-1">
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[color:var(--wariba-brand-300)]">
-              WARIBA ONE
-            </p>
+            <div className="flex items-center gap-3">
+              <span className="wariba-figure text-xs font-bold text-[color:var(--wariba-brand-300)]">01</span>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[color:var(--wariba-brand-300)]">
+                WARIBA ONE
+              </p>
+            </div>
             <h3 className="mt-4 text-3xl font-semibold tracking-[-0.045em] text-white sm:text-4xl">
               Une évaluation.
               <span className="block">Un seul paiement.</span>
@@ -130,11 +163,14 @@ export function PathwaysSection({ one, flex, instant }: PathwaysSectionProps) {
             className="p-6 sm:p-10 lg:p-14"
             style={{
               background:
-                'radial-gradient(circle at 18% 12%, rgba(139,123,255,0.32), transparent 46%), radial-gradient(circle at 82% 82%, rgba(69,198,212,0.22), transparent 48%), linear-gradient(160deg, #171233 0%, #100e24 46%, #0a0b16 100%)',
+                'radial-gradient(circle at 18% 12%, color-mix(in srgb, var(--wariba-brand-400) 34%, transparent), transparent 46%), radial-gradient(circle at 82% 82%, color-mix(in srgb, var(--wariba-accent-cyan) 18%, transparent), transparent 48%), linear-gradient(160deg, color-mix(in srgb, var(--wariba-brand-700) 48%, var(--wariba-canvas-deep)) 0%, var(--wariba-canvas-base) 54%, var(--wariba-canvas-deep) 100%)',
             }}
           >
             <div className="max-w-xl">
               <div className="flex items-center gap-3">
+                <span className="wariba-figure text-xs font-bold text-[color:var(--wariba-brand-200)]">
+                  02
+                </span>
                 <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#B9B2FF]">
                   WARIBA FLEX · {flex.sizeCode}
                 </p>
@@ -182,9 +218,14 @@ export function PathwaysSection({ one, flex, instant }: PathwaysSectionProps) {
             />
           </Reveal>
           <Reveal className="min-w-0 lg:flex-1">
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#45C6D4]">
-              WARIBA INSTANT
-            </p>
+            <div className="flex items-center gap-3">
+              <span className="wariba-figure text-xs font-bold text-[color:var(--wariba-accent-cyan)]">
+                03
+              </span>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[color:var(--wariba-accent-cyan)]">
+                WARIBA INSTANT
+              </p>
+            </div>
             <h3 className="mt-4 text-3xl font-semibold tracking-[-0.045em] text-white sm:text-4xl">
               Pas d’évaluation.
             </h3>
@@ -201,9 +242,12 @@ export function PathwaysSection({ one, flex, instant }: PathwaysSectionProps) {
         {/* ── Chapitre 4 · Performance, expliquée par le produit ── */}
         <div className="mt-20 grid gap-10 sm:mt-28 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-center lg:gap-16">
           <Reveal>
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/50">
-              PERFORMANCE
-            </p>
+            <div className="flex items-center gap-3">
+              <span className="wariba-figure text-xs font-bold text-white/50">04</span>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/50">
+                PERFORMANCE
+              </p>
+            </div>
             <h3 className="mt-4 text-3xl font-semibold tracking-[-0.045em] text-white sm:text-4xl">
               Votre compte Performance.
             </h3>

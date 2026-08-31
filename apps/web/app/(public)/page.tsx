@@ -1,9 +1,7 @@
-import Image from 'next/image';
 import Link from 'next/link';
 import { listCanonicalV2Offers } from '@wariba/application';
 import {
   ArrowRightIcon,
-  CheckIcon,
   PayoutLadder,
   PublicSection,
   SectionHeader,
@@ -16,8 +14,9 @@ import { WaribaPath } from '../../components/marketing/scenes/WaribaPath';
 import { HomeConfigurator } from '../../components/marketing/HomeConfigurator';
 import { PerformanceCore } from '../../components/marketing/scenes/PerformanceCore';
 import { DrawdownScene } from '../../components/marketing/scenes/DrawdownScene';
-import { WariXShowcase } from '../../components/marketing/scenes/WariXShowcase';
+import { WariXProductTeaser } from '../../components/marketing/WariXProductTeaser';
 import { PerformanceDays } from '../../components/marketing/scenes/PerformanceDays';
+import { RiskField } from '../../components/marketing/RiskField';
 import { Reveal } from '../../components/motion/Reveal';
 import { formatNominal, formatRate, formatXof } from '../../components/commerce/offer-ui';
 import { getDb } from '../../lib/db';
@@ -172,7 +171,49 @@ export default async function HomePage() {
         </Reveal>
       </PublicSection>
 
-      {/* ───────────────  5 · Comment ça marche, en quatre scènes  ─────────────── */}
+      {/* ───────────────  5 · Risque visible  ─────────────── */}
+      <RiskField />
+
+      {/* ───────────────  6 · WariX, l’espace de trading  ─────────────── */}
+      <section
+        className="relative isolate overflow-hidden bg-[color:var(--wariba-color-carbon-980)]"
+        aria-labelledby="warix-teaser-title"
+      >
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_27%_53%,color-mix(in_srgb,var(--wariba-brand-700)_24%,transparent),transparent_42%)]"
+        />
+        <div className="mx-auto grid max-w-[var(--wariba-shell-max)] items-center gap-12 px-[var(--wariba-shell-gutter)] py-20 lg:min-h-[min(84svh,780px)] lg:grid-cols-[minmax(0,1.45fr)_minmax(17rem,0.85fr)] lg:gap-16 lg:py-24">
+          <div className="order-2 min-w-0 lg:order-1">
+            <WariXProductTeaser />
+            <Link href="/warix" className="warix-teaser-cta wariba-cta-secondary mt-8 lg:hidden">
+              Découvrir WariX
+              <ArrowRightIcon size="sm" className="warix-teaser-cta-arrow" />
+            </Link>
+          </div>
+          <Reveal className="order-1 max-w-[28rem] lg:order-2 lg:-mt-7 lg:justify-self-end">
+            <p className="wariba-eyebrow">WARIX · Plateforme propriétaire</p>
+            <h2 id="warix-teaser-title" className="wariba-section-title mt-5 max-w-[11ch]">
+              Votre trading.
+              <br />
+              Dans un seul espace.
+            </h2>
+            <p className="wariba-lead mt-6 max-w-[28rem]">
+              Analysez le marché, passez vos ordres et gardez vos limites sous les yeux — au même
+              endroit.
+            </p>
+            <Link
+              href="/warix"
+              className="warix-teaser-cta wariba-cta-secondary mt-9 hidden lg:inline-flex"
+            >
+              Découvrir WariX
+              <ArrowRightIcon size="sm" className="warix-teaser-cta-arrow" />
+            </Link>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ───────────────  7 · Comment ça marche, en quatre scènes  ─────────────── */}
       <PublicSection>
         <Reveal>
           <SectionHeader eyebrow="Le parcours" title="Quatre étapes, dans cet ordre." />
@@ -226,7 +267,7 @@ export default async function HomePage() {
         </ol>
       </PublicSection>
 
-      {/* ───────────────  6 · La perte maximale, expliquée par le visuel  ─────────────── */}
+      {/* ───────────────  8 · La perte maximale, expliquée par le visuel  ─────────────── */}
       <PublicSection tone="deep">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-center">
           <Reveal>
@@ -258,7 +299,7 @@ export default async function HomePage() {
         </div>
       </PublicSection>
 
-      {/* ───────────────  7 · Les chiffres, en objets  ─────────────── */}
+      {/* ───────────────  9 · Les chiffres, en objets  ─────────────── */}
       <PublicSection tone="band" space="tight">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
           <Reveal>
@@ -317,44 +358,7 @@ export default async function HomePage() {
         </p>
       </PublicSection>
 
-      {/* ───────────────  8 · WariX  ─────────────── */}
-      <PublicSection>
-        <div className="wariba-product-surface">
-          <div className="grid gap-10 lg:grid-cols-[minmax(0,0.78fr)_minmax(0,1.22fr)] lg:items-center">
-            <Reveal>
-              <p className="wariba-eyebrow">Le poste de travail</p>
-              <h2 className="wariba-section-title mt-5">Tradez directement sur WariX.</h2>
-              <ul className="mt-7 flex flex-col gap-4">
-                {[
-                  'Vos limites sont suivies pendant que vous tradez, pas après.',
-                  'Ordres, positions et résultat au même endroit.',
-                  'La même interface sur ordinateur et sur téléphone.',
-                ].map((line) => (
-                  <li
-                    key={line}
-                    className="flex items-start gap-3 text-base leading-relaxed text-[color:var(--wariba-on-dark-muted)]"
-                  >
-                    <CheckIcon
-                      size="sm"
-                      className="mt-1 shrink-0 text-[color:var(--wariba-brand-300)]"
-                    />
-                    {line}
-                  </li>
-                ))}
-              </ul>
-              <Link href="/warix" className="wariba-cta-secondary mt-8">
-                Découvrir WariX
-                <ArrowRightIcon size="sm" />
-              </Link>
-            </Reveal>
-            <Reveal delay={0.08}>
-              <WariXShowcase />
-            </Reveal>
-          </div>
-        </div>
-      </PublicSection>
-
-      {/* ───────────────  9 · Le tableau de bord vivant  ─────────────── */}
+      {/* ───────────────  10 · Le tableau de bord vivant  ─────────────── */}
       <PublicSection tone="band">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center">
           <Reveal>
@@ -374,7 +378,7 @@ export default async function HomePage() {
         </div>
       </PublicSection>
 
-      {/* ───────────────  10 · L'échelle de partage  ─────────────── */}
+      {/* ───────────────  11 · L'échelle de partage  ─────────────── */}
       <PublicSection>
         <div className="grid gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-center">
           <Reveal>
@@ -399,7 +403,7 @@ export default async function HomePage() {
         </div>
       </PublicSection>
 
-      {/* ───────────────  11 · Ce que WARIBA garantit vraiment  ─────────────── */}
+      {/* ───────────────  12 · Ce que WARIBA garantit vraiment  ─────────────── */}
       <PublicSection tone="deep" space="tight">
         <Reveal>
           <SectionHeader
@@ -442,35 +446,6 @@ export default async function HomePage() {
           ))}
         </div>
       </PublicSection>
-
-      {/* ───────────────  12 · Respiration éditoriale  ─────────────── */}
-      <section className="relative isolate overflow-hidden">
-        <Image
-          src="/images/wariba-trader-abidjan.webp"
-          alt=""
-          fill
-          sizes="100vw"
-          className="-z-20 object-cover object-[62%_center]"
-        />
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,var(--wariba-canvas-deep)_26%,color-mix(in_srgb,var(--wariba-canvas-deep)_62%,transparent)_60%,transparent)]"
-        />
-        <div className="mx-auto max-w-[var(--wariba-shell-max)] px-[var(--wariba-shell-gutter)] py-24 lg:py-32">
-          <Reveal>
-            <div className="max-w-xl">
-              <p className="wariba-eyebrow">La discipline avant le reste</p>
-              <h2 className="wariba-section-title mt-5">
-                Ce qui vous fait passer, c’est votre méthode.
-              </h2>
-              <p className="wariba-lead mt-5">
-                WARIBA ne vous apprend pas à trader. Il vous donne un cadre lisible, des limites
-                claires et un endroit où votre progression se voit.
-              </p>
-            </div>
-          </Reveal>
-        </div>
-      </section>
 
       {/* ───────────────  13 · Questions fréquentes  ─────────────── */}
       <PublicSection tone="band">

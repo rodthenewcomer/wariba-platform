@@ -9,6 +9,7 @@ export interface ActivateEvaluationAccountParams {
   nominalBalance: string;
   currency: string;
   now?: () => Date;
+  enforceCapabilityReadiness?: boolean;
 }
 
 export interface ActivatedAccount {
@@ -145,7 +146,9 @@ export async function activateEvaluationAccountInTransaction(
   if (policyVersion.accountPhase !== 'evaluation') {
     throw new Error('Purchase order is not pinned to an Evaluation policy.');
   }
-  await assertPolicyActivationReady(trx, policyVersion.id);
+  if (params.enforceCapabilityReadiness !== false) {
+    await assertPolicyActivationReady(trx, policyVersion.id);
+  }
 
   const symbolSpecSet = await loadLatestSandboxSymbolSpecSet(trx);
 

@@ -75,18 +75,20 @@ export async function createFlexActivationObligationInTransaction(
 
   const originalOrder = await trx
     .selectFrom('app.purchase_orders as purchase')
-    .innerJoin('app.product_versions as version', 'version.id', 'purchase.product_version_id')
     .select([
       'purchase.id',
       'purchase.product_version_id',
+      'purchase.activation_price_snapshot',
       'purchase.total_price_if_success_snapshot',
-      'version.activation_price_amount',
-      'version.price_currency',
+      'purchase.total_currency',
     ])
     .where('purchase.id', '=', evaluation.source_purchase_order_id)
     .executeTakeFirstOrThrow();
-  if (new Decimal(originalOrder.activation_price_amount).lessThanOrEqualTo(0)) {
-    throw new Error('FLEX source offer has no payable activation price.');
+  if (
+    originalOrder.activation_price_snapshot === null ||
+    new Decimal(originalOrder.activation_price_snapshot).lessThanOrEqualTo(0)
+  ) {
+    throw new Error('FLEX source purchase has no immutable activation price snapshot.');
   }
 
   const performancePolicy = await loadCompatiblePerformancePolicy(
@@ -117,12 +119,12 @@ export async function createFlexActivationObligationInTransaction(
       source_evaluation_account_id: evaluation.id,
       idempotency_key: `flex-activation:${evaluation.id}`,
       status: 'pending_payment',
-      total_amount: originalOrder.activation_price_amount,
-      total_currency: originalOrder.price_currency,
+      total_amount: originalOrder.activation_price_snapshot,
+      total_currency: originalOrder.total_currency,
       upfront_price_snapshot: '0',
-      activation_price_snapshot: originalOrder.activation_price_amount,
+      activation_price_snapshot: originalOrder.activation_price_snapshot,
       total_price_if_success_snapshot:
-        originalOrder.total_price_if_success_snapshot ?? originalOrder.activation_price_amount,
+        originalOrder.total_price_if_success_snapshot ?? originalOrder.activation_price_snapshot,
       activation_due_at: dueAt,
       created_at: params.now,
       updated_at: params.now,
@@ -148,8 +150,8 @@ export async function createFlexActivationObligationInTransaction(
       activation_order_id: activationOrderId,
       performance_policy_version_id: performancePolicy.id,
       status: 'activation_due',
-      amount_snapshot: originalOrder.activation_price_amount,
-      currency_snapshot: originalOrder.price_currency,
+      amount_snapshot: originalOrder.activation_price_snapshot,
+      currency_snapshot: originalOrder.total_currency,
       due_at: dueAt,
       created_at: params.now,
       updated_at: params.now,
@@ -175,8 +177,8 @@ export async function createFlexActivationObligationInTransaction(
         evaluationAccountId: evaluation.id,
         activationOrderId: canonical.activation_order_id,
         performancePolicyVersionId: performancePolicy.id,
-        amount: originalOrder.activation_price_amount,
-        currency: originalOrder.price_currency,
+        amount: originalOrder.activation_price_snapshot,
+        currency: originalOrder.total_currency,
         dueAt: canonical.due_at.toISOString(),
       }),
       occurred_at: params.now,
@@ -194,7 +196,7 @@ export async function createFlexActivationObligationInTransaction(
 /** INSTANT paid order -> Performance, or paid FLEX activation -> Performance. */
 export async function activateV2PerformanceFromOrderInTransaction(
   trx: Db,
-  params: { purchaseOrderId: string; now: Date },
+  params: { purchaseOrderId: string; now: Date; enforceCapabilityReadiness?: boolean },
 ): Promise<V2PerformanceActivationResult> {
   const order = await trx
     .selectFrom('app.purchase_orders as purchase')
@@ -264,7 +266,9 @@ export async function activateV2PerformanceFromOrderInTransaction(
   if (policy.accountPhase !== 'performance' || policy.productFamily !== order.product_family) {
     throw new Error('V2 order policy is not the compatible Performance policy.');
   }
-  await assertPolicyActivationReady(trx, policy.id);
+  if (params.enforceCapabilityReadiness !== false) {
+    await assertPolicyActivationReady(trx, policy.id);
+  }
 
   const existingQuery = trx
     .selectFrom('app.trading_accounts')

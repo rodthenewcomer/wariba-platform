@@ -6,8 +6,10 @@ export interface TradingAccountDTO {
   nominalBalance: string;
   nominalCurrency: string;
   status: string;
+  programType: string;
+  productFamily: 'WARIBA_ONE' | 'WARIBA_FLEX' | 'WARIBA_INSTANT';
   policyVersion: string;
-  policyStatus: 'published' | 'retired';
+  policyStatus: 'published' | 'pilot_ready' | 'retired';
 }
 
 export interface GetLatestAccountForUserParams {
@@ -24,7 +26,15 @@ export async function getLatestAccountForUser(
   db: Db,
   params: GetLatestAccountForUserParams,
 ): Promise<TradingAccountDTO | undefined> {
-  const account = await db
+  const sourceOrder = params.purchaseOrderId
+    ? await db
+        .selectFrom('app.purchase_orders')
+        .select(['id', 'source_evaluation_account_id'])
+        .where('id', '=', params.purchaseOrderId)
+        .where('user_id', '=', params.userId)
+        .executeTakeFirst()
+    : undefined;
+  let query = db
     .selectFrom('app.trading_accounts')
     .innerJoin(
       'app.policy_versions',
@@ -37,18 +47,25 @@ export async function getLatestAccountForUser(
       'app.trading_accounts.nominal_balance',
       'app.trading_accounts.currency',
       'app.trading_accounts.status',
+      'app.trading_accounts.program_type',
+      'app.trading_accounts.product_family',
       'app.policy_versions.semantic_version as policyVersion',
       'app.policy_versions.status as policyStatus',
     ])
-    .where('user_id', '=', params.userId)
-    .$if(Boolean(params.purchaseOrderId), (qb) =>
-      qb.where('source_purchase_order_id', '=', params.purchaseOrderId as string),
-    )
-    .orderBy('app.trading_accounts.created_at', 'desc')
-    .executeTakeFirst();
+    .where('user_id', '=', params.userId);
+  if (params.purchaseOrderId) {
+    query = sourceOrder?.source_evaluation_account_id
+      ? query.where('source_evaluation_account_id', '=', sourceOrder.source_evaluation_account_id)
+      : query.where('source_purchase_order_id', '=', params.purchaseOrderId);
+  }
+  const account = await query.orderBy('app.trading_accounts.created_at', 'desc').executeTakeFirst();
 
   if (!account) return undefined;
-  if (account.policyStatus !== 'published' && account.policyStatus !== 'retired') {
+  if (
+    account.policyStatus !== 'published' &&
+    account.policyStatus !== 'pilot_ready' &&
+    account.policyStatus !== 'retired'
+  ) {
     throw new Error(`Account references a non-public policy status: ${account.policyStatus}.`);
   }
 
@@ -58,6 +75,8 @@ export async function getLatestAccountForUser(
     nominalBalance: account.nominal_balance,
     nominalCurrency: account.currency,
     status: account.status,
+    programType: account.program_type,
+    productFamily: account.product_family,
     policyVersion: account.policyVersion,
     policyStatus: account.policyStatus,
   };

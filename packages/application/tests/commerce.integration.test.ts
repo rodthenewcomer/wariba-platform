@@ -3,6 +3,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDbClient, type Db } from '@wariba/database';
 import {
   listActiveProducts,
+  listCanonicalV2Offers,
+  createCanonicalV2PurchaseOrder,
   createPurchaseOrder,
   processPaymentWebhookEvent,
   recordPaymentAttempt,
@@ -131,6 +133,72 @@ describeIfDb('commerce application layer — real database', () => {
   it('listActiveProducts exposes all five sandbox offers in ascending order', async () => {
     const products = await listActiveProducts(db);
     expect(products.map((product) => product.code)).toEqual(['5K', '10K', '25K', '50K', '100K']);
+  });
+
+  it('exposes all 15 definitive V2 offers while public purchase gates remain closed', async () => {
+    const offers = await listCanonicalV2Offers(db);
+    expect(offers).toHaveLength(15);
+    expect(new Set(offers.map((offer) => offer.offerId)).size).toBe(15);
+    expect(offers.every((offer) => offer.decisionRecordId === 'POLICY-GOV-004')).toBe(true);
+    expect(offers.every((offer) => offer.purchaseEnabled === false)).toBe(true);
+    expect(offers.find((offer) => offer.offerId === 'FLEX-10')).toMatchObject({
+      upfrontPrice: '14900.00',
+      activationPrice: '39900.00',
+      totalPriceIfSuccess: '54800.00',
+    });
+  });
+
+  it('pins an exact V2 offer, policy and price snapshot in local sandbox mode', async () => {
+    const offer = (await listCanonicalV2Offers(db)).find(
+      (candidate) => candidate.offerId === 'INSTANT-10',
+    );
+    if (!offer) throw new Error('INSTANT-10 fixture missing');
+    await acceptSandboxDisclosure(db, {
+      userId,
+      locale: 'fr',
+      policyVersionId: offer.policyVersionId,
+      correlationId: randomUUID(),
+    });
+    const idempotencyKey = randomUUID();
+    const first = await createCanonicalV2PurchaseOrder(db, {
+      userId,
+      offerId: offer.offerId,
+      idempotencyKey,
+      countryCode: '*',
+      channel: 'test',
+      capabilityMode: 'local_sandbox',
+    });
+    const retry = await createCanonicalV2PurchaseOrder(db, {
+      userId,
+      offerId: offer.offerId,
+      idempotencyKey,
+      countryCode: '*',
+      channel: 'test',
+      capabilityMode: 'local_sandbox',
+    });
+    if (first.kind !== 'created') throw new Error(`expected created, got ${first.kind}`);
+    expect(retry).toEqual({ kind: 'existing', orderId: first.orderId });
+    purchaseOrderIds.push(first.orderId);
+    const row = await db
+      .selectFrom('app.purchase_orders')
+      .select([
+        'product_version_id',
+        'policy_version_id',
+        'product_family',
+        'total_amount',
+        'upfront_price_snapshot',
+        'activation_price_snapshot',
+      ])
+      .where('id', '=', first.orderId)
+      .executeTakeFirstOrThrow();
+    expect(row).toMatchObject({
+      product_version_id: offer.productVersionId,
+      policy_version_id: offer.policyVersionId,
+      product_family: 'WARIBA_INSTANT',
+      total_amount: offer.upfrontPrice,
+      upfront_price_snapshot: offer.upfrontPrice,
+      activation_price_snapshot: offer.activationPrice,
+    });
   });
 
   it('creates a server-priced sandbox order for every enabled account size', async () => {

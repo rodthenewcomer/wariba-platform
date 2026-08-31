@@ -1,8 +1,16 @@
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { getCanonicalV2Offer } from '@wariba/application';
 import { Badge, buttonClassNames, StatTile, Text } from '@wariba/ui';
+import { getDb } from '../../../lib/db';
 import { WariXTerminal } from './WariXTerminal';
 
-export default function WariXPage() {
+export const dynamic = 'force-dynamic';
+
+export default async function WariXPage() {
+  const offer = await getCanonicalV2Offer(getDb(), 'ONE-10');
+  if (!offer?.evaluationRules) notFound();
+
   return (
     <>
       <section className="bg-[color:var(--wariba-color-ink-950)]">
@@ -31,7 +39,11 @@ export default function WariXPage() {
           </div>
         </div>
         <div className="mx-auto max-w-[var(--wariba-size-marketing-container-max)] px-4 pb-20 sm:px-6 lg:pb-28">
-          <WariXTerminal />
+          <WariXTerminal
+            nominalBalance={offer.nominalBalance}
+            dailyLossAmount={offer.evaluationRules.dailyLossAmount}
+            maximumLossAmount={offer.evaluationRules.maximumLossAmount}
+          />
         </div>
       </section>
 

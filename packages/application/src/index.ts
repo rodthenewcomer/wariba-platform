@@ -15,8 +15,13 @@ export const PACKAGE_NAME = '@wariba/application';
 export { createDbClient, type Db } from '@wariba/database';
 export {
   listCanonicalV2Offers,
+  getCanonicalV2Offer,
   createCanonicalV2PurchaseOrder,
   type CanonicalOfferReadModel,
+  type CanonicalOfferSize,
+  type PublicEvaluationRules,
+  type PublicPerformanceRules,
+  type CheckoutCapabilityMode,
   type CreateCanonicalV2OrderResult,
 } from './canonical-offers';
 
@@ -283,6 +288,7 @@ export {
 } from './account-policy-view';
 
 export {
+  ensureFlexActivationObligation,
   loadFlexActivationObligation,
   flexActivationNotice,
   type FlexActivationObligationView,
@@ -652,6 +658,8 @@ export {
   getCheckoutContext,
   createPurchaseOrder,
   getOrderForUser,
+  getCommerceOrderStatusForUser,
+  preparePurchaseOrderForPayment,
   recordPaymentAttempt,
   processPaymentWebhookEvent,
   SANDBOX_PRODUCT_FEATURE_FLAGS,
@@ -659,6 +667,8 @@ export {
   type ProductDTO,
   type CheckoutContextDTO,
   type PurchaseOrderDTO,
+  type CommerceOrderStatusDTO,
+  type PreparePaymentResult,
   type CreatePurchaseOrderParams,
   type CreatePurchaseOrderResult,
   type RecordPaymentAttemptParams,

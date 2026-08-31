@@ -51,7 +51,7 @@ export function PublicSupportIntro() {
         </div>
       </section>
 
-      <section data-theme="light" className="bg-[color:var(--wariba-color-bone-50)]">
+      <section data-theme="light" className="bg-[color:var(--wariba-color-ink-975)]">
         <div className="mx-auto max-w-[var(--wariba-size-marketing-container-max)] px-4 py-20 sm:px-6 lg:py-28">
           <Text variant="label-sm" color="secondary">
             Le bon canal selon le problème
@@ -81,24 +81,24 @@ export function PublicSupportIntro() {
             ).map(([title, body, href, label]) => (
               <article
                 key={title}
-                className="flex min-h-64 flex-col rounded-[var(--wariba-radius-xl)] border border-[color:var(--wariba-color-bone-300)] bg-[color:var(--wariba-color-white)] p-6"
+                className="flex min-h-64 flex-col rounded-[var(--wariba-radius-xl)] border border-[color:var(--commerce-rule-strong)] bg-[color:var(--wariba-color-white)] p-6"
               >
-                <h2 className="text-[length:var(--wariba-font-size-heading-sm)] font-semibold text-[color:var(--wariba-color-ink-950)]">
+                <h2 className="text-[length:var(--wariba-font-size-heading-sm)] font-semibold text-[color:var(--wariba-color-ink-50)]">
                   {title}
                 </h2>
-                <p className="mt-3 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-color-ink-600)]">
+                <p className="mt-3 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-color-ink-300)]">
                   {body}
                 </p>
                 <Link
                   href={href}
-                  className="mt-auto pt-6 text-[length:var(--wariba-font-size-label-md)] font-semibold text-[color:var(--wariba-color-cobalt-700)] hover:text-[color:var(--wariba-color-cobalt-900)]"
+                  className="mt-auto pt-6 text-[length:var(--wariba-font-size-label-md)] font-semibold text-[color:var(--wariba-color-cobalt-300)] hover:text-[color:var(--wariba-color-cobalt-200)]"
                 >
                   {label}
                 </Link>
               </article>
             ))}
           </div>
-          <p className="mt-8 max-w-3xl text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-color-ink-600)]">
+          <p className="mt-8 max-w-3xl text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-color-ink-300)]">
             Aucun délai de réponse public n’est affiché tant qu’un SLA opérationnel n’a pas été
             validé et mesuré. Ne partagez jamais de mot de passe, token, secret ou donnée de carte.
           </p>
