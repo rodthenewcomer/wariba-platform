@@ -12,7 +12,6 @@ import { ProofRail } from '../../components/marketing/ProofRail';
 import { PathwaysSection } from '../../components/marketing/PathwaysSection';
 import { WaribaPath } from '../../components/marketing/scenes/WaribaPath';
 import { HomeConfigurator } from '../../components/marketing/HomeConfigurator';
-import { PerformanceCore } from '../../components/marketing/scenes/PerformanceCore';
 import { DrawdownScene } from '../../components/marketing/scenes/DrawdownScene';
 import { WariXProductTeaser } from '../../components/marketing/WariXProductTeaser';
 import { PerformanceDays } from '../../components/marketing/scenes/PerformanceDays';
@@ -21,8 +20,9 @@ import { HowItWorksSection } from '../../components/marketing/how-it-works/HowIt
 import { Section07Intelligence } from '../../components/marketing/section07/Section07Intelligence';
 import { AfriqueFrancophoneSection } from '../../components/marketing/afrique-francophone/AfriqueFrancophoneSection';
 import { ContactPreviewSection } from '../../components/marketing/contact/ContactPreviewSection';
+import { FaqSection } from '../../components/marketing/faq/FaqSection';
 import { Reveal } from '../../components/motion/Reveal';
-import { formatNominal, formatRate, formatXof } from '../../components/commerce/offer-ui';
+import { formatNominal, formatRate } from '../../components/commerce/offer-ui';
 import { getDb } from '../../lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -410,62 +410,7 @@ export default async function HomePage() {
       </PublicSection>
 
       {/* ───────────────  16 · Questions fréquentes  ─────────────── */}
-      <PublicSection tone="band">
-        <div className="grid gap-10 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)]">
-          <Reveal>
-            <SectionHeader eyebrow="Questions fréquentes" title="Ce qu’on nous demande le plus." />
-            <div className="mt-8 hidden max-w-[260px] lg:block">
-              <PerformanceCore />
-            </div>
-            <Link href="/aide" className="wariba-cta-secondary mt-8">
-              Ouvrir le centre d’aide
-              <ArrowRightIcon size="sm" />
-            </Link>
-          </Reveal>
-
-          <Reveal delay={0.08}>
-            <div className="divide-y divide-[color:var(--wariba-seam)] border-y border-[color:var(--wariba-seam)]">
-              {[
-                {
-                  q: 'Quelle différence entre ONE, FLEX et INSTANT ?',
-                  a: `ONE et FLEX commencent par une évaluation, INSTANT non. Le moment du paiement change, et les limites aussi : la perte maximale est de ${formatRate(one.evaluationRules!.maximumLossRate)} sur ONE, ${formatRate(flex.evaluationRules!.maximumLossRate)} sur FLEX et ${formatRate(instant.performanceRules.maximumLossRate)} sur INSTANT.`,
-                },
-                {
-                  q: 'Est-ce du trading réel ou simulé ?',
-                  a: 'Entièrement simulé. Le montant affiché sur un compte est une unité de simulation : ce n’est ni un dépôt, ni un compte de courtage, ni de l’argent qui vous est confié.',
-                },
-                {
-                  q: 'Comment fonctionne FLEX ?',
-                  a: `Vous réglez un premier montant aujourd’hui — ${formatXof(flex.upfrontPrice)} en taille ${flex.sizeCode}. Le montant d’activation est figé à ce moment-là et n’est dû que si vous réussissez l’évaluation. Si vous échouez, il n’est jamais prélevé.`,
-                },
-                {
-                  q: 'Quand puis-je demander un versement ?',
-                  a: `Après ${one.performanceRules.performanceDaysRequired} Journées Performance sur votre compte Performance. Une journée compte à partir de ${formatRate(one.performanceRules.performanceDayThresholdRate)} de gain net.`,
-                },
-                {
-                  q: 'Où est-ce que je trade ?',
-                  a: 'Sur WariX, le poste de travail WARIBA, sur ordinateur comme sur téléphone. Aucun logiciel à installer.',
-                },
-              ].map((item) => (
-                <details key={item.q} className="group py-5">
-                  <summary className="wariba-focus-ring flex cursor-pointer list-none items-center justify-between gap-4 rounded-md text-base font-semibold text-[color:var(--wariba-on-dark)] marker:content-none">
-                    {item.q}
-                    <span
-                      aria-hidden="true"
-                      className="shrink-0 text-[color:var(--wariba-brand-300)] transition-transform duration-[var(--wariba-motion-state)] group-open:rotate-45"
-                    >
-                      +
-                    </span>
-                  </summary>
-                  <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[color:var(--wariba-on-dark-dim)]">
-                    {item.a}
-                  </p>
-                </details>
-              ))}
-            </div>
-          </Reveal>
-        </div>
-      </PublicSection>
+      <FaqSection />
 
       {/* ───────────────  17 · Clôture  ─────────────── */}
       <PublicSection space="tight">
