@@ -77,12 +77,11 @@ export function ClosingSection() {
           ))}
         </Reveal>
 
-        <Reveal delay={0.32} className="closing-convergence mt-8 lg:mt-10">
+        <Reveal delay={0.32} className="closing-convergence mt-7 lg:mt-8">
           <span className="closing-convergence-line" aria-hidden="true" />
-          <span className="closing-convergence-label">Choisissez votre parcours</span>
         </Reveal>
 
-        <Reveal delay={0.4} className="mt-8 flex flex-col items-center gap-4">
+        <Reveal delay={0.4} className="mt-7 flex flex-col items-center gap-4">
           <Link href="/offres" className="closing-cta wariba-cta-primary">
             <span className="closing-cta-frame" aria-hidden="true" />
             Comparer ONE, FLEX et INSTANT
@@ -94,7 +93,7 @@ export function ClosingSection() {
             Consulter les règles
             <ArrowRightIcon size="sm" />
           </Link>
-          <p className="mt-1 text-xs text-[color:var(--wariba-on-dark-dim)]">
+          <p className="mt-1 text-sm text-[color:var(--wariba-on-dark-muted)]">
             Compte simulé · Règles visibles avant de commencer
           </p>
         </Reveal>
