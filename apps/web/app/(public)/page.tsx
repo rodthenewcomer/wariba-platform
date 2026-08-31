@@ -12,6 +12,7 @@ import { Section07Intelligence } from '../../components/marketing/section07/Sect
 import { AfriqueFrancophoneSection } from '../../components/marketing/afrique-francophone/AfriqueFrancophoneSection';
 import { ContactPreviewSection } from '../../components/marketing/contact/ContactPreviewSection';
 import { FaqSection } from '../../components/marketing/faq/FaqSection';
+import { ClosingSection } from '../../components/marketing/closing/ClosingSection';
 import { Reveal } from '../../components/motion/Reveal';
 import { getDb } from '../../lib/db';
 
@@ -225,30 +226,7 @@ export default async function HomePage() {
       <FaqSection />
 
       {/* ───────────────  12 · Clôture  ─────────────── */}
-      <PublicSection space="tight">
-        <Reveal>
-          <div className="wariba-strong-surface text-center" data-tone="deep">
-            <div className="relative z-[1] mx-auto max-w-2xl">
-              <h2 className="text-3xl font-semibold tracking-[-0.04em] text-[color:var(--wariba-on-dark)] sm:text-5xl">
-                Choisissez comment vous voulez commencer.
-              </h2>
-              <p className="wariba-lead mx-auto mt-5">
-                Comparez ONE, FLEX et INSTANT, et lisez les règles avant de vous lancer.
-              </p>
-              <div className="mt-9 flex flex-wrap justify-center gap-3">
-                <Link href="/offres" className="wariba-cta-primary">
-                  Comparer les parcours
-                  <ArrowRightIcon size="sm" />
-                </Link>
-                <Link href="/programme" className="wariba-cta-secondary">
-                  Comment ça marche
-                </Link>
-              </div>
-            </div>
-          </div>
-        </Reveal>
-      </PublicSection>
-
+      <ClosingSection />
     </>
   );
 }

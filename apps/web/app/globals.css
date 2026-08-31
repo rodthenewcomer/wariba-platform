@@ -3868,6 +3868,279 @@
   }
 }
 
+/*
+ * Section 12 — Clôture.
+ *
+ * The three passports split "static pose" from "entrance motion" across two
+ * nested elements on purpose: `.closing-passport-slot` holds the tilt/lift
+ * that makes FLEX read as foreground and ONE/INSTANT as behind it, as a
+ * plain (non-animated) transform; `.closing-passport` inside it only ever
+ * animates a uniform opacity+translateY slide-in. Baking the tilt into the
+ * *keyframe's* resting state instead — as an earlier FAQ visual pass did
+ * for absolutely-centered elements — would have made the mobile
+ * flattening below fight the held animation end-state instead of just
+ * overriding a static rule.
+ */
+.closing-glow {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(
+      52rem 26rem at 50% 100%,
+      color-mix(in srgb, var(--wariba-brand-700) 30%, transparent),
+      transparent 68%
+    ),
+    radial-gradient(
+      36rem 20rem at 15% 0%,
+      color-mix(in srgb, var(--wariba-brand-700) 14%, transparent),
+      transparent 62%
+    );
+}
+
+.closing-passports {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.closing-passport-slot {
+  position: relative;
+  width: 128px;
+  transition: transform var(--wariba-motion-state) var(--wariba-motion-ease-standard);
+}
+
+.closing-passport-slot:not(:first-child) {
+  margin-left: -0.5rem;
+}
+
+.closing-passport-slot[data-position='left'] {
+  z-index: 1;
+  transform: translateY(6px) rotate(-2.5deg);
+}
+
+.closing-passport-slot[data-position='center'] {
+  z-index: 3;
+  transform: translateY(-10px) scale(1.06);
+}
+
+.closing-passport-slot[data-position='right'] {
+  z-index: 2;
+  transform: translateY(6px) rotate(2.5deg);
+}
+
+.closing-passport-slot[data-position='left']:hover {
+  transform: translateY(2px) rotate(-2.5deg);
+}
+
+.closing-passport-slot[data-position='center']:hover {
+  transform: translateY(-14px) scale(1.06);
+}
+
+.closing-passport-slot[data-position='right']:hover {
+  transform: translateY(2px) rotate(2.5deg);
+}
+
+.closing-passport {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--wariba-radius-xl);
+  border: 1px solid color-mix(in srgb, var(--closing-accent) 35%, var(--wariba-seam-strong));
+  background: color-mix(in srgb, var(--closing-accent) 9%, var(--wariba-canvas-deep));
+  padding: 0.9rem 0.75rem 1rem;
+  opacity: 0;
+  animation: closing-passport-in 520ms var(--wariba-motion-ease-enter) var(--closing-delay, 0ms) both;
+  transition: box-shadow var(--wariba-motion-state) var(--wariba-motion-ease-standard);
+}
+
+.closing-passport-slot:hover .closing-passport {
+  box-shadow: 0 12px 28px -14px var(--closing-accent);
+}
+
+@keyframes closing-passport-in {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.closing-passport-brand {
+  margin: 0;
+  font-family: var(--wariba-font-mono);
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--wariba-on-dark-dim);
+}
+
+.closing-passport-title {
+  margin: 0.5rem 0 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--wariba-on-dark);
+}
+
+.closing-passport-line {
+  margin: 0.35rem 0 0;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--wariba-on-dark-muted);
+}
+
+.closing-passport-subline {
+  margin: 0.1rem 0 0;
+  font-size: 0.62rem;
+  color: var(--wariba-on-dark-dim);
+}
+
+.closing-passport-edge {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--closing-accent), transparent);
+}
+
+.closing-convergence {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  opacity: 0;
+  animation: closing-body-in 380ms var(--wariba-motion-ease-enter) both;
+}
+
+@keyframes closing-body-in {
+  to {
+    opacity: 1;
+  }
+}
+
+.closing-convergence-line {
+  width: 9rem;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    var(--wariba-brand-400),
+    #b9b2ff,
+    var(--wariba-accent-cyan)
+  );
+  transform: scaleX(0);
+  transform-origin: center;
+  animation: closing-line-draw 560ms var(--wariba-motion-ease-standard) 120ms both;
+}
+
+@keyframes closing-line-draw {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.closing-convergence-label {
+  font-family: var(--wariba-font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--wariba-on-dark-dim);
+}
+
+.closing-cta {
+  position: relative;
+}
+
+.closing-cta-arrow {
+  transition: transform var(--wariba-motion-micro) var(--wariba-motion-ease-standard);
+}
+
+.closing-cta:hover .closing-cta-arrow,
+.closing-cta:focus-visible .closing-cta-arrow {
+  transform: translateX(4px);
+}
+
+.closing-cta-frame {
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.closing-cta-frame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  /* Same technique and the same shared `--how-it-works-angle` property as
+     `.s09-cta-frame::before` / `.s10-cta-frame::before` — see either for
+     why sharing that property across sections is safe. */
+  background: conic-gradient(
+    from var(--how-it-works-angle, 0deg),
+    transparent 0%,
+    color-mix(in srgb, #fff 90%, transparent) 10%,
+    transparent 28%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.9;
+  animation: how-it-works-trace 2.2s ease-out 1 1.1s both;
+}
+
+.closing-cta:hover .closing-cta-frame::before,
+.closing-cta:focus-visible .closing-cta-frame::before {
+  animation: how-it-works-trace 1.6s ease-out 1;
+}
+
+@media (max-width: 479px) {
+  .closing-passport-slot {
+    width: 102px;
+  }
+
+  .closing-passport-slot:not(:first-child) {
+    margin-left: -0.4rem;
+  }
+
+  .closing-passport-slot[data-position='left'],
+  .closing-passport-slot[data-position='left']:hover {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  .closing-passport-slot[data-position='center'],
+  .closing-passport-slot[data-position='center']:hover {
+    transform: translateY(-6px) scale(1.02);
+  }
+
+  .closing-passport-slot[data-position='right'],
+  .closing-passport-slot[data-position='right']:hover {
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .closing-passport,
+  .closing-convergence,
+  .closing-convergence-line,
+  .closing-cta-frame::before {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .closing-passport-slot {
+    transition: none;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
