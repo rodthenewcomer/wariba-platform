@@ -20,6 +20,7 @@ import { RiskField } from '../../components/marketing/RiskField';
 import { HowItWorksSection } from '../../components/marketing/how-it-works/HowItWorksSection';
 import { Section07Intelligence } from '../../components/marketing/section07/Section07Intelligence';
 import { AfriqueFrancophoneSection } from '../../components/marketing/afrique-francophone/AfriqueFrancophoneSection';
+import { ContactPreviewSection } from '../../components/marketing/contact/ContactPreviewSection';
 import { Reveal } from '../../components/motion/Reveal';
 import { formatNominal, formatRate, formatXof } from '../../components/commerce/offer-ui';
 import { getDb } from '../../lib/db';
@@ -31,13 +32,13 @@ export const dynamic = 'force-dynamic';
  *
  * ## The rhythm
  *
- * Sixteen sections and no two consecutive ones share a composition. Product
+ * Seventeen sections and no two consecutive ones share a composition. Product
  * hero → three full scenes → configurator → a saturated colour field →
  * four-step scenes → a data visualisation → huge numbers → a dark product
- * surface → a living dashboard → a regional map → a ladder → a proof grid →
- * photography → FAQ → closing scene. The variation is the point: a page that
- * alternates `text-left / card-right` nine times reads as a template no
- * matter how good each block is.
+ * surface → a living dashboard → a regional map → a contact preview → a
+ * ladder → a proof grid → photography → FAQ → closing scene. The variation
+ * is the point: a page that alternates `text-left / card-right` nine times
+ * reads as a template no matter how good each block is.
  *
  * ## Every figure comes from the server
  *
@@ -225,7 +226,10 @@ export default async function HomePage() {
       {/* ───────────────  9 · Afrique francophone  ─────────────── */}
       <AfriqueFrancophoneSection />
 
-      {/* ───────────────  10 · La perte maximale, expliquée par le visuel  ─────────────── */}
+      {/* ───────────────  10 · Contact, en aperçu  ─────────────── */}
+      <ContactPreviewSection />
+
+      {/* ───────────────  11 · La perte maximale, expliquée par le visuel  ─────────────── */}
       <PublicSection tone="deep">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-center">
           <Reveal>
@@ -257,7 +261,7 @@ export default async function HomePage() {
         </div>
       </PublicSection>
 
-      {/* ───────────────  11 · Les chiffres, en objets  ─────────────── */}
+      {/* ───────────────  12 · Les chiffres, en objets  ─────────────── */}
       <PublicSection tone="band" space="tight">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
           <Reveal>
@@ -316,7 +320,7 @@ export default async function HomePage() {
         </p>
       </PublicSection>
 
-      {/* ───────────────  12 · Le tableau de bord vivant  ─────────────── */}
+      {/* ───────────────  13 · Le tableau de bord vivant  ─────────────── */}
       <PublicSection tone="band">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center">
           <Reveal>
@@ -336,7 +340,7 @@ export default async function HomePage() {
         </div>
       </PublicSection>
 
-      {/* ───────────────  13 · L'échelle de partage  ─────────────── */}
+      {/* ───────────────  14 · L'échelle de partage  ─────────────── */}
       <PublicSection>
         <div className="grid gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-center">
           <Reveal>
@@ -361,7 +365,7 @@ export default async function HomePage() {
         </div>
       </PublicSection>
 
-      {/* ───────────────  14 · Ce que WARIBA garantit vraiment  ─────────────── */}
+      {/* ───────────────  15 · Ce que WARIBA garantit vraiment  ─────────────── */}
       <PublicSection tone="deep" space="tight">
         <Reveal>
           <SectionHeader
@@ -405,7 +409,7 @@ export default async function HomePage() {
         </div>
       </PublicSection>
 
-      {/* ───────────────  15 · Questions fréquentes  ─────────────── */}
+      {/* ───────────────  16 · Questions fréquentes  ─────────────── */}
       <PublicSection tone="band">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)]">
           <Reveal>
@@ -463,7 +467,7 @@ export default async function HomePage() {
         </div>
       </PublicSection>
 
-      {/* ───────────────  16 · Clôture  ─────────────── */}
+      {/* ───────────────  17 · Clôture  ─────────────── */}
       <PublicSection space="tight">
         <Reveal>
           <div className="wariba-strong-surface text-center" data-tone="deep">

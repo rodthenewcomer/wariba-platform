@@ -2496,6 +2496,177 @@
   }
 }
 
+/*
+ * Section 10 — Contact preview.
+ *
+ * A deliberately small motion budget: three cards arrive with `Reveal`
+ * (already staggered per-card via its `delay` prop, no new keyframes
+ * needed), the CTA reuses `.s09-cta-frame`'s technique under its own class
+ * so this section never depends on Section 09's markup, and the hub panel's
+ * three rows draw a single connecting line each on load — never a repeating
+ * loop, because this is a trust section, not a product demo.
+ */
+.s10-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.s10-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--wariba-radius-lg);
+  color: var(--wariba-brand-300);
+  background: color-mix(in srgb, var(--wariba-brand-500) 16%, transparent);
+}
+
+.s10-cta {
+  position: relative;
+}
+
+.s10-cta-arrow {
+  transition: transform var(--wariba-motion-micro) var(--wariba-motion-ease-standard);
+}
+
+.s10-cta:hover .s10-cta-arrow,
+.s10-cta:focus-visible .s10-cta-arrow {
+  transform: translateX(4px);
+}
+
+.s10-cta-frame {
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.s10-cta-frame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  /* Same technique and the same shared `--how-it-works-angle` property as
+     `.s09-cta-frame::before` — see that rule for why sharing it is safe. */
+  background: conic-gradient(
+    from var(--how-it-works-angle, 0deg),
+    transparent 0%,
+    color-mix(in srgb, var(--wariba-brand-400) 90%, transparent) 10%,
+    transparent 28%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.9;
+  animation: how-it-works-trace 2.4s ease-out 1 var(--s10-cta-trace-delay, 1.5s) both;
+}
+
+.s10-cta:hover .s10-cta-frame::before,
+.s10-cta:focus-visible .s10-cta-frame::before {
+  animation: how-it-works-trace 1.6s ease-out 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s10-cta-frame::before {
+    animation: none;
+  }
+}
+
+/* The right-side "contact hub" panel — a routing diagram, not a mock inbox. */
+.s10-hub {
+  height: 100%;
+}
+
+.s10-hub-caption {
+  font-family: var(--wariba-font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wariba-on-dark-dim);
+}
+
+.s10-hub-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--wariba-seam);
+}
+
+.s10-hub-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.s10-hub-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--wariba-color-cobalt-300);
+}
+
+.s10-hub-example {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.85rem;
+  color: var(--wariba-on-dark-muted);
+}
+
+.s10-hub-line {
+  flex: none;
+  width: 2.5rem;
+  height: 1px;
+  background: var(--wariba-brand-400);
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: s10-line-draw 500ms var(--wariba-motion-ease-standard) var(--s10-row-delay, 0ms) both;
+}
+
+@keyframes s10-line-draw {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s10-hub-line {
+    animation: none;
+    transform: scaleX(1);
+  }
+}
+
+.s10-hub-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--wariba-seam);
+  font-family: var(--wariba-font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--wariba-on-dark);
+}
+
+.s10-hub-badge-mark {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--wariba-brand-400);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--wariba-brand-400) 22%, transparent);
+}
+
 * {
   box-sizing: border-box;
 }
