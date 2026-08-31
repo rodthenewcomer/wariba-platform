@@ -38,6 +38,7 @@ const COLLAPSE_STORAGE_KEY = 'wariba.hub.sidebar.collapsed';
 
 export function HubShell({ children, identity }: { children: ReactNode; identity: HubIdentity }) {
   const pathname = usePathname();
+  const isTransactionRoute = pathname.startsWith('/checkout') || pathname.startsWith('/bienvenue');
   const reduced = useReducedMotion();
   const [collapsed, setCollapsed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -57,6 +58,19 @@ export function HubShell({ children, identity }: { children: ReactNode; identity
     }
     setHydrated(true);
   }, []);
+
+  if (isTransactionRoute) {
+    return (
+      <div
+        data-wariba-section="transaction"
+        data-wariba-theme="commerce"
+        data-theme="light"
+        className="min-h-dvh bg-[color:var(--wariba-color-bone-50)] text-[color:var(--wariba-color-ink-950)]"
+      >
+        {children}
+      </div>
+    );
+  }
 
   const toggle = () => {
     setCollapsed((current) => {

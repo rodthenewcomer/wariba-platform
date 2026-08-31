@@ -15,6 +15,7 @@ import { lockAccount, loadSymbolSpec } from './accounts';
 import type { Db } from './client';
 import { loadPolicyById } from './policy';
 import { findExposureIncreaseRejection } from './exposure-gate';
+import { evaluateV2PreTradeDecisionInTransaction } from './v2-pre-trade';
 import type { PendingOrderStatus, TradableSymbol } from './schema';
 import {
   openPositionInTransaction,
@@ -129,6 +130,7 @@ export interface CreatePendingOrderParams {
   stopLoss?: string;
   takeProfit?: string;
   market: MarketSnapshot;
+  marketBySymbol?: Partial<Record<TradableSymbol, MarketSnapshot>>;
   now: Date;
 }
 
@@ -192,6 +194,7 @@ export async function createPendingOrder(
     }
 
     const policy = await loadPolicyById(trx, account.policy_version_id);
+    const side = pendingOrderSide(params.orderType);
     const eligibilityPolicy = resolveProfitEligibilityPolicy(policy.parameters);
     if (eligibilityPolicy.enabled) {
       const shortDurationCount = await countShortDurationProfitClosures(
@@ -261,7 +264,19 @@ export async function createPendingOrder(
       return reject(REJECTION.EXPOSURE_LIMIT_EXCEEDED);
     }
 
-    const side = pendingOrderSide(params.orderType);
+    const preTrade = await evaluateV2PreTradeDecisionInTransaction(trx, {
+      account,
+      policy,
+      intent: 'open',
+      symbol: params.symbol,
+      quantity: params.quantity,
+      market: params.market,
+      ...(params.marketBySymbol ? { marketBySymbol: params.marketBySymbol } : {}),
+      side,
+      now: params.now,
+    });
+    if (preTrade.applicable && !preTrade.allowed) return reject(preTrade.reasonCode);
+
     const inserted = await trx
       .insertInto('app.pending_orders')
       .values({
@@ -293,6 +308,7 @@ export interface ModifyPendingOrderParams {
   stopLoss?: string | null;
   takeProfit?: string | null;
   market: MarketSnapshot;
+  marketBySymbol?: Partial<Record<TradableSymbol, MarketSnapshot>>;
   now: Date;
 }
 
@@ -340,6 +356,22 @@ export async function modifyPendingOrder(
     ) {
       const exposureRejection = await findExposureIncreaseRejection(trx, account.id);
       if (exposureRejection) return reject(exposureRejection);
+      if (!(await isWithinAggregateExposureLimit(trx, account, existing.symbol, nextQuantity))) {
+        return reject(REJECTION.EXPOSURE_LIMIT_EXCEEDED);
+      }
+      const policy = await loadPolicyById(trx, account.policy_version_id);
+      const preTrade = await evaluateV2PreTradeDecisionInTransaction(trx, {
+        account,
+        policy,
+        intent: 'increase',
+        symbol: existing.symbol,
+        quantity: nextQuantity,
+        market: params.market,
+        ...(params.marketBySymbol ? { marketBySymbol: params.marketBySymbol } : {}),
+        side: existing.side,
+        now: params.now,
+      });
+      if (preTrade.applicable && !preTrade.allowed) return reject(preTrade.reasonCode);
     }
 
     if (params.triggerPrice !== undefined) {

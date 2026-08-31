@@ -171,8 +171,14 @@ export async function deleteFixtureAccount(db: Db, fixture: E2eFixtureAccount): 
     for (const position of positions) {
       await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', position.id).execute();
     }
-    await db.deleteFrom('app.outbox_events').where('aggregate_id', '=', fixture.accountId).execute();
-    await db.deleteFrom('app.risk_violations').where('account_id', '=', fixture.accountId).execute();
+    await db
+      .deleteFrom('app.outbox_events')
+      .where('aggregate_id', '=', fixture.accountId)
+      .execute();
+    await db
+      .deleteFrom('app.risk_violations')
+      .where('account_id', '=', fixture.accountId)
+      .execute();
     await db
       .deleteFrom('app.account_daily_snapshots')
       .where('account_id', '=', fixture.accountId)

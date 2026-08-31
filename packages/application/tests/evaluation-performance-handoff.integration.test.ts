@@ -313,6 +313,8 @@ describeIfDb('Phase 3.3.1 Evaluation → Performance handoff', () => {
           .insertInto('app.policy_versions')
           .values({
             program: 'WARIBA_PERFORMANCE',
+            product_family: attached.product_family,
+            account_phase: attached.account_phase,
             semantic_version: `test-${Date.now()}`,
             status: 'published',
             parameters_json: attached.parameters_json,
@@ -320,6 +322,11 @@ describeIfDb('Phase 3.3.1 Evaluation → Performance handoff', () => {
             machine_hash: attached.machine_hash,
             effective_from: new Date(),
             retired_at: null,
+            published_at: new Date(),
+            decision_record_id: 'TEST-PHASE-3-4-2',
+            news_calendar_version_id: attached.news_calendar_version_id,
+            session_calendar_version_id: attached.session_calendar_version_id,
+            margin_profile_id: attached.margin_profile_id,
           })
           .execute();
         const stillPinned = await buildEvaluationToPerformanceHandoff(trx, {

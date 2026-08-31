@@ -30,6 +30,11 @@ const webEnvSchema = baseEnvironmentSchema.extend({
 
 export type WebConfig = z.infer<typeof webEnvSchema>;
 
+/** Explicit local test capability. It never alters persisted public gates. */
+export function isLocalSandboxCommerce(config: WebConfig): boolean {
+  return config.APP_ENV === 'local' && config.PAYMENT_PROVIDER === 'sandbox';
+}
+
 let cached: WebConfig | undefined;
 
 /**

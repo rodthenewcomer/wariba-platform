@@ -24,6 +24,7 @@ export {
 export {
   productCodeSchema,
   checkoutInputSchema,
+  canonicalOfferIdSchema,
   sandboxWebhookEventSchema,
   type ProductCode,
   type CheckoutInput,

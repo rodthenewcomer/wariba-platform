@@ -8,7 +8,7 @@ import { sandboxWebhookEventSchema } from '@wariba/validation';
 import { SandboxPaymentProvider } from '@wariba/adapters';
 import { processPaymentWebhookEvent } from '@wariba/application';
 import { getDb } from '../../../../../../lib/db';
-import { loadWebConfig } from '../../../../../../lib/config';
+import { isLocalSandboxCommerce, loadWebConfig } from '../../../../../../lib/config';
 
 const logger = createLogger({ service: 'web', module: 'webhooks.payments.sandbox' });
 
@@ -70,6 +70,7 @@ export async function POST(request: Request) {
     currency: event.currency,
     payload: parsedBody,
     signatureValid,
+    enforceCapabilityReadiness: !isLocalSandboxCommerce(config),
   });
 
   switch (result.kind) {

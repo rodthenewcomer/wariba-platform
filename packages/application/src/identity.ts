@@ -24,33 +24,42 @@ export async function createUserProfile(db: Db, params: CreateUserProfileParams)
 export interface AcceptSandboxDisclosureParams {
   userId: string;
   locale: string;
+  /** Exact server-resolved V2 policy. Omitted only for the historical V1 flow. */
+  policyVersionId?: string;
   correlationId?: string;
   now?: () => Date;
 }
 
 export interface AcceptedSandboxDisclosure {
+  policyVersionId: string;
   policyVersion: string;
   alreadyExisted: boolean;
 }
 
 /**
- * Records the current published WARIBA ONE simulated-account disclosure.
- * The server resolves the policy version; the browser cannot consent to an
- * invented or retired version. The unique index makes concurrent retries a
- * no-op while the audit row records only the first acceptance.
+ * Records a simulated-account disclosure against the exact policy shown at
+ * checkout. The caller resolves the policy from the canonical offer or FLEX
+ * obligation; a browser-supplied UUID is never trusted as that resolution.
  */
 export async function acceptSandboxDisclosure(
   db: Db,
   params: AcceptSandboxDisclosureParams,
 ): Promise<AcceptedSandboxDisclosure> {
   return db.transaction().execute(async (trx) => {
-    const policy = await trx
+    let policyQuery = trx
       .selectFrom('app.policy_versions')
-      .select('semantic_version')
-      .where('program', '=', 'WARIBA_ONE')
-      .where('status', '=', 'published')
-      .orderBy('effective_from', 'desc')
-      .executeTakeFirstOrThrow(() => new Error('No published WARIBA_ONE policy version.'));
+      .select(['id', 'semantic_version', 'machine_hash', 'human_document_hash']);
+    if (params.policyVersionId) {
+      policyQuery = policyQuery.where('id', '=', params.policyVersionId);
+    } else {
+      policyQuery = policyQuery
+        .where('program', '=', 'WARIBA_ONE')
+        .where('status', '=', 'published')
+        .orderBy('created_at', 'desc');
+    }
+    const policy = await policyQuery.executeTakeFirstOrThrow(
+      () => new Error('No eligible simulated-account policy version.'),
+    );
     const timestamp = params.now?.() ?? new Date();
     const inserted = await trx
       .insertInto('app.user_consents')
@@ -58,12 +67,17 @@ export async function acceptSandboxDisclosure(
         user_id: params.userId,
         consent_type: 'simulated_account_disclosure',
         policy_version_id: policy.semantic_version,
+        attached_policy_version_id: policy.id,
+        policy_machine_hash: policy.machine_hash,
+        policy_human_document_hash: policy.human_document_hash,
+        acceptance_source: 'checkout',
         locale: params.locale,
         accepted_at: timestamp,
       })
-      .onConflict((oc) =>
-        oc.columns(['user_id', 'consent_type', 'policy_version_id', 'locale']).doNothing(),
-      )
+      // Both the historical semantic-version key and the exact policy-UUID
+      // key protect this row during V1/V2 coexistence. A targetless conflict
+      // handler lets either immutable identity arbitrate concurrent retries.
+      .onConflict((oc) => oc.doNothing())
       .returning('id')
       .executeTakeFirst();
 
@@ -82,6 +96,8 @@ export async function acceptSandboxDisclosure(
           after_json: JSON.stringify({
             consentType: 'simulated_account_disclosure',
             policyVersion: policy.semantic_version,
+            policyVersionId: policy.id,
+            policyMachineHash: policy.machine_hash,
             locale: params.locale,
           }),
           reason: 'checkout',
@@ -93,6 +109,10 @@ export async function acceptSandboxDisclosure(
         .execute();
     }
 
-    return { policyVersion: policy.semantic_version, alreadyExisted: !inserted };
+    return {
+      policyVersionId: policy.id,
+      policyVersion: policy.semantic_version,
+      alreadyExisted: !inserted,
+    };
   });
 }

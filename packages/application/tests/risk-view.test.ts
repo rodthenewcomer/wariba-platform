@@ -27,6 +27,8 @@ const policyParameters: EvaluationOnePolicyParameters = {
 const policy: LoadedPolicy = {
   id: 'policy-1',
   program: 'WARIBA_ONE',
+  productFamily: 'WARIBA_ONE',
+  accountPhase: 'evaluation',
   semanticVersion: '1.1.1',
   parameters: policyParameters,
   machineHash: 'hash',
@@ -39,6 +41,8 @@ function buildInputs(dailyLoss: RiskEngineResult['dailyLoss']): AccountRiskEngin
     currentEquity: '9880.00',
     programEligibleBalance: '9880.00',
     programEligibleEquity: '9880.00',
+    riskAdjustedBalance: '9880.00',
+    riskAdjustedEquity: '9880.00',
     realizedNetProfit: '0.00',
     dailyLoss,
     maximumLoss: { floor: '9200.00', remaining: '680.00', breached: false },

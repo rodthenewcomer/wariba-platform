@@ -9,11 +9,19 @@ import {
   isPayoutBufferReached,
   isPerformanceDayQualified,
 } from '@wariba/domain';
-import type { LoadedPolicy, PerformancePolicyParameters } from '@wariba/policies';
+import {
+  resolveRuleDailyProfit,
+  type LoadedPolicy,
+  type PerformancePolicyParameters,
+} from '@wariba/policies';
 import { loadLatestSandboxSymbolSpecSet } from './activation';
 import type { Db } from './client';
 import { loadAccountBalanceProjection } from './program-eligibility';
-import { loadPolicyById, loadPublishedPolicy } from './policy';
+import {
+  assertPolicyActivationReady,
+  loadCompatiblePerformancePolicy,
+  loadPolicyById,
+} from './policy';
 
 export interface ActivatePerformanceAccountParams {
   evaluationAccountId: string;
@@ -52,7 +60,16 @@ export async function activatePerformanceAccountInTransaction(
   // cannot be turned into Performance by calling this helper directly.
   const evaluation = await trx
     .selectFrom('app.trading_accounts')
-    .select(['id', 'user_id', 'program_type', 'status', 'nominal_balance', 'currency'])
+    .select([
+      'id',
+      'user_id',
+      'program_type',
+      'product_family',
+      'status',
+      'nominal_balance',
+      'currency',
+      'policy_version_id',
+    ])
     .where('id', '=', params.evaluationAccountId)
     .forUpdate()
     .executeTakeFirstOrThrow(
@@ -77,7 +94,11 @@ export async function activatePerformanceAccountInTransaction(
     };
   }
 
-  const policyVersion = await loadPublishedPolicy(trx, 'WARIBA_PERFORMANCE');
+  const policyVersion = await loadCompatiblePerformancePolicy(trx, evaluation.policy_version_id);
+  if (policyVersion.productFamily !== evaluation.product_family) {
+    throw new Error('Compatible Performance policy does not match the source product family.');
+  }
+  await assertPolicyActivationReady(trx, policyVersion.id);
   const symbolSpecSet = await loadLatestSandboxSymbolSpecSet(trx);
 
   await trx
@@ -105,6 +126,7 @@ export async function activatePerformanceAccountInTransaction(
       source_purchase_order_id: null,
       source_evaluation_account_id: params.evaluationAccountId,
       program_type: 'WARIBA_PERFORMANCE',
+      product_family: evaluation.product_family,
       nominal_balance: evaluation.nominal_balance,
       currency: evaluation.currency,
       status: 'active',
@@ -284,7 +306,12 @@ async function loadCycleDailySnapshots(
 ) {
   let query = trx
     .selectFrom('app.account_daily_snapshots')
-    .select(['trading_day', 'eligible_realized_net_profit_for_day', 'realized_net_profit_for_day'])
+    .select([
+      'trading_day',
+      'eligible_realized_net_profit_for_day',
+      'realized_net_profit_for_day',
+      'risk_adjusted_realized_net_profit_for_day',
+    ])
     .where('account_id', '=', accountId)
     .where('status', '=', 'finalized')
     .where('trading_day', '>=', tradingDayOf(cycle.openedAt));
@@ -349,10 +376,26 @@ export async function evaluateCycleProgress(trx: Db, accountId: string): Promise
   });
 
   const cycleDays = await loadCycleDailySnapshots(trx, accountId, cycle);
+  // Phase 3.4.3 §17/§37 — the same day-profit resolution the Evaluation
+  // risk engine uses, so Performance Days, Best Day and the Evaluation
+  // Best Day can never disagree about what a given day earned. Under a V2
+  // policy the payout-neutral figure wins: the authorized debit that ends
+  // a cycle must not retroactively turn its last trading day negative.
+  const payoutDebitRiskNeutral =
+    (policy as { payout_debit_risk_neutral?: boolean }).payout_debit_risk_neutral === true;
   const eligibleProfitForDay = (day: {
     eligible_realized_net_profit_for_day: string | null;
     realized_net_profit_for_day: string | null;
-  }): string => day.eligible_realized_net_profit_for_day ?? day.realized_net_profit_for_day ?? '0';
+    risk_adjusted_realized_net_profit_for_day: string | null;
+  }): string =>
+    resolveRuleDailyProfit(
+      {
+        realizedNetProfitForDay: day.realized_net_profit_for_day,
+        eligibleRealizedNetProfitForDay: day.eligible_realized_net_profit_for_day,
+        riskAdjustedRealizedNetProfitForDay: day.risk_adjusted_realized_net_profit_for_day,
+      },
+      payoutDebitRiskNeutral,
+    ) ?? '0';
 
   const qualifyingDays = cycleDays.filter((day) =>
     isPerformanceDayQualified({

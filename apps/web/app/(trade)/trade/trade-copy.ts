@@ -1,3 +1,4 @@
+import { resolveReasonCodeCopy } from '@wariba/application/presentation';
 import type { OrderRejectionDetail } from './execution/execution-contract';
 
 /**
@@ -92,11 +93,45 @@ export const UNKNOWN_REJECTION_DETAIL = {
   action: 'Réessayez, ou contactez le support si le problème persiste.',
 };
 
+/**
+ * Phase 3.4.4 §15/§68 — the table above, then the canonical registry, then
+ * the generic sentence.
+ *
+ * The V2 pre-trade gate writes its own reason code straight onto the order
+ * (`packages/database/src/trading.ts` returns `v2Decision.reasonCode`), so
+ * `GROSS_EXPOSURE_EXCEEDED` and `MARGIN_CAP_EXCEEDED` reach this function as
+ * codes this file has never had a row for. Before the fallback existed they
+ * resolved to "Cet ordre a été refusé." with no reason and no remedy — a
+ * trader told only that something went wrong, on the two refusals V2 makes
+ * most often.
+ *
+ * The registry is consulted rather than copied. Adding a row here for each
+ * code would work exactly once, and drift the moment the canonical wording
+ * changed; `packages/application/src/reason-code-copy.ts` has a test that
+ * fails when a code has no words, which a second table here would not.
+ *
+ * The local table still wins where it exists: those entries are the
+ * execution-specific codes (`invalid_quantity`, `stale_market_data`) whose
+ * copy is about this ticket, not about the account's policy.
+ */
 export function rejectionDetailFor(code: string | null | undefined): {
   reason: string;
   action: string;
 } {
-  return REJECTION_DETAIL[code ?? ''] ?? UNKNOWN_REJECTION_DETAIL;
+  const local = REJECTION_DETAIL[code ?? ''];
+  if (local) return local;
+
+  const canonical = code ? resolveReasonCodeCopy(code) : null;
+  if (canonical) {
+    return {
+      reason: canonical.body,
+      // Every refusal in the registry carries a remedy; the fallback covers
+      // the pause/pending severities, which can legitimately have none.
+      action: canonical.remedy ?? UNKNOWN_REJECTION_DETAIL.action,
+    };
+  }
+
+  return UNKNOWN_REJECTION_DETAIL;
 }
 
 /** The ticket/dialog-facing shape: the code plus its resolved copy. */

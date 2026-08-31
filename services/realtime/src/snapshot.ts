@@ -4,8 +4,12 @@ import {
   computeRealizedPnl,
   computeConcentration,
   computeDailyLossRemaining,
+  computeCanonicalNotionalExposure,
+  evaluateGrossExposure,
+  evaluateMarginExposure,
   evaluateShortDurationMonitoring,
   resolveTraderSplitRate,
+  type MarginExposureLine,
 } from '@wariba/domain';
 import {
   loadPolicyById,
@@ -18,6 +22,8 @@ import {
   loadActivePendingOrdersForAccount,
   evaluateCycleProgress,
   loadPayoutRequestsForAccount,
+  loadV2PolicyRuntimeContext,
+  assetGroupForAssetClass,
   asPerformancePolicy,
   type Db,
   type TradableSymbol,
@@ -27,6 +33,8 @@ import type {
   AccountRisk,
   AccountSnapshot,
   ConcentrationBucket,
+  GrossExposureUsage,
+  MarginUsage,
   PositionDTO,
   PerformanceProgressDTO,
   PayoutRequestDTO,
@@ -63,6 +71,7 @@ export async function buildAccountSnapshot(
       'version',
       'status',
       'nominal_balance',
+      'currency',
       'policy_version_id',
       'symbol_spec_set_id',
       'program_type',
@@ -180,6 +189,8 @@ export async function buildAccountSnapshot(
     live.programEligibleBalance,
     live.equity,
     live.openPositionRows,
+    market,
+    symbolSpecs,
   );
 
   const queuedReductions = await loadQueuedReductionsForAccount(db, accountId);
@@ -322,7 +333,7 @@ export async function buildAccountRiskPreview(
 ): Promise<{ accountId: string; equity: string; risk: AccountRisk | null } | null> {
   const account = await db
     .selectFrom('app.trading_accounts')
-    .select(['status', 'nominal_balance', 'policy_version_id', 'symbol_spec_set_id'])
+    .select(['status', 'nominal_balance', 'currency', 'policy_version_id', 'symbol_spec_set_id'])
     .where('id', '=', accountId)
     .executeTakeFirstOrThrow();
   const policy = await loadPolicyById(db, account.policy_version_id);
@@ -345,6 +356,8 @@ export async function buildAccountRiskPreview(
     live.programEligibleBalance,
     live.equity,
     live.openPositionRows,
+    market,
+    symbolSpecs,
   );
   return { accountId, equity: live.equity, risk };
 }
@@ -480,6 +493,7 @@ async function buildAccountRisk(
   account: {
     status: string;
     nominal_balance: string;
+    currency: string;
     policy_version_id: string;
     symbol_spec_set_id: string;
   },
@@ -487,6 +501,8 @@ async function buildAccountRisk(
   programEligibleBalance: string,
   equity: string,
   openPositionRows: readonly Pick<OpenPositionRow, 'symbol' | 'open_quantity'>[],
+  market: MarketDataProvider,
+  symbolSpecs: Record<TradableSymbol, LoadedSymbolSpec>,
 ): Promise<AccountRisk | null> {
   const today = await db
     .selectFrom('app.account_daily_snapshots')
@@ -537,6 +553,15 @@ async function buildAccountRisk(
   });
 
   const concentration = await computeConcentrationForAccount(db, account, openPositionRows);
+  const usage = await buildExposureAndMarginUsage(
+    db,
+    account,
+    policy.parameters as { gross_exposure_max_multiple?: string },
+    equity,
+    openPositionRows,
+    market,
+    symbolSpecs,
+  );
   const dailyLossRemaining = computeDailyLossRemaining(result.dailyLoss);
   const shortDurationCount = eligibilityPolicy.enabled
     ? await countShortDurationProfitClosures(db, accountId, now)
@@ -569,6 +594,8 @@ async function buildAccountRisk(
       status: shortDurationMonitoring.status,
       count24h: shortDurationMonitoring.count24h,
     },
+    grossExposure: usage.grossExposure,
+    margin: usage.margin,
   };
 }
 
@@ -614,4 +641,109 @@ function concentrationBucket(
 ): ConcentrationBucket {
   const [result] = computeConcentration([{ bucket, usedQuantity, limitQuantity }]);
   return { bucket, usedQuantity, limitQuantity, usedRatio: result?.usedRatio ?? '0.0000' };
+}
+
+/**
+ * Phase 3.4.4 §14/§82 — the trader's live standing against the two V2
+ * ceilings.
+ *
+ * ## Why this lives here and not in a read model
+ *
+ * Gross exposure is a sum of notionals, and a notional is a quantity times a
+ * contract size times *a price*. `positions-view.ts` refuses to show floating
+ * P&L for the same reason it would have to refuse this: ENG-028, no
+ * authoritative price is reachable from a server-rendered page. This session
+ * already holds one — the same snapshot the equity beside it was computed from
+ * — so the figure a trader sees in the ribbon and the figure the pre-trade
+ * gate will decide with come from one price, not two.
+ *
+ * ## Why it fails closed rather than approximating
+ *
+ * `computeCanonicalNotionalExposure` returns not-ready for a non-USD account
+ * or an unmapped symbol, and this returns null on that rather than skipping
+ * the leg. A gross exposure that silently omits a position is worse than an
+ * absent one: it reads as headroom the trader does not have. The pre-trade
+ * gate makes the same call for the same reason (`EXPOSURE_CONVERSION_UNAVAILABLE`).
+ *
+ * Returns nulls for a V1-pinned account, which carries neither cap.
+ */
+async function buildExposureAndMarginUsage(
+  db: Db,
+  account: { nominal_balance: string; policy_version_id: string; currency?: string },
+  policyParameters: { gross_exposure_max_multiple?: string },
+  equity: string,
+  openPositionRows: readonly Pick<OpenPositionRow, 'symbol' | 'open_quantity'>[],
+  market: MarketDataProvider,
+  symbolSpecs: Record<TradableSymbol, LoadedSymbolSpec>,
+): Promise<{ grossExposure: GrossExposureUsage | null; margin: MarginUsage | null }> {
+  const empty = { grossExposure: null, margin: null };
+  const maximumMultiple = policyParameters.gross_exposure_max_multiple;
+  if (!maximumMultiple) return empty;
+
+  const lines: MarginExposureLine[] = [];
+  for (const position of openPositionRows) {
+    const spec = symbolSpecs[position.symbol];
+    if (!spec) return empty;
+    const tick = market.getSnapshot(position.symbol);
+    // The higher side, matching the pre-trade gate's own mark: exposure is a
+    // ceiling test, and the conservative price is the one that cannot flatter
+    // the headroom.
+    const markPrice = Decimal.max(tick.bid, tick.ask).toFixed(8);
+    const notional = computeCanonicalNotionalExposure({
+      symbol: position.symbol,
+      quantity: position.open_quantity,
+      contractSize: spec.contractSize,
+      price: markPrice,
+      accountCurrency: account.currency ?? 'USD',
+    });
+    if (!notional.ready) return empty;
+    lines.push({
+      assetGroup: assetGroupForAssetClass(spec.assetClass),
+      notionalAmount: notional.amount,
+    });
+  }
+
+  const gross = evaluateGrossExposure({
+    nominalBalance: account.nominal_balance,
+    exposures: lines,
+    maximumMultiple,
+  });
+
+  const runtime = await loadV2PolicyRuntimeContext(db, account.policy_version_id);
+  const profile = runtime.marginProfile;
+  /*
+   * Margin needs strictly positive equity — `evaluateMarginExposure` throws
+   * otherwise, and an account at or below zero equity has bigger problems than
+   * a usage ratio. The exposure half still stands on its own.
+   */
+  const marginUsable = profile !== null && new Decimal(equity).greaterThan(0);
+  const margin = marginUsable
+    ? evaluateMarginExposure({
+        equity,
+        exposures: lines,
+        leverageByAssetGroup: profile.leverageByAssetGroup,
+        candidateCapRate: profile.candidateMarginCapRate,
+        calibrationStatus:
+          profile.calibrationStatus === 'validated' ? 'validated' : 'calibration_required',
+      })
+    : null;
+
+  return {
+    grossExposure: {
+      grossExposure: gross.grossExposure,
+      maximumGrossExposure: gross.maximumGrossExposure,
+      grossExposureRate: gross.grossExposureRate,
+      maximumMultiple: gross.maximumMultiple,
+      withinCap: gross.allowed,
+    },
+    margin: margin
+      ? {
+          requiredMargin: margin.requiredMargin,
+          marginUsageRate: margin.marginUsageRate,
+          capRate: margin.candidateCapRate,
+          enforcementReady: margin.enforcementReady,
+          withinCap: margin.allowed,
+        }
+      : null,
+  };
 }

@@ -437,8 +437,33 @@ export {
   type PositionProtectionTrigger,
   type TriggeredPositionProtection,
 } from './position-protections';
-export { loadPublishedPolicy, loadPolicyById, asEvaluationOnePolicy } from './policy';
-export { loadAccountBalanceProjection, type AccountBalanceProjection } from './program-eligibility';
+export {
+  loadPublishedPolicy,
+  loadPolicyById,
+  loadCompatiblePerformancePolicy,
+  assertPolicyActivationReady,
+  asEvaluationOnePolicy,
+} from './policy';
+export {
+  loadAccountBalanceProjection,
+  projectAccountBalances,
+  type AccountBalanceProjection,
+} from './program-eligibility';
+export {
+  createFlexActivationObligationInTransaction,
+  activateV2PerformanceFromOrderInTransaction,
+  type FlexActivationObligationResult,
+  type V2PerformanceActivationResult,
+} from './v2-provisioning';
+export {
+  assetGroupForAssetClass,
+  loadV2PolicyRuntimeContext,
+  type V2PolicyRuntimeContext,
+  evaluateV2PreTradeDecisionInTransaction,
+  type EvaluateV2PreTradeParams,
+  type V2PreTradeDecision,
+  type V2PreTradeReasonCode,
+} from './v2-pre-trade';
 export {
   reconstructAccountFinancialState,
   reconcileAccountFinancialStateInTransaction,

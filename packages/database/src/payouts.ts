@@ -299,6 +299,7 @@ export async function createPayoutRequestInTransaction(
     maxPayoutCyclesBeforeReview: policy.max_payout_cycles_before_review,
     defaultSplitRate: policy.trader_split_rate_default,
     finalCycleSplitRate: policy.trader_split_rate_final_cycle,
+    ...(policy.payout_split_schedule ? { splitSchedule: policy.payout_split_schedule } : {}),
   });
   const requestedGrossBase = computeRequestedGrossBase({
     requestedNetTraderCash: params.requestedNetTraderCash,

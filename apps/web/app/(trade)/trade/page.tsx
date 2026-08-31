@@ -37,9 +37,9 @@ function toSwitcherOption(account: AccountSummaryDTO): WorkstationAccountOption 
   return {
     id: account.id,
     href: tradeAccountHref(account.id),
-    programLabel: programLabel(account.programType),
-    programShortLabel: programShortLabel(account.programType),
-    phaseLabel: programPhaseLabel(account.programType),
+    programLabel: programLabel(account),
+    programShortLabel: programShortLabel(account),
+    phaseLabel: programPhaseLabel(account),
     nominalFormatted: formatNominal(account.nominalBalance, account.nominalCurrency),
     // VX1 §7 — the selector's own size chip, rendered from the same
     // authoritative nominal the full figure above comes from.
@@ -142,7 +142,7 @@ export default async function TradePage({
       <WariXGate
         title="Trading indisponible"
         description={lifecycle.description}
-        meta={`${programLabel(activeAccount.programType)} · ${activeAccount.publicId} · ${lifecycle.label}`}
+        meta={`${programLabel(activeAccount)} · ${activeAccount.publicId} · ${lifecycle.label}`}
         primary={
           lifecycle.state === 'breached'
             ? { label: 'Acheter un nouveau compte', href: '/comptes/nouveau' }

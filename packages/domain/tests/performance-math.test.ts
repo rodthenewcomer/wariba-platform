@@ -118,6 +118,18 @@ describe('computePerformanceDayThreshold / isPerformanceDayQualified — PERF-02
 });
 
 describe('resolveTraderSplitRate — PERF-027/028', () => {
+  it('uses the explicit V2 payout-rank schedule when present', () => {
+    expect(
+      resolveTraderSplitRate({
+        cycleNumber: 3,
+        maxPayoutCyclesBeforeReview: 5,
+        defaultSplitRate: '0.80',
+        finalCycleSplitRate: '0.90',
+        splitSchedule: ['0.80', '0.80', '0.85', '0.85', '0.90'],
+      }),
+    ).toBe('0.85');
+  });
+
   it('uses the default split for cycles 1 through 4', () => {
     for (const cycleNumber of [1, 2, 3, 4]) {
       expect(

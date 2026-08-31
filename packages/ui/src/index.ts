@@ -20,6 +20,7 @@ export * from './primitives/Icon';
 export * from './primitives/Divider';
 export * from './primitives/VisuallyHidden';
 export * from './icons/nav-icons';
+export * from './icons/shell-icons';
 export * from './icons/workstation-icons';
 export * from './icons/warix';
 export * from './icons/charting';
@@ -53,9 +54,19 @@ export * from './components/StatTile';
 export * from './components/Accordion';
 export * from './components/Workstation';
 
+// Public page primitives — Phase 3.4.5A §13
+export * from './public';
+
+// Signature objects — Phase 3.4.5R §9
+export * from './signature';
+
 // Layouts — Design System §26 / Prompt 02 scope
 export * from './layouts/PublicHeader';
+export * from './layouts/PublicMobileMenu';
+export * from './layouts/FixedUiCoordinator';
+export * from './layouts/public-nav';
 export * from './layouts/PublicFooter';
+export * from './layouts/legal-disclosure';
 export * from './layouts/PlatformSidebar';
 export * from './layouts/MobileBottomNav';
 export * from './layouts/ControlSidebar';

@@ -2,7 +2,7 @@
 title: "WARIBA Product Master Document — Addendum"
 version: "1.1"
 document_id: "WARIBA-PRODUCT-MASTER-1.1"
-status: "ACTIVE ADDENDUM"
+status: "HISTORICAL V1 ADDENDUM — SUPERSEDED FOR NEW V2 OFFERS"
 language: "fr-FR"
 brand: "WARIBA"
 domain: "wariba.app"
@@ -12,7 +12,9 @@ supersedes_sections_of: "WARIBA_Product_Master_Document_v1.0.md"
 
 # WARIBA Product Master Document — Addendum v1.1
 
-> Cet addendum remplace uniquement les règles et le vocabulaire explicitement listés ci-dessous. Le document v1.0 reste applicable pour tout le reste.
+> **Supersession V2 — `POLICY-GOV-003`.** Ce document ne constitue plus une source de règles pour les nouvelles offres. La vérité courante est le Rulebook V2 et le Canonical Policy Contract V2. Les valeurs ci-dessous sont conservées sans réécriture comme historique produit V1 et comme contexte des comptes déjà attachés à V1.
+
+Cet addendum remplaçait uniquement les règles et le vocabulaire V1 explicitement listés ci-dessous.
 
 ## 1. Offre produit
 

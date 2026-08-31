@@ -42,6 +42,7 @@
     "test:e2e:control": "node scripts/run-test-gate.mjs DATABASE_URL SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY -- pnpm --filter @wariba/web test:e2e:control",
     "test:e2e:support": "node scripts/run-test-gate.mjs DATABASE_URL SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY -- pnpm --filter @wariba/web test:e2e:support",
     "test:e2e:help": "node scripts/run-test-gate.mjs DATABASE_URL SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY -- pnpm --filter @wariba/web test:e2e:help",
+    "test:e2e:commerce": "node scripts/run-test-gate.mjs DATABASE_URL SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY -- pnpm --filter @wariba/web test:e2e:commerce",
     "test:e2e:mobile": "node scripts/run-test-gate.mjs DATABASE_URL SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY -- pnpm --filter @wariba/web test:e2e:mobile",
     "test:e2e:full": "node scripts/run-test-gate.mjs DATABASE_URL SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY -- sh -c 'pnpm --filter @wariba/realtime test:e2e:full && pnpm --filter @wariba/web test:e2e:full'",
     "test:rls": "pnpm test:rls:full",

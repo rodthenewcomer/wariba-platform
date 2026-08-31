@@ -16,14 +16,20 @@ import type { Db } from './client';
  * disagree with the one that actually pins new accounts. See policy.ts for
  * why `created_at` and not `effective_from` orders that choice.
  */
-export type PolicyProgram = 'WARIBA_ONE' | 'WARIBA_PERFORMANCE';
-export type PolicyStatus = 'draft' | 'reviewed' | 'approved' | 'published' | 'retired';
+export type PolicyProgram = 'WARIBA_ONE' | 'WARIBA_FLEX' | 'WARIBA_PERFORMANCE';
+export type PolicyStatus =
+  'draft' | 'reviewed' | 'approved' | 'pilot_ready' | 'published' | 'retired';
 
-export const POLICY_PROGRAMS: readonly PolicyProgram[] = ['WARIBA_ONE', 'WARIBA_PERFORMANCE'];
+export const POLICY_PROGRAMS: readonly PolicyProgram[] = [
+  'WARIBA_ONE',
+  'WARIBA_FLEX',
+  'WARIBA_PERFORMANCE',
+];
 export const POLICY_STATUSES: readonly PolicyStatus[] = [
   'draft',
   'reviewed',
   'approved',
+  'pilot_ready',
   'published',
   'retired',
 ];

@@ -30,10 +30,6 @@ import { useWariXAutoplay } from './useWariXAutoplay';
 import { AnimatedAmount } from './AnimatedAmount';
 import { WariXChart } from './WariXChart';
 
-const NOMINAL_BALANCE = 10_000;
-const DAILY_LOSS_LIMIT = 300; // WARIBA ONE v1.1 — 3 % of a 10K nominal balance
-const MAXIMUM_LOSS = 1_000; // WARIBA ONE v1.1 — 10 % of a 10K nominal balance
-
 // Illustrative demo contract sizes only — not the authoritative trading-engine
 // contract spec (that lives in @wariba/domain for real accounts).
 const CONTRACT_MULTIPLIER: Record<SimulatedSymbol, number> = {
@@ -74,7 +70,21 @@ function formatUsd(value: number): string {
   return `${Math.round(value).toLocaleString('fr-FR')} USD`;
 }
 
-export function WariXTerminal() {
+export function WariXTerminal({
+  nominalBalance,
+  dailyLossAmount,
+  maximumLossAmount,
+}: {
+  nominalBalance: string;
+  dailyLossAmount: string;
+  maximumLossAmount: string;
+}) {
+  // This public terminal is an illustrative simulator. Policy amounts arrive
+  // precomputed from the exact V2 read model; these numbers drive animation
+  // only and are never accepted by the trading engine.
+  const nominal = Number(nominalBalance);
+  const dailyLossLimit = Number(dailyLossAmount);
+  const maximumLoss = Number(maximumLossAmount);
   const market = useSimulatedMarket();
   const [selectedSymbol, setSelectedSymbol] = useState<SimulatedSymbol>('EURUSD');
   const [quantity, setQuantity] = useState('0.10');
@@ -88,10 +98,10 @@ export function WariXTerminal() {
     0,
   );
   const totalPnl = realizedPnl + totalFloatingPnl;
-  const balance = NOMINAL_BALANCE + totalPnl;
-  const dailyLossRemaining = Math.max(0, DAILY_LOSS_LIMIT + Math.min(0, totalPnl));
-  const maximumLossRemaining = Math.max(0, MAXIMUM_LOSS + Math.min(0, totalPnl));
-  const dailyLossRatio = dailyLossRemaining / DAILY_LOSS_LIMIT;
+  const balance = nominal + totalPnl;
+  const dailyLossRemaining = Math.max(0, dailyLossLimit + Math.min(0, totalPnl));
+  const maximumLossRemaining = Math.max(0, maximumLoss + Math.min(0, totalPnl));
+  const dailyLossRatio = dailyLossRemaining / dailyLossLimit;
   const riskStatus: RiskRibbonStatus =
     dailyLossRemaining <= 0 ? 'soft-lock' : dailyLossRatio < 0.3 ? 'near-limit' : 'normal';
 

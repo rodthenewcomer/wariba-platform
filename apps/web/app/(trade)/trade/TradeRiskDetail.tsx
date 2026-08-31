@@ -88,13 +88,40 @@ export function TradeRiskDetail({
 
           <div>
             <Text variant="label-sm" color="tertiary" className="mb-1">
-              Perte maximale (Maximum Loss)
+              Perte maximale
             </Text>
             <div className="flex flex-col divide-y divide-[color:var(--wariba-border-subtle)]">
-              {row('Plancher (EOD-trailing)', `${risk.maximumLoss.floor} USD`)}
+              {row('Plancher de protection', `${risk.maximumLoss.floor} USD`)}
               {row('Restant avant dépassement', `${risk.maximumLoss.remaining} USD`)}
             </div>
           </div>
+
+          {risk.grossExposure ? (
+            <div>
+              <Text variant="label-sm" color="tertiary" className="mb-1">
+                Exposition totale
+              </Text>
+              <div className="flex flex-col divide-y divide-[color:var(--wariba-border-subtle)]">
+                {row('Exposition actuelle', `${risk.grossExposure.grossExposure} USD`)}
+                {row('Exposition maximale', `${risk.grossExposure.maximumGrossExposure} USD`)}
+              </div>
+              <Text variant="body-sm" color="tertiary" className="mt-2">
+                WARIBA limite automatiquement la taille totale de vos positions. Les positions
+                opposées utilisent elles aussi de l’exposition.
+              </Text>
+            </div>
+          ) : null}
+
+          {risk.margin ? (
+            <div>
+              <Text variant="label-sm" color="tertiary" className="mb-1">
+                Marge
+              </Text>
+              <div className="flex flex-col divide-y divide-[color:var(--wariba-border-subtle)]">
+                {row('Marge utilisée', `${risk.margin.requiredMargin} USD`)}
+              </div>
+            </div>
+          ) : null}
 
           <Text variant="body-sm" color="tertiary">
             Ces chiffres sont calculés côté serveur à chaque ordre. Les profits nets positifs issus

@@ -1,12 +1,14 @@
 # WARIBA Product Master Document v1.0
 
-**Statut :** baseline produit avant développement  
+**Statut :** historique V1 — superseded pour les nouvelles offres V2 par `POLICY-GOV-003`
 **Marque :** WARIBA  
 **Domaine :** wariba.app  
 **État du projet :** dossier créé, aucun code commencé  
 **Marché initial :** Afrique francophone  
 
 > Une infrastructure de progression pour traders disciplinés.
+
+> Les valeurs produit et programme de ce document ne doivent plus guider un nouveau travail. La source courante est le Rulebook V2 et le Canonical Policy Contract V2; ce document est conservé pour l’historique V1 uniquement.
 
 ## 1. Résumé exécutif
 

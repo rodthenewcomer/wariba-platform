@@ -50,7 +50,8 @@ export interface EnsureTodaySnapshotParams {
   sodBalance: string;
   sodEquity: string;
   programSodBalance: string;
-  programSodEquity: string;
+  riskSodBalance: string;
+  riskSodEquity: string;
   now: Date;
 }
 
@@ -100,11 +101,12 @@ export async function ensureTodaySnapshot(trx: Db, params: EnsureTodaySnapshotPa
   const programSodBalance = isFirstEverEvaluation
     ? params.nominalBalance
     : params.programSodBalance;
-  const programSodEquity = isFirstEverEvaluation ? params.nominalBalance : params.programSodEquity;
+  const riskSodBalance = isFirstEverEvaluation ? params.nominalBalance : params.riskSodBalance;
+  const riskSodEquity = isFirstEverEvaluation ? params.nominalBalance : params.riskSodEquity;
 
   const dailyReference = computeDailyReference({
-    balanceAtReset: programSodBalance,
-    equityAtReset: programSodEquity,
+    balanceAtReset: riskSodBalance,
+    equityAtReset: riskSodEquity,
   });
 
   await trx
@@ -117,6 +119,7 @@ export async function ensureTodaySnapshot(trx: Db, params: EnsureTodaySnapshotPa
       sod_balance: sodBalance,
       sod_equity: sodEquity,
       program_sod_balance: programSodBalance,
+      risk_sod_balance: riskSodBalance,
       daily_reference: dailyReference,
       maximum_loss_floor_before: maximumLossFloorBefore,
     })
@@ -177,6 +180,7 @@ async function finalizeElapsedDailyBoundaryInTransaction(
   maximumLossFloorAfter: string;
   eodBalance: string;
   programEodBalance: string;
+  riskEodBalance: string;
 } | null> {
   const { account, policy, eligibilityEnabled, now } = params;
   const todayDate = utcDateString(now);
@@ -208,16 +212,24 @@ async function finalizeElapsedDailyBoundaryInTransaction(
   );
   const eodBalance = boundaryProjection.accountBalance;
   const programEodBalance = boundaryProjection.programEligibleBalance;
+  const riskEodBalance = boundaryProjection.riskAdjustedBalance;
   const realizedNetProfitForDay = new Decimal(eodBalance)
     .minus(openSnapshot.sod_balance)
     .toFixed(2);
   const eligibleRealizedNetProfitForDay = new Decimal(programEodBalance)
     .minus(openSnapshot.program_sod_balance)
     .toFixed(2);
+  const riskAdjustedRealizedNetProfitForDay = new Decimal(riskEodBalance)
+    .minus(openSnapshot.risk_sod_balance)
+    .toFixed(2);
 
   const previousHighest = await trx
     .selectFrom('app.account_daily_snapshots')
-    .select(['highest_eod_balance_after', 'highest_program_eod_balance_after'])
+    .select([
+      'highest_eod_balance_after',
+      'highest_program_eod_balance_after',
+      'highest_risk_eod_balance_after',
+    ])
     .where('account_id', '=', account.id)
     .where('status', '=', 'finalized')
     .orderBy('trading_day', 'desc')
@@ -230,10 +242,14 @@ async function finalizeElapsedDailyBoundaryInTransaction(
     previousHighest?.highest_program_eod_balance_after ?? account.nominal_balance,
     programEodBalance,
   ).toFixed(2);
+  const highestRiskEodBalanceAfter = Decimal.max(
+    previousHighest?.highest_risk_eod_balance_after ?? account.nominal_balance,
+    riskEodBalance,
+  ).toFixed(2);
 
   const maximumLossFloorAfter = computeNextMaximumLossFloor({
     previousFloor: openSnapshot.maximum_loss_floor_before,
-    highestEodBalance: highestProgramEodBalanceAfter,
+    highestEodBalance: highestRiskEodBalanceAfter,
     nominalBalance: account.nominal_balance,
     maximumLossRate: policy.parameters.maximum_loss_rate,
   });
@@ -247,11 +263,14 @@ async function finalizeElapsedDailyBoundaryInTransaction(
       // positions exactly at the UTC boundary in V1.
       eod_equity: eodBalance,
       program_eod_balance: programEodBalance,
+      risk_eod_balance: riskEodBalance,
       maximum_loss_floor_after: maximumLossFloorAfter,
       highest_eod_balance_after: highestEodBalanceAfter,
       highest_program_eod_balance_after: highestProgramEodBalanceAfter,
+      highest_risk_eod_balance_after: highestRiskEodBalanceAfter,
       realized_net_profit_for_day: realizedNetProfitForDay,
       eligible_realized_net_profit_for_day: eligibleRealizedNetProfitForDay,
+      risk_adjusted_realized_net_profit_for_day: riskAdjustedRealizedNetProfitForDay,
       finalized_at: now,
     })
     .where('id', '=', openSnapshot.id)
@@ -293,6 +312,7 @@ async function finalizeElapsedDailyBoundaryInTransaction(
     maximumLossFloorAfter,
     eodBalance,
     programEodBalance,
+    riskEodBalance,
   };
 }
 
@@ -343,7 +363,8 @@ export async function finalizeDailyBoundaryForAccount(
         sodBalance: projection.accountBalance,
         sodEquity: projection.accountBalance,
         programSodBalance: projection.programEligibleBalance,
-        programSodEquity: projection.programEligibleBalance,
+        riskSodBalance: projection.riskAdjustedBalance,
+        riskSodEquity: projection.riskAdjustedBalance,
         now,
       });
       return {
@@ -366,7 +387,8 @@ export async function finalizeDailyBoundaryForAccount(
       sodBalance: finalized.eodBalance,
       sodEquity: finalized.eodBalance,
       programSodBalance: finalized.programEodBalance,
-      programSodEquity: finalized.programEodBalance,
+      riskSodBalance: finalized.riskEodBalance,
+      riskSodEquity: finalized.riskEodBalance,
       now,
     });
 

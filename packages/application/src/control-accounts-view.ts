@@ -10,7 +10,7 @@ import { CONTROL_ACCOUNTS_PAGE_SIZE, type ControlAccountFilters } from '@wariba/
  * must never reach a column typed to a fixed set, and a dropped value must
  * never sit in the form looking as though it narrowed anything.
  */
-export const ACCOUNT_PROGRAMS = ['WARIBA_ONE', 'WARIBA_PERFORMANCE'] as const;
+export const ACCOUNT_PROGRAMS = ['WARIBA_ONE', 'WARIBA_FLEX', 'WARIBA_PERFORMANCE'] as const;
 
 export const ACCOUNT_STATUSES = [
   'pending_activation',

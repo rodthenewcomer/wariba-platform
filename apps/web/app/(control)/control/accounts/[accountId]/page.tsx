@@ -1,5 +1,11 @@
 import { Badge, Card, EmptyState, Text } from '@wariba/ui';
-import { authorizedAccountSections, loadControlAccountDetail } from '@wariba/application';
+import {
+  authorizedAccountSections,
+  loadControlAccountDetail,
+  projectAccountRules,
+  PRODUCT_FAMILY_LABEL,
+  ACCOUNT_PHASE_LABEL,
+} from '@wariba/application';
 import { ControlDocumentLink as Link } from '../../../ControlDocumentLink';
 import { notFound } from 'next/navigation';
 import { requireControlArea } from '../../../../../lib/staff-auth';
@@ -31,10 +37,20 @@ const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'danger' | 'neutral
   warning: 'warning',
 };
 
-const PROGRAM_LABEL: Record<string, string> = {
-  WARIBA_ONE: 'WARIBA ONE',
-  WARIBA_PERFORMANCE: 'WARIBA Performance',
-};
+/**
+ * Phase 3.4.4 §49/§52 — the product and the phase, named separately.
+ *
+ * The map this replaces held two entries, so a FLEX evaluation rendered the
+ * raw `WARIBA_FLEX` and both FLEX and INSTANT Performance accounts read
+ * "WARIBA Performance" — the family gone, on the surface an operator uses to
+ * answer a dispute about which rules applied.
+ */
+function productLabel(productFamily: string, programType: string): string {
+  const family =
+    PRODUCT_FAMILY_LABEL[productFamily as keyof typeof PRODUCT_FAMILY_LABEL] ?? productFamily;
+  const phase = programType === 'WARIBA_PERFORMANCE' ? 'performance' : 'evaluation';
+  return `${family} · ${ACCOUNT_PHASE_LABEL[phase]}`;
+}
 
 const ACCOUNT_STATUS_LABEL: Record<string, string> = {
   pending_activation: 'Activation en attente',
@@ -129,8 +145,8 @@ export default async function ControlAccountDetailPage({
           <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Field label="Identifiant public" value={overview.publicId} />
             <Field
-              label="Programme"
-              value={PROGRAM_LABEL[overview.programType] ?? overview.programType}
+              label="Produit"
+              value={productLabel(overview.productFamily, overview.programType)}
             />
             <Field label="Nominal" value={`${overview.nominalBalance} ${overview.currency}`} />
             <div>
@@ -147,6 +163,7 @@ export default async function ControlAccountDetailPage({
               label="Version de politique"
               value={`${overview.policyVersion} · ${POLICY_STATUS_LABEL[overview.policyStatus] ?? overview.policyStatus}`}
             />
+            <Field label="Décision de gouvernance" value={overview.policyDecisionRecordId ?? '—'} />
             <Field
               label="Identité (sandbox)"
               value={overview.kycSandboxVerified ? 'Vérifié' : 'Non vérifié'}
@@ -171,6 +188,19 @@ export default async function ControlAccountDetailPage({
                   >
                     {overview.sourceEvaluation.publicId}
                   </Link>
+                </dd>
+              </div>
+            ) : null}
+            {overview.programType === 'WARIBA_PERFORMANCE' && !overview.sourceEvaluation ? (
+              <div>
+                <dt className="text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-text-secondary)]">
+                  Origine
+                </dt>
+                <dd
+                  className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-text-primary)]"
+                  data-testid="control-account-direct-performance"
+                >
+                  Performance directe — aucune évaluation d’origine
                 </dd>
               </div>
             ) : null}
@@ -203,6 +233,25 @@ export default async function ControlAccountDetailPage({
               </dd>
             </div>
           </dl>
+        </Card>
+      ) : null}
+
+      {overview ? (
+        <Card>
+          <Text as="h2" variant="heading-sm">
+            Règles attachées à ce compte
+          </Text>
+          {/*
+            §49 — the account's own parameters, not the currently published
+            ones. This card exists so an operator cannot read "WARIBA ONE" and
+            answer 8 % for an account pinned to a V1 policy whose maximum loss
+            is 10 %. Every figure below is projected from
+            `policy_versions.parameters_json` for the version this account is
+            pinned to, by the same function the trader's rules page uses — so
+            Control and the trader can never be shown different numbers for the
+            same account.
+          */}
+          <AttachedRules overview={overview} />
         </Card>
       ) : null}
 
@@ -567,5 +616,63 @@ export default async function ControlAccountDetailPage({
         </Card>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The pinned parameters, rendered.
+ *
+ * Fails visibly rather than silently: a policy row whose parameters cannot be
+ * projected produces a stated absence, because an empty rules card on a
+ * dispute surface reads as "this account has no rules" when it means "we could
+ * not read them".
+ */
+function AttachedRules({
+  overview,
+}: {
+  overview: NonNullable<Awaited<ReturnType<typeof loadControlAccountDetail>>>['overview'];
+}) {
+  if (!overview) return null;
+  const phase = overview.programType === 'WARIBA_PERFORMANCE' ? 'performance' : 'evaluation';
+  let rules: ReturnType<typeof projectAccountRules> = [];
+  try {
+    rules = projectAccountRules({
+      parameters: overview.policyParameters as Parameters<
+        typeof projectAccountRules
+      >[0]['parameters'],
+      phase,
+      nominalBalance: overview.nominalBalance,
+      currency: overview.currency,
+    });
+  } catch {
+    rules = [];
+  }
+
+  if (rules.length === 0) {
+    return (
+      <Text variant="body-sm" className="mt-3 text-[color:var(--wariba-text-secondary)]">
+        Les paramètres de la version {overview.policyVersion} n’ont pas pu être projetés. Consultez
+        la version de politique directement.
+      </Text>
+    );
+  }
+
+  return (
+    <dl
+      className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+      data-testid="control-attached-rules"
+    >
+      {rules.map((rule) => (
+        <Field
+          key={rule.key}
+          label={rule.label}
+          value={
+            rule.amountFormatted
+              ? `${rule.displayValue} · ${rule.amountFormatted}`
+              : rule.displayValue
+          }
+        />
+      ))}
+    </dl>
   );
 }

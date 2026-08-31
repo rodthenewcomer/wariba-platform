@@ -69,6 +69,10 @@ const RISK: AccountRisk = {
     { bucket: 'forex', usedQuantity: '0.30', limitQuantity: '0.60', usedRatio: '0.5' },
   ],
   shortDurationMonitoring: { status: 'normal', count24h: 0 },
+  // A V1-shaped fixture: neither cap was part of that contract, so the
+  // absence is the accurate value, not a gap to fill with zeroes.
+  grossExposure: null,
+  margin: null,
 } as AccountRisk;
 
 const DRAFT: TicketDraft = {

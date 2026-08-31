@@ -2,7 +2,7 @@
 title: "WARIBA Program Rulebook — Addendum"
 version: "1.1.1"
 document_id: "WARIBA-PROGRAM-RULEBOOK-1.1.1"
-status: "ACTIVE CANDIDATE POLICY — PRIVATE SANDBOX"
+status: "SUPERSEDED FOR NEW V2 OFFERS — HISTORICAL POLICY FOR V1-ATTACHED ACCOUNTS"
 language: "fr-FR"
 brand: "WARIBA"
 domain: "wariba.app"
@@ -13,7 +13,9 @@ machine_source: "WARIBA_RULESET_v1.1.json"
 
 # WARIBA Program Rulebook — Addendum v1.1.1
 
-> Cet addendum remplace les règles financières v1.0 citées ci-dessous. Le Rulebook v1.0 reste applicable pour les sections non remplacées. La non-rétroactivité demeure obligatoire : un compte conserve la policy version qu’il a acceptée.
+> **Supersession V2 — `POLICY-GOV-003`.** Ce document ne gouverne plus les nouvelles offres ni les futurs comptes pilotes V2. La source normative courante est `WARIBA_Program_Rulebook_Candidate_V2.md`, complétée par `WARIBA_Canonical_Policy_Contract_V2.md`. Les règles ci-dessous restent uniquement la trace contractuelle des comptes déjà attachés à une policy V1; aucun compte n’est migré rétroactivement.
+
+Cet addendum remplaçait les règles financières v1.0 citées ci-dessous. Le Rulebook v1.0 reste applicable aux comptes V1 pour les sections non remplacées.
 
 ## 1. Tailles de comptes WARIBA ONE
 

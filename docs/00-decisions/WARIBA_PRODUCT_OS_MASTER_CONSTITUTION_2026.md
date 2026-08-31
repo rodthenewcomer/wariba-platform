@@ -2,10 +2,11 @@
 ## Product, UX, UI, Lifecycle, WariX, Trader Hub, Commerce, Risk, KYC, Payout, Control, Mobile & QA
 
 > **Statut : MASTER CANDIDATE v2.0**  
-> **Date de référence : 22 août 2026**  
+> **Date de référence : 27 août 2026**
 > **Langue produit V1 : Français**  
 > **Portée : Site public, Auth, Commerce, Trader Hub, WariX, Risk, Performance, KYC, Payout, WARIBA Review, WARIBA Control, Design, Mobile, Accessibilité, Sécurité, Analytics, QA et règles d’exécution pour agents IA.**  
 > **Principe : ce document orchestre le produit ; il ne remplace jamais une policy financière, un contrat, une règle légale ni une décision `LOCKED`.**
+> **Policy courante : `POLICY-GOV-003` fait du Rulebook V2 et du Canonical Policy Contract V2 la vérité des nouvelles offres. Toute valeur V1 de cette constitution est version-scopée et ne peut guider un nouveau compte V2.**
 
 ---
 
@@ -211,9 +212,9 @@ Règles de rédaction : français simple, une phrase = une idée, bouton = verbe
 
 ---
 
-# 4. Programme canonique à refléter dans l’UI
+# 4. Programme historique V1 à refléter uniquement pour un compte V1
 
-> Les calculs restent autoritaires dans la policy et le moteur de risque.
+> Les calculs restent autoritaires dans la policy attachée au compte et le moteur de risque. Les tableaux de cette section décrivent uniquement V1. Pour une nouvelle offre ou un futur compte V2, utiliser `docs/02-program/WARIBA_Canonical_Policy_Contract_V2.md`; ne pas remplacer les nombres ici et ne pas les propager vers V2.
 
 ## WARIBA ONE
 

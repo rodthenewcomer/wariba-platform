@@ -161,3 +161,36 @@ export {
   type AlertDirection,
   type AlertSource,
 } from './price-alerts';
+export {
+  evaluateMarginExposure,
+  evaluateGrossExposure,
+  computeCanonicalNotionalExposure,
+  type V2AssetGroup,
+  type MarginCalibrationStatus,
+  type MarginExposureLine,
+  type MarginExposureEvaluation,
+  type GrossExposureEvaluation,
+  type CanonicalNotionalSymbol,
+  type CanonicalNotionalExposureResult,
+} from './margin-exposure';
+export {
+  evaluateV2TradingPermission,
+  type ExposureIntent,
+  type PolicyAccountPhase,
+  type HighImpactNewsWindow,
+  type MarketClosureWindow,
+  type TradingPermissionReasonCode,
+  type TradingPermissionDecision,
+} from './trading-permissions';
+export {
+  calibrateCell,
+  calibrateMatrix,
+  deriveGrossNotionalCapRate,
+  SIMULTANEOUS_POSITION_PROBE,
+  type CalibrationCell,
+  type CalibrationFeasibility,
+  type CalibrationProfile,
+  type CalibrationSummary,
+  type InstrumentCalibrationSpec,
+  type InstrumentSpecStatus,
+} from './margin-calibration';

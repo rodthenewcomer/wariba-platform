@@ -29,6 +29,16 @@ export interface RiskPolicyParameters {
   maximum_loss_rate: string;
   best_day_max_ratio: string;
   profit_target_rate?: string | null;
+  /**
+   * Phase 3.4.3 §17/§37 — V2 only. When true, the per-day figure Best Day
+   * reads is the payout-neutral one: an authorized payout debit landing on
+   * a day the trader actually traded profitably must not turn that day
+   * negative and quietly drop it out of the positive-day denominator,
+   * which would inflate the ratio and block the *next* payout. Absent on
+   * every V1 policy, which therefore keeps reading the plain eligible
+   * figure and produces byte-identical results.
+   */
+  payout_debit_risk_neutral?: boolean;
 }
 
 export type RiskRuleCode =
@@ -60,6 +70,30 @@ export interface DailySnapshotInput {
   programEodBalance?: string | null;
   highestProgramEodBalanceAfter?: string | null;
   eligibleRealizedNetProfitForDay?: string | null;
+  /** Phase 3.4.2 projection field — eligible profit with authorized payout debits/reversals neutralized. */
+  riskAdjustedRealizedNetProfitForDay?: string | null;
+}
+
+/**
+ * The single definition of "this day's profit" every day-scoped rule reads
+ * (Best Day here, Performance Days in packages/database/src/performance.ts).
+ * Phase 3.4.3 §41 asks for one source of eligibility, not four; the
+ * fallback chain is what keeps a pre-3.4.2 snapshot (whose projection
+ * columns are null) resolving to exactly the figure it always did.
+ */
+export function resolveRuleDailyProfit(
+  day: Pick<
+    DailySnapshotInput,
+    | 'realizedNetProfitForDay'
+    | 'eligibleRealizedNetProfitForDay'
+    | 'riskAdjustedRealizedNetProfitForDay'
+  >,
+  payoutDebitRiskNeutral: boolean,
+): string | null {
+  if (payoutDebitRiskNeutral && day.riskAdjustedRealizedNetProfitForDay != null) {
+    return day.riskAdjustedRealizedNetProfitForDay;
+  }
+  return day.eligibleRealizedNetProfitForDay ?? day.realizedNetProfitForDay;
 }
 
 export interface EvaluateAccountRiskParams {
@@ -73,6 +107,8 @@ export interface EvaluateAccountRiskParams {
   currentBalance: string;
   /** Actual balance less cumulative short-duration profit that is not program-eligible. */
   currentProgramEligibleBalance?: string;
+  /** Program-eligible balance with authorized payout debits/reversals neutralized. */
+  currentRiskAdjustedBalance?: string;
   currentUnrealizedPnl: string;
   openPositionCount: number;
   pendingOrderCount: number;
@@ -84,6 +120,8 @@ export interface RiskEngineResult {
   currentEquity: string;
   programEligibleBalance: string;
   programEligibleEquity: string;
+  riskAdjustedBalance: string;
+  riskAdjustedEquity: string;
   realizedNetProfit: string;
   dailyLoss: { reference: string; floor: string; used: string; softLockTriggered: boolean };
   maximumLoss: { floor: string; remaining: string; breached: boolean };
@@ -139,6 +177,8 @@ export function evaluateAccountRisk(params: EvaluateAccountRiskParams): RiskEngi
   const programEligibleEquity = new Decimal(programEligibleBalance)
     .plus(currentUnrealizedPnl)
     .toFixed(2);
+  const riskAdjustedBalance = params.currentRiskAdjustedBalance ?? programEligibleBalance;
+  const riskAdjustedEquity = new Decimal(riskAdjustedBalance).plus(currentUnrealizedPnl).toFixed(2);
   const realizedNetProfit = new Decimal(programEligibleBalance)
     .minus(account.nominalBalance)
     .toFixed(2);
@@ -150,49 +190,37 @@ export function evaluateAccountRisk(params: EvaluateAccountRiskParams): RiskEngi
   });
   const dailyLossUsed = computeDailyLossUsed({
     dailyReference: today.dailyReference,
-    currentAdjustedEquity: programEligibleEquity,
+    currentAdjustedEquity: riskAdjustedEquity,
   });
   const softLockTriggered = isDailyLossSoftLockTriggered({
-    currentAdjustedEquity: programEligibleEquity,
+    currentAdjustedEquity: riskAdjustedEquity,
     dailyLossFloor,
   });
 
   const maximumLossFloor = today.maximumLossFloorBefore;
   const maximumLossBreached = isMaximumLossBreached({
-    currentEquity: programEligibleEquity,
+    currentEquity: riskAdjustedEquity,
     maximumLossFloor,
   });
   const maximumLossRemaining = Decimal.max(
     0,
-    new Decimal(programEligibleEquity).minus(maximumLossFloor),
+    new Decimal(riskAdjustedEquity).minus(maximumLossFloor),
   ).toFixed(2);
 
   // Best Day Rule (ONE-022): only finalized days count — an in-progress "today"
   // has no final realized-profit-for-day figure yet and must never be counted.
-  const finalizedPositiveDays = dailySnapshots.filter(
-    (day) =>
-      day.status === 'finalized' &&
-      (day.eligibleRealizedNetProfitForDay ?? day.realizedNetProfitForDay) !== null &&
-      new Decimal(
-        day.eligibleRealizedNetProfitForDay ?? (day.realizedNetProfitForDay as string),
-      ).greaterThan(0),
-  );
+  const payoutDebitRiskNeutral = policy.payout_debit_risk_neutral === true;
+  const ruleProfitOf = (day: DailySnapshotInput): string | null =>
+    resolveRuleDailyProfit(day, payoutDebitRiskNeutral);
+  const finalizedPositiveDays = dailySnapshots.filter((day) => {
+    const profit = ruleProfitOf(day);
+    return day.status === 'finalized' && profit !== null && new Decimal(profit).greaterThan(0);
+  });
   const sumOfPositiveDayProfits = finalizedPositiveDays
-    .reduce(
-      (sum, day) =>
-        sum.plus(day.eligibleRealizedNetProfitForDay ?? (day.realizedNetProfitForDay as string)),
-      new Decimal(0),
-    )
+    .reduce((sum, day) => sum.plus(ruleProfitOf(day) as string), new Decimal(0))
     .toFixed(2);
   const bestProfitableFinalizedDayProfit = finalizedPositiveDays
-    .reduce(
-      (max, day) =>
-        Decimal.max(
-          max,
-          day.eligibleRealizedNetProfitForDay ?? (day.realizedNetProfitForDay as string),
-        ),
-      new Decimal(0),
-    )
+    .reduce((max, day) => Decimal.max(max, ruleProfitOf(day) as string), new Decimal(0))
     .toFixed(2);
   const bestDayRatio = computeBestDayRatio({
     bestProfitableFinalizedDayProfit,
@@ -235,7 +263,7 @@ export function evaluateAccountRisk(params: EvaluateAccountRiskParams): RiskEngi
       severity: 'critical',
       consequence: 'hard_breach',
       thresholdValue: maximumLossFloor,
-      observedValue: programEligibleEquity,
+      observedValue: riskAdjustedEquity,
     });
   } else if (softLockTriggered) {
     violations.push({
@@ -243,7 +271,7 @@ export function evaluateAccountRisk(params: EvaluateAccountRiskParams): RiskEngi
       severity: 'warning',
       consequence: 'soft_lock',
       thresholdValue: dailyLossFloor,
-      observedValue: programEligibleEquity,
+      observedValue: riskAdjustedEquity,
     });
   }
 
@@ -266,6 +294,8 @@ export function evaluateAccountRisk(params: EvaluateAccountRiskParams): RiskEngi
     currentEquity,
     programEligibleBalance,
     programEligibleEquity,
+    riskAdjustedBalance,
+    riskAdjustedEquity,
     realizedNetProfit,
     dailyLoss: {
       reference: today.dailyReference,

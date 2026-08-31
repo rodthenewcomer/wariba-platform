@@ -16,7 +16,6 @@ import type { ReactNode } from 'react';
  */
 export const dynamic = 'force-dynamic';
 
-
 /**
  * The auth segment renders full-bleed.
  *

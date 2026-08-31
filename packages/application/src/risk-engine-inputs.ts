@@ -123,7 +123,8 @@ export async function loadAccountRiskEngineInputs(
     sodBalance: currentBalance,
     sodEquity: currentBalance,
     programSodBalance: projection.programEligibleBalance,
-    programSodEquity: projection.programEligibleBalance,
+    riskSodBalance: projection.riskAdjustedBalance,
+    riskSodEquity: projection.riskAdjustedBalance,
     now: params.now,
   });
 
@@ -162,6 +163,7 @@ export async function loadAccountRiskEngineInputs(
     policy: policy.parameters,
     currentBalance,
     currentProgramEligibleBalance: projection.programEligibleBalance,
+    currentRiskAdjustedBalance: projection.riskAdjustedBalance,
     currentUnrealizedPnl: '0', // realized-only decision — see doc comment above.
     openPositionCount: openPositions.length,
     pendingOrderCount: 0, // TRD-021: no order-level partial fills — nothing is ever "pending".

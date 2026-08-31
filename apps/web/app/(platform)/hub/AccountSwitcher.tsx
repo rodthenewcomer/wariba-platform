@@ -112,7 +112,7 @@ export function AccountSwitcher({
         <span className="flex min-w-0 flex-1 flex-col items-start">
           <span className="flex w-full items-center gap-2">
             <span className="truncate text-[length:var(--wariba-font-size-label-md)] font-semibold text-[color:var(--wariba-text-primary)]">
-              {programLabel(active.account.programType)}
+              {programLabel(active.account)}
             </span>
             <StatusPill tone={active.lifecycleTone} size="sm">
               {active.lifecycleLabel}
@@ -162,7 +162,7 @@ export function AccountSwitcher({
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-[length:var(--wariba-font-size-label-md)] font-semibold text-[color:var(--wariba-text-primary)]">
-                    {programLabel(account.programType)}
+                    {programLabel(account)}
                   </span>
                   {/* The public reference lives here, where it does its one
                       real job: telling two similar accounts apart. */}

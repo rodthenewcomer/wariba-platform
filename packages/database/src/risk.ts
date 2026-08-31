@@ -19,6 +19,7 @@ import {
 } from './daily-finalization';
 import { loadPolicyById } from './policy';
 import { activatePerformanceAccountInTransaction } from './performance';
+import { createFlexActivationObligationInTransaction } from './v2-provisioning';
 import { loadAccountBalanceProjection } from './program-eligibility';
 import type { TradableSymbol } from './schema';
 
@@ -68,8 +69,9 @@ async function loadAccountFinancials(
 ): Promise<{
   balance: string;
   programEligibleBalance: string;
+  riskAdjustedBalance: string;
   equity: string;
-  programEligibleEquity: string;
+  riskAdjustedEquity: string;
   openPositionCount: number;
 }> {
   const projection = await loadAccountBalanceProjection(
@@ -110,14 +112,15 @@ async function loadAccountFinancials(
   }
 
   const equity = new Decimal(balance).plus(unrealizedTotal).toFixed(2);
-  const programEligibleEquity = new Decimal(projection.programEligibleBalance)
+  const riskAdjustedEquity = new Decimal(projection.riskAdjustedBalance)
     .plus(unrealizedTotal)
     .toFixed(2);
   return {
     balance,
     programEligibleBalance: projection.programEligibleBalance,
+    riskAdjustedBalance: projection.riskAdjustedBalance,
     equity,
-    programEligibleEquity,
+    riskAdjustedEquity,
     openPositionCount: openPositions.length,
   };
 }
@@ -134,6 +137,7 @@ function toDailySnapshotInput(row: {
   program_eod_balance: string | null;
   highest_program_eod_balance_after: string | null;
   eligible_realized_net_profit_for_day: string | null;
+  risk_adjusted_realized_net_profit_for_day: string | null;
 }): DailySnapshotInput {
   return {
     tradingDay: row.trading_day,
@@ -147,6 +151,7 @@ function toDailySnapshotInput(row: {
     programEodBalance: row.program_eod_balance,
     highestProgramEodBalanceAfter: row.highest_program_eod_balance_after,
     eligibleRealizedNetProfitForDay: row.eligible_realized_net_profit_for_day,
+    riskAdjustedRealizedNetProfitForDay: row.risk_adjusted_realized_net_profit_for_day,
   };
 }
 
@@ -179,8 +184,14 @@ export async function evaluateAndApplyAccountRiskInTransaction(
   let account = await lockAccount(trx, params.accountId);
   const policy = await loadPolicyById(trx, account.policy_version_id);
   const eligibilityPolicy = resolveProfitEligibilityPolicy(policy.parameters);
-  const { balance, programEligibleBalance, equity, programEligibleEquity, openPositionCount } =
-    await loadAccountFinancials(trx, account, params.marketBySymbol, eligibilityPolicy.enabled);
+  const {
+    balance,
+    programEligibleBalance,
+    riskAdjustedBalance,
+    equity,
+    riskAdjustedEquity,
+    openPositionCount,
+  } = await loadAccountFinancials(trx, account, params.marketBySymbol, eligibilityPolicy.enabled);
 
   // Self-heal a stale prior-day snapshot before ensureTodaySnapshot below —
   // otherwise a trade landing on a new UTC day before the worker has
@@ -209,7 +220,8 @@ export async function evaluateAndApplyAccountRiskInTransaction(
     sodBalance: balance,
     sodEquity: equity,
     programSodBalance: programEligibleBalance,
-    programSodEquity: programEligibleEquity,
+    riskSodBalance: riskAdjustedBalance,
+    riskSodEquity: riskAdjustedEquity,
     now: params.now,
   });
 
@@ -227,6 +239,7 @@ export async function evaluateAndApplyAccountRiskInTransaction(
       'program_eod_balance',
       'highest_program_eod_balance_after',
       'eligible_realized_net_profit_for_day',
+      'risk_adjusted_realized_net_profit_for_day',
     ])
     .where('account_id', '=', account.id)
     .where('trading_day', '<', today.trading_day)
@@ -245,6 +258,7 @@ export async function evaluateAndApplyAccountRiskInTransaction(
     policy: policy.parameters,
     currentBalance: balance,
     currentProgramEligibleBalance: programEligibleBalance,
+    currentRiskAdjustedBalance: riskAdjustedBalance,
     currentUnrealizedPnl: new Decimal(equity).minus(balance).toFixed(2),
     openPositionCount,
     pendingOrderCount: 0, // TRD-021: no order-level partial fills — nothing is ever left "pending" to query.
@@ -272,7 +286,7 @@ export async function evaluateAndApplyAccountRiskInTransaction(
   }
   if (
     params.triggerEventType === 'daily_finalization' &&
-    account.program_type === 'WARIBA_ONE' &&
+    account.program_type !== 'WARIBA_PERFORMANCE' &&
     result.recommendedStatus === 'pass_pending'
   ) {
     // Existing pending target: only the finalization trigger advances it.
@@ -346,6 +360,11 @@ export async function evaluateAndApplyAccountRiskInTransaction(
       await activatePerformanceAccountInTransaction(trx, {
         evaluationAccountId: account.id,
         now: () => params.now,
+      });
+    } else if (targetStatus === 'passed' && account.program_type === 'WARIBA_FLEX') {
+      await createFlexActivationObligationInTransaction(trx, {
+        evaluationAccountId: account.id,
+        now: params.now,
       });
     }
     persistedStatus = targetStatus;

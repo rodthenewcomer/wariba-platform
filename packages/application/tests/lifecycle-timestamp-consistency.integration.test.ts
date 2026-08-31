@@ -58,41 +58,37 @@ describeIfDb('lifecycle timestamp consistency — real database', () => {
     await db.destroy();
   });
 
-  it(
-    'records a causally ordered timeline on every finalization',
-    async () => {
-      const inversions: string[] = [];
+  it('records a causally ordered timeline on every finalization', async () => {
+    const inversions: string[] = [];
 
-      for (let run = 0; run < RUNS; run += 1) {
-        const owner = await seedLifecycleFixture(env(), 'under_review');
-        seeded.push(owner);
-        const accountId = owner.accountId as string;
+    for (let run = 0; run < RUNS; run += 1) {
+      const owner = await seedLifecycleFixture(env(), 'under_review');
+      seeded.push(owner);
+      const accountId = owner.accountId as string;
 
-        const outcome = await evaluateAndApplyAccountRisk(db, {
-          accountId,
-          now: new Date(),
-          marketBySymbol: {},
-          triggerEventType: 'daily_finalization',
-          triggerEventId: `lifecycle-timestamp-consistency:${accountId}:${run}`,
-        });
-        expect(outcome.newStatus).toBe('passed');
+      const outcome = await evaluateAndApplyAccountRisk(db, {
+        accountId,
+        now: new Date(),
+        marketBySymbol: {},
+        triggerEventType: 'daily_finalization',
+        triggerEventId: `lifecycle-timestamp-consistency:${accountId}:${run}`,
+      });
+      expect(outcome.newStatus).toBe('passed');
 
-        /*
-         * The invariant itself throws on an inverted chain. Collecting the
-         * message rather than rethrowing means one report names every run that
-         * inverted, instead of the suite stopping at the first.
-         */
-        try {
-          const order = await assertLifecycleOrder(db, accountId);
-          expect(order.passedAt).not.toBeNull();
-          expect(order.performanceCreatedAt).not.toBeNull();
-        } catch (error) {
-          inversions.push(`run ${run}: ${error instanceof Error ? error.message : String(error)}`);
-        }
+      /*
+       * The invariant itself throws on an inverted chain. Collecting the
+       * message rather than rethrowing means one report names every run that
+       * inverted, instead of the suite stopping at the first.
+       */
+      try {
+        const order = await assertLifecycleOrder(db, accountId);
+        expect(order.passedAt).not.toBeNull();
+        expect(order.performanceCreatedAt).not.toBeNull();
+      } catch (error) {
+        inversions.push(`run ${run}: ${error instanceof Error ? error.message : String(error)}`);
       }
+    }
 
-      expect(inversions).toEqual([]);
-    },
-    600_000,
-  );
+    expect(inversions).toEqual([]);
+  }, 600_000);
 });

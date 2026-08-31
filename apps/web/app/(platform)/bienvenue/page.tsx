@@ -58,6 +58,9 @@ export default async function WelcomePage({
     );
   }
 
+  const familyLabel = account.productFamily.replace('WARIBA_', '');
+  const phaseLabel = account.programType === 'WARIBA_PERFORMANCE' ? 'Performance' : 'Evaluation';
+
   return (
     <div className="mx-auto max-w-lg px-6 py-16">
       <Card padding="comfortable" className="flex flex-col gap-6">
@@ -66,7 +69,8 @@ export default async function WelcomePage({
             Bienvenue sur WARIBA
           </Text>
           <Text variant="body-sm" color="secondary">
-            Compte {account.publicId} — WARIBA ONE — {formatUsd(account.nominalBalance)}
+            Compte {account.publicId} — WARIBA {familyLabel} {phaseLabel} —{' '}
+            {formatUsd(account.nominalBalance)}
           </Text>
         </div>
 
@@ -77,13 +81,13 @@ export default async function WelcomePage({
 
         <div className="flex flex-col gap-3 sm:flex-row">
           <Link href="/hub" className={buttonClassNames({ size: 'lg', className: 'flex-1' })}>
-            Comprendre ma mission
+            Voir mon compte
           </Link>
           <Link
             href="/trade"
             className={buttonClassNames({ size: 'lg', variant: 'secondary', className: 'flex-1' })}
           >
-            Ouvrir Trade
+            Ouvrir WariX
           </Link>
         </div>
       </Card>

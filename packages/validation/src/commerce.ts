@@ -12,11 +12,25 @@ export type ProductCode = z.infer<typeof productCodeSchema>;
  * is exactly the stop condition Prompt 03 names ("si le client contrôle le
  * montant").
  */
-export const checkoutInputSchema = z.object({
-  productCode: productCodeSchema,
-  idempotencyKey: z.string().uuid(),
-  acceptSimulatedAccountDisclosure: z.literal(true),
-});
+export const canonicalOfferIdSchema = z.string().regex(/^(ONE|FLEX|INSTANT)-(5|10|25|50|100)$/);
+
+export const checkoutInputSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('initial_purchase'),
+    offerId: canonicalOfferIdSchema,
+    idempotencyKey: z.string().uuid(),
+    acceptSimulatedAccountDisclosure: z.literal(true),
+  }),
+  z.object({
+    kind: z.literal('flex_activation'),
+    activationOrderId: z.string().uuid(),
+    acceptSimulatedAccountDisclosure: z.literal(true),
+  }),
+  z.object({
+    kind: z.literal('resume_order'),
+    orderId: z.string().uuid(),
+  }),
+]);
 export type CheckoutInput = z.infer<typeof checkoutInputSchema>;
 
 /**

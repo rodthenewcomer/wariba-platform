@@ -98,7 +98,7 @@ export function HelpCategoryCard({ category }: { category: HelpCategorySummary }
     <Link
       href={category.href}
       data-testid="help-category-card"
-      className="flex min-h-32 flex-col rounded-[var(--wariba-radius-xl)] border border-[color:var(--wariba-color-ink-700)] bg-[color:var(--wariba-color-ink-900)] p-5 transition-colors hover:border-[color:var(--wariba-color-cobalt-700)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-color-cobalt-300)] motion-reduce:transition-none"
+      className="flex min-h-32 flex-col rounded-[var(--wariba-radius-xl)] border border-[color:var(--wariba-color-ink-700)] bg-[color:var(--wariba-color-ink-900)] p-5 transition-colors hover:border-[color:var(--commerce-accent-edge)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--wariba-color-cobalt-300)] motion-reduce:transition-none"
     >
       <h3 className="text-[length:var(--wariba-font-size-body-md)] font-semibold text-[color:var(--wariba-color-bone-50)]">
         {category.title}

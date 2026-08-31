@@ -518,6 +518,81 @@ describeIfDb('risk engine — real database', () => {
     expect(manualEvaluation.previousStatus).toBe('pass_pending');
     expect(manualEvaluation.newStatus).toBe('pass_pending');
 
+    // POLICY-GOV-004 V1 safety backport: pass_pending keeps normal trading
+    // permission only while risk permits it. A current-day Daily Loss
+    // restriction must still deny a new position; this changes no V1 number
+    // and attaches no V2 rule to the historical policy.
+    const passPendingAccount = await db
+      .selectFrom('app.trading_accounts')
+      .select('policy_version_id')
+      .where('id', '=', accountId)
+      .executeTakeFirstOrThrow();
+    const currentSnapshot = await db
+      .selectFrom('app.account_daily_snapshots')
+      .select('id')
+      .where('account_id', '=', accountId)
+      .where('trading_day', '=', dayThree.toISOString().slice(0, 10))
+      .executeTakeFirstOrThrow();
+    const policyRow = await db
+      .selectFrom('app.policy_versions')
+      .select(['semantic_version', 'parameters_json'])
+      .where('id', '=', passPendingAccount.policy_version_id)
+      .executeTakeFirstOrThrow();
+    const v1Parameters = policyRow.parameters_json as Record<string, unknown>;
+    expect(policyRow.semantic_version).toBe('1.1.1');
+    expect(v1Parameters).toMatchObject({
+      profit_target_rate: '0.10',
+      daily_loss_rate: '0.03',
+      maximum_loss_rate: '0.10',
+      best_day_max_ratio: '0.50',
+    });
+    const v1PerformancePolicy = await db
+      .selectFrom('app.policy_versions')
+      .select('parameters_json')
+      .where('program', '=', 'WARIBA_PERFORMANCE')
+      .where('semantic_version', '=', '1.1.0')
+      .executeTakeFirstOrThrow();
+    expect(v1PerformancePolicy.parameters_json).toMatchObject({
+      permanent_buffer_rate: '0.10',
+    });
+    const safetyViolationId = (
+      await db
+        .insertInto('app.risk_violations')
+        .values({
+          account_id: accountId,
+          rule_code: 'RISK_DAILY_LOSS_LOCK',
+          severity: 'warning',
+          consequence: 'soft_lock',
+          policy_version_id: passPendingAccount.policy_version_id,
+          threshold_value: '9700.00',
+          observed_value: '9699.99',
+          account_daily_snapshot_id: currentSnapshot.id,
+          account_state_transition_id: null,
+          trigger_event_type: 'manual_review',
+          trigger_event_id: randomUUID(),
+          price_snapshot: JSON.stringify(ALL_MARKETS),
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+    ).id;
+    const blockedAfterTarget = await openPosition(db, {
+      accountId,
+      idempotencyKey: randomUUID(),
+      symbol: 'EURUSD',
+      side: 'buy',
+      quantity: '0.10',
+      market: { ...ALL_MARKETS.EURUSD, timestamp: dayThree.toISOString(), sequence: '9' },
+      marketBySymbol: {
+        ...ALL_MARKETS,
+        EURUSD: { ...ALL_MARKETS.EURUSD, timestamp: dayThree.toISOString(), sequence: '9' },
+      },
+      now: dayThree,
+    });
+    expect(blockedAfterTarget.order.status).toBe('rejected');
+    expect(blockedAfterTarget.order.rejectionCode).toBe('DAILY_LOSS_SOFT_LOCKED');
+    expect(blockedAfterTarget.position).toBeNull();
+    await db.deleteFrom('app.risk_violations').where('id', '=', safetyViolationId).execute();
+
     // Only the authoritative daily-finalization trigger makes the result
     // definitive and provisions Performance in that same transaction.
     const finalEvaluation = await evaluateAndApplyAccountRisk(db, {

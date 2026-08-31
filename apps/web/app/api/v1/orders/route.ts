@@ -1,69 +1,58 @@
 import { NextResponse } from 'next/server';
+import { SandboxPaymentProvider } from '@wariba/adapters';
+import {
+  acceptSandboxDisclosure,
+  createCanonicalV2PurchaseOrder,
+  getCanonicalV2Offer,
+  getCommerceOrderStatusForUser,
+  preparePurchaseOrderForPayment,
+  recordPaymentAttempt,
+} from '@wariba/application';
 import {
   correlationIdFromHeaders,
   CORRELATION_ID_HEADER,
   createLogger,
 } from '@wariba/observability';
 import { checkoutInputSchema } from '@wariba/validation';
-import { SandboxPaymentProvider } from '@wariba/adapters';
-import {
-  acceptSandboxDisclosure,
-  createPurchaseOrder,
-  recordPaymentAttempt,
-} from '@wariba/application';
-import { createSupabaseServerClient } from '../../../../lib/supabase/server';
 import { getDb } from '../../../../lib/db';
-import { loadWebConfig } from '../../../../lib/config';
+import { isLocalSandboxCommerce, loadWebConfig } from '../../../../lib/config';
 import { hasTrustedMutationOrigin } from '../../../../lib/request-security';
+import { createSupabaseServerClient } from '../../../../lib/supabase/server';
 
-const logger = createLogger({ service: 'web', module: 'orders' });
+const logger = createLogger({ service: 'web', module: 'commerce.orders.v2' });
 
-/**
- * Creates a purchase order + initiates a sandbox payment. Price and
- * currency are looked up server-side from product_version — the request
- * body has no field for either (checkoutInputSchema's shape enforces
- * this at the type level). AGENTS.md invariant: "prix serveur uniquement."
- */
+function errorResponse(
+  code: string,
+  message: string,
+  status: number,
+  correlationId: string,
+  retryable = false,
+) {
+  return NextResponse.json(
+    { error: { code, message, retryable }, meta: { correlationId } },
+    { status, headers: { [CORRELATION_ID_HEADER]: correlationId } },
+  );
+}
+
+/** Server-priced V2 order creation/resume. No amount or currency crosses this boundary. */
 export async function POST(request: Request) {
   const correlationId = correlationIdFromHeaders(Object.fromEntries(request.headers.entries()));
   const headers = { [CORRELATION_ID_HEADER]: correlationId };
   const config = loadWebConfig();
 
   if (!hasTrustedMutationOrigin(request, config.APP_BASE_URL)) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'ORIGIN_NOT_ALLOWED',
-          message: 'Origine de requête refusée.',
-          retryable: false,
-        },
-        meta: { correlationId },
-      },
-      { status: 403, headers },
-    );
+    return errorResponse('ORIGIN_NOT_ALLOWED', 'Origine de requête refusée.', 403, correlationId);
   }
 
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
   if (!user) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'AUTH_REQUIRED',
-          message: 'Connectez-vous pour continuer.',
-          retryable: false,
-        },
-        meta: { correlationId },
-      },
-      { status: 401, headers },
-    );
+    return errorResponse('AUTH_REQUIRED', 'Connectez-vous pour continuer.', 401, correlationId);
   }
 
-  const body: unknown = await request.json().catch(() => null);
-  const parsed = checkoutInputSchema.safeParse(body);
+  const parsed = checkoutInputSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json(
       {
@@ -80,71 +69,166 @@ export async function POST(request: Request) {
   }
 
   const db = getDb();
-  await acceptSandboxDisclosure(db, {
-    userId: user.id,
-    locale: 'fr',
-    correlationId,
-  });
-  const result = await createPurchaseOrder(db, {
-    userId: user.id,
-    productCode: parsed.data.productCode,
-    idempotencyKey: parsed.data.idempotencyKey,
-  });
+  const localSandbox = isLocalSandboxCommerce(config);
+  let orderId: string;
 
-  if (result.kind === 'product_not_available') {
+  if (parsed.data.kind === 'initial_purchase') {
+    const offer = await getCanonicalV2Offer(db, parsed.data.offerId);
+    if (!offer) {
+      return errorResponse(
+        'OFFER_NOT_FOUND',
+        'Cette offre V2 est introuvable.',
+        404,
+        correlationId,
+      );
+    }
+    if (!localSandbox && !offer.purchaseEnabled) {
+      return errorResponse(
+        'PURCHASE_NOT_OPEN',
+        "Cette offre est visible au catalogue, mais l'achat public n'est pas encore ouvert.",
+        409,
+        correlationId,
+      );
+    }
+    await acceptSandboxDisclosure(db, {
+      userId: user.id,
+      locale: 'fr',
+      policyVersionId: offer.policyVersionId,
+      correlationId,
+    });
+    const created = await createCanonicalV2PurchaseOrder(db, {
+      userId: user.id,
+      offerId: offer.offerId,
+      idempotencyKey: parsed.data.idempotencyKey,
+      countryCode: '*',
+      channel: 'web',
+      capabilityMode: localSandbox ? 'local_sandbox' : 'public',
+    });
+    if (created.kind === 'offer_not_found') {
+      return errorResponse(
+        'OFFER_NOT_FOUND',
+        'Cette offre V2 est introuvable.',
+        404,
+        correlationId,
+      );
+    }
+    if (created.kind === 'capability_blocked') {
+      return errorResponse(
+        'PURCHASE_NOT_OPEN',
+        "L'achat public de cette offre n'est pas encore ouvert.",
+        409,
+        correlationId,
+      );
+    }
+    if (created.kind === 'consent_required') {
+      return errorResponse(
+        'CONSENT_REQUIRED',
+        'Acceptez la divulgation du compte simulé pour continuer.',
+        409,
+        correlationId,
+      );
+    }
+    orderId = created.orderId;
+    if (created.kind === 'created') {
+      logger.info('commerce_order_created', {
+        correlationId,
+        orderId,
+        offerId: offer.offerId,
+        productFamily: offer.productFamily,
+      });
+    }
+  } else if (parsed.data.kind === 'flex_activation') {
+    const activation = await getCommerceOrderStatusForUser(
+      db,
+      parsed.data.activationOrderId,
+      user.id,
+    );
+    if (!activation || activation.orderKind !== 'flex_activation') {
+      return errorResponse(
+        'ACTIVATION_NOT_FOUND',
+        "Cette activation n'existe pas.",
+        404,
+        correlationId,
+      );
+    }
+    const offer = await getCanonicalV2Offer(db, `FLEX-${activation.productCode.replace('K', '')}`);
+    if (!localSandbox && !offer?.activationEnabled) {
+      return errorResponse(
+        'ACTIVATION_NOT_OPEN',
+        "L'activation publique n'est pas encore ouverte.",
+        409,
+        correlationId,
+      );
+    }
+    await acceptSandboxDisclosure(db, {
+      userId: user.id,
+      locale: 'fr',
+      policyVersionId: activation.policyVersionId,
+      correlationId,
+    });
+    orderId = activation.id;
+  } else {
+    const existing = await getCommerceOrderStatusForUser(db, parsed.data.orderId, user.id);
+    if (!existing) {
+      return errorResponse('ORDER_NOT_FOUND', 'Commande introuvable.', 404, correlationId);
+    }
+    orderId = existing.id;
+  }
+
+  const prepared = await preparePurchaseOrderForPayment(db, { orderId, userId: user.id });
+  if (prepared.kind === 'not_found') {
+    return errorResponse('ORDER_NOT_FOUND', 'Commande introuvable.', 404, correlationId);
+  }
+  if (prepared.kind === 'expired') {
+    return errorResponse(
+      'ACTIVATION_EXPIRED',
+      "Le délai d'activation FLEX est dépassé.",
+      410,
+      correlationId,
+    );
+  }
+  if (prepared.kind === 'already_processed') {
     return NextResponse.json(
       {
-        error: {
-          code: 'PRODUCT_NOT_AVAILABLE',
-          message: "Cette offre n'est pas disponible.",
-          retryable: false,
+        data: {
+          orderId,
+          status: prepared.status,
+          redirectUrl: `/bienvenue?order=${orderId}`,
         },
         meta: { correlationId },
       },
-      { status: 404, headers },
+      { headers },
     );
   }
-
-  if (result.kind === 'consent_required') {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'CONSENT_REQUIRED',
-          message: 'Acceptez la divulgation du compte simulé pour continuer.',
-          retryable: false,
-        },
-        meta: { correlationId },
-      },
-      { status: 409, headers },
+  if (prepared.kind === 'unavailable') {
+    return errorResponse(
+      'ORDER_NOT_PAYABLE',
+      'Cette commande ne peut pas être payée.',
+      409,
+      correlationId,
     );
-  }
-
-  const { order } = result;
-  if (result.kind === 'created') {
-    logger.info('order.created', { correlationId, orderId: order.id, userId: user.id });
   }
 
   const provider = new SandboxPaymentProvider(config.SANDBOX_WEBHOOK_SECRET);
   const initiation = await provider.initiate({
-    purchaseOrderId: order.id,
-    amount: order.totalAmount,
-    currency: order.totalCurrency,
+    purchaseOrderId: prepared.order.id,
+    amount: prepared.order.totalAmount,
+    currency: prepared.order.totalCurrency,
   });
-
   await recordPaymentAttempt(db, {
-    purchaseOrderId: order.id,
+    purchaseOrderId: prepared.order.id,
     providerReference: initiation.providerReference,
-    amount: order.totalAmount,
-    currency: order.totalCurrency,
+    amount: prepared.order.totalAmount,
+    currency: prepared.order.totalCurrency,
   });
 
   return NextResponse.json(
     {
       data: {
-        orderId: order.id,
-        status: order.status,
-        totalAmount: order.totalAmount,
-        totalCurrency: order.totalCurrency,
+        orderId: prepared.order.id,
+        status: prepared.order.status,
+        totalAmount: prepared.order.totalAmount,
+        totalCurrency: prepared.order.totalCurrency,
         redirectUrl: initiation.redirectUrl,
       },
       meta: { correlationId },

@@ -14,6 +14,18 @@ export const PACKAGE_NAME = '@wariba/application';
 // handle to pass into these functions".
 export { createDbClient, type Db } from '@wariba/database';
 export {
+  listCanonicalV2Offers,
+  getCanonicalV2Offer,
+  createCanonicalV2PurchaseOrder,
+  type CanonicalOfferReadModel,
+  type CanonicalOfferSize,
+  type PublicEvaluationRules,
+  type PublicPerformanceRules,
+  type CheckoutCapabilityMode,
+  type CreateCanonicalV2OrderResult,
+} from './canonical-offers';
+
+export {
   getStaffRole,
   staffRoleSatisfies,
   staffCan,
@@ -264,6 +276,53 @@ export {
   UnsupportedProgramError,
   type AccountRiskEngineInputs,
 } from './risk-engine-inputs';
+
+export {
+  buildAccountPolicyView,
+  loadSuccessorPayoutSplit,
+  type AccountPolicyView,
+  type AccountLimits,
+  type AccountCapabilities,
+  type AccountProvenance,
+  type BuildAccountPolicyViewParams,
+} from './account-policy-view';
+
+export {
+  ensureFlexActivationObligation,
+  loadFlexActivationObligation,
+  flexActivationNotice,
+  type FlexActivationObligationView,
+  type FlexActivationNotice,
+  type FlexActivationStatus,
+} from './flex-activation';
+
+export {
+  projectAccountRules,
+  formatRate,
+  formatMoney,
+  ACCOUNT_RULE_LABEL,
+  PRODUCT_FAMILY_LABEL,
+  ACCOUNT_PHASE_LABEL,
+  type AccountRuleItem,
+  type AccountRuleKey,
+  type ProjectAccountRulesParams,
+} from './account-policy-rules';
+
+export {
+  deriveAccountNextAction,
+  type AccountNextAction,
+  type AccountNextActionKind,
+  type AccountNextActionFacts,
+} from './account-next-action';
+
+export {
+  reasonCodeCopy,
+  resolveReasonCodeCopy,
+  ALL_REASON_CODE_COPY,
+  UNKNOWN_REASON_COPY,
+  type ReasonCodeCopy,
+  type ReasonSeverity,
+} from './reason-code-copy';
 
 export {
   buildAccountRiskView,
@@ -599,6 +658,8 @@ export {
   getCheckoutContext,
   createPurchaseOrder,
   getOrderForUser,
+  getCommerceOrderStatusForUser,
+  preparePurchaseOrderForPayment,
   recordPaymentAttempt,
   processPaymentWebhookEvent,
   SANDBOX_PRODUCT_FEATURE_FLAGS,
@@ -606,6 +667,8 @@ export {
   type ProductDTO,
   type CheckoutContextDTO,
   type PurchaseOrderDTO,
+  type CommerceOrderStatusDTO,
+  type PreparePaymentResult,
   type CreatePurchaseOrderParams,
   type CreatePurchaseOrderResult,
   type RecordPaymentAttemptParams,

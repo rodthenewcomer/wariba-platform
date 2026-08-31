@@ -60,7 +60,10 @@ export default defineConfig({
         NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY ?? '',
       },
       reuseExistingServer: true,
-      timeout: 180_000,
+      // A clean production build of the full Web/BFF module graph can exceed
+      // three minutes on the constrained local runner. Keep this bounded but
+      // above the measured cold-build time; warm and CI builds return sooner.
+      timeout: 360_000,
     },
     {
       command: 'pnpm --filter @wariba/realtime start',

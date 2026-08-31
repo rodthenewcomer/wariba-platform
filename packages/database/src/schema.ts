@@ -48,20 +48,31 @@ export interface UserConsentsTable {
   user_id: string;
   consent_type: 'terms' | 'privacy' | 'simulated_account_disclosure';
   policy_version_id: string;
+  attached_policy_version_id: string | null;
+  policy_machine_hash: string | null;
+  policy_human_document_hash: string | null;
+  acceptance_source: Generated<string>;
   locale: string;
   accepted_at: GeneratedTimestamp;
 }
 
 export interface PolicyVersionsTable {
   id: Generated<string>;
-  program: 'WARIBA_ONE' | 'WARIBA_PERFORMANCE';
+  program: 'WARIBA_ONE' | 'WARIBA_FLEX' | 'WARIBA_PERFORMANCE';
+  product_family: 'WARIBA_ONE' | 'WARIBA_FLEX' | 'WARIBA_INSTANT' | null;
+  account_phase: 'evaluation' | 'performance' | null;
   semantic_version: string;
-  status: 'draft' | 'reviewed' | 'approved' | 'published' | 'retired';
+  status: 'draft' | 'reviewed' | 'approved' | 'pilot_ready' | 'published' | 'retired';
   parameters_json: unknown;
   human_document_hash: string | null;
   machine_hash: string | null;
   effective_from: Timestamp | null;
   retired_at: Timestamp | null;
+  published_at: Timestamp | null;
+  decision_record_id: string | null;
+  news_calendar_version_id: string | null;
+  session_calendar_version_id: string | null;
+  margin_profile_id: string | null;
   created_at: GeneratedTimestamp;
 }
 
@@ -76,6 +87,7 @@ export interface SymbolSpecSetsTable {
 export interface ProductsTable {
   id: Generated<string>;
   code: '5K' | '10K' | '25K' | '50K' | '100K';
+  product_family: Generated<'WARIBA_ONE' | 'WARIBA_FLEX' | 'WARIBA_INSTANT'>;
   nominal_balance: string;
   nominal_currency: string;
   created_at: GeneratedTimestamp;
@@ -90,10 +102,110 @@ export interface ProductVersionsTable {
   founder_price_amount: string | null;
   price_currency: string;
   activation_fee: string;
+  activation_price_amount: Generated<string>;
+  total_price_if_success: string;
+  catalogue_version: Generated<string>;
+  catalogue_status: Generated<'historical' | 'public_candidate' | 'public'>;
+  purchase_enabled: Generated<boolean>;
+  activation_enabled: Generated<boolean>;
+  gate_reason_code: string | null;
+  decision_record_id: string | null;
+  policy_version_id: string | null;
   feature_flag_key: string | null;
   effective_from: GeneratedTimestamp;
   retired_at: Timestamp | null;
   created_at: GeneratedTimestamp;
+}
+
+export interface MarginProfilesTable {
+  id: Generated<string>;
+  profile_code: string;
+  product_family: 'WARIBA_ONE' | 'WARIBA_FLEX' | 'WARIBA_INSTANT';
+  account_phase: 'evaluation' | 'performance';
+  candidate_margin_cap_rate: string;
+  leverage_by_asset_group: unknown;
+  calibration_status: 'calibration_required' | 'validated' | 'retired';
+  decision_record_id: string;
+  created_at: GeneratedTimestamp;
+  validated_at: Timestamp | null;
+}
+
+export interface NewsCalendarVersionsTable {
+  id: Generated<string>;
+  version_code: string;
+  provider: string | null;
+  status: 'candidate' | 'ready' | 'retired';
+  source_ready: Generated<boolean>;
+  published_at: Timestamp | null;
+  created_at: GeneratedTimestamp;
+}
+
+export interface NewsEventsTable {
+  id: Generated<string>;
+  calendar_version_id: string;
+  provider_event_id: string;
+  impact: 'low' | 'medium' | 'high';
+  affected_asset_groups: unknown;
+  scheduled_at: Timestamp;
+  window_starts_at: Timestamp;
+  window_ends_at: Timestamp;
+  created_at: GeneratedTimestamp;
+}
+
+export interface SessionCalendarVersionsTable {
+  id: Generated<string>;
+  version_code: string;
+  provider: string | null;
+  status: 'candidate' | 'ready' | 'retired';
+  source_ready: Generated<boolean>;
+  published_at: Timestamp | null;
+  created_at: GeneratedTimestamp;
+}
+
+export interface SessionClosuresTable {
+  id: Generated<string>;
+  calendar_version_id: string;
+  provider_closure_id: string;
+  affected_asset_groups: unknown;
+  closes_at: Timestamp;
+  reopens_at: Timestamp;
+  created_at: GeneratedTimestamp;
+}
+
+export interface PolicyPerformanceLinksTable {
+  evaluation_policy_version_id: string;
+  performance_policy_version_id: string;
+  decision_record_id: string;
+  created_at: GeneratedTimestamp;
+}
+
+export interface OfferCapabilityGatesTable {
+  id: Generated<string>;
+  product_version_id: string;
+  country_code: string;
+  channel: string;
+  purchase_enabled: Generated<boolean>;
+  activation_enabled: Generated<boolean>;
+  reserve_ready: Generated<boolean>;
+  quota_ready: Generated<boolean>;
+  reason_code: string;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface FlexActivationObligationsTable {
+  id: Generated<string>;
+  evaluation_account_id: string;
+  activation_order_id: string;
+  performance_policy_version_id: string;
+  status: Generated<'activation_due' | 'paid' | 'fulfilled' | 'expired'>;
+  amount_snapshot: string;
+  currency_snapshot: string;
+  due_at: Timestamp;
+  paid_at: Timestamp | null;
+  fulfilled_at: Timestamp | null;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
 }
 
 export type PurchaseOrderStatusColumn =
@@ -109,10 +221,21 @@ export interface PurchaseOrdersTable {
   id: Generated<string>;
   user_id: string;
   product_version_id: string;
+  policy_version_id: string | null;
+  policy_machine_hash: string | null;
+  policy_human_document_hash: string | null;
+  product_family: 'WARIBA_ONE' | 'WARIBA_FLEX' | 'WARIBA_INSTANT' | null;
+  order_kind: Generated<'initial_purchase' | 'flex_activation'>;
+  parent_purchase_order_id: string | null;
+  source_evaluation_account_id: string | null;
   idempotency_key: string;
   status: Generated<PurchaseOrderStatusColumn>;
   total_amount: string;
   total_currency: string;
+  upfront_price_snapshot: string | null;
+  activation_price_snapshot: string | null;
+  total_price_if_success_snapshot: string | null;
+  activation_due_at: Timestamp | null;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
 }
@@ -170,7 +293,8 @@ export interface TradingAccountsTable {
   source_evaluation_account_id: string | null;
   /** Set only for a no-cost compensating replacement account (UX-SUPPORT-004). Unique per contestation and never written on the original account. */
   source_contestation_id: string | null;
-  program_type: Generated<'WARIBA_ONE' | 'WARIBA_PERFORMANCE'>;
+  program_type: Generated<'WARIBA_ONE' | 'WARIBA_FLEX' | 'WARIBA_PERFORMANCE'>;
+  product_family: Generated<'WARIBA_ONE' | 'WARIBA_FLEX' | 'WARIBA_INSTANT'>;
   /** Sandbox-only — no real identity or payout-rail integration exists. Staff-set via Control (Phase G), never trader-set. */
   kyc_sandbox_verified: Generated<boolean>;
   payout_method_sandbox_configured: Generated<boolean>;
@@ -225,16 +349,20 @@ export interface AccountDailySnapshotsTable {
   sod_balance: string;
   sod_equity: string;
   program_sod_balance: string;
+  risk_sod_balance: Generated<string>;
   daily_reference: string;
   maximum_loss_floor_before: string;
   eod_balance: string | null;
   eod_equity: string | null;
   program_eod_balance: string | null;
+  risk_eod_balance: string | null;
   maximum_loss_floor_after: string | null;
   highest_eod_balance_after: string | null;
   highest_program_eod_balance_after: string | null;
+  highest_risk_eod_balance_after: string | null;
   realized_net_profit_for_day: string | null;
   eligible_realized_net_profit_for_day: string | null;
+  risk_adjusted_realized_net_profit_for_day: string | null;
   finalized_at: Timestamp | null;
   created_at: GeneratedTimestamp;
 }
@@ -951,6 +1079,14 @@ export interface Database {
   'app.symbol_spec_sets': SymbolSpecSetsTable;
   'app.products': ProductsTable;
   'app.product_versions': ProductVersionsTable;
+  'app.margin_profiles': MarginProfilesTable;
+  'app.news_calendar_versions': NewsCalendarVersionsTable;
+  'app.news_events': NewsEventsTable;
+  'app.session_calendar_versions': SessionCalendarVersionsTable;
+  'app.session_closures': SessionClosuresTable;
+  'app.policy_performance_links': PolicyPerformanceLinksTable;
+  'app.offer_capability_gates': OfferCapabilityGatesTable;
+  'app.flex_activation_obligations': FlexActivationObligationsTable;
   'app.purchase_orders': PurchaseOrdersTable;
   'app.payment_attempts': PaymentAttemptsTable;
   'app.payment_events': PaymentEventsTable;

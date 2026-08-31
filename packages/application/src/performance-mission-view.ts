@@ -76,7 +76,7 @@ const REJECTION_LABEL: Record<PayoutRejectionCode, string> = {
   account_not_active: 'Le compte n’est pas actif.',
   no_active_cycle: 'Aucun cycle actif — le dossier WARIBA Review est ouvert.',
   buffer_not_reached: 'Le solde éligible n’a pas encore dépassé le seuil du buffer permanent.',
-  performance_days_incomplete: 'Il manque des Performance Days pour ce cycle.',
+  performance_days_incomplete: 'Il vous manque des journées Performance sur ce cycle.',
   consistency_non_compliant:
     'La meilleure journée dépasse 50 % du profit positif total — répartissez le profit sur d’autres journées.',
   open_position_blocks_payout: 'Une position est ouverte — fermez-la avant de demander un payout.',
@@ -168,7 +168,7 @@ export async function buildAccountPerformanceMissionView(
 
   const conditions: AccountPerformanceMissionCondition[] = [
     {
-      label: 'Buffer permanent construit',
+      label: 'Réserve de sécurité constituée',
       detail: progress.bufferReached
         ? `Disponible : ${formatUsd(progress.eligibleExcess)}`
         : // A8 — "seuil du buffer" here, never "plancher". The floor a trader
@@ -178,7 +178,7 @@ export async function buildAccountPerformanceMissionView(
       met: progress.bufferReached,
     },
     {
-      label: 'Performance Days',
+      label: 'Journées Performance',
       detail: `${progress.performanceDaysCompleted} / ${progress.performanceDaysRequired} — seuil ${formatUsd(progress.performanceDayThreshold)}/jour`,
       met: progress.performanceDaysCompleted >= progress.performanceDaysRequired,
     },
@@ -223,7 +223,7 @@ export async function buildAccountPerformanceMissionView(
     cycleNumber: progress.cycleNumber,
     title: `Cycle de payout n°${progress.cycleNumber}`,
     progressKind: 'buffer',
-    progressLabel: progress.bufferReached ? 'Buffer construit' : 'Buffer à construire',
+    progressLabel: progress.bufferReached ? 'Réserve constituée' : 'Réserve à constituer',
     progressDetail: `${formatUsd(buffer.builtAmount)} / ${formatUsd(buffer.requiredAmount)}`,
     progressPercent: buffer.percent,
     conditions,

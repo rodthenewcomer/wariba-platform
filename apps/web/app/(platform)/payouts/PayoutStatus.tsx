@@ -125,7 +125,7 @@ export function PayoutStatus({ payout }: { payout: PayoutLifecycleView }) {
 
           <ProgressBar
             percent={payout.cycle.bufferProgressPercent}
-            label="Progression du buffer permanent"
+            label="Progression de la réserve de sécurité"
             tone={payout.cycle.bufferProgressPercent >= 100 ? 'emerald' : 'indigo'}
             className="mt-3"
           />
@@ -134,12 +134,12 @@ export function PayoutStatus({ payout }: { payout: PayoutLifecycleView }) {
             {[
               { term: 'Solde éligible', value: payout.cycle.realizedBalanceFormatted },
               {
-                term: 'Buffer construit',
+                term: 'Réserve constituée',
                 value: `${payout.cycle.bufferBuiltFormatted} / ${payout.cycle.bufferRequiredFormatted}`,
               },
-              { term: 'Seuil du buffer', value: payout.cycle.bufferFloorFormatted },
+              { term: 'Seuil de la réserve', value: payout.cycle.bufferFloorFormatted },
               {
-                term: 'Performance Days',
+                term: 'Journées Performance',
                 value: `${payout.cycle.performanceDaysCompleted} / ${payout.cycle.performanceDaysRequired}`,
               },
             ].map((row) => (

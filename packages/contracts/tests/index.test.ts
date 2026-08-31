@@ -264,6 +264,17 @@ describe('accountRiskSchema — concentration (Prompt 07 Guardian)', () => {
     bestDay: { ratio: null, compliant: true },
     eligibility: { passEligible: false, blockingReasons: [] },
     shortDurationMonitoring: { status: 'normal' as const, count24h: 0 },
+    /*
+     * Phase 3.4.4 — required, and explicitly null.
+     *
+     * A V1-pinned account has neither cap, and the schema makes the producer
+     * say so rather than accepting an omission. An optional field would let a
+     * service that forgot to compute exposure look identical to an account
+     * that has no exposure rule, which is the one confusion a ceiling must
+     * never be part of.
+     */
+    grossExposure: null,
+    margin: null,
   };
 
   it('requires a concentration array — dropping partial-fill-era assumptions forward, not silently optional', () => {
@@ -304,5 +315,76 @@ describe('accountRiskPreviewMessageSchema — Prompt 07 throttled push', () => {
       risk: null,
     });
     expect(result.success).toBe(true);
+  });
+});
+
+describe('accountRiskSchema — exposure and margin (Phase 3.4.4 §14/§82)', () => {
+  const base = {
+    status: 'active' as const,
+    programEligibleBalance: '10000.00',
+    programEligibleEquity: '10000.00',
+    target: { required: '1000.00', current: '0.00', reached: false },
+    dailyLoss: {
+      reference: '10000.00',
+      floor: '9700.00',
+      used: '0.00',
+      remaining: '300.00',
+      softLockTriggered: false,
+    },
+    maximumLoss: { floor: '9000.00', remaining: '1000.00', breached: false },
+    bestDay: { ratio: null, compliant: true },
+    eligibility: { passEligible: false, blockingReasons: [] },
+    shortDurationMonitoring: { status: 'normal' as const, count24h: 0 },
+    concentration: [],
+  };
+
+  /**
+   * The absence has to be stated. An optional field would make "this account
+   * has no exposure cap" and "the service failed to compute one" the same
+   * payload — and the second is the case where a client must not draw
+   * headroom.
+   */
+  it('requires both fields, even to say there is no cap', () => {
+    expect(accountRiskSchema.safeParse(base).success).toBe(false);
+    expect(
+      accountRiskSchema.safeParse({ ...base, grossExposure: null, margin: null }).success,
+    ).toBe(true);
+  });
+
+  it('accepts a fully populated V2 standing', () => {
+    const result = accountRiskSchema.safeParse({
+      ...base,
+      grossExposure: {
+        grossExposure: '16000.00000000',
+        maximumGrossExposure: '30000.00000000',
+        grossExposureRate: '1.60000000',
+        maximumMultiple: '3.00000000',
+        withinCap: true,
+      },
+      margin: {
+        requiredMargin: '600.00000000',
+        marginUsageRate: '0.06000000',
+        capRate: '0.15',
+        enforcementReady: true,
+        withinCap: true,
+      },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  /** Money crosses the wire as decimal strings, never as floats. */
+  it('rejects a numeric exposure figure', () => {
+    const result = accountRiskSchema.safeParse({
+      ...base,
+      margin: null,
+      grossExposure: {
+        grossExposure: 16000,
+        maximumGrossExposure: '30000.00000000',
+        grossExposureRate: '1.60000000',
+        maximumMultiple: '3.00000000',
+        withinCap: true,
+      },
+    });
+    expect(result.success).toBe(false);
   });
 });

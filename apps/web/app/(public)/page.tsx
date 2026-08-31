@@ -1,390 +1,232 @@
-import Image from 'next/image';
 import Link from 'next/link';
-import {
-  Accordion,
-  Badge,
-  buttonClassNames,
-  FeatureCard,
-  PricingCard,
-  ShieldIcon,
-  StatTile,
-  Text,
-  OverviewIcon,
-  PayoutsIcon,
-  TradeIcon,
-} from '@wariba/ui';
-import { listActiveProducts } from '@wariba/application';
+import { listCanonicalV2Offers } from '@wariba/application';
+import { ArrowRightIcon, PublicSection, SectionHeader } from '@wariba/ui';
+import { ProofRail } from '../../components/marketing/ProofRail';
+import { PathwaysSection } from '../../components/marketing/PathwaysSection';
+import { WaribaPath } from '../../components/marketing/scenes/WaribaPath';
+import { HomeConfigurator } from '../../components/marketing/HomeConfigurator';
+import { WariXProductTeaser } from '../../components/marketing/WariXProductTeaser';
+import { RiskField } from '../../components/marketing/RiskField';
+import { HowItWorksSection } from '../../components/marketing/how-it-works/HowItWorksSection';
+import { Section07Intelligence } from '../../components/marketing/section07/Section07Intelligence';
+import { AfriqueFrancophoneSection } from '../../components/marketing/afrique-francophone/AfriqueFrancophoneSection';
+import { ContactPreviewSection } from '../../components/marketing/contact/ContactPreviewSection';
+import { FaqSection } from '../../components/marketing/faq/FaqSection';
+import { ClosingSection } from '../../components/marketing/closing/ClosingSection';
+import { Reveal } from '../../components/motion/Reveal';
 import { getDb } from '../../lib/db';
-import { formatFcfa, formatUsd, USD_EQUIVALENT } from '../../lib/pricing-format';
-import { WariXMiniPreview } from './warix/WariXMiniPreview';
 
 export const dynamic = 'force-dynamic';
 
-const DIFFERENTIATORS = [
-  {
-    icon: <PayoutsIcon />,
-    title: 'Payé en FCFA, sans détour',
-    body: 'Le prix et le règlement restent en FCFA du premier au dernier paiement. L’équivalent USD reste une indication, jamais une conversion appliquée au checkout.',
-  },
-  {
-    icon: <TradeIcon />,
-    title: 'Une seule phase, aucun minimum de jours',
-    body: 'Atteignez l’objectif de 10 % quand vous êtes prêt. Aucune journée minimale, aucune journée qualifiée à cumuler avant de pouvoir passer.',
-  },
-  {
-    icon: <OverviewIcon />,
-    title: 'Jusqu’à 90 % du profit retiré',
-    body: 'Un profit split de 85 % dès votre premier payout, puis 90 % à partir du cinquième. Le partage progresse avec votre régularité.',
-  },
-  {
-    icon: <ShieldIcon />,
-    title: 'Des règles versionnées, jamais réécrites',
-    body: 'Les règles que vous acceptez à l’activation restent attachées à votre compte. Aucune n’est modifiée après coup.',
-  },
-] as const;
-
-const PROGRAMS = [
-  {
-    eyebrow: '01 — Evaluation',
-    title: 'Prouvez votre discipline.',
-    body: 'Une seule phase, un objectif de 10 % réalisé et des règles qui restent visibles avant chaque décision.',
-    status: 'Disponible dès aujourd’hui',
-    href: '/programme#evaluation',
-    tone: 'cobalt',
-  },
-  {
-    eyebrow: '02 — Performance',
-    title: 'Construisez votre base.',
-    body: 'Un buffer permanent de 10 %, cinq nouvelles Performance Days et des caps progressifs.',
-    status: 'S’ouvre après une Evaluation réussie',
-    href: '/programme#performance',
-    tone: 'success',
-  },
-  {
-    eyebrow: '03 — Review',
-    title: 'Faites examiner vos preuves.',
-    body: 'Après cinq payouts conformes, le dossier entre en revue. Aucun Live n’est garanti.',
-    status: 'Étape finale du parcours',
-    href: '/programme#review',
-    tone: 'copper',
-  },
-] as const satisfies readonly {
-  eyebrow: string;
-  title: string;
-  body: string;
-  status: string;
-  href: string;
-  tone: 'cobalt' | 'success' | 'copper';
-}[];
-
-const RULES = [
-  ['Objectif réalisé', '10 %'],
-  ['Perte quotidienne', '3 % · soft lock'],
-  ['Perte maximale', '10 % · EOD trailing'],
-  ['Best Day Rule', '50 % · non-breach'],
-  ['Minimum de jours', 'Aucun'],
-  ['Activation après réussite', '0 FCFA'],
-] as const;
-
-const OFFER_RULES = [
-  'Objectif réalisé : 10 %',
-  'Daily Loss : 3 % soft lock',
-  'Maximum Loss : 10 % EOD trailing',
-  'Best Day Rule : 50 % non-breach',
-  'Aucun minimum de jours',
-];
-
-const FAQ_ITEMS = [
-  {
-    question: 'Le trading sur WariX est-il réel ?',
-    answer:
-      'Non. WariX est un environnement entièrement simulé. Les balances, prix et exécutions ne représentent ni un compte de courtage ni des fonds réels. Les résultats obtenus en simulation ne garantissent aucun résultat futur.',
-  },
-  {
-    question: 'Le prix affiché est-il définitif ?',
-    answer:
-      'Pas encore. Les prix actuels sont des prix candidats pour la bêta privée. Ils seront confirmés avant toute ouverture publique, et jamais modifiés a posteriori sur un compte déjà activé.',
-  },
-  {
-    question: 'Puis-je payer en FCFA ?',
-    answer:
-      'Oui. Le prix contractuel et le règlement au checkout sont en FCFA. L’équivalent USD affiché est informatif uniquement et n’est jamais appliqué comme conversion.',
-  },
-  {
-    question: 'Que se passe-t-il après le cinquième payout ?',
-    answer:
-      'Le compte entre en WARIBA Review, une évaluation des preuves et de l’intégrité du parcours. Elle ne garantit ni sixième payout, ni allocation Live, ni capital réel.',
-  },
-  {
-    question: 'Combien de temps ai-je pour réussir l’Evaluation ?',
-    answer:
-      'Aucune limite de temps ni minimum de jours n’est imposé. Seule la Best Day Rule (50 % maximum sur une seule journée) empêche un passage fondé sur une unique journée profitable.',
-  },
-  {
-    question: 'Que se passe-t-il si j’atteins la Daily Loss Limit ?',
-    answer:
-      'Le compte passe en soft lock jusqu’au prochain reset : aucune nouvelle position ne peut être ouverte, mais le compte n’est pas terminé. Il ne l’est que si le plancher de Maximum Loss est également atteint.',
-  },
-] as const;
-
+/**
+ * The WARIBA homepage — Phase 3.4.5B.
+ *
+ * ## The rhythm
+ *
+ * Twelve sections and no two consecutive ones share a composition. Product
+ * hero → three full scenes → configurator → a saturated colour field →
+ * four-step scenes → a data visualisation → a dark product surface → a
+ * living dashboard → a regional map → a contact preview → FAQ → closing
+ * scene. The variation is the point: a page that alternates
+ * `text-left / card-right` nine times reads as a template no matter how
+ * good each block is.
+ *
+ * Section 12 (Clôture) used to close a longer page — a drawdown visual, a
+ * numbers grid, the live dashboard, the payout ladder and a guarantees grid
+ * all followed it. Those five were cut; what they showed (rules, risk,
+ * payouts, the dashboard) still lives on `/programme`, `/aide` and the
+ * product pages this homepage already links to.
+ *
+ * ## Every figure comes from the server
+ *
+ * Targets, limits, reserves, splits, prices and the FLEX total are read from
+ * the canonical offer model. Nothing on this page computes money, and nothing
+ * generalises a rule across ONE, FLEX and INSTANT — five of their six risk
+ * rules differ, so a sentence that covers all three is a false claim with a
+ * nice layout.
+ */
 export default async function HomePage() {
-  const offers = await listActiveProducts(getDb());
+  const offers = await listCanonicalV2Offers(getDb());
+
+  const one = offers.find((o) => o.productFamily === 'WARIBA_ONE' && o.sizeCode === '25K');
+  const instant = offers.find((o) => o.productFamily === 'WARIBA_INSTANT' && o.sizeCode === '25K');
+  if (!one || !instant) throw new Error('Catalogue V2 canonique incomplet.');
+
+  /* Section 03 montre FLEX à sa taille d'entrée — 9 900 FCFA — pour que le
+     chiffre corresponde exactement à celui déjà annoncé en Section 02
+     (« Commencez dès 9 900 FCFA »). */
+  const flexEntry = offers.find((o) => o.productFamily === 'WARIBA_FLEX' && o.sizeCode === '5K');
+  if (!flexEntry) throw new Error('Catalogue V2 canonique incomplet.');
 
   return (
     <>
-      <section className="relative isolate min-h-[calc(100svh-64px)] overflow-hidden border-b border-[color:var(--wariba-color-ink-700)]">
-        <Image
-          src="/images/wariba-hero-abidjan.webp"
-          alt="Trader professionnel ouest-africain concentré dans un espace de travail contemporain à Abidjan"
-          fill
-          priority
-          sizes="100vw"
-          className="-z-20 object-cover object-[65%_center]"
-        />
-        <div className="absolute inset-0 -z-10 bg-[color:var(--wariba-color-ink-950)]/75" />
-        <div className="mx-auto flex min-h-[calc(100svh-64px)] max-w-[var(--wariba-size-marketing-container-max)] items-center px-4 py-16 sm:px-6">
-          <div className="max-w-3xl">
-            <Badge variant="information">Bêta privée · trading simulé</Badge>
-            <h1 className="mt-6 max-w-3xl text-[length:var(--wariba-font-size-display-lg)] font-semibold leading-[var(--wariba-line-height-display-lg)] tracking-[var(--wariba-letter-spacing-tight)] text-[color:var(--wariba-color-bone-50)] sm:text-[length:var(--wariba-font-size-display-xl)] sm:leading-[var(--wariba-line-height-display-xl)]">
-              Construisez votre discipline. Mesurez votre progression.
+      {/* ───────────────  1 · Héros  ───────────────
+          La promesse WARIBA, pas le produit. WariX a sa propre section plus
+          bas : y montrer un terminal ici dépenserait ce moment en avance et
+          laisserait la section produit sans rien de neuf à révéler. Le visuel
+          du héros est donc une atmosphère — WARIBA PATH — et le texte
+          garde la priorité visuelle. */}
+      <section className="relative isolate overflow-hidden">
+        <WaribaPath />
+
+        <div className="mx-auto max-w-[var(--wariba-shell-max)] px-[var(--wariba-shell-gutter)] pb-24 pt-16 lg:pb-36 lg:pt-28">
+          <div className="min-w-0 max-w-[46rem]">
+            {/* La marque avant la mention. « TRADING SIMULÉ » seul faisait de
+                l'avertissement la première chose que WARIBA dit de lui-même —
+                la transparence reste entière, elle a juste un contexte. */}
+            <p className="wariba-eyebrow">WARIBA · Trading simulé</p>
+
+            {/*
+             * Deux propositions, deux bénéfices : la clarté puis le suivi.
+             *
+             * L'ancienne version disait « Tradez. Progressez. Passez sur
+             * Performance. » — trois verbes dont le dernier est faux pour
+             * INSTANT, qui ne « passe » pas après une évaluation puisqu'il
+             * n'en a pas. Une promesse qui n'est vraie que pour deux parcours
+             * sur trois n'a rien à faire dans un H1.
+             */}
+            <h1 className="wariba-hero-title mt-6">
+              Tradez avec des règles claires.
+              <span className="block text-[color:var(--wariba-on-dark-muted)]">
+                Progressez sans perdre le fil.
+              </span>
             </h1>
-            <p className="mt-6 max-w-2xl text-[length:var(--wariba-font-size-body-lg)] leading-[var(--wariba-line-height-body-lg)] text-[color:var(--wariba-color-ink-100)]">
-              WARIBA est un parcours francophone d’évaluation et de performance dans un
-              environnement entièrement simulé, avec des règles versionnées et une exécution
-              contrôlée par le serveur.
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href="/offres" className={buttonClassNames({ size: 'lg' })}>
-                Choisir une évaluation
-              </Link>
-              <Link
-                href="/programme"
-                className={buttonClassNames({ size: 'lg', variant: 'secondary' })}
-              >
-                Voir comment ça marche
-              </Link>
-            </div>
-            <p className="mt-5 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-color-ink-200)]">
-              Prix principal en FCFA. Aucune conversion surprise au checkout. Aucun frais
-              d’activation après réussite.
-            </p>
-          </div>
-        </div>
-      </section>
 
-      <section aria-labelledby="pourquoi-title" className="bg-[color:var(--wariba-color-ink-950)]">
-        <div className="mx-auto max-w-[var(--wariba-size-marketing-container-max)] px-4 py-20 sm:px-6 lg:py-28">
-          <div className="max-w-3xl">
-            <Text variant="label-sm" className="text-[color:var(--wariba-color-cobalt-300)]">
-              Pourquoi choisir WARIBA
-            </Text>
-            <h2
-              id="pourquoi-title"
-              className="mt-3 text-[length:var(--wariba-font-size-display-md)] font-semibold leading-[var(--wariba-line-height-display-md)] tracking-[var(--wariba-letter-spacing-tight)] text-[color:var(--wariba-color-bone-50)]"
-            >
-              Pensé pour des traders francophones, pas traduit après coup.
-            </h2>
-          </div>
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {DIFFERENTIATORS.map((item) => (
-              <FeatureCard key={item.title} icon={item.icon} title={item.title} body={item.body} />
-            ))}
-          </div>
-        </div>
-      </section>
+            {/* Le filet : il sépare la promesse de l'explication sans ajouter
+                un mot, et donne à la composition un point d'appui autre que
+                l'alignement à gauche. */}
+            <span
+              aria-hidden="true"
+              className="mt-9 block h-px w-24 bg-[linear-gradient(90deg,var(--wariba-brand-400),transparent)]"
+            />
 
-      <section aria-labelledby="parcours-title" className="bg-[color:var(--wariba-color-ink-900)]">
-        <div className="mx-auto max-w-[var(--wariba-size-marketing-container-max)] px-4 py-20 sm:px-6 lg:py-28">
-          <div className="mb-10 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
-            <div className="max-w-3xl">
-              <Text variant="label-sm" className="text-[color:var(--wariba-color-cobalt-300)]">
-                Un parcours en trois temps
-              </Text>
-              <h2
-                id="parcours-title"
-                className="mt-3 text-[length:var(--wariba-font-size-display-md)] font-semibold leading-[var(--wariba-line-height-display-md)] tracking-[var(--wariba-letter-spacing-tight)] text-[color:var(--wariba-color-bone-50)]"
-              >
-                Une progression exigeante, sans promesse facile.
-              </h2>
-            </div>
-            <Link
-              href="/programme"
-              className="text-[length:var(--wariba-font-size-label-md)] font-semibold text-[color:var(--wariba-color-cobalt-300)] hover:text-[color:var(--wariba-color-cobalt-200)]"
-            >
-              Explorer le programme
-            </Link>
-          </div>
-          <div className="grid gap-4 lg:grid-cols-3">
-            {PROGRAMS.map((program) => (
-              <Link
-                key={program.title}
-                href={program.href}
-                className="block h-full transition-transform hover:-translate-y-1"
-              >
-                <FeatureCard
-                  eyebrow={program.eyebrow}
-                  title={program.title}
-                  body={program.body}
-                  footer={program.status}
-                  tone={program.tone}
-                  className="min-h-[410px]"
-                />
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
+            <div className="lg:pl-8">
+              {/* « choisissez votre façon de commencer » demandait au lecteur de
+                  faire le lien lui-même ; nommer les trois parcours va droit au
+                  but. Et « restent visibles en permanence » était administratif
+                  — « à tout moment » est ce qu'on dit vraiment. */}
+              <p className="wariba-lead mt-8 max-w-[36rem]">
+                Choisissez ONE, FLEX ou INSTANT. Suivez vos limites et votre progression à tout
+                moment.
+              </p>
 
-      <section id="regles" className="bg-[color:var(--wariba-color-ink-950)] scroll-mt-20">
-        <div className="mx-auto max-w-[var(--wariba-size-marketing-container-max)] px-4 py-20 sm:px-6 lg:py-28">
-          <div className="grid gap-10 lg:grid-cols-[0.75fr_1.25fr]">
-            <div>
-              <Text variant="label-sm" className="text-[color:var(--wariba-color-copper-300)]">
-                WARIBA ONE v1.1
-              </Text>
-              <h2 className="mt-3 text-[length:var(--wariba-font-size-display-md)] font-semibold leading-[var(--wariba-line-height-display-md)] text-[color:var(--wariba-color-bone-50)]">
-                Des règles lisibles avant de commencer.
-              </h2>
-              <p className="mt-5 text-[length:var(--wariba-font-size-body-md)] text-[color:var(--wariba-color-ink-200)]">
-                Chaque compte garde la version de règles acceptée le jour de son activation. Une
-                version publiée n’est jamais réécrite.
+              <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <Link href="/offres" className="wariba-cta-primary">
+                  Choisir mon parcours
+                  <ArrowRightIcon size="sm" />
+                </Link>
+                <Link href="/programme" className="wariba-cta-secondary">
+                  Voir comment ça marche
+                </Link>
+              </div>
+
+              {/* La divulgation vit sous les CTA, séparée du titre : elle est
+                  une information, pas un argument. */}
+              {/* Plus long, et plus juste. « Aucun dépôt ne vous est confié »
+                  était bancal : ce qui n'est ni un dépôt ni du capital, c'est le
+                  montant affiché sur le compte. La phrase le nomme. */}
+              <p className="mt-7 max-w-lg text-sm leading-relaxed text-[color:var(--wariba-on-dark-dim)]">
+                Le trading est entièrement simulé. Le montant affiché sur votre compte n’est ni un
+                dépôt ni du capital réel qui vous est confié.
+              </p>
+              <p className="mt-2 text-sm text-[color:var(--wariba-on-dark-dim)]">
+                Les achats ne sont pas encore ouverts.
               </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {RULES.map(([label, value]) => (
-                <StatTile key={label} label={label} value={value} />
-              ))}
-            </div>
           </div>
         </div>
       </section>
 
-      <section aria-labelledby="tarifs-title" className="bg-[color:var(--wariba-color-ink-900)]">
-        <div className="mx-auto max-w-[var(--wariba-size-marketing-container-max)] px-4 py-20 sm:px-6 lg:py-28">
-          <div className="flex flex-col justify-between gap-7 lg:flex-row lg:items-end">
-            <div className="max-w-3xl">
-              <Text variant="label-sm" className="text-[color:var(--wariba-color-cobalt-300)]">
-                Cinq tailles actives en bêta privée
-              </Text>
-              <h2
-                id="tarifs-title"
-                className="mt-3 text-[length:var(--wariba-font-size-display-md)] font-semibold leading-[var(--wariba-line-height-display-md)] text-[color:var(--wariba-color-bone-50)]"
-              >
-                Un prix final en FCFA, sans conversion surprise.
-              </h2>
-            </div>
-            <Link href="/offres" className={buttonClassNames({ size: 'lg' })}>
-              Comparer les offres en détail
-            </Link>
-          </div>
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            {offers.map((offer) => (
-              <PricingCard
-                key={offer.code}
-                code={offer.code}
-                nominalLabel={`${formatUsd(offer.nominalBalance)} simulés`}
-                priceLabel="Prix public candidat"
-                priceValue={formatFcfa(offer.priceAmount)}
-                secondaryPriceLine={`${USD_EQUIVALENT[offer.code]} · informatif uniquement`}
-                rules={OFFER_RULES}
-                featured={offer.code === '10K'}
-                footnote="Aucun frais d’activation"
-                cta={
-                  <Link
-                    href={`/checkout?product=${offer.code}`}
-                    className={buttonClassNames({ size: 'lg', className: 'w-full' })}
-                  >
-                    Commencer avec {offer.code}
-                  </Link>
-                }
-              />
-            ))}
-          </div>
-          <p className="mt-6 text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-color-ink-300)]">
-            Tarifs de la bêta privée, encore candidats : le prix définitif sera confirmé avant toute
-            ouverture publique.
-          </p>
-        </div>
-      </section>
+      {/* ───────────────  2 · La preuve, en rail ─────────────── */}
+      <PublicSection tone="band">
+        <ProofRail />
+      </PublicSection>
 
-      <section data-theme="light" className="bg-[color:var(--wariba-color-bone-50)]">
-        <div className="mx-auto grid max-w-[var(--wariba-size-marketing-container-max)] gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:py-28">
-          <div>
-            <Text variant="label-sm" color="secondary">
-              Le terminal WariX
-            </Text>
-            <h2 className="mt-3 text-[length:var(--wariba-font-size-display-md)] font-semibold leading-[var(--wariba-line-height-display-md)] tracking-[var(--wariba-letter-spacing-tight)] text-[color:var(--wariba-color-ink-950)]">
-              Le risque reste visible avant la performance.
-            </h2>
-            <p className="mt-5 text-[length:var(--wariba-font-size-body-lg)] leading-[var(--wariba-line-height-body-lg)] text-[color:var(--wariba-color-ink-600)]">
-              WariX affiche le contexte du compte, les règles qui s’y appliquent, les limites
-              restantes et la prochaine action utile — jamais un chiffre isolé.
-            </p>
-            <Link href="/warix" className={buttonClassNames({ size: 'lg', className: 'mt-8' })}>
+      {/* ───────────────  3 · Comment ça marche, en quatre étapes  ─────────────── */}
+      <HowItWorksSection />
+
+      {/* ───────────────  4 · ONE / FLEX / INSTANT pathways  ─────────────── */}
+      <PathwaysSection one={one} flex={flexEntry} instant={instant} />
+
+      {/* ───────────────  5 · Le configurateur  ─────────────── */}
+      <PublicSection tone="band">
+        <Reveal>
+          <SectionHeader
+            eyebrow="Configurez votre compte"
+            title={
+              <>
+                Choisissez votre compte.
+                <span className="block text-[color:var(--wariba-on-dark-muted)]">
+                  Voyez l’essentiel avant de commencer.
+                </span>
+              </>
+            }
+            lead="Parcours, taille, prix et règles : comparez en quelques secondes."
+          />
+        </Reveal>
+        <Reveal delay={0.08}>
+          <div className="mt-12">
+            <HomeConfigurator offers={offers} />
+          </div>
+        </Reveal>
+      </PublicSection>
+
+      {/* ───────────────  6 · Risque visible  ─────────────── */}
+      <RiskField />
+
+      {/* ───────────────  7 · WariX, l’espace de trading  ─────────────── */}
+      <section
+        className="relative isolate overflow-hidden bg-[color:var(--wariba-color-carbon-980)]"
+        aria-labelledby="warix-teaser-title"
+      >
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_27%_53%,color-mix(in_srgb,var(--wariba-brand-700)_24%,transparent),transparent_42%)]"
+        />
+        <div className="mx-auto grid max-w-[var(--wariba-shell-max)] items-center gap-12 px-[var(--wariba-shell-gutter)] py-20 lg:min-h-[min(84svh,780px)] lg:grid-cols-[minmax(0,1.45fr)_minmax(17rem,0.85fr)] lg:gap-16 lg:py-24">
+          <div className="order-2 min-w-0 lg:order-1">
+            <WariXProductTeaser />
+            <Link href="/warix" className="warix-teaser-cta wariba-cta-secondary mt-8 lg:hidden">
               Découvrir WariX
+              <ArrowRightIcon size="sm" className="warix-teaser-cta-arrow" />
             </Link>
           </div>
-          <WariXMiniPreview />
-        </div>
-      </section>
-
-      <section aria-labelledby="faq-title" className="bg-[color:var(--wariba-color-ink-950)]">
-        <div className="mx-auto max-w-[var(--wariba-size-marketing-container-max)] px-4 py-20 sm:px-6 lg:py-28">
-          <div className="max-w-3xl">
-            <Text variant="label-sm" className="text-[color:var(--wariba-color-cobalt-300)]">
-              Questions fréquentes
-            </Text>
-            <h2
-              id="faq-title"
-              className="mt-3 text-[length:var(--wariba-font-size-display-md)] font-semibold leading-[var(--wariba-line-height-display-md)] text-[color:var(--wariba-color-bone-50)]"
-            >
-              Les réponses avant de vous décider.
+          <Reveal className="order-1 max-w-[28rem] lg:order-2 lg:-mt-7 lg:justify-self-end">
+            <p className="wariba-eyebrow">WARIX · Plateforme propriétaire</p>
+            <h2 id="warix-teaser-title" className="wariba-section-title mt-5 max-w-[11ch]">
+              Votre trading.
+              <br />
+              Dans un seul espace.
             </h2>
-          </div>
-          <div className="mt-10 max-w-3xl">
-            <Accordion items={FAQ_ITEMS} />
-          </div>
-        </div>
-      </section>
-
-      <section className="relative isolate overflow-hidden bg-[color:var(--wariba-color-ink-950)]">
-        <div className="mx-auto grid max-w-[var(--wariba-size-marketing-container-max)] gap-10 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:items-center lg:py-28">
-          <div className="overflow-hidden rounded-[var(--wariba-radius-2xl)] border border-[color:var(--wariba-color-ink-700)]">
-            <div className="relative aspect-[3/2]">
-              <Image
-                src="/images/wariba-support-team.webp"
-                alt="Deux professionnels ouest-africains examinent ensemble un plan de risque dans un bureau contemporain à Abidjan"
-                fill
-                sizes="(min-width: 1024px) 50vw, 100vw"
-                className="object-cover"
-              />
-            </div>
-          </div>
-          <div>
-            <Text variant="label-sm" className="text-[color:var(--wariba-color-cobalt-300)]">
-              Besoin de clarté
-            </Text>
-            <h2 className="mt-3 text-[length:var(--wariba-font-size-display-md)] font-semibold leading-[var(--wariba-line-height-display-md)] text-[color:var(--wariba-color-bone-50)]">
-              Les réponses importantes avant la première décision.
-            </h2>
-            <p className="mt-5 text-[length:var(--wariba-font-size-body-lg)] text-[color:var(--wariba-color-ink-200)]">
-              Consultez le centre d’aide pour comprendre le Maximum Loss EOD, la Best Day Rule, les
-              prix FCFA, WariX et la nature entièrement simulée du programme.
+            <p className="wariba-lead mt-6 max-w-[28rem]">
+              Analysez le marché, passez vos ordres et gardez vos limites sous les yeux — au même
+              endroit.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href="/aide" className={buttonClassNames({ size: 'lg' })}>
-                Ouvrir le centre d’aide
-              </Link>
-              <Link
-                href="/support"
-                className={buttonClassNames({ size: 'lg', variant: 'secondary' })}
-              >
-                Contacter le support
-              </Link>
-            </div>
-          </div>
+            <Link
+              href="/warix"
+              className="warix-teaser-cta wariba-cta-secondary mt-9 hidden lg:inline-flex"
+            >
+              Découvrir WariX
+              <ArrowRightIcon size="sm" className="warix-teaser-cta-arrow" />
+            </Link>
+          </Reveal>
         </div>
       </section>
+
+      {/* ───────────────  8 · Journal, Analytics, Trader Hub  ─────────────── */}
+      <Section07Intelligence />
+
+      {/* ───────────────  9 · Afrique francophone  ─────────────── */}
+      <AfriqueFrancophoneSection />
+
+      {/* ───────────────  10 · Contact, en aperçu  ─────────────── */}
+      <ContactPreviewSection />
+
+      {/* ───────────────  11 · Questions fréquentes  ─────────────── */}
+      <FaqSection />
+
+      {/* ───────────────  12 · Clôture  ─────────────── */}
+      <ClosingSection />
     </>
   );
 }

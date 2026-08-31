@@ -172,7 +172,9 @@ describeIfDb('buildAccountPerformanceMissionView — real database', () => {
      */
     expect(view.progressPercent).toBe(0);
     expect(view.progressKind).toBe('buffer');
-    expect(view.progressLabel).toBe('Buffer à construire');
+    // Phase 3.4.4 §36 — "buffer" is the platform's own name for
+    // permanent_buffer_rate; the trader reads "réserve".
+    expect(view.progressLabel).toBe('Réserve à constituer');
     // And the two figures the percentage came from, so the screen can show its
     // working rather than asking to be believed.
     expect(view.progressDetail).toMatch(/^0 USD \/ [\d\s\u202f]+ USD$/u);

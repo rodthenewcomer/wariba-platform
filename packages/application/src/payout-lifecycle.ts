@@ -113,10 +113,10 @@ export const PAYOUT_BLOCKING_REASON: Record<PayoutRejectionCode, string> = {
   account_not_active: 'Ce compte n’est pas actif.',
   no_active_cycle: 'Aucun cycle en cours — votre dossier est chez WARIBA Review.',
   buffer_not_reached:
-    'Votre solde n’a pas encore dépassé le seuil du buffer permanent. Seule la partie au-dessus est disponible.',
-  performance_days_incomplete: 'Il vous manque des Performance Days sur ce cycle.',
+    'Votre réserve de sécurité n’est pas encore constituée. Seule la partie au-dessus peut être demandée.',
+  performance_days_incomplete: 'Il vous manque des journées Performance sur ce cycle.',
   consistency_non_compliant:
-    'Votre meilleure journée dépasse la limite de consistance. Répartissez le profit sur d’autres journées.',
+    'Votre meilleure journée dépasse la limite de votre compte. Répartissez le profit sur d’autres journées.',
   open_position_blocks_payout: 'Fermez votre position ouverte avant de demander un payout.',
   pending_order_blocks_payout: 'Annulez votre ordre en attente avant de demander un payout.',
   kyc_not_verified: 'Votre identité doit être vérifiée.',

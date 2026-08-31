@@ -25,6 +25,8 @@ export interface AccountFinancialReconstruction {
   reconstructedAccountBalance: string;
   storedProgramEligibleBalance: string;
   reconstructedProgramEligibleBalance: string;
+  storedRiskAdjustedBalance: string;
+  reconstructedRiskAdjustedBalance: string;
   matches: boolean;
   breakdown: FinancialReconstructionBreakdown;
 }
@@ -106,6 +108,15 @@ export async function reconstructAccountFinancialState(
       .filter((payout) => payout.status === 'paid' && payout.approved_gross_base !== null)
       .map((payout) => `-${payout.approved_gross_base as string}`),
   );
+  const payoutLedgerEffect = sum(
+    ledgerEntries
+      .filter(
+        (entry) =>
+          entry.entry_type === 'payout_debit' ||
+          (entry.entry_type === 'reversal' && entry.reference_type === 'payout_request'),
+      )
+      .map((entry) => entry.amount),
+  );
   const initialBalance = new Decimal(account.nominal_balance);
   const reconstructedAccountBalance = initialBalance
     .plus(realizedProfit)
@@ -120,6 +131,9 @@ export async function reconstructAccountFinancialState(
   const reconstructedProgramEligibleBalance = reconstructedAccountBalance.minus(
     ineligibleShortDurationProfit,
   );
+  const storedRiskAdjustedBalance = storedProgramEligibleBalance.minus(payoutLedgerEffect);
+  const reconstructedRiskAdjustedBalance =
+    reconstructedProgramEligibleBalance.minus(payoutLedgerEffect);
 
   return {
     accountId,
@@ -127,9 +141,12 @@ export async function reconstructAccountFinancialState(
     reconstructedAccountBalance: fixed(reconstructedAccountBalance),
     storedProgramEligibleBalance: fixed(storedProgramEligibleBalance),
     reconstructedProgramEligibleBalance: fixed(reconstructedProgramEligibleBalance),
+    storedRiskAdjustedBalance: fixed(storedRiskAdjustedBalance),
+    reconstructedRiskAdjustedBalance: fixed(reconstructedRiskAdjustedBalance),
     matches:
       storedAccountBalance.equals(reconstructedAccountBalance) &&
-      storedProgramEligibleBalance.equals(reconstructedProgramEligibleBalance),
+      storedProgramEligibleBalance.equals(reconstructedProgramEligibleBalance) &&
+      storedRiskAdjustedBalance.equals(reconstructedRiskAdjustedBalance),
     breakdown: {
       initialBalance: fixed(initialBalance),
       realizedProfit: fixed(realizedProfit),

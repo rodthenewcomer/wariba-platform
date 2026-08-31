@@ -4,7 +4,45 @@ import type { Db } from './client';
 export interface AccountBalanceProjection {
   accountBalance: string;
   programEligibleBalance: string;
+  riskAdjustedBalance: string;
   ineligibleShortDurationProfit: string;
+  payoutRiskNeutralAdjustment: string;
+}
+
+interface ProjectionLedgerEntry {
+  amount: string;
+  entry_type: string;
+  reference_type: string | null;
+}
+
+export function projectAccountBalances(params: {
+  ledgerEntries: readonly ProjectionLedgerEntry[];
+  ineligibleShortDurationProfit: string;
+}): AccountBalanceProjection {
+  const accountBalance = params.ledgerEntries.reduce(
+    (sum, entry) => sum.plus(entry.amount),
+    new Decimal(0),
+  );
+  const ineligibleShortDurationProfit = new Decimal(params.ineligibleShortDurationProfit);
+  const payoutLedgerEffect = params.ledgerEntries
+    .filter(
+      (entry) =>
+        entry.entry_type === 'payout_debit' ||
+        (entry.entry_type === 'reversal' && entry.reference_type === 'payout_request'),
+    )
+    .reduce((sum, entry) => sum.plus(entry.amount), new Decimal(0));
+  const payoutRiskNeutralAdjustment = payoutLedgerEffect.negated();
+
+  return {
+    accountBalance: accountBalance.toFixed(2),
+    programEligibleBalance: accountBalance.minus(ineligibleShortDurationProfit).toFixed(2),
+    riskAdjustedBalance: accountBalance
+      .minus(ineligibleShortDurationProfit)
+      .plus(payoutRiskNeutralAdjustment)
+      .toFixed(2),
+    ineligibleShortDurationProfit: ineligibleShortDurationProfit.toFixed(2),
+    payoutRiskNeutralAdjustment: payoutRiskNeutralAdjustment.toFixed(2),
+  };
 }
 
 /**
@@ -22,7 +60,7 @@ export async function loadAccountBalanceProjection(
 ): Promise<AccountBalanceProjection> {
   let ledgerQuery = db
     .selectFrom('app.trading_ledger_entries')
-    .select('amount')
+    .select(['amount', 'entry_type', 'reference_type'])
     .where('account_id', '=', accountId);
   let ineligibleQuery = db
     .selectFrom('app.fills')
@@ -39,10 +77,6 @@ export async function loadAccountBalanceProjection(
     ledgerQuery.execute(),
     ineligibleQuery.execute(),
   ]);
-  const accountBalance = ledgerEntries.reduce(
-    (sum, entry) => sum.plus(entry.amount),
-    new Decimal(0),
-  );
   const ineligibleShortDurationProfit = eligibilityEnabled
     ? ineligibleFills.reduce(
         (sum, fill) => sum.plus(fill.ineligible_short_duration_profit),
@@ -50,9 +84,8 @@ export async function loadAccountBalanceProjection(
       )
     : new Decimal(0);
 
-  return {
-    accountBalance: accountBalance.toFixed(2),
-    programEligibleBalance: accountBalance.minus(ineligibleShortDurationProfit).toFixed(2),
+  return projectAccountBalances({
+    ledgerEntries,
     ineligibleShortDurationProfit: ineligibleShortDurationProfit.toFixed(2),
-  };
+  });
 }

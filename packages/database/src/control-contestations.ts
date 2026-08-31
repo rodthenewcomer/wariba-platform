@@ -161,7 +161,7 @@ export interface ControlContestationDetail {
   ticketPublicId: string;
   traderEmail: string | null;
   accountPublicId: string | null;
-  accountProgramType: 'WARIBA_ONE' | 'WARIBA_PERFORMANCE' | null;
+  accountProgramType: 'WARIBA_ONE' | 'WARIBA_FLEX' | 'WARIBA_PERFORMANCE' | null;
   accountNominalBalance: string | null;
   accountCurrency: string | null;
   targetType: ContestationTargetType;

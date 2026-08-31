@@ -22,6 +22,7 @@ import type { Db } from './client';
 import { evaluateAndApplyAccountRiskInTransaction } from './risk';
 import { loadPolicyById } from './policy';
 import { findExposureIncreaseRejection } from './exposure-gate';
+import { evaluateV2PreTradeDecisionInTransaction } from './v2-pre-trade';
 import {
   assertExecutionLeadershipInTransaction,
   TRADER_COMMAND_EXECUTION,
@@ -440,6 +441,25 @@ export async function openPositionInTransaction(
 
   if (!(await isWithinAggregateExposureLimit(trx, account, params.symbol, params.quantity))) {
     return reject(REJECTION.EXPOSURE_LIMIT_EXCEEDED);
+  }
+
+  // Phase 3.4.3 §53 — the V2 pre-trade chain (session, news, leverage,
+  // margin, live daily/maximum-loss state). Returns `applicable: false`
+  // for a V1-pinned account, which therefore keeps exactly the gates above
+  // and nothing more.
+  const v2Decision = await evaluateV2PreTradeDecisionInTransaction(trx, {
+    account,
+    policy,
+    intent: 'open',
+    symbol: params.symbol,
+    quantity: params.quantity,
+    market: params.market,
+    marketBySymbol: params.marketBySymbol,
+    side: params.side,
+    now: params.now,
+  });
+  if (v2Decision.applicable && !v2Decision.allowed) {
+    return reject(v2Decision.reasonCode);
   }
 
   const fillPrice =

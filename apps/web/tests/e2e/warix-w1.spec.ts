@@ -255,8 +255,20 @@ test.describe('WariX program identity', { tag: ['@trade'] }, () => {
       await login(page, performance.email, performance.password);
 
       await openWorkstation(page, `/trade?account=${performance.accountId}`);
-      // W0 §3A.4: this said "WARIBA ONE" for every account before W1.
-      expect(await activeAccountName(page)).toContain('WARIBA Performance');
+      /*
+       * W0 §3A.4 said "WARIBA ONE" for every account before W1, and the fix
+       * then was to read the authoritative `programType`.
+       *
+       * Phase 3.4.4 §9 splits that in two, because `programType` is
+       * phase-shaped: a FLEX Evaluation is WARIBA_FLEX but its successor is
+       * WARIBA_PERFORMANCE, identically to ONE's and INSTANT's, so a single
+       * label could name the product or the phase but never both. The
+       * accessible name now carries the product from `product_family` and the
+       * phase beside it — which is what this test has always been about.
+       */
+      const activeName = await activeAccountName(page);
+      expect(activeName).toContain('WARIBA ONE');
+      expect(activeName).toContain('Performance');
       // W2 §15/§16 moved Payout out of the execution dock; the Account tab now
       // links to its canonical route for a Performance account.
       await page.getByRole('tab', { name: /^Compte/ }).click();

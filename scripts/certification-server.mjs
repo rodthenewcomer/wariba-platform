@@ -117,6 +117,20 @@ async function main() {
       HOSTNAME: '127.0.0.1',
       NODE_ENV: 'production',
       APP_ENV: process.env.APP_ENV ?? 'local',
+      /*
+       * The server has to be told the host it is actually served on.
+       *
+       * Playwright browses `BASE_URL` (127.0.0.1), and this env block already
+       * pins `HOSTNAME` to match — but `APP_BASE_URL` was left to `.env.local`,
+       * where it reads `http://localhost:3000`. `middleware.ts` builds its
+       * login redirect from that value, so any unauthenticated request bounced
+       * the browser from 127.0.0.1 to localhost. Those are different hosts for
+       * cookie purposes: the Supabase session set on one is not sent to the
+       * other, so the session silently vanished and the next `waitForURL('**\/hub')`
+       * timed out. Three @critical specs failed that way, all reading as
+       * product failures.
+       */
+      APP_BASE_URL: BASE_URL,
       NEXT_PUBLIC_SUPABASE_URL: process.env.SUPABASE_URL ?? '',
       NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY ?? '',
     },
