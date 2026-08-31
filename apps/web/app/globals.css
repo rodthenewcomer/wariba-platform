@@ -2499,29 +2499,14 @@
 /*
  * Section 10 — Contact preview.
  *
- * A deliberately small motion budget: three cards arrive with `Reveal`
- * (already staggered per-card via its `delay` prop, no new keyframes
- * needed), the CTA reuses `.s09-cta-frame`'s technique under its own class
- * so this section never depends on Section 09's markup, and the hub panel's
- * three rows draw a single connecting line each on load — never a repeating
- * loop, because this is a trust section, not a product demo.
+ * First pass was three stacked cards on the left and an empty text-only
+ * panel on the right — administrative, not alive. This version spends most
+ * of its weight on one photograph (`wariba-support-team.webp`, already
+ * licensed and in production on `/support` and `/programme` — reused here
+ * rather than sourcing something new) with three floating request pills and
+ * a contact-identity bar over it, and moves the three intent categories into
+ * a single compact row beneath both columns instead of a left-side stack.
  */
-.s10-card {
-  display: flex;
-  flex-direction: column;
-}
-
-.s10-card-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: var(--wariba-radius-lg);
-  color: var(--wariba-brand-300);
-  background: color-mix(in srgb, var(--wariba-brand-500) 16%, transparent);
-}
-
 .s10-cta {
   position: relative;
 }
@@ -2578,35 +2563,102 @@
   }
 }
 
-/* The right-side "contact hub" panel — a routing diagram, not a mock inbox. */
-.s10-hub {
-  height: 100%;
-}
-
-.s10-hub-caption {
+/*
+ * The elevated email block — the section's real secondary action, not a
+ * throwaway text link. A bordered pill rather than a filled one: this is
+ * information to copy or click, not a purchase decision.
+ */
+.s10-email-label {
   font-family: var(--wariba-font-mono);
   font-size: 0.65rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--wariba-on-dark-dim);
 }
 
-.s10-hub-row {
-  position: relative;
-  display: flex;
+.s10-email {
+  display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--wariba-seam);
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+  padding: 0.7rem 1.1rem;
+  border-radius: 9999px;
+  border: 1px solid var(--wariba-seam-strong);
+  background: color-mix(in srgb, var(--wariba-surface-1) 70%, transparent);
+  font-family: var(--wariba-font-mono);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--wariba-on-dark);
+  transition:
+    border-color var(--wariba-motion-state) var(--wariba-motion-ease-standard),
+    background-color var(--wariba-motion-state) var(--wariba-motion-ease-standard);
 }
 
-.s10-hub-row:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
+.s10-email:hover {
+  border-color: var(--wariba-brand-edge);
+  background: var(--wariba-surface-1);
 }
 
-.s10-hub-dot {
+.s10-email-icon {
+  display: inline-flex;
+  flex: none;
+  color: var(--wariba-brand-300);
+}
+
+/*
+ * The hero visual — a bounded photo panel, not full-bleed: it needs to sit
+ * beside the editorial column, not behind it. The gradient overlay exists so
+ * the floating pills and the bottom identity bar stay legible over any part
+ * of the photo, and the pills carry their own solid backing rather than a
+ * blur so they read the same in a static screenshot as they do rendered.
+ */
+.s10-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--wariba-radius-2xl);
+  border: 1px solid var(--wariba-seam);
+  aspect-ratio: 4 / 3;
+}
+
+.s10-hero-media {
+  object-fit: cover;
+  object-position: 50% 22%;
+}
+
+.s10-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--wariba-canvas-deep) 10%, transparent) 0%,
+      color-mix(in srgb, var(--wariba-canvas-deep) 20%, transparent) 46%,
+      color-mix(in srgb, var(--wariba-canvas-deep) 88%, transparent) 100%
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--wariba-canvas-deep) 55%, transparent) 0%,
+      transparent 42%
+    );
+}
+
+.s10-hero-chip {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: 9999px;
+  border: 1px solid var(--wariba-seam-strong);
+  background: color-mix(in srgb, var(--wariba-canvas-deep) 90%, transparent);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--wariba-on-dark);
+  box-shadow: 0 8px 24px -12px rgb(0 0 0 / 55%);
+}
+
+.s10-hero-chip-dot {
   flex: none;
   width: 6px;
   height: 6px;
@@ -2614,57 +2666,138 @@
   background: var(--wariba-color-cobalt-300);
 }
 
-.s10-hub-example {
-  flex: 1 1 auto;
-  min-width: 0;
-  font-size: 0.85rem;
-  color: var(--wariba-on-dark-muted);
+/* Fixed slots rather than arbitrary coordinates — each stays clear of the
+   frame edge and of the bottom identity bar at every panel width. */
+.s10-hero-chip-a {
+  top: 7%;
+  left: 6%;
 }
 
-.s10-hub-line {
-  flex: none;
-  width: 2.5rem;
-  height: 1px;
-  background: var(--wariba-brand-400);
-  transform: scaleX(0);
-  transform-origin: left;
-  animation: s10-line-draw 500ms var(--wariba-motion-ease-standard) var(--s10-row-delay, 0ms) both;
+.s10-hero-chip-b {
+  top: 36%;
+  right: 6%;
 }
 
-@keyframes s10-line-draw {
-  to {
-    transform: scaleX(1);
+.s10-hero-chip-c {
+  bottom: 22%;
+  left: 8%;
+}
+
+@media (max-width: 480px) {
+  .s10-hero-chip {
+    font-size: 0.7rem;
+    padding: 0.4rem 0.7rem;
+  }
+
+  .s10-hero-chip-b {
+    right: 5%;
+    left: auto;
+  }
+
+  /* The identity bar sits lower, relatively, on a shorter mobile panel —
+     give this chip more clearance so the two never crowd each other. */
+  .s10-hero-chip-c {
+    bottom: 34%;
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .s10-hub-line {
-    animation: none;
-    transform: scaleX(1);
-  }
-}
-
-.s10-hub-badge {
+.s10-hero-identity {
+  position: absolute;
+  inset-inline: 1rem;
+  bottom: 1rem;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  margin-top: 1.5rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--wariba-seam);
+  gap: 0.55rem;
+  padding: 0.65rem 1rem;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--wariba-brand-400) 45%, var(--wariba-seam-strong));
+  background: color-mix(in srgb, var(--wariba-canvas-deep) 82%, transparent);
   font-family: var(--wariba-font-mono);
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   color: var(--wariba-on-dark);
 }
 
-.s10-hub-badge-mark {
+.s10-hero-identity-mark {
   flex: none;
   width: 8px;
   height: 8px;
   border-radius: 9999px;
   background: var(--wariba-brand-400);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--wariba-brand-400) 22%, transparent);
+  animation: s10-identity-pulse 3.4s ease-in-out infinite;
+}
+
+@keyframes s10-identity-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--wariba-brand-400) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--wariba-brand-400) 0%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s10-hero-identity-mark {
+    animation: none;
+  }
+}
+
+/* The compact intent row beneath both columns — hairline dividers, not boxes. */
+.s10-mini-row {
+  display: grid;
+  gap: 1.75rem;
+}
+
+@media (min-width: 640px) {
+  .s10-mini-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+  }
+
+  .s10-mini-item:not(:first-child) {
+    border-left: 1px solid var(--wariba-seam);
+    padding-left: 1.75rem;
+  }
+
+  .s10-mini-item:not(:last-child) {
+    padding-right: 1.75rem;
+  }
+}
+
+.s10-mini-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.s10-mini-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--wariba-radius-lg);
+  color: var(--wariba-brand-300);
+  background: color-mix(in srgb, var(--wariba-brand-500) 16%, transparent);
+}
+
+.s10-mini-arrow {
+  margin-left: auto;
+  flex: none;
+  opacity: 0;
+  transform: translateX(-4px);
+  color: var(--wariba-brand-300);
+  transition:
+    opacity var(--wariba-motion-micro) var(--wariba-motion-ease-standard),
+    transform var(--wariba-motion-micro) var(--wariba-motion-ease-standard);
+}
+
+.s10-mini-item:hover .s10-mini-arrow {
+  opacity: 1;
+  transform: translateX(0);
 }
 
 * {
