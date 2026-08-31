@@ -35,9 +35,9 @@ export const dynamic = 'force-dynamic';
  * Seventeen sections and no two consecutive ones share a composition. Product
  * hero → three full scenes → configurator → a saturated colour field →
  * four-step scenes → a data visualisation → huge numbers → a dark product
- * surface → a living dashboard → a regional map → a contact preview → a
- * ladder → a proof grid → photography → FAQ → closing scene. The variation
- * is the point: a page that alternates `text-left / card-right` nine times
+ * surface → a living dashboard → a regional map → a contact preview → FAQ →
+ * a ladder → a proof grid → photography → closing scene. The variation is
+ * the point: a page that alternates `text-left / card-right` nine times
  * reads as a template no matter how good each block is.
  *
  * ## Every figure comes from the server
@@ -58,8 +58,7 @@ export default async function HomePage() {
 
   /* Section 03 montre FLEX à sa taille d'entrée — 9 900 FCFA — pour que le
      chiffre corresponde exactement à celui déjà annoncé en Section 02
-     (« Commencez dès 9 900 FCFA »). Le FAQ plus bas continue de citer FLEX
-     25K, taille qu'il nomme explicitement. */
+     (« Commencez dès 9 900 FCFA »). */
   const flexEntry = offers.find((o) => o.productFamily === 'WARIBA_FLEX' && o.sizeCode === '5K');
   if (!flexEntry) throw new Error('Catalogue V2 canonique incomplet.');
 
@@ -229,7 +228,10 @@ export default async function HomePage() {
       {/* ───────────────  10 · Contact, en aperçu  ─────────────── */}
       <ContactPreviewSection />
 
-      {/* ───────────────  11 · La perte maximale, expliquée par le visuel  ─────────────── */}
+      {/* ───────────────  11 · Questions fréquentes  ─────────────── */}
+      <FaqSection />
+
+      {/* ───────────────  12 · La perte maximale, expliquée par le visuel  ─────────────── */}
       <PublicSection tone="deep">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-center">
           <Reveal>
@@ -261,7 +263,7 @@ export default async function HomePage() {
         </div>
       </PublicSection>
 
-      {/* ───────────────  12 · Les chiffres, en objets  ─────────────── */}
+      {/* ───────────────  13 · Les chiffres, en objets  ─────────────── */}
       <PublicSection tone="band" space="tight">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
           <Reveal>
@@ -320,7 +322,7 @@ export default async function HomePage() {
         </p>
       </PublicSection>
 
-      {/* ───────────────  13 · Le tableau de bord vivant  ─────────────── */}
+      {/* ───────────────  14 · Le tableau de bord vivant  ─────────────── */}
       <PublicSection tone="band">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center">
           <Reveal>
@@ -340,7 +342,7 @@ export default async function HomePage() {
         </div>
       </PublicSection>
 
-      {/* ───────────────  14 · L'échelle de partage  ─────────────── */}
+      {/* ───────────────  15 · L'échelle de partage  ─────────────── */}
       <PublicSection>
         <div className="grid gap-10 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-center">
           <Reveal>
@@ -365,7 +367,7 @@ export default async function HomePage() {
         </div>
       </PublicSection>
 
-      {/* ───────────────  15 · Ce que WARIBA garantit vraiment  ─────────────── */}
+      {/* ───────────────  16 · Ce que WARIBA garantit vraiment  ─────────────── */}
       <PublicSection tone="deep" space="tight">
         <Reveal>
           <SectionHeader
@@ -408,9 +410,6 @@ export default async function HomePage() {
           ))}
         </div>
       </PublicSection>
-
-      {/* ───────────────  16 · Questions fréquentes  ─────────────── */}
-      <FaqSection />
 
       {/* ───────────────  17 · Clôture  ─────────────── */}
       <PublicSection space="tight">
