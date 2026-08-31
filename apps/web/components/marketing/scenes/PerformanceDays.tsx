@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useReducedMotion } from 'motion/react';
 import { cx } from '@wariba/ui';
+import { useHydratedReducedMotion } from '../../motion/useHydratedReducedMotion';
 
 export interface PerformanceDaysProps {
   /** How many days a cycle requires. Server-derived. */
@@ -39,11 +39,14 @@ export function PerformanceDays({
   onAccent = false,
   className,
 }: PerformanceDaysProps) {
-  const reduced = useReducedMotion();
-  const [filled, setFilled] = useState(reduced ? required : 0);
+  const reduced = useHydratedReducedMotion();
+  const [filled, setFilled] = useState(0);
 
   useEffect(() => {
-    if (reduced) return;
+    if (reduced) {
+      setFilled(required);
+      return;
+    }
     let step = 0;
     const advance = () => {
       step = (step + 1) % (required + 2);

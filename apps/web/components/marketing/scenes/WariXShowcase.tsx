@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useReducedMotion } from 'motion/react';
 import { cx, LivePillHost } from './live-pill-host';
+import { useHydratedReducedMotion } from '../../motion/useHydratedReducedMotion';
 
 const CANDLES = [
   [46, 62, 40, 58, 1],
@@ -42,7 +42,7 @@ const CANDLES = [
  * easiest place on a public site to imply a real trader's real result.
  */
 export function WariXShowcase({ className }: { className?: string }) {
-  const reduced = useReducedMotion();
+  const reduced = useHydratedReducedMotion();
   const [tick, setTick] = useState(0);
 
   useEffect(() => {

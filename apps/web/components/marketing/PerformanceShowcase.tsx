@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useReducedMotion } from 'motion/react';
 import { AnimatedNumber, LivePill, ProgressBar } from '../motion/primitives';
+import { useHydratedReducedMotion } from '../motion/useHydratedReducedMotion';
 
 /**
  * The product, demonstrated.
@@ -115,7 +115,7 @@ export interface PerformanceShowcaseProps {
 }
 
 export function PerformanceShowcase({ variant = 'compact' }: PerformanceShowcaseProps = {}) {
-  const reduced = useReducedMotion();
+  const reduced = useHydratedReducedMotion();
   const [step, setStep] = useState(0);
 
   useEffect(() => {
@@ -173,7 +173,7 @@ export function PerformanceShowcase({ variant = 'compact' }: PerformanceShowcase
           </div>
         </div>
 
-        <EquityChart drawn={frame.drawn} />
+        <EquityChart drawn={frame.drawn} reduced={reduced} />
 
         <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-[color:var(--wariba-seam)] pt-4">
           <div>
@@ -272,7 +272,7 @@ export function PerformanceShowcase({ variant = 'compact' }: PerformanceShowcase
  * `strokeDashoffset`: the fill under the curve has to be clipped too, and one
  * animated clip rectangle keeps line and area in step for free.
  */
-function EquityChart({ drawn }: { drawn: number }) {
+function EquityChart({ drawn, reduced }: { drawn: number; reduced: boolean }) {
   const width = 420;
   const height = 120;
   const max = Math.max(...CURVE);
@@ -303,14 +303,16 @@ function EquityChart({ drawn }: { drawn: number }) {
         </linearGradient>
         <clipPath id="ps-clip">
           <rect x="0" y="0" width={clipWidth} height={height}>
-            <animate
-              attributeName="width"
-              to={clipWidth}
-              dur="0.6s"
-              fill="freeze"
-              calcMode="spline"
-              keySplines="0.22 1 0.36 1"
-            />
+            {reduced ? null : (
+              <animate
+                attributeName="width"
+                to={clipWidth}
+                dur="0.6s"
+                fill="freeze"
+                calcMode="spline"
+                keySplines="0.22 1 0.36 1"
+              />
+            )}
           </rect>
         </clipPath>
       </defs>

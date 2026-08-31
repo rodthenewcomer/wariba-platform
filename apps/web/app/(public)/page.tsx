@@ -10,22 +10,16 @@ import {
   ShieldCheckIcon,
 } from '@wariba/ui';
 import { PerformanceShowcase } from '../../components/marketing/PerformanceShowcase';
+import { ProofRail } from '../../components/marketing/ProofRail';
+import { PathwaysSection } from '../../components/marketing/PathwaysSection';
 import { WaribaPath } from '../../components/marketing/scenes/WaribaPath';
 import { HomeConfigurator } from '../../components/marketing/HomeConfigurator';
-import { OneTargetReactor } from '../../components/marketing/scenes/OneTargetReactor';
-import { InstantPortal } from '../../components/marketing/scenes/InstantPortal';
-import { FlexBridge } from '../../components/marketing/scenes/FlexBridge';
 import { PerformanceCore } from '../../components/marketing/scenes/PerformanceCore';
 import { DrawdownScene } from '../../components/marketing/scenes/DrawdownScene';
 import { WariXShowcase } from '../../components/marketing/scenes/WariXShowcase';
 import { PerformanceDays } from '../../components/marketing/scenes/PerformanceDays';
 import { Reveal } from '../../components/motion/Reveal';
-import {
-  FAMILY_META,
-  formatNominal,
-  formatRate,
-  formatXof,
-} from '../../components/commerce/offer-ui';
+import { formatNominal, formatRate, formatXof } from '../../components/commerce/offer-ui';
 import { getDb } from '../../lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -58,6 +52,13 @@ export default async function HomePage() {
   const flex = offers.find((o) => o.productFamily === 'WARIBA_FLEX' && o.sizeCode === '25K');
   const instant = offers.find((o) => o.productFamily === 'WARIBA_INSTANT' && o.sizeCode === '25K');
   if (!one || !flex || !instant) throw new Error('Catalogue V2 canonique incomplet.');
+
+  /* Section 03 montre FLEX à sa taille d'entrée — 9 900 FCFA — pour que le
+     chiffre corresponde exactement à celui déjà annoncé en Section 02
+     (« Commencez dès 9 900 FCFA »). Le FAQ plus bas continue de citer FLEX
+     25K, taille qu'il nomme explicitement. */
+  const flexEntry = offers.find((o) => o.productFamily === 'WARIBA_FLEX' && o.sizeCode === '5K');
+  if (!flexEntry) throw new Error('Catalogue V2 canonique incomplet.');
 
   const ladder = one.performanceRules.payoutSplitSchedule;
 
@@ -140,137 +141,13 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ───────────────  2 · Les trois parcours, en scènes  ─────────────── */}
+      {/* ───────────────  2 · La preuve, en rail ─────────────── */}
       <PublicSection tone="band">
-        <Reveal>
-          <SectionHeader
-            eyebrow="Trois parcours"
-            title="Choisissez comment vous voulez commencer."
-            lead="Ils ne mènent pas au même endroit de la même façon : l’objectif, les limites et le moment du paiement changent d’un parcours à l’autre."
-          />
-        </Reveal>
-
-        <div className="mt-14 flex flex-col gap-16 lg:gap-24">
-          {/* ONE — objet à droite */}
-          <Reveal>
-            <article className="grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
-              <div>
-                <p className="wariba-eyebrow">WARIBA ONE</p>
-                <h3 className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-[color:var(--wariba-on-dark)] sm:text-4xl">
-                  Une évaluation. Une seule étape.
-                </h3>
-                <p className="wariba-lead mt-4">
-                  Réussissez l’objectif de {formatRate(one.evaluationRules!.profitTargetRate)} sans
-                  franchir votre perte maximale, puis passez sur Performance. Aucun frais
-                  d’activation.
-                </p>
-                <ul className="mt-6 flex flex-wrap gap-2">
-                  {[
-                    ['Objectif', formatRate(one.evaluationRules!.profitTargetRate)],
-                    ['Perte maximale', formatRate(one.evaluationRules!.maximumLossRate)],
-                    ['Paiement', 'unique'],
-                  ].map(([label, value]) => (
-                    <li key={label} className="commerce-spec-value">
-                      {label} · {value}
-                    </li>
-                  ))}
-                </ul>
-                <Link href={FAMILY_META.WARIBA_ONE.path} className="wariba-cta-secondary mt-7">
-                  Découvrir ONE
-                  <ArrowRightIcon size="sm" />
-                </Link>
-              </div>
-              <div className="mx-auto w-full max-w-[380px]">
-                <OneTargetReactor />
-              </div>
-            </article>
-          </Reveal>
-
-          {/* INSTANT — objet à gauche, pour casser le rythme */}
-          <Reveal>
-            <article className="grid items-center gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)]">
-              <div className="mx-auto w-full max-w-[360px] lg:order-first">
-                <InstantPortal />
-              </div>
-              <div>
-                <p className="wariba-eyebrow">WARIBA INSTANT</p>
-                <h3 className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-[color:var(--wariba-on-dark)] sm:text-4xl">
-                  Pas d’évaluation.
-                </h3>
-                <p className="wariba-lead mt-4">
-                  Vous commencez directement sur Performance. En contrepartie, les limites sont plus
-                  resserrées dès le premier jour.
-                </p>
-                <ul className="mt-6 flex flex-wrap gap-2">
-                  {[
-                    ['Limite quotidienne', formatRate(instant.performanceRules.dailyLossRate)],
-                    ['Perte maximale', formatRate(instant.performanceRules.maximumLossRate)],
-                    [
-                      'Exposition',
-                      `${Number(instant.performanceRules.grossExposureMaximumMultiple)}×`,
-                    ],
-                  ].map(([label, value]) => (
-                    <li key={label} className="commerce-spec-value">
-                      {label} · {value}
-                    </li>
-                  ))}
-                </ul>
-                <Link href={FAMILY_META.WARIBA_INSTANT.path} className="wariba-cta-secondary mt-7">
-                  Découvrir INSTANT
-                  <ArrowRightIcon size="sm" />
-                </Link>
-              </div>
-            </article>
-          </Reveal>
-        </div>
+        <ProofRail />
       </PublicSection>
 
-      {/* ───────────────  3 · FLEX, en champ saturé  ───────────────
-          Composition volontairement différente : une surface de couleur pleine
-          largeur, la seule de la page. */}
-      <PublicSection space="tight">
-        <Reveal>
-          <div className="wariba-strong-surface" data-tone="brand">
-            <div className="relative z-[1]">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/70">
-                WARIBA FLEX
-              </p>
-              <h2 className="mt-4 max-w-2xl text-3xl font-semibold tracking-[-0.04em] text-white sm:text-5xl">
-                Commencez maintenant. Payez le reste après votre réussite.
-              </h2>
-              <p className="mt-4 max-w-xl text-base leading-relaxed text-white/85">
-                Un premier montant aujourd’hui. Le second est figé au moment de l’achat et n’est dû
-                que si vous réussissez l’évaluation.
-              </p>
-
-              <div className="mt-8 rounded-[var(--wariba-radius-xl)] bg-[color:rgb(0_0_0/0.28)] p-4 sm:p-6">
-                <FlexBridge
-                  upfront={formatXof(flex.upfrontPrice)}
-                  activation={formatXof(flex.activationPrice)}
-                />
-              </div>
-
-              <div className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-3">
-                <p className="flex items-center gap-2 text-sm font-medium text-white">
-                  <CheckIcon size="sm" />
-                  Si vous ne réussissez pas, l’activation n’est jamais prélevée.
-                </p>
-                <p className="wariba-figure text-sm text-white/80">
-                  Total si réussite, taille {flex.sizeCode} · {formatXof(flex.totalPriceIfSuccess)}
-                </p>
-              </div>
-
-              <Link
-                href={FAMILY_META.WARIBA_FLEX.path}
-                className="mt-8 inline-flex min-h-[50px] items-center gap-2 rounded-full bg-white px-6 text-sm font-bold text-[color:var(--wariba-canvas-deep)] transition-colors hover:bg-white/90"
-              >
-                Découvrir FLEX
-                <ArrowRightIcon size="sm" />
-              </Link>
-            </div>
-          </div>
-        </Reveal>
-      </PublicSection>
+      {/* ───────────────  3 · ONE / FLEX / INSTANT pathways  ─────────────── */}
+      <PathwaysSection one={one} flex={flexEntry} instant={instant} />
 
       {/* ───────────────  4 · Le configurateur  ─────────────── */}
       <PublicSection tone="band">

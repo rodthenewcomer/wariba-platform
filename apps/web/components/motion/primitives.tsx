@@ -2,6 +2,7 @@
 
 import { animate, useMotionValue, useReducedMotion, motion } from 'motion/react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useHydratedReducedMotion } from './useHydratedReducedMotion';
 
 /**
  * WARIBA's motion vocabulary.
@@ -197,7 +198,7 @@ export function ProgressBar({
   height?: number;
   className?: string;
 }) {
-  const reduced = useReducedMotion();
+  const reduced = useHydratedReducedMotion();
   const clamped = Math.min(100, Math.max(0, percent));
 
   return (
@@ -308,7 +309,7 @@ export function ProgressRing({
  * do on this product.
  */
 export function LivePill({ label = 'EN DIRECT' }: { label?: string }) {
-  const reduced = useReducedMotion();
+  const reduced = useHydratedReducedMotion();
   return (
     <span className="inline-flex items-center gap-2 rounded-full border border-[color:var(--commerce-accent-edge)] bg-[color:var(--commerce-accent-wash)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[color:var(--wariba-color-cobalt-300)]">
       {reduced ? (

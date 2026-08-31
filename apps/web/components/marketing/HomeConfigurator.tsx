@@ -2,10 +2,11 @@
 
 import { useMemo, useState, type KeyboardEvent } from 'react';
 import Link from 'next/link';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { AccountToken, ArrowRightIcon, CheckIcon } from '@wariba/ui';
 import type { CanonicalOfferReadModel } from '@wariba/application';
 import { FAMILY_META, FAMILY_ORDER, formatRate, formatXof, xofParts } from '../commerce/offer-ui';
+import { useHydratedReducedMotion } from '../motion/useHydratedReducedMotion';
 
 const FAMILY_TOKEN = {
   WARIBA_ONE: 'one',
@@ -37,7 +38,7 @@ const FAMILY_TOKEN = {
  * waiting to disagree with the first.
  */
 export function HomeConfigurator({ offers }: { offers: readonly CanonicalOfferReadModel[] }) {
-  const reduced = useReducedMotion();
+  const reduced = useHydratedReducedMotion();
   const [family, setFamily] = useState<CanonicalOfferReadModel['productFamily']>('WARIBA_ONE');
   const [sizeCode, setSizeCode] = useState('25K');
 

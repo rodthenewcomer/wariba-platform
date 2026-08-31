@@ -1,7 +1,7 @@
 'use client';
 
-import { useReducedMotion } from 'motion/react';
 import { cx } from '@wariba/ui';
+import { useHydratedReducedMotion } from '../../motion/useHydratedReducedMotion';
 
 export interface DrawdownSceneProps {
   /** The family this example belongs to. Never generalise across the three. */
@@ -54,7 +54,7 @@ export function DrawdownScene({
   maxLossRate,
   className,
 }: DrawdownSceneProps) {
-  const reduced = useReducedMotion();
+  const reduced = useHydratedReducedMotion();
   const width = 720;
   const height = 300;
   const top = 28;
