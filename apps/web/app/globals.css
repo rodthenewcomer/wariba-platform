@@ -2645,9 +2645,6 @@
 
 .s10-hero-chip {
   position: absolute;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
   padding: 0.5rem 0.85rem;
   border-radius: 9999px;
   border: 1px solid var(--wariba-seam-strong);
@@ -2664,6 +2661,44 @@
   height: 6px;
   border-radius: 9999px;
   background: var(--wariba-color-cobalt-300);
+}
+
+/*
+ * A near-imperceptible float, once the one-time `Reveal` entrance (on the
+ * `.s10-hero-chip` element itself) has settled — kept on a separate inner
+ * element so the two animations never fight over the same `animation`
+ * property. Each position gets its own delay so the three chips never move
+ * in visible unison; this photo needs to keep reading as real.
+ */
+.s10-hero-chip-drift {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  animation: s10-chip-drift 6.5s ease-in-out infinite;
+}
+
+.s10-hero-chip-b .s10-hero-chip-drift {
+  animation-delay: 1.4s;
+}
+
+.s10-hero-chip-c .s10-hero-chip-drift {
+  animation-delay: 2.8s;
+}
+
+@keyframes s10-chip-drift {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s10-hero-chip-drift {
+    animation: none;
+  }
 }
 
 /* Fixed slots rather than arbitrary coordinates — each stays clear of the

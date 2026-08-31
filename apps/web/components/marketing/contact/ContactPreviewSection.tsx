@@ -109,8 +109,8 @@ export function ContactPreviewSection() {
             Parlons de votre parcours WARIBA.
           </h2>
           <p className="wariba-lead mt-5 max-w-[30rem]">
-            Une question sur votre compte, votre parcours ou WariX ? Retrouvez le bon point de
-            contact et les informations utiles.
+            Une question sur votre parcours, votre compte ou WariX ? Retrouvez les informations et
+            le bon point de contact.
           </p>
 
           <div className="mt-8">
@@ -149,8 +149,10 @@ export function ContactPreviewSection() {
                 delay={chip.delay}
                 className={`s10-hero-chip s10-hero-chip-${chip.position}`}
               >
-                <span className="s10-hero-chip-dot" aria-hidden="true" />
-                {chip.label}
+                <span className="s10-hero-chip-drift">
+                  <span className="s10-hero-chip-dot" aria-hidden="true" />
+                  {chip.label}
+                </span>
               </Reveal>
             ))}
 
@@ -162,7 +164,7 @@ export function ContactPreviewSection() {
         </Reveal>
       </div>
 
-      <Reveal delay={0.3} className="s10-mini-row mt-12 lg:mt-16">
+      <Reveal delay={0.3} className="s10-mini-row mt-10 lg:mt-12">
         {INTENT_ITEMS.map((item) => (
           <div key={item.title} className="s10-mini-item">
             <span className="s10-mini-icon" aria-hidden="true">
