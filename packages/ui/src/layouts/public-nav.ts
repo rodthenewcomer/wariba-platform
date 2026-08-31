@@ -105,10 +105,12 @@ export interface FooterColumn {
 /**
  * The footer's columns.
  *
- * Four, not five. The brief proposes a `Société` column; WARIBA has no public
- * company routes today and the phase forbids inventing offices, team or about
- * pages to fill one. Four honest columns read as mature; five with one made up
- * reads as a template.
+ * Five now, not the four the shell originally shipped with. That count was
+ * deliberate at the time — WARIBA had no public company route, and the
+ * phase forbade inventing an "about" or "team" page to fill a `Société`
+ * column. `/contact` and `/afrique-francophone` are real routes now, so the
+ * column can exist honestly. It still holds only those two: still no
+ * invented "équipe", "carrières" or "presse" page behind it.
  */
 export const FOOTER_COLUMNS: readonly FooterColumn[] = [
   {
@@ -134,6 +136,13 @@ export const FOOTER_COLUMNS: readonly FooterColumn[] = [
     links: [
       { href: '/aide', label: 'Centre d’aide' },
       { href: '/support', label: 'Nous contacter' },
+    ],
+  },
+  {
+    title: 'Société',
+    links: [
+      { href: '/afrique-francophone', label: 'Afrique francophone' },
+      { href: '/contact', label: 'Contact' },
     ],
   },
   {

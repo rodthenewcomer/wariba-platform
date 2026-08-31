@@ -1,34 +1,34 @@
 import type { LinkComponentType } from '../lib/link';
 import { ArrowRightIcon } from '../icons/shell-icons';
 import { FOOTER_COLUMNS } from './public-nav';
+import { LEGAL_DISCLOSURES, LEGAL_OPERATOR, TARGET_MARKETS } from './legal-disclosure';
 
 export interface PublicFooterProps {
   LinkComponent: LinkComponentType;
 }
 
 /**
- * The WARIBA public footer — Phase 3.4.5A §24–§26.
+ * The WARIBA public footer — Phase 3.4.5A §24–§26, extended for the
+ * regulatory-disclosure rebuild.
  *
- * ## Three bands, not five columns and a rule
+ * ## Four bands
  *
- * The brief's requirement is that the footer be a brand moment rather than
- * `5 columns + border-top`, and the shape that achieves it is: a closing
- * proposition, the navigation columns, then a wordmark scene large enough to
- * be the last thing the page says.
+ * Closing proposition, navigation + operator identity, the wordmark scene,
+ * then a dedicated disclosure band — a real content surface with headings
+ * and body-size text, not ten-point grey at the very bottom. The wordmark
+ * band ships as before: no image, no canvas, on the critical path of every
+ * public route, so it stays cheap.
  *
- * The wordmark band is drawn with a `clamp()` type size and a cobalt horizon
- * gradient — no image, no canvas, nothing on the critical path. The footer
- * ships on every public route, so it is allowed to be striking and not allowed
- * to be expensive.
+ * ## What the disclosure band is not
  *
- * ## What is deliberately absent
- *
- * Every reference in the benchmark carries an awards row, a review score, a
- * follower count or a wall of payment-provider logos, and WARIBA has none of
- * those things. Inventing them is the cheapest possible way to lose the trust
- * the rest of the shell is built to earn. What is here instead: real routes,
- * and the simulated-trading disclosure treated as content — its own band, its
- * own heading, body-size text — rather than 10px grey hidden at the bottom.
+ * It is a summary, not a legal opinion, and it does not assert a
+ * regulatory conclusion in either direction — it doesn't claim WARIBA is
+ * licensed by anyone, and it doesn't claim WARIBA is exempt from
+ * regulation either. Both would be claims this codebase has no basis to
+ * make. See `docs/07-assurance/WARIBA_UEMOA_PUBLIC_FOOTER_COMPLIANCE_2026.md`
+ * for what's still open before a real commercial launch across the six
+ * target markets, and `legal-disclosure.ts` for why each block is worded
+ * the way it is.
  */
 export function PublicFooter({ LinkComponent: Link }: PublicFooterProps) {
   return (
@@ -37,13 +37,6 @@ export function PublicFooter({ LinkComponent: Link }: PublicFooterProps) {
       <div className="border-b border-[color:var(--wariba-seam)]">
         <div className="mx-auto flex max-w-[var(--wariba-shell-max)] flex-col gap-6 px-[var(--wariba-shell-gutter)] py-12 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            {/*
-             * La seconde ligne disait « les règles sont les mêmes pour
-             * toutes ». Faux : objectif, limite quotidienne, perte maximale,
-             * meilleure journée, réserve et exposition diffèrent tous les trois.
-             * Une phrase de pied de page qui généralise une règle produit est
-             * une phrase que la page suivante dément.
-             */}
             <p className="text-2xl font-semibold tracking-[-0.03em] text-[color:var(--wariba-on-dark)] sm:text-3xl">
               Quel parcours vous convient ?
             </p>
@@ -58,10 +51,10 @@ export function PublicFooter({ LinkComponent: Link }: PublicFooterProps) {
         </div>
       </div>
 
-      {/* ── Bande 2 : navigation ── */}
+      {/* ── Bande 2 : navigation + identité opérateur ── */}
       <div className="mx-auto max-w-[var(--wariba-shell-max)] px-[var(--wariba-shell-gutter)] py-14">
         <nav aria-label="Pied de page">
-          <div className="grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-3 lg:grid-cols-5">
             {FOOTER_COLUMNS.map((column) => (
               <div key={column.title}>
                 <h2 className="text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase tracking-[0.14em] text-[color:var(--wariba-on-dark-dim)]">
@@ -83,16 +76,46 @@ export function PublicFooter({ LinkComponent: Link }: PublicFooterProps) {
             ))}
           </div>
         </nav>
+
+        {/*
+         * The operator identity — kept to verified facts only. RCCM, tax
+         * identifier, exact legal form and full registered office are not
+         * here because they aren't confirmed anywhere in this codebase yet;
+         * see the compliance memo rather than guessing at them.
+         */}
+        <div className="mt-12 flex flex-col gap-8 border-t border-[color:var(--wariba-seam)] pt-8 sm:flex-row sm:justify-between">
+          <div>
+            <p className="text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase tracking-[0.14em] text-[color:var(--wariba-on-dark-dim)]">
+              Un service exploité par
+            </p>
+            <p className="mt-2 text-[length:var(--wariba-font-size-body-sm)] font-semibold text-[color:var(--wariba-on-dark)]">
+              {LEGAL_OPERATOR.legalName}
+            </p>
+            <p className="text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-on-dark-muted)]">
+              {LEGAL_OPERATOR.registeredOffice}
+            </p>
+            <a
+              href={`mailto:${LEGAL_OPERATOR.supportEmail}`}
+              className="wariba-focus-ring mt-2 inline-block rounded-md text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-brand-300)] transition-colors hover:text-[color:var(--wariba-brand-200)]"
+            >
+              {LEGAL_OPERATOR.supportEmail}
+            </a>
+          </div>
+
+          <div>
+            <p className="text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase tracking-[0.14em] text-[color:var(--wariba-on-dark-dim)]">
+              Marchés visés
+            </p>
+            <p className="mt-2 max-w-xs text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-on-dark-muted)]">
+              {TARGET_MARKETS.join(' · ')}
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* ── Bande 3 : la scène de marque ──
-          Le mot-symbole occupe la largeur, posé sur un horizon cobalt. C'est
-          la dernière chose que la page dit ; elle doit dire WARIBA. */}
+      {/* ── Bande 3 : la scène de marque ── */}
       <div className="wariba-footer-scene">
         <div className="relative z-[2] mx-auto max-w-[var(--wariba-shell-max)] px-[var(--wariba-shell-gutter)]">
-          {/* The most distant possible Performance Core: one ring, low, off to
-              the left, at 6 % opacity. Enough to suggest that WARIBA has
-              objects; far too faint to be one. */}
           <svg
             aria-hidden="true"
             viewBox="0 0 200 200"
@@ -112,31 +135,76 @@ export function PublicFooter({ LinkComponent: Link }: PublicFooterProps) {
         </div>
       </div>
 
-      {/* ── Bande 4 : divulgation légale, traitée comme du contenu ── */}
+      {/* ── Bande 4 : divulgation réglementaire ── */}
       <div className="border-t border-[color:var(--wariba-seam)] bg-[color:var(--wariba-canvas-deep)]">
-        <div className="mx-auto max-w-[var(--wariba-shell-max)] px-[var(--wariba-shell-gutter)] py-10">
+        <div className="mx-auto max-w-[var(--wariba-shell-max)] px-[var(--wariba-shell-gutter)] py-12">
           <h2 className="text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase tracking-[0.14em] text-[color:var(--wariba-on-dark-dim)]">
-            Environnement simulé
+            Informations réglementaires
           </h2>
-          {/*
-           * La mention légale, dite à un lecteur plutôt qu'à un auditeur.
-           *
-           * Chaque fait est conservé : environnement simulé, nominal qui n'est
-           * pas un dépôt, absence de garantie sur les résultats, prix
-           * contractuels en FCFA, et conditions à remplir avant un payout
-           * (UX-016 `LOCKED` — la nature simulée est répétée aux moments
-           * critiques).
-           */}
-          <p className="mt-4 max-w-5xl text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-on-dark-muted)]">
-            WARIBA est un environnement de trading entièrement simulé. Le montant affiché sur un
-            compte est une unité de simulation : ce n’est ni un dépôt, ni un compte de courtage, ni
-            de l’argent qui vous est confié. Des résultats passés, réels ou simulés, ne garantissent
-            aucun résultat futur. Les prix sont contractuels en FCFA ; les équivalents en USD sont
-            donnés à titre indicatif. Un payout n’est possible qu’après avoir rempli les conditions
-            attachées à votre compte, et WARIBA ne promet aucun compte réel à l’issue du parcours.
+          <p className="mt-3 max-w-2xl text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-on-dark-dim)]">
+            Ce résumé ne remplace pas les Conditions d’utilisation, la Politique de confidentialité
+            et le disclosure risques complets, accessibles ci-dessous.
           </p>
-          <p className="mt-6 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-on-dark-dim)]">
-            © 2026 WARIBA. Bêta privée — documents juridiques en validation locale.
+
+          {/* Desktop — always-expanded two-column grid, real content, real size. */}
+          <div className="mt-8 hidden gap-x-12 gap-y-8 lg:grid lg:grid-cols-2">
+            {LEGAL_DISCLOSURES.map((disclosure) => (
+              <div key={disclosure.id}>
+                <h3 className="text-[length:var(--wariba-font-size-body-sm)] font-semibold text-[color:var(--wariba-on-dark)]">
+                  {disclosure.title}
+                </h3>
+                <p className="mt-2 text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-on-dark-muted)]">
+                  {disclosure.body}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Mobile — accordion, native <details> so no client JS ships for this. */}
+          <div className="mt-8 divide-y divide-[color:var(--wariba-seam)] border-y border-[color:var(--wariba-seam)] lg:hidden">
+            {LEGAL_DISCLOSURES.map((disclosure, index) => (
+              <details key={disclosure.id} className="group py-4" open={index === 0}>
+                <summary className="wariba-focus-ring flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 rounded-md text-[length:var(--wariba-font-size-body-sm)] font-semibold text-[color:var(--wariba-on-dark)] marker:content-none">
+                  {disclosure.title}
+                  <span
+                    aria-hidden="true"
+                    className="shrink-0 text-[color:var(--wariba-brand-300)] transition-transform duration-[var(--wariba-motion-state)] group-open:rotate-45"
+                  >
+                    +
+                  </span>
+                </summary>
+                <p className="mt-3 text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-on-dark-muted)]">
+                  {disclosure.body}
+                </p>
+              </details>
+            ))}
+          </div>
+
+          <div className="mt-8 flex flex-wrap gap-x-8 gap-y-3">
+            <Link
+              href="/legal/risques"
+              className="wariba-focus-ring inline-flex items-center gap-1.5 rounded-md text-[length:var(--wariba-font-size-body-sm)] font-semibold text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]"
+            >
+              Lire le disclosure complet
+              <ArrowRightIcon size="sm" />
+            </Link>
+            <Link
+              href="/legal/conditions"
+              className="wariba-focus-ring inline-block rounded-md text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-on-dark-muted)] hover:text-[color:var(--wariba-on-dark)]"
+            >
+              Conditions d’utilisation
+            </Link>
+            <Link
+              href="/legal/confidentialite"
+              className="wariba-focus-ring inline-block rounded-md text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-on-dark-muted)] hover:text-[color:var(--wariba-on-dark)]"
+            >
+              Confidentialité
+            </Link>
+          </div>
+
+          <p className="mt-8 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-on-dark-dim)]">
+            © 2026 {LEGAL_OPERATOR.legalName}. WARIBA. Tous droits réservés. {LEGAL_OPERATOR.registeredOffice}.
+            Bêta privée — documents juridiques en validation locale.
           </p>
         </div>
       </div>
