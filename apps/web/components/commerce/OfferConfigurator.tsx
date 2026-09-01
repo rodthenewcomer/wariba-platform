@@ -1,23 +1,26 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { AccountToken, ArrowRightIcon, CheckIcon } from '@wariba/ui';
+import { AccountToken, CheckIcon } from '@wariba/ui';
 import type { CanonicalOfferReadModel } from '@wariba/application';
 import { trackCommerceEvent } from './commerce-analytics';
+import { announceOfferSelected, onOfferSelectionRequested } from './offer-selection-events';
 import {
   checkoutHref,
+  FAMILY_ACCENT_VARS,
   FAMILY_META,
   FAMILY_ORDER,
-  formatMultiple,
-  formatNominal,
-  formatRate,
   formatXof,
   offerByIdentity,
-  xofParts,
 } from './offer-ui';
+import { buildSpecs, type DisplayMode } from './rule-specs';
+import { ViewToolbar, type ViewMode } from './ViewToolbar';
+import { RuleSurface } from './RuleSurface';
+import { CompareMatrix } from './CompareMatrix';
+import { DecisionCard } from './DecisionCard';
 
 interface OfferConfiguratorProps {
   offers: readonly CanonicalOfferReadModel[];
@@ -45,105 +48,26 @@ function preferredOffer(
 }
 
 /**
- * A specification line, resolved.
+ * The offer configurator — the Decision Engine, V2.
  *
- * `tone` carries meaning, not decoration: the accent marks the figure that
- * defines the product (the target, or the entry rule for INSTANT), red marks
- * the one that ends an account. Everything else stays neutral, because six
- * coloured pills in a column is a palette, not a language.
- */
-interface Spec {
-  key: string;
-  label: string;
-  value: string;
-  tone?: 'accent' | 'emerald' | 'amber';
-  /** A list rather than a figure — allowed to wrap on a narrow screen. */
-  wrap?: true;
-}
-
-function specsFor(offer: CanonicalOfferReadModel): Spec[] {
-  const evaluation = offer.evaluationRules;
-  const performance = offer.performanceRules;
-  return [
-    { key: 'nominal', label: 'Compte simulé', value: formatNominal(offer.nominalBalance) },
-    {
-      key: 'entry',
-      label: 'Départ',
-      value: offer.entryPhase === 'evaluation' ? 'Évaluation' : 'Performance directe',
-      /* INSTANT's defining fact is that it starts in Performance, so that is
-         the line that carries the accent for it. ONE and FLEX spend their
-         accent on the target instead. */
-      ...(offer.entryPhase === 'performance' ? { tone: 'accent' as const } : {}),
-    },
-    ...(evaluation
-      ? [
-          {
-            key: 'target',
-            label: 'Objectif de performance',
-            value: formatRate(evaluation.profitTargetRate),
-            tone: 'accent' as const,
-          },
-        ]
-      : []),
-    {
-      key: 'daily',
-      label: 'Limite quotidienne',
-      value: formatRate(evaluation?.dailyLossRate ?? performance.dailyLossRate),
-    },
-    {
-      key: 'maxloss',
-      label: 'Perte maximale',
-      value: formatRate(evaluation?.maximumLossRate ?? performance.maximumLossRate),
-    },
-    {
-      key: 'bestday',
-      label: 'Meilleure journée',
-      value: formatRate(evaluation?.bestDayMaximumRate ?? performance.bestDayMaximumRate),
-    },
-    {
-      key: 'reserve',
-      label: 'Réserve de sécurité',
-      value: formatRate(performance.permanentBufferRate),
-    },
-    {
-      key: 'exposure',
-      label: 'Exposition totale',
-      value: formatMultiple(performance.grossExposureMaximumMultiple),
-    },
-    {
-      key: 'days',
-      label: 'Journées Performance',
-      value: `${performance.performanceDaysRequired}`,
-    },
-    {
-      key: 'split',
-      label: 'Part conservée',
-      value: performance.payoutSplitSchedule.map((share) => formatRate(share)).join(' · '),
-      tone: 'emerald',
-      wrap: true,
-    },
-  ];
-}
-
-/**
- * The offer configurator — 3.4.5R §22.2.
+ * ## What changed from V1
  *
- * ## What changed
- *
- * The old version showed three specs and a price. You picked a product, then
- * went somewhere else to find out what its rules were — which is precisely
- * backwards, because the rules *are* the product.
- *
- * This one resolves the full rule set as you choose, in a rail that stays with
- * you (references 29, 48). Ten lines, each one a label and a pill, updating on
- * every click. A value that changed since the last selection flashes its role
- * colour for 420ms and then settles — so a trader comparing 25K to 50K can see
- * *which* numbers moved without diffing two screens from memory.
+ * V1 resolved one flat rule list per selection. This version splits it into
+ * two layers — Evaluation-relevant rules always visible, Performance rules
+ * (buffer, exposure, days, payout split) behind one collapsible control
+ * (`RuleSurface`) — and adds a toolbar (`ViewToolbar`) for two independent
+ * *display* preferences that never touch canonical data: percent vs. a
+ * nominal-derived amount (`rule-specs.ts`'s `buildSpecs`), and a single
+ * selected offer vs. a five-size comparison of the active family
+ * (`CompareMatrix`). The canonical selection engine below — `useState` +
+ * `history.replaceState`, the roving-radio family/size groups, the
+ * `v2-offer-configurator`/`data-offer-id`/`data-hydrated` test contract —
+ * is unchanged; `tests/e2e/commerce-v2.spec.ts` exercises it directly.
  *
  * ## The plate
  *
- * The account object cross-fades while the frame around it holds still. That
- * is the same law the whole product runs on, applied to a radio group: the
+ * The account object cross-fades while the frame around it holds still —
+ * the same law the whole product runs on, applied to a radio group: the
  * container never moves, the thing inside it does.
  *
  * ## Mobile
@@ -160,7 +84,7 @@ export function OfferConfigurator({
 }: OfferConfiguratorProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const reduced = useReducedMotion();
+  const reduced = useReducedMotion() ?? false;
 
   /*
    * Selection is client state, and the URL follows it.
@@ -186,7 +110,23 @@ export function OfferConfigurator({
     () => offers.filter((offer) => offer.productFamily === selected.productFamily),
     [offers, selected.productFamily],
   );
-  const specs = useMemo(() => specsFor(selected), [selected]);
+
+  /*
+   * The matrix — every size, every rule, the active column boxed — is the
+   * landing state, not a second click away. `selected` stays available for
+   * a focused single-account read (and is what the mobile pay bar's
+   * copy assumes), but a visitor arrives on the same full comparison a
+   * FundedNext-style pricing table opens on.
+   */
+  const [viewMode, setViewMode] = useState<ViewMode>('compare');
+  const [displayMode, setDisplayMode] = useState<DisplayMode>('percent');
+  const [performanceExpanded, setPerformanceExpanded] = useState(false);
+
+  const { primary, performance } = useMemo(
+    () => buildSpecs(selected, displayMode),
+    [selected, displayMode],
+  );
+  const allSpecs = useMemo(() => [...primary, ...performance], [primary, performance]);
 
   /*
    * Which pills just changed.
@@ -200,7 +140,7 @@ export function OfferConfigurator({
   const [flashed, setFlashed] = useState<ReadonlySet<string>>(new Set());
 
   useEffect(() => {
-    const current = new Map(specs.map((spec) => [spec.key, spec.value]));
+    const current = new Map(allSpecs.map((spec) => [spec.key, spec.value]));
     const previous = previousSpecs.current;
     previousSpecs.current = current;
     if (!previous || reduced) return;
@@ -213,7 +153,7 @@ export function OfferConfigurator({
     setFlashed(changed);
     const timer = window.setTimeout(() => setFlashed(new Set()), 460);
     return () => window.clearTimeout(timer);
-  }, [specs, reduced]);
+  }, [allSpecs, reduced]);
 
   /*
    * A hydration signal, for tests and for nothing else.
@@ -231,6 +171,33 @@ export function OfferConfigurator({
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => setHydrated(true), []);
 
+  /*
+   * Whether the visitor has scrolled past this whole section, watched from
+   * inside it — the mirror of `StickyConversionDock`'s own observer on the
+   * same `#configurator-end` sentinel. `.commerce-compare-dock` below is
+   * `position: fixed`, so without this it would stay visible in Compare
+   * mode no matter how far down the page the visitor scrolls, including
+   * alongside `StickyConversionDock` once that dock's own trigger fires —
+   * two bottom-fixed CTAs at once. Gating this section's own dock on "still
+   * inside the section" makes the two mutually exclusive by construction
+   * rather than by tuning two independent thresholds to agree.
+   */
+  const configuratorEndRef = useRef<HTMLDivElement>(null);
+  const [scrolledPastConfigurator, setScrolledPastConfigurator] = useState(false);
+  useEffect(() => {
+    const target = configuratorEndRef.current;
+    if (!target) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry) return;
+        setScrolledPastConfigurator(entry.boundingClientRect.top < 0 && !entry.isIntersecting);
+      },
+      { threshold: 0 },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, []);
+
   const attribution = {
     utmSource: searchParams.get('utm_source')?.slice(0, 80),
     utmCampaign: searchParams.get('utm_campaign')?.slice(0, 80),
@@ -243,7 +210,24 @@ export function OfferConfigurator({
       ...(attribution.utmSource && { utmSource: attribution.utmSource }),
       ...(attribution.utmCampaign && { utmCampaign: attribution.utmCampaign }),
     });
+    announceOfferSelected(selected.offerId);
   }, [pathname, selected.offerId]);
+
+  /*
+   * Other page sections (fast-path rail, decision-assist) may request a
+   * selection on this engine's behalf — routed through the same
+   * `selectOffer` as a direct click, so URL sync, analytics and the
+   * spec-flash animation stay in this one place. See
+   * `offer-selection-events.ts` for why this is an event, not lifted state.
+   */
+  useEffect(
+    () =>
+      onOfferSelectionRequested((offerId) => {
+        const target = offerByIdentity(offers, offerId);
+        if (target) selectOffer(target, 'family');
+      }),
+    [offers, selected.offerId],
+  );
 
   const selectOffer = (offer: CanonicalOfferReadModel, event: 'family' | 'size') => {
     /*
@@ -271,6 +255,27 @@ export function OfferConfigurator({
       ...(attribution.utmSource && { utmSource: attribution.utmSource }),
       ...(attribution.utmCampaign && { utmCampaign: attribution.utmCampaign }),
     });
+  };
+
+  const handleDisplayModeChange = (mode: DisplayMode) => {
+    if (mode === displayMode) return;
+    setDisplayMode(mode);
+    trackCommerceEvent('commerce_display_mode_changed', { offerId: selected.offerId, mode });
+  };
+
+  const handleViewModeChange = (mode: ViewMode) => {
+    if (mode === viewMode) return;
+    setViewMode(mode);
+    trackCommerceEvent('commerce_view_mode_changed', { offerId: selected.offerId, mode });
+  };
+
+  const handleTogglePerformance = () => {
+    const next = !performanceExpanded;
+    setPerformanceExpanded(next);
+    trackCommerceEvent(
+      next ? 'commerce_performance_rules_expanded' : 'commerce_performance_rules_collapsed',
+      { offerId: selected.offerId },
+    );
   };
 
   const moveRadioSelection = (
@@ -315,8 +320,6 @@ export function OfferConfigurator({
       ) ?? offers.find((offer) => offer.productFamily === family)!,
   );
 
-  const isFlex = selected.productFamily === 'WARIBA_FLEX';
-
   return (
     <section
       aria-labelledby="configurator-title"
@@ -324,16 +327,30 @@ export function OfferConfigurator({
       data-testid="v2-offer-configurator"
       data-offer-id={selected.offerId}
       data-hydrated={hydrated ? 'true' : 'false'}
+      /*
+       * Every commerce surface below reads its colour from `--commerce-
+       * accent*`, not a hardcoded value — see `FAMILY_ACCENT_VARS`'s own
+       * comment. Overriding those six custom properties here re-colours the
+       * family tabs, size chips, the accent-toned spec pill, the primary
+       * CTA and the compare matrix's selected column together, in the same
+       * copper/cobalt/cyan language the hero's three monoliths already use,
+       * with a transition so the switch reads as a colour change rather
+       * than a flicker.
+       */
+      style={{
+        ...FAMILY_ACCENT_VARS[selected.productFamily],
+        transition: reduced ? undefined : 'color 200ms ease, border-color 200ms ease',
+      }}
     >
       <div className="commerce-shell">
         <div className="max-w-3xl">
-          <p className="commerce-kicker">Votre choix</p>
-          <h2 id="configurator-title" className="commerce-section-title mt-5">
-            Choisissez. Les règles s’affichent au fur et à mesure.
+          <p className="commerce-kicker">Votre configuration</p>
+          <h2 id="configurator-title" className="commerce-section-title mt-5 scroll-mt-24">
+            Configurez votre compte. Le prix et les règles suivent.
           </h2>
           <p className="commerce-lead mt-5">
-            Les prix et les limites viennent des règles que votre compte gardera. Rien n’est
-            recalculé dans le navigateur.
+            Passez de ONE à FLEX ou INSTANT, comparez les tailles et affichez vos limites en
+            pourcentage ou en montant.
           </p>
         </div>
 
@@ -348,257 +365,276 @@ export function OfferConfigurator({
                 key={family}
                 type="button"
                 role="radio"
-                aria-label={`${meta.short} — ${meta.eyebrow}`}
+                aria-label={`${meta.short} — ${meta.tabHeadline}`}
                 aria-checked={active}
                 tabIndex={active ? 0 : -1}
                 onClick={() => selectOffer(familyOffer, 'family')}
                 onKeyDown={(event) => moveRadioSelection(event, index, familyChoices, 'family')}
-                className="commerce-choice min-h-32 text-left"
+                className="commerce-choice min-h-24 text-left"
                 data-active={active ? 'true' : 'false'}
               >
                 <span className="flex items-center justify-between gap-2">
                   <span className="commerce-choice-index">{meta.short}</span>
                   {active ? (
-                    <span className="flex size-5 items-center justify-center rounded-full bg-[color:var(--wariba-brand-500)] text-white">
+                    <span
+                      className="flex size-5 items-center justify-center rounded-full text-white"
+                      style={{ background: 'var(--commerce-accent)' }}
+                    >
                       <CheckIcon size="sm" className="size-3" />
                     </span>
                   ) : null}
                 </span>
-                <span className="mt-3 block text-base font-semibold text-[color:var(--wariba-color-ink-50)]">
-                  {meta.eyebrow}
+                <span className="mt-2.5 block text-base font-semibold text-[color:var(--wariba-color-ink-50)]">
+                  {meta.tabHeadline}
                 </span>
-                <span className="mt-1.5 block text-sm leading-relaxed text-[color:var(--wariba-color-ink-300)]">
-                  {meta.description}
+                <span className="mt-1 block text-sm leading-relaxed text-[color:var(--wariba-color-ink-300)]">
+                  {meta.tabLifecycle}
                 </span>
               </button>
             );
           })}
         </div>
 
-        {/* ── Taille ── */}
-        <div className="mt-8">
-          <p className="text-sm font-semibold text-[color:var(--wariba-color-ink-200)]">
-            Taille du compte simulé
-          </p>
-          <div className="mt-3 grid grid-cols-5 gap-2" role="radiogroup" aria-label="Taille">
-            {familyOffers.map((offer, index) => (
-              <button
-                key={offer.offerId}
-                type="button"
-                role="radio"
-                aria-label={`Taille ${offer.sizeCode}`}
-                aria-checked={offer.offerId === selected.offerId}
-                tabIndex={offer.offerId === selected.offerId ? 0 : -1}
-                onClick={() => selectOffer(offer, 'size')}
-                onKeyDown={(event) => moveRadioSelection(event, index, familyOffers, 'size')}
-                className="commerce-size"
-                data-active={offer.offerId === selected.offerId ? 'true' : 'false'}
-              >
-                {offer.sizeCode}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Résumé ── */}
-        <div className="commerce-summary mt-8">
-          <div className="commerce-summary-main">
-            <div className="flex flex-wrap items-start justify-between gap-6">
-              <div className="min-w-0">
-                <p className="commerce-choice-index">
-                  WARIBA {familyMeta.short} · {selected.sizeCode}
-                </p>
-                <h3 className="mt-3 max-w-lg text-2xl font-semibold tracking-[-0.03em] text-[color:var(--wariba-color-ink-50)] sm:text-3xl">
-                  {familyMeta.title}
-                </h3>
-              </div>
-
-              {/* The frame is fixed; only the plate inside it changes. */}
-              <div className="relative h-[105px] w-[140px] shrink-0">
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.div
-                    key={`${selected.productFamily}-${selected.sizeCode}`}
-                    initial={reduced ? false : { opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: reduced ? 1 : 0 }}
-                    transition={{ duration: reduced ? 0 : 0.18, ease: [0.2, 0, 0, 1] }}
-                    className="absolute inset-0"
-                  >
-                    <AccountToken
-                      sizeCode={selected.sizeCode}
-                      family={FAMILY_TOKEN[selected.productFamily]}
-                      width={140}
-                    />
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-            </div>
-
-            <dl className="mt-8" data-testid="resolved-rules">
-              {specs.map((spec) => (
-                <div key={spec.key} className="commerce-spec-row">
-                  <dt className="commerce-spec-label">{spec.label}</dt>
-                  <dd>
-                    <span
-                      className="commerce-spec-value"
-                      data-tone={spec.tone}
-                      data-wrap={spec.wrap ? 'true' : undefined}
-                      data-flash={flashed.has(spec.key) ? 'true' : undefined}
-                    >
-                      {spec.value}
-                    </span>
-                  </dd>
-                </div>
-              ))}
-            </dl>
-
-            <p className="mt-6 text-xs leading-relaxed text-[color:var(--wariba-color-ink-300)]">
-              Règles version {selected.policySemanticVersion} · fixées le jour de l’achat, elles ne
-              changent plus.
+        {/* ── Taille ──
+             Compare mode's own column headers are the size selector — a
+             second row of pills here would just be the same radiogroup
+             rendered twice. Only the focused single-account view needs it. */}
+        {viewMode === 'selected' ? (
+          <div className="mt-8">
+            <p className="text-sm font-semibold text-[color:var(--wariba-color-ink-200)]">
+              Taille du compte simulé
             </p>
-          </div>
-
-          <aside className="commerce-price-panel" aria-label="Résumé du prix">
-            <div className="lg:sticky lg:top-24">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--wariba-color-ink-300)]">
-                {isFlex ? 'À régler aujourd’hui' : 'Paiement unique'}
-              </p>
-              <p className="mt-2 font-mono text-4xl font-bold tabular-nums tracking-[-0.03em] text-[color:var(--wariba-color-ink-50)]">
-                {xofParts(selected.upfrontPrice).value}{' '}
-                <span className="text-xl font-semibold text-[color:var(--wariba-color-ink-300)]">
-                  {xofParts(selected.upfrontPrice).currency}
-                </span>
-              </p>
-
-              {isFlex ? (
-                <div className="mt-6 space-y-3 border-t border-[color:var(--commerce-rule)] pt-5 text-sm">
-                  <PriceLine
-                    label="À l’activation, après réussite"
-                    value={formatXof(selected.activationPrice)}
-                  />
-                  <PriceLine
-                    label="Total si vous réussissez"
-                    value={formatXof(selected.totalPriceIfSuccess)}
-                    strong
-                  />
-                  <p className="rounded-[var(--wariba-radius-lg)] border border-[color:var(--wariba-accent-emerald-edge)] bg-[color:var(--wariba-accent-emerald-wash)] p-3 text-xs leading-relaxed text-[color:var(--wariba-color-ink-100)]">
-                    Le montant d’activation est figé aujourd’hui. Si vous ne réussissez pas
-                    l’évaluation, il n’est jamais prélevé.
-                  </p>
-                </div>
-              ) : null}
-
-              {sandboxCheckoutAvailable ? (
-                <Link
-                  href={checkoutHref(selected)}
-                  onClick={() =>
-                    trackCommerceEvent('commerce_checkout_started', {
-                      offerId: selected.offerId,
-                      source: pathname,
-                    })
-                  }
-                  className="commerce-primary-action mt-7 w-full"
-                >
-                  Choisir {familyMeta.short} {selected.sizeCode}
-                </Link>
-              ) : (
-                <div className="mt-7">
-                  <button type="button" disabled className="commerce-primary-action w-full">
-                    Bientôt disponible
+            {/* Size + price in one object, not a bare filter pill — see
+                `.commerce-size-tile`'s own comment in globals.css. */}
+            <div className="mt-3 grid grid-cols-5 gap-2" role="radiogroup" aria-label="Taille">
+              {familyOffers.map((offer, index) => {
+                const active = offer.offerId === selected.offerId;
+                return (
+                  <button
+                    key={offer.offerId}
+                    type="button"
+                    role="radio"
+                    aria-label={`Taille ${offer.sizeCode}, ${formatXof(offer.upfrontPrice)}${offer.productFamily === 'WARIBA_FLEX' ? ' aujourd’hui' : ''}`}
+                    aria-checked={active}
+                    tabIndex={active ? 0 : -1}
+                    onClick={() => selectOffer(offer, 'size')}
+                    onKeyDown={(event) => moveRadioSelection(event, index, familyOffers, 'size')}
+                    className="commerce-size-tile"
+                    data-active={active ? 'true' : 'false'}
+                  >
+                    <span className="commerce-size-tile-label">{offer.sizeCode}</span>
+                    <span className="commerce-size-tile-price">{formatXof(offer.upfrontPrice)}</span>
+                    {offer.productFamily === 'WARIBA_FLEX' ? (
+                      <span className="text-[8px] font-semibold uppercase tracking-[0.08em] text-[color:var(--wariba-color-ink-300)]">
+                        aujourd’hui
+                      </span>
+                    ) : null}
                   </button>
-                  <p className="mt-3 text-xs leading-relaxed text-[color:var(--wariba-color-ink-300)]">
-                    Les parcours sont consultables. Le paiement ouvrira plus tard.
-                  </p>
-                </div>
-              )}
-
-              <Link
-                href={familyMeta.path}
-                className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-[color:var(--wariba-color-cobalt-300)] transition-colors hover:text-[color:var(--wariba-color-cobalt-400)]"
-              >
-                En savoir plus sur ce parcours
-                <ArrowRightIcon size="sm" />
-              </Link>
-
-              {/* What the fee actually buys. Only things that exist today —
-                  the phase forbids filling a panel with promises. */}
-              <ul className="mt-6 space-y-2.5 border-t border-[color:var(--commerce-rule)] pt-5">
-                {INCLUDED.map((item) => (
-                  <li
-                    key={item}
-                    className="flex items-start gap-2.5 text-sm leading-relaxed text-[color:var(--wariba-color-ink-300)]"
-                  >
-                    <CheckIcon
-                      size="sm"
-                      className="mt-0.5 shrink-0 text-[color:var(--wariba-accent-emerald)]"
-                    />
-                    {item}
-                  </li>
-                ))}
-              </ul>
+                );
+              })}
             </div>
-          </aside>
-        </div>
-      </div>
+          </div>
+        ) : null}
 
-      {/* ── Barre d'achat mobile ── */}
-      <div className="commerce-mobile-paybar" data-testid="commerce-paybar">
-        <div className="min-w-0">
-          <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[color:var(--wariba-color-ink-300)]">
-            {familyMeta.short} · {selected.sizeCode}
-            {isFlex ? ' · aujourd’hui' : ''}
-          </p>
-          <p className="truncate font-mono text-lg font-bold tabular-nums text-[color:var(--wariba-color-ink-50)]">
-            {formatXof(selected.upfrontPrice)}
-          </p>
-          {isFlex ? (
-            <p className="truncate font-mono text-[11px] tabular-nums text-[color:var(--wariba-color-ink-300)]">
-              puis {formatXof(selected.activationPrice)} après réussite
-            </p>
-          ) : null}
+        {/* ── Barre d'outils ── */}
+        <div className="mt-8">
+          <ViewToolbar
+            displayMode={displayMode}
+            onDisplayModeChange={handleDisplayModeChange}
+            viewMode={viewMode}
+            onViewModeChange={handleViewModeChange}
+          />
         </div>
-        {sandboxCheckoutAvailable ? (
-          <Link href={checkoutHref(selected)} className="commerce-primary-action shrink-0">
-            Choisir
-          </Link>
+
+        {/* ── Résumé ──
+             Selected keeps the two-column grid (rules + sticky Decision
+             Card) — that architecture is accepted, unchanged. Compare drops
+             the Decision Card entirely: a comparison table competing with a
+             sidebar for width is a worse comparison table, and the matrix's
+             own per-column CTAs plus the compare dock below now carry that
+             job instead. */}
+        {viewMode === 'selected' ? (
+          <div className="commerce-summary mt-6">
+            <div className="commerce-summary-main">
+              <div className="flex flex-wrap items-start justify-between gap-6">
+                <div className="min-w-0">
+                  <p className="commerce-choice-index">
+                    WARIBA {familyMeta.short} · {selected.sizeCode}
+                  </p>
+                  <h3 className="mt-3 max-w-lg text-2xl font-semibold tracking-[-0.03em] text-[color:var(--wariba-color-ink-50)] sm:text-3xl">
+                    {familyMeta.title}
+                  </h3>
+                </div>
+
+                {/* The frame is fixed; only the plate inside it changes. */}
+                <div className="relative h-[105px] w-[140px] shrink-0">
+                  <AnimatePresence mode="wait" initial={false}>
+                    <motion.div
+                      key={`${selected.productFamily}-${selected.sizeCode}`}
+                      initial={reduced ? false : { opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: reduced ? 1 : 0 }}
+                      transition={{ duration: reduced ? 0 : 0.18, ease: [0.2, 0, 0, 1] }}
+                      className="absolute inset-0"
+                    >
+                      <AccountToken
+                        sizeCode={selected.sizeCode}
+                        family={FAMILY_TOKEN[selected.productFamily]}
+                        width={140}
+                      />
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+              </div>
+
+              <div className="mt-8">
+                <RuleSurface
+                  offer={selected}
+                  primary={primary}
+                  performance={performance}
+                  flashed={flashed}
+                  performanceExpanded={performanceExpanded}
+                  onTogglePerformance={handleTogglePerformance}
+                  reduced={reduced}
+                />
+              </div>
+
+              <p className="mt-6 text-xs leading-relaxed text-[color:var(--wariba-color-ink-300)]">
+                Règles version {selected.policySemanticVersion} · fixées le jour de l’achat, elles ne
+                changent plus.
+              </p>
+            </div>
+
+            <DecisionCard
+              selected={selected}
+              familyMeta={familyMeta}
+              sandboxCheckoutAvailable={sandboxCheckoutAvailable}
+              pathname={pathname}
+            />
+          </div>
         ) : (
-          <button type="button" disabled className="commerce-primary-action shrink-0">
-            Bientôt
-          </button>
+          <div className="commerce-panel mt-6 p-6 pb-24 lg:p-8 lg:pb-28">
+            <p className="commerce-choice-index">WARIBA {familyMeta.short}</p>
+            <h3 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-[color:var(--wariba-color-ink-50)] sm:text-3xl">
+              Comparez les cinq tailles.
+            </h3>
+            <div className="mt-8">
+              <CompareMatrix
+                familyOffers={familyOffers}
+                familyShort={familyMeta.short}
+                displayMode={displayMode}
+                selectedOfferId={selected.offerId}
+                onSelectSize={(offer) => selectOffer(offer, 'size')}
+                performanceExpanded={performanceExpanded}
+                onTogglePerformance={handleTogglePerformance}
+                reduced={reduced}
+                sandboxCheckoutAvailable={sandboxCheckoutAvailable}
+                pathname={pathname}
+              />
+            </div>
+          </div>
         )}
       </div>
+
+      {/*
+       * The page-level `StickyConversionDock` (further down `/offres`)
+       * shows once the Decision Engine has scrolled past — it used to watch
+       * the section's own `<h2>`, which broke the moment Compare mode's
+       * full-width matrix made the section taller than one screen: the
+       * title left the viewport while the visitor was still inside the
+       * section, in the middle of this section's own `.commerce-compare-
+       * dock`, and both bottom-fixed docks showed at once. This sentinel is
+       * the section's true end in normal document flow (the two docks
+       * above are `position: fixed` and do not affect it), so "past" now
+       * means past all of it, in either view mode.
+       */}
+      <div id="configurator-end" ref={configuratorEndRef} aria-hidden="true" />
+
+      {/* ── Barre d'achat mobile ──
+           Covers 0–1023px in both view modes. */}
+      <div className="commerce-mobile-paybar" data-testid="commerce-paybar">
+        <DockCta
+          selected={selected}
+          familyMeta={familyMeta}
+          sandboxCheckoutAvailable={sandboxCheckoutAvailable}
+          pathname={pathname}
+          ctaLocation="sticky_dock"
+        />
+      </div>
+
+      {/* ── Dock de comparaison desktop ──
+           Compare mode's own replacement for the Decision Card it drops —
+           1024px and up only; the mobile bar above already covers every
+           narrower width in both modes. See `.commerce-compare-dock`'s own
+           comment in globals.css. Gated on still being inside the section so
+           it and `StickyConversionDock` further down the page never show at
+           once — see `scrolledPastConfigurator`'s own comment. */}
+      {viewMode === 'compare' && !scrolledPastConfigurator ? (
+        <div className="commerce-compare-dock" data-testid="commerce-compare-dock">
+          <DockCta
+            selected={selected}
+            familyMeta={familyMeta}
+            sandboxCheckoutAvailable={sandboxCheckoutAvailable}
+            pathname={pathname}
+            ctaLocation="sticky_dock"
+          />
+        </div>
+      ) : null}
     </section>
   );
 }
 
-const INCLUDED = [
-  'Accès complet au poste de travail WariX',
-  'Journal de trading et suivi de performance',
-  'Règles figées à l’achat, consultables à tout moment',
-  'Centre d’aide et support',
-] as const;
-
-function PriceLine({
-  label,
-  value,
-  strong,
+/** Shared by the mobile pay bar (always mounted, 0–1023px) and the desktop
+    compare dock (1024px+, compare mode only) — one place for the current
+    selection's price/CTA so the two never drift. */
+function DockCta({
+  selected,
+  familyMeta,
+  sandboxCheckoutAvailable,
+  pathname,
+  ctaLocation,
 }: {
-  label: string;
-  value: ReactNode;
-  strong?: boolean;
+  selected: CanonicalOfferReadModel;
+  familyMeta: (typeof FAMILY_META)[keyof typeof FAMILY_META];
+  sandboxCheckoutAvailable: boolean;
+  pathname: string;
+  ctaLocation: string;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-4">
-      <span className="text-[color:var(--wariba-color-ink-300)]">{label}</span>
-      <strong
-        className={
-          strong
-            ? 'font-mono text-base font-bold tabular-nums text-[color:var(--wariba-color-ink-50)]'
-            : 'font-mono font-semibold tabular-nums text-[color:var(--wariba-color-ink-100)]'
-        }
-      >
-        {value}
-      </strong>
-    </div>
+    <>
+      <div className="min-w-0">
+        <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[color:var(--wariba-color-ink-300)]">
+          {familyMeta.short} · {selected.sizeCode}
+          {selected.productFamily === 'WARIBA_FLEX' ? ' · aujourd’hui' : ''}
+        </p>
+        <p className="truncate font-mono text-lg font-bold tabular-nums text-[color:var(--wariba-accent-emerald)]">
+          {formatXof(selected.upfrontPrice)}
+        </p>
+        {selected.productFamily === 'WARIBA_FLEX' ? (
+          <p className="truncate font-mono text-[11px] tabular-nums text-[color:var(--wariba-accent-emerald)]">
+            puis {formatXof(selected.activationPrice)} après réussite
+          </p>
+        ) : null}
+      </div>
+      {sandboxCheckoutAvailable ? (
+        <Link
+          href={checkoutHref(selected)}
+          onClick={() =>
+            trackCommerceEvent('commerce_checkout_started', {
+              offerId: selected.offerId,
+              source: pathname,
+              ctaLocation,
+            })
+          }
+          className="commerce-primary-action shrink-0"
+        >
+          Continuer
+        </Link>
+      ) : (
+        <button type="button" disabled className="commerce-primary-action shrink-0">
+          Bientôt
+        </button>
+      )}
+    </>
   );
 }

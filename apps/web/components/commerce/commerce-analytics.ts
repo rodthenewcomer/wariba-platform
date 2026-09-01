@@ -7,7 +7,30 @@ export type CommerceAnalyticsEvent =
   | 'commerce_checkout_started'
   | 'commerce_checkout_submitted'
   | 'commerce_payment_started'
-  | 'commerce_payment_result';
+  | 'commerce_payment_result'
+  /*
+   * Added for the /offres V2 acquisition rebuild — one funnel event per
+   * commercial job a section performs, so paid-traffic diagnosis can see
+   * where a visitor converts or drops, per the CTA's `ctaLocation`
+   * ('hero' | 'fast_path' | 'decision_engine' | 'lifecycle' | 'risk' |
+   * 'payouts' | 'decision_assist' | 'sticky_dock' | 'final'). No new
+   * provider, no PII — same first-party beacon as the events above.
+   */
+  | 'commerce_offers_primary_cta_clicked'
+  | 'commerce_offer_cta_clicked'
+  | 'commerce_rules_clicked'
+  | 'commerce_payouts_clicked'
+  | 'commerce_warix_clicked'
+  /*
+   * Added for the Decision Engine V2 rebuild — the toolbar and rule-layer
+   * controls are display/view preferences, not commercial decisions, but
+   * knowing which visitors reach for "Comparer" or "Montants" is exactly
+   * the signal that decides what the default should be later.
+   */
+  | 'commerce_display_mode_changed'
+  | 'commerce_view_mode_changed'
+  | 'commerce_performance_rules_expanded'
+  | 'commerce_performance_rules_collapsed';
 
 export function trackCommerceEvent(
   event: CommerceAnalyticsEvent,
@@ -17,6 +40,8 @@ export function trackCommerceEvent(
     result?: string;
     utmSource?: string;
     utmCampaign?: string;
+    ctaLocation?: string;
+    mode?: string;
   } = {},
 ): void {
   const body = JSON.stringify({ event, ...context });

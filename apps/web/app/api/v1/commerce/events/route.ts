@@ -20,12 +20,25 @@ const eventSchema = z
       'commerce_checkout_submitted',
       'commerce_payment_started',
       'commerce_payment_result',
+      // /offres V2 funnel events — see commerce-analytics.ts.
+      'commerce_offers_primary_cta_clicked',
+      'commerce_offer_cta_clicked',
+      'commerce_rules_clicked',
+      'commerce_payouts_clicked',
+      'commerce_warix_clicked',
+      // Decision Engine V2 — display/view preferences.
+      'commerce_display_mode_changed',
+      'commerce_view_mode_changed',
+      'commerce_performance_rules_expanded',
+      'commerce_performance_rules_collapsed',
     ]),
     offerId: canonicalOfferIdSchema.optional(),
     source: z.string().max(80).optional(),
     result: z.enum(['confirmed', 'failed']).optional(),
     utmSource: z.string().max(80).optional(),
     utmCampaign: z.string().max(80).optional(),
+    ctaLocation: z.string().max(40).optional(),
+    mode: z.string().max(20).optional(),
   })
   .strict();
 
@@ -47,6 +60,8 @@ export async function POST(request: Request) {
     ...(parsed.data.result && { result: parsed.data.result }),
     ...(parsed.data.utmSource && { utmSource: parsed.data.utmSource }),
     ...(parsed.data.utmCampaign && { utmCampaign: parsed.data.utmCampaign }),
+    ...(parsed.data.ctaLocation && { ctaLocation: parsed.data.ctaLocation }),
+    ...(parsed.data.mode && { mode: parsed.data.mode }),
   });
   return NextResponse.json({ data: { accepted: true }, meta: { correlationId } }, { headers });
 }
