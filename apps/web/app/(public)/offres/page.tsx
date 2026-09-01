@@ -2,17 +2,10 @@ import { Suspense } from 'react';
 import { listCanonicalV2Offers } from '@wariba/application';
 import { Skeleton } from '@wariba/ui';
 import { OfferConfigurator } from '../../../components/commerce/OfferConfigurator';
-import { FAMILY_ORDER } from '../../../components/commerce/offer-ui';
 import { getDb } from '../../../lib/db';
 import { isLocalSandboxCommerce, loadWebConfig } from '../../../lib/config';
 import { OffresHeroV2 } from '../../../components/offers-v2/OffresHeroV2';
 import { OffresProofStrip } from '../../../components/offers-v2/OffresProofStrip';
-import { LifecycleCompare } from '../../../components/offers-v2/LifecycleCompare';
-import { WarixTheaterSection } from '../../../components/offers-v2/WarixTheaterSection';
-import { BrandDesireSection } from '../../../components/offers-v2/BrandDesireSection';
-import { RiskObjectionSection } from '../../../components/offers-v2/RiskObjectionSection';
-import { PayoutClaritySection } from '../../../components/offers-v2/PayoutClaritySection';
-import { DecisionAssistSection } from '../../../components/offers-v2/DecisionAssistSection';
 import { OffresFaqSection } from '../../../components/offers-v2/OffresFaqSection';
 import { FinalDecisionSection } from '../../../components/offers-v2/FinalDecisionSection';
 import { StickyConversionDock } from '../../../components/offers-v2/StickyConversionDock';
@@ -22,14 +15,6 @@ export const dynamic = 'force-dynamic';
 export default async function OffersPage() {
   const offers = await listCanonicalV2Offers(getDb());
   const sandboxCheckoutAvailable = isLocalSandboxCommerce(loadWebConfig());
-
-  const referenceOfferIdByFamily = Object.fromEntries(
-    FAMILY_ORDER.map((family) => [
-      family,
-      (offers.find((offer) => offer.productFamily === family && offer.sizeCode === '10K') ??
-        offers.find((offer) => offer.productFamily === family))!.offerId,
-    ]),
-  ) as Record<(typeof FAMILY_ORDER)[number], string>;
 
   const fallback =
     offers.find((offer) => offer.productFamily === 'WARIBA_ONE' && offer.sizeCode === '10K') ??
@@ -44,12 +29,6 @@ export default async function OffersPage() {
         <OfferConfigurator offers={offers} sandboxCheckoutAvailable={sandboxCheckoutAvailable} />
       </Suspense>
 
-      <LifecycleCompare referenceOfferIdByFamily={referenceOfferIdByFamily} />
-      <WarixTheaterSection />
-      <BrandDesireSection />
-      <RiskObjectionSection offers={offers} fallback={fallback} />
-      <PayoutClaritySection />
-      <DecisionAssistSection referenceOfferIdByFamily={referenceOfferIdByFamily} />
       <OffresFaqSection />
       <FinalDecisionSection
         offers={offers}
