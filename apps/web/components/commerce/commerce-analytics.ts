@@ -31,7 +31,11 @@ export type CommerceAnalyticsEvent =
   | 'commerce_display_mode_changed'
   | 'commerce_view_mode_changed'
   | 'commerce_performance_rules_expanded'
-  | 'commerce_performance_rules_collapsed';
+  | 'commerce_performance_rules_collapsed'
+  /* The /offres FAQ's own single-open accordion — which objection a
+     visitor actually reads before continuing, tagged by `questionId`. */
+  | 'commerce_faq_opened'
+  | 'commerce_faq_closed';
 
 export function trackCommerceEvent(
   event: CommerceAnalyticsEvent,
@@ -43,6 +47,7 @@ export function trackCommerceEvent(
     utmCampaign?: string;
     ctaLocation?: string;
     mode?: string;
+    questionId?: string;
   } = {},
 ): void {
   const body = JSON.stringify({ event, ...context });

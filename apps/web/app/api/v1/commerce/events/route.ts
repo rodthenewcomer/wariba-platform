@@ -32,6 +32,9 @@ const eventSchema = z
       'commerce_view_mode_changed',
       'commerce_performance_rules_expanded',
       'commerce_performance_rules_collapsed',
+      // /offres FAQ accordion.
+      'commerce_faq_opened',
+      'commerce_faq_closed',
     ]),
     offerId: canonicalOfferIdSchema.optional(),
     source: z.string().max(80).optional(),
@@ -40,6 +43,7 @@ const eventSchema = z
     utmCampaign: z.string().max(80).optional(),
     ctaLocation: z.string().max(40).optional(),
     mode: z.string().max(20).optional(),
+    questionId: z.string().max(40).optional(),
   })
   .strict();
 
@@ -63,6 +67,7 @@ export async function POST(request: Request) {
     ...(parsed.data.utmCampaign && { utmCampaign: parsed.data.utmCampaign }),
     ...(parsed.data.ctaLocation && { ctaLocation: parsed.data.ctaLocation }),
     ...(parsed.data.mode && { mode: parsed.data.mode }),
+    ...(parsed.data.questionId && { questionId: parsed.data.questionId }),
   });
   return NextResponse.json({ data: { accepted: true }, meta: { correlationId } }, { headers });
 }
