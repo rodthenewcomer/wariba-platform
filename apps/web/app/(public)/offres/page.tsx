@@ -6,8 +6,8 @@ import { getDb } from '../../../lib/db';
 import { isLocalSandboxCommerce, loadWebConfig } from '../../../lib/config';
 import { OffresHeroV2 } from '../../../components/offers-v2/OffresHeroV2';
 import { OffresProofStrip } from '../../../components/offers-v2/OffresProofStrip';
+import { ContactPreviewSection } from '../../../components/marketing/contact/ContactPreviewSection';
 import { OffresFaqSection } from '../../../components/offers-v2/OffresFaqSection';
-import { FinalDecisionSection } from '../../../components/offers-v2/FinalDecisionSection';
 import { StickyConversionDock } from '../../../components/offers-v2/StickyConversionDock';
 
 export const dynamic = 'force-dynamic';
@@ -29,12 +29,8 @@ export default async function OffersPage() {
         <OfferConfigurator offers={offers} sandboxCheckoutAvailable={sandboxCheckoutAvailable} />
       </Suspense>
 
+      <ContactPreviewSection />
       <OffresFaqSection />
-      <FinalDecisionSection
-        offers={offers}
-        fallback={fallback}
-        sandboxCheckoutAvailable={sandboxCheckoutAvailable}
-      />
       <StickyConversionDock
         offers={offers}
         fallback={fallback}
