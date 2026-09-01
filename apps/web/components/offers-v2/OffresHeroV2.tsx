@@ -51,10 +51,6 @@ export function OffresHeroV2() {
             conçu pour mesurer la discipline, pas pour promettre des gains.
           </p>
 
-          <p className="mt-4 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-on-dark-dim)]">
-            Prix en FCFA · Règles visibles avant de commencer · Trading entièrement simulé
-          </p>
-
           <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-4">
             <a
               href="#configurator-title"
