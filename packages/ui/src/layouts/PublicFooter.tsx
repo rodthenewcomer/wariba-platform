@@ -5,6 +5,16 @@ import { LEGAL_DISCLOSURES, LEGAL_OPERATOR, TARGET_MARKETS } from './legal-discl
 
 export interface PublicFooterProps {
   LinkComponent: LinkComponentType;
+  /**
+   * Band 1 — "Quel parcours vous convient ? / Comparer les parcours" — is a
+   * footer-level nudge back to `/offres` for a visitor reading, say, a
+   * legal page. On `/offres` itself the whole page already is that
+   * comparison, several times over (the configurator's compare mode, the
+   * FAQ's own final buying moment), so the same band there is a redundant
+   * dead end pointing at the page it's already on. Defaults to shown —
+   * every other public route keeps it; only `/offres` passes `false`.
+   */
+  showParcoursCta?: boolean;
 }
 
 /**
@@ -30,26 +40,28 @@ export interface PublicFooterProps {
  * target markets, and `legal-disclosure.ts` for why each block is worded
  * the way it is.
  */
-export function PublicFooter({ LinkComponent: Link }: PublicFooterProps) {
+export function PublicFooter({ LinkComponent: Link, showParcoursCta = true }: PublicFooterProps) {
   return (
     <footer className="border-t border-[color:var(--wariba-seam)] bg-[color:var(--wariba-canvas-base)]">
       {/* ── Bande 1 : la proposition de clôture ── */}
-      <div className="border-b border-[color:var(--wariba-seam)]">
-        <div className="mx-auto flex max-w-[var(--wariba-shell-max)] flex-col gap-6 px-[var(--wariba-shell-gutter)] py-12 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-2xl font-semibold tracking-[-0.03em] text-[color:var(--wariba-on-dark)] sm:text-3xl">
-              Quel parcours vous convient ?
-            </p>
-            <p className="mt-2 max-w-xl text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-on-dark-dim)]">
-              Comparez ONE, FLEX et INSTANT avant de commencer.
-            </p>
+      {showParcoursCta ? (
+        <div className="border-b border-[color:var(--wariba-seam)]">
+          <div className="mx-auto flex max-w-[var(--wariba-shell-max)] flex-col gap-6 px-[var(--wariba-shell-gutter)] py-12 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-2xl font-semibold tracking-[-0.03em] text-[color:var(--wariba-on-dark)] sm:text-3xl">
+                Quel parcours vous convient ?
+              </p>
+              <p className="mt-2 max-w-xl text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-on-dark-dim)]">
+                Comparez ONE, FLEX et INSTANT avant de commencer.
+              </p>
+            </div>
+            <Link href="/offres" className="wariba-cta-primary shrink-0">
+              Comparer les parcours
+              <ArrowRightIcon size="sm" />
+            </Link>
           </div>
-          <Link href="/offres" className="wariba-cta-primary shrink-0">
-            Comparer les parcours
-            <ArrowRightIcon size="sm" />
-          </Link>
         </div>
-      </div>
+      ) : null}
 
       {/* ── Bande 2 : navigation + identité opérateur ── */}
       <div className="mx-auto max-w-[var(--wariba-shell-max)] px-[var(--wariba-shell-gutter)] py-14">

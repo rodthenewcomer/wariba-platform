@@ -52,7 +52,10 @@ export function PublicChrome({ children }: { children: ReactNode }) {
       <main id="contenu" className="flex-1">
         {children}
       </main>
-      <PublicFooter LinkComponent={Link} />
+      {/* The footer's own "Comparer les parcours" band points at /offres —
+          redundant there, since the whole page already is that comparison
+          several times over. See PublicFooterProps's own comment. */}
+      <PublicFooter LinkComponent={Link} showParcoursCta={pathname !== '/offres'} />
     </div>
   );
 }
