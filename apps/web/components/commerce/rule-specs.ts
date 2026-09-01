@@ -85,11 +85,21 @@ export function buildSpecs(
       value: rate(evaluation?.maximumLossRate ?? performance.maximumLossRate),
       convertible: true,
     },
+    /*
+     * Best Day is a concentration cap, not a nominal-relative limit — it
+     * bounds the best single day's realized profit as a share of *realized
+     * profit* (best day ÷ sum of positive days; see `computeBestDayRatio`
+     * in `packages/domain/src/risk-math.ts`, ONE-022/PERF-034 in
+     * `DECISION_LOG.md`). There is no dollar figure to derive from the
+     * nominal balance before the account has traded — unlike Daily Loss or
+     * Maximum Loss, which genuinely are `nominal × rate`. Always a
+     * percentage, in both display modes; never `rate(...)`, and never
+     * `convertible`, for the same reason `split` below never is.
+     */
     {
       key: 'bestday',
       label: 'Meilleure journée',
-      value: rate(evaluation?.bestDayMaximumRate ?? performance.bestDayMaximumRate),
-      convertible: true,
+      value: formatRate(evaluation?.bestDayMaximumRate ?? performance.bestDayMaximumRate),
     },
   ];
 
