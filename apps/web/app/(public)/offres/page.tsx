@@ -6,7 +6,7 @@ import { FAMILY_ORDER } from '../../../components/commerce/offer-ui';
 import { getDb } from '../../../lib/db';
 import { isLocalSandboxCommerce, loadWebConfig } from '../../../lib/config';
 import { OffresHeroV2 } from '../../../components/offers-v2/OffresHeroV2';
-import { FastPathRail } from '../../../components/offers-v2/FastPathRail';
+import { OffresProofStrip } from '../../../components/offers-v2/OffresProofStrip';
 import { LifecycleCompare } from '../../../components/offers-v2/LifecycleCompare';
 import { WarixTheaterSection } from '../../../components/offers-v2/WarixTheaterSection';
 import { BrandDesireSection } from '../../../components/offers-v2/BrandDesireSection';
@@ -38,7 +38,7 @@ export default async function OffersPage() {
   return (
     <>
       <OffresHeroV2 />
-      <FastPathRail referenceOfferIdByFamily={referenceOfferIdByFamily} />
+      <OffresProofStrip />
 
       <Suspense fallback={<ConfiguratorSkeleton />}>
         <OfferConfigurator offers={offers} sandboxCheckoutAvailable={sandboxCheckoutAvailable} />

@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
+import { useHydratedReducedMotion } from '../motion/useHydratedReducedMotion';
 import { AccountToken, CheckIcon } from '@wariba/ui';
 import type { CanonicalOfferReadModel } from '@wariba/application';
 import { trackCommerceEvent } from './commerce-analytics';
@@ -84,7 +85,7 @@ export function OfferConfigurator({
 }: OfferConfiguratorProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const reduced = useReducedMotion() ?? false;
+  const reduced = useHydratedReducedMotion();
 
   /*
    * Selection is client state, and the URL follows it.

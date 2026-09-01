@@ -20,9 +20,9 @@ interface KineticMarketHeadlineProps {
  *
  * ## Why the market word isn't width-locked to the longest entry
  *
- * "LE FOREX" and "LES MATIÈRES PREMIÈRES" differ by 15 characters —
- * reserving a fixed box at the display-heading size would force a box wide
- * enough to overflow a 390px viewport. Each phrase sits on its own line
+ * "LE FOREX" and "LES INDICES" differ by 7 characters — a fixed box at the
+ * display-heading size would still force wasted width on the shorter
+ * phrase. Each phrase sits on its own line
  * already (the two `<br/>`s around it), so a width change here never
  * reflows "Tradez" or "à votre façon." above and below it — only the jank
  * of two phrases being visible at once matters, and `AnimatePresence
@@ -43,9 +43,7 @@ export function KineticMarketHeadline({ marketIndex }: KineticMarketHeadlineProp
 
   return (
     <h1 className="text-[length:var(--wariba-font-size-display-xl)] font-semibold leading-[0.98] tracking-[-0.03em] text-[color:var(--wariba-on-dark)]">
-      <span className="sr-only">
-        Tradez le Forex, les Indices, les Matières premières et les Métaux à votre façon.
-      </span>
+      <span className="sr-only">Tradez le Forex, les Indices et les Métaux à votre façon.</span>
       <span aria-hidden="true">
         Tradez
         <br />

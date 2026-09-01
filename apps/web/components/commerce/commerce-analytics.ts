@@ -17,6 +17,7 @@ export type CommerceAnalyticsEvent =
    * provider, no PII — same first-party beacon as the events above.
    */
   | 'commerce_offers_primary_cta_clicked'
+  | 'commerce_offers_secondary_cta_clicked'
   | 'commerce_offer_cta_clicked'
   | 'commerce_rules_clicked'
   | 'commerce_payouts_clicked'

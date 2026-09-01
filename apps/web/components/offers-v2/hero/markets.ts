@@ -3,14 +3,23 @@ export interface MarketWord {
   label: string;
   /** CSS color value — a token where one exists, the same literal hex `RouteScene` already uses for FLEX where it doesn't. */
   color: string;
+  /** The truthful `TradableSymbol` bucket this phrase maps to — see `packages/contracts/src/channels.ts`'s `TRADABLE_SYMBOLS`. Drives which tag `MarketComposition` highlights when this phrase is active. */
+  bucket: 'forex' | 'indices' | 'metals';
 }
 
-/** The four market phrases the hero headline cycles through — cobalt/violet/cyan/gold, the same family palette `RouteScene` already established, extended by one restrained warm tone for MÉTAUX. */
+/**
+ * The market phrases the hero headline cycles through.
+ *
+ * Exactly three, one per instrument bucket WARIBA actually lists
+ * (`TRADABLE_SYMBOLS`: EURUSD/GBPUSD/USDJPY, NAS100, XAUUSD) — a fourth
+ * "LES MATIÈRES PREMIÈRES" phrase existed here before this pass and
+ * implied a commodities category beyond gold that doesn't exist yet.
+ * Add a phrase here only once a new instrument bucket is real.
+ */
 export const MARKET_WORDS: readonly MarketWord[] = [
-  { label: 'LE FOREX', color: 'var(--wariba-brand-400)' },
-  { label: 'LES INDICES', color: '#8B7BFF' },
-  { label: 'LES MATIÈRES PREMIÈRES', color: 'var(--wariba-accent-cyan)' },
-  { label: 'LES MÉTAUX', color: 'var(--wariba-accent-amber)' },
+  { label: 'LE FOREX', color: 'var(--wariba-brand-400)', bucket: 'forex' },
+  { label: 'LES INDICES', color: '#8B7BFF', bucket: 'indices' },
+  { label: 'LES MÉTAUX', color: 'var(--wariba-accent-amber)', bucket: 'metals' },
 ] as const;
 
 export const MARKET_CYCLE_MS = 3200;
