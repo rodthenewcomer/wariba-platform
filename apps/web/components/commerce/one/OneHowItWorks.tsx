@@ -29,22 +29,22 @@ const ONE_STEPS: readonly Step[] = [
   {
     index: '01',
     title: 'Choisissez votre taille',
-    body: 'Sélectionnez votre compte et payez une seule fois. Aucun frais d’activation après réussite.',
+    body: 'Paiement unique.',
   },
   {
     index: '02',
     title: 'Tradez l’Évaluation',
-    body: 'Utilisez WariX dans l’environnement simulé WARIBA et respectez les limites applicables.',
+    body: 'Dans WariX, selon les règles ONE.',
   },
   {
     index: '03',
-    title: 'Atteignez les conditions',
-    body: 'Atteignez l’objectif avec du profit éligible réalisé et continuez à respecter les règles jusqu’à la finalisation de l’Évaluation.',
+    title: 'Remplissez les conditions',
+    body: 'Objectif atteint, règles respectées.',
   },
   {
     index: '04',
     title: 'Passez en Performance',
-    body: 'Après réussite et finalisation applicable, votre compte WARIBA Performance est créé sans nouveau frais d’activation.',
+    body: 'Après finalisation, sans activation.',
   },
 ];
 

@@ -54,7 +54,7 @@ export function OneFaq({ reference }: OneFaqProps) {
       category: 'Réussite',
       question: 'Quand mon Évaluation est-elle considérée comme réussie ?',
       answer:
-        'Atteindre l’objectif ne suffit pas à lui seul. Votre Évaluation doit aussi rester conforme aux règles applicables jusqu’à sa finalisation. Lorsque les conditions requises sont remplies, la réussite est finalisée et le parcours peut continuer vers Performance.',
+        'Atteindre l’objectif ne suffit pas à lui seul : votre Évaluation doit rester conforme aux règles jusqu’à sa finalisation. Une fois validée, le parcours continue vers Performance.',
     },
     {
       id: 'one_best_day',
@@ -69,7 +69,7 @@ export function OneFaq({ reference }: OneFaqProps) {
       category: 'Performance',
       question: 'Que se passe-t-il après une réussite ?',
       answer:
-        'ONE se termine. Votre parcours continue ensuite dans WARIBA Performance, un environnement de trading toujours simulé, avec ses propres règles de progression. Performance ne constitue pas un compte financé réel et ne garantit aucun revenu.',
+        'ONE se termine, et votre parcours continue dans WARIBA Performance — un environnement toujours simulé, avec ses propres règles. Performance ne garantit aucun revenu.',
     },
     {
       id: 'one_payout_eligibility',

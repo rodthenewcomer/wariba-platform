@@ -141,8 +141,7 @@ function RuleVisual({
           Votre corridor, taille {sizeLabel}
         </p>
         <p className="mt-1 text-sm text-[color:var(--commerce-text-dim)]">
-          À gauche la limite qui met fin au compte, à droite l’objectif. La bande ambrée est la
-          Limite quotidienne : elle avertit, elle ne clôt pas.
+          À gauche la limite, à droite l’objectif. La bande ambrée avertit sans clôturer.
         </p>
         <RiskCorridor
           className="mt-6"
@@ -167,7 +166,7 @@ function RuleVisual({
           {rule.label}, taille {sizeLabel}
         </p>
         <p className="mt-1 text-sm text-[color:var(--commerce-text-dim)]">
-          Une position illustrative entre 0 et {rule.label.toLowerCase()} — pas un compte réel.
+          Position illustrative entre 0 et {rule.label.toLowerCase()}.
         </p>
         <div className="mt-6">
           <div className="flex items-baseline justify-between text-sm">
@@ -196,9 +195,8 @@ function RuleVisual({
         Pas de position fixe à montrer ici
       </p>
       <p className="mt-1 text-sm text-[color:var(--commerce-text-dim)]">
-        La Meilleure journée compare vos journées de trading entre elles une fois le compte actif
-        — elle n’a pas de seuil unique entre un plancher et un objectif comme les trois autres
-        règles, donc pas de barre illustrative avant de commencer à trader.
+        Elle compare vos journées de trading entre elles une fois le compte actif — pas de seuil
+        fixe à illustrer avant de commencer.
       </p>
     </div>
   );
