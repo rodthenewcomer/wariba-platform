@@ -66,7 +66,7 @@ export function OneHero({ configuratorAnchor, rulesAnchor }: OneHeroProps) {
           </ul>
         </Reveal>
 
-        <Reveal delay={0.18} className="mt-16 lg:mt-20">
+        <Reveal delay={0.18} className="mt-12 lg:mt-14">
           <OneStepPath />
         </Reveal>
       </div>
@@ -79,25 +79,60 @@ export function OneHero({ configuratorAnchor, rulesAnchor }: OneHeroProps) {
  * draw a second hump — WARIBA ONE never needs to, since there is only ever
  * one evaluation to clear before Performance.
  */
+const ONE_STEP_CURVE = 'M40 150 C 210 150, 250 40, 450 40 S 690 150, 860 150';
+
 function OneStepPath() {
   return (
-    <div className="relative mx-auto max-w-3xl">
-      <span className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-full rounded-full border border-[color:var(--commerce-accent-edge)] bg-[color:var(--commerce-accent-wash)] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[color:var(--commerce-accent-text)]">
-        1 étape
-      </span>
+    <div className="mx-auto max-w-3xl">
+      <div className="flex flex-col items-center">
+        <span className="rounded-full border border-[color:var(--commerce-accent-edge)] bg-[color:var(--commerce-accent-wash)] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[color:var(--commerce-accent-text)]">
+          1 étape
+        </span>
+        <span aria-hidden="true" className="h-5 w-px bg-[color:var(--commerce-accent-edge)]" />
+      </div>
 
-      <svg viewBox="0 0 900 190" preserveAspectRatio="none" className="h-[140px] w-full sm:h-[170px]" aria-hidden="true">
-        <DrawPath
-          d="M40 150 C 210 150, 250 40, 450 40 S 690 150, 860 150"
-          stroke="var(--commerce-accent)"
-          strokeWidth={2.5}
-          length={1100}
-          duration={1.15}
-        />
-        <circle cx="40" cy="150" r="6" fill="var(--commerce-text-dim)" />
-        <circle cx="450" cy="40" r="7" fill="var(--commerce-accent)" />
-        <circle cx="860" cy="150" r="6" fill="var(--commerce-text-dim)" />
-      </svg>
+      {/*
+       * `preserveAspectRatio` deliberately left at its default (uniform
+       * scaling) — the curve's own aspect ratio was designed once, at these
+       * exact coordinates, and must scale evenly at every width or the hump
+       * reads as steeper on mobile than on desktop.
+       */}
+      <div className="aspect-[900/210] w-full">
+        <svg viewBox="0 -20 900 210" className="h-full w-full" aria-hidden="true">
+          <defs>
+            <radialGradient id="one-step-peak-glow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="var(--commerce-accent)" stopOpacity="0.5" />
+              <stop offset="100%" stopColor="var(--commerce-accent)" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+
+          {/* The one step, illuminated — a soft halo, not a second geometry. */}
+          <circle cx="450" cy="40" r="55" fill="url(#one-step-peak-glow)" />
+
+          {/* A blurred duplicate under the crisp line, for depth without a filter chain. */}
+          <path
+            d={ONE_STEP_CURVE}
+            fill="none"
+            stroke="var(--commerce-accent)"
+            strokeWidth={10}
+            strokeLinecap="round"
+            opacity={0.16}
+            style={{ filter: 'blur(6px)' }}
+          />
+
+          <DrawPath
+            d={ONE_STEP_CURVE}
+            stroke="var(--commerce-accent)"
+            strokeWidth={2.5}
+            length={1100}
+            duration={1.15}
+          />
+
+          <circle cx="40" cy="150" r="6" fill="var(--commerce-text-dim)" />
+          <circle cx="450" cy="40" r="7" fill="var(--commerce-accent)" />
+          <circle cx="860" cy="150" r="6" fill="var(--commerce-text-dim)" />
+        </svg>
+      </div>
 
       <div className="mt-2 flex items-start justify-between text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--commerce-text-dim)]">
         <span className="max-w-[8rem] text-left">Paiement unique</span>
