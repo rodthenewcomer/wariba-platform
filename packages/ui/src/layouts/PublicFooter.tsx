@@ -137,84 +137,91 @@ export function PublicFooter({ LinkComponent: Link, showParcoursCta = true }: Pu
         </div>
       </div>
 
-      {/* ── Bande 3 : divulgation réglementaire ── */}
+      {/* ── Bande 3 : divulgation réglementaire ──
+          Capped at `max-w-3xl`, narrower than bands 1–2's full shell width:
+          this is the one band whose job is to be read carefully, not
+          scanned, so it reads as a contained, calmer block rather than a
+          wall of legal text spanning the same width as the nav grid above. */}
       <div className="border-t border-[color:var(--wariba-seam)] bg-[color:var(--wariba-canvas-deep)]">
         <div className="mx-auto max-w-[var(--wariba-shell-max)] px-[var(--wariba-shell-gutter)] py-12">
-          <h2 className="text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase tracking-[0.14em] text-[color:var(--wariba-on-dark-dim)]">
-            Informations réglementaires
-          </h2>
-          <p className="mt-3 max-w-2xl text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-on-dark-dim)]">
-            Ce résumé ne remplace pas les Conditions d’utilisation, la Politique de confidentialité
-            et le disclosure risques complets, accessibles ci-dessous.
-          </p>
+          <div className="max-w-3xl">
+            <h2 className="text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase tracking-[0.14em] text-[color:var(--wariba-on-dark-dim)]">
+              Informations réglementaires
+            </h2>
+            <p className="mt-3 text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-on-dark-dim)]">
+              Ce résumé ne remplace pas les Conditions d’utilisation, la Politique de
+              confidentialité et le disclosure risques complets, accessibles ci-dessous.
+            </p>
 
-          {/* Desktop — always-expanded two-column grid, real content, real size. */}
-          <div className="mt-8 hidden gap-x-12 gap-y-8 lg:grid lg:grid-cols-2">
-            {LEGAL_DISCLOSURES.map((disclosure) => (
-              <div key={disclosure.id}>
-                <h3 className="text-[length:var(--wariba-font-size-body-sm)] font-semibold text-[color:var(--wariba-on-dark)]">
-                  {disclosure.title}
-                </h3>
-                <p className="mt-2 text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-on-dark-muted)]">
-                  {disclosure.body}
-                </p>
-              </div>
-            ))}
+            {/* Desktop — always-expanded single column, real content, real size:
+                a narrower column reads calmer than two columns racing sideways. */}
+            <div className="mt-8 hidden flex-col gap-6 lg:flex">
+              {LEGAL_DISCLOSURES.map((disclosure) => (
+                <div key={disclosure.id}>
+                  <h3 className="text-[length:var(--wariba-font-size-body-sm)] font-semibold text-[color:var(--wariba-on-dark)]">
+                    {disclosure.title}
+                  </h3>
+                  <p className="mt-2 text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-on-dark-muted)]">
+                    {disclosure.body}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Mobile — accordion, native <details> so no client JS ships for this. */}
+            <div className="mt-8 divide-y divide-[color:var(--wariba-seam)] border-y border-[color:var(--wariba-seam)] lg:hidden">
+              {LEGAL_DISCLOSURES.map((disclosure, index) => (
+                <details key={disclosure.id} className="group py-4" open={index === 0}>
+                  <summary className="wariba-focus-ring flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 rounded-md text-[length:var(--wariba-font-size-body-sm)] font-semibold text-[color:var(--wariba-on-dark)] marker:content-none">
+                    {disclosure.title}
+                    <span
+                      aria-hidden="true"
+                      className="shrink-0 text-[color:var(--wariba-brand-300)] transition-transform duration-[var(--wariba-motion-state)] group-open:rotate-45"
+                    >
+                      +
+                    </span>
+                  </summary>
+                  <p className="mt-3 text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-on-dark-muted)]">
+                    {disclosure.body}
+                  </p>
+                </details>
+              ))}
+            </div>
+
+            <div className="mt-8 flex flex-wrap gap-x-8 gap-y-3">
+              <Link
+                href="/legal/risques"
+                className="wariba-focus-ring inline-flex items-center gap-1.5 rounded-md text-[length:var(--wariba-font-size-body-sm)] font-semibold text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]"
+              >
+                Lire le disclosure complet
+                <ArrowRightIcon size="sm" />
+              </Link>
+              <Link
+                href="/legal/conditions-utilisation"
+                className="wariba-focus-ring inline-block rounded-md text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-on-dark-muted)] hover:text-[color:var(--wariba-on-dark)]"
+              >
+                Conditions d’utilisation
+              </Link>
+              <Link
+                href="/legal/confidentialite"
+                className="wariba-focus-ring inline-block rounded-md text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-on-dark-muted)] hover:text-[color:var(--wariba-on-dark)]"
+              >
+                Confidentialité
+              </Link>
+              <Link
+                href="/legal"
+                className="wariba-focus-ring inline-block rounded-md text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-on-dark-muted)] hover:text-[color:var(--wariba-on-dark)]"
+              >
+                Centre légal
+              </Link>
+            </div>
+
+            <p className="mt-8 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-on-dark-dim)]">
+              © 2026 {LEGAL_OPERATOR.legalName}. WARIBA. Tous droits réservés.{' '}
+              {LEGAL_OPERATOR.registeredOffice}. Bêta privée — documents juridiques en validation
+              locale.
+            </p>
           </div>
-
-          {/* Mobile — accordion, native <details> so no client JS ships for this. */}
-          <div className="mt-8 divide-y divide-[color:var(--wariba-seam)] border-y border-[color:var(--wariba-seam)] lg:hidden">
-            {LEGAL_DISCLOSURES.map((disclosure, index) => (
-              <details key={disclosure.id} className="group py-4" open={index === 0}>
-                <summary className="wariba-focus-ring flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 rounded-md text-[length:var(--wariba-font-size-body-sm)] font-semibold text-[color:var(--wariba-on-dark)] marker:content-none">
-                  {disclosure.title}
-                  <span
-                    aria-hidden="true"
-                    className="shrink-0 text-[color:var(--wariba-brand-300)] transition-transform duration-[var(--wariba-motion-state)] group-open:rotate-45"
-                  >
-                    +
-                  </span>
-                </summary>
-                <p className="mt-3 text-[length:var(--wariba-font-size-body-sm)] leading-relaxed text-[color:var(--wariba-on-dark-muted)]">
-                  {disclosure.body}
-                </p>
-              </details>
-            ))}
-          </div>
-
-          <div className="mt-8 flex flex-wrap gap-x-8 gap-y-3">
-            <Link
-              href="/legal/risques"
-              className="wariba-focus-ring inline-flex items-center gap-1.5 rounded-md text-[length:var(--wariba-font-size-body-sm)] font-semibold text-[color:var(--wariba-brand-300)] hover:text-[color:var(--wariba-brand-200)]"
-            >
-              Lire le disclosure complet
-              <ArrowRightIcon size="sm" />
-            </Link>
-            <Link
-              href="/legal/conditions-utilisation"
-              className="wariba-focus-ring inline-block rounded-md text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-on-dark-muted)] hover:text-[color:var(--wariba-on-dark)]"
-            >
-              Conditions d’utilisation
-            </Link>
-            <Link
-              href="/legal/confidentialite"
-              className="wariba-focus-ring inline-block rounded-md text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-on-dark-muted)] hover:text-[color:var(--wariba-on-dark)]"
-            >
-              Confidentialité
-            </Link>
-            <Link
-              href="/legal"
-              className="wariba-focus-ring inline-block rounded-md text-[length:var(--wariba-font-size-body-sm)] text-[color:var(--wariba-on-dark-muted)] hover:text-[color:var(--wariba-on-dark)]"
-            >
-              Centre légal
-            </Link>
-          </div>
-
-          <p className="mt-8 text-[length:var(--wariba-font-size-label-sm)] text-[color:var(--wariba-on-dark-dim)]">
-            © 2026 {LEGAL_OPERATOR.legalName}. WARIBA. Tous droits réservés.{' '}
-            {LEGAL_OPERATOR.registeredOffice}. Bêta privée — documents juridiques en validation
-            locale.
-          </p>
         </div>
       </div>
     </footer>
