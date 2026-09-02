@@ -1444,6 +1444,18 @@
     var(--commerce-accent-glow);
 }
 
+/* The trailing arrow icon nudges forward on hover — every CTA spec across
+   this page asked for it, and the buttons themselves had no such motion. */
+.commerce-primary-action svg,
+.commerce-secondary-action svg {
+  transition: transform var(--wariba-motion-duration-fast) var(--wariba-motion-ease-standard);
+}
+
+.commerce-primary-action:not(:disabled):hover svg,
+.commerce-secondary-action:hover svg {
+  transform: translateX(4px);
+}
+
 /*
  * Hovering the primary CTA used to hardcode cobalt — harmless when every
  * family shared one blue accent, but the moment `FAMILY_ACCENT_VARS` gave
@@ -2134,6 +2146,8 @@
 @media (prefers-reduced-motion: reduce) {
   .commerce-primary-action,
   .commerce-secondary-action,
+  .commerce-primary-action svg,
+  .commerce-secondary-action svg,
   .commerce-choice,
   .commerce-size,
   .commerce-spec-value {

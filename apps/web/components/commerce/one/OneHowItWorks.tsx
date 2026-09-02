@@ -69,6 +69,12 @@ export function OneHowItWorks() {
               length={1200}
               duration={1.1}
             />
+            <defs>
+              <radialGradient id="one-step-node-glow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="var(--commerce-accent)" stopOpacity="0.45" />
+                <stop offset="100%" stopColor="var(--commerce-accent)" stopOpacity="0" />
+              </radialGradient>
+            </defs>
             {/*
              * Static, not sequentially animated: an SMIL `<animate>` here
              * would ignore `prefers-reduced-motion` entirely (unlike
@@ -76,7 +82,10 @@ export function OneHowItWorks() {
              * a decorative node marker isn't worth that accessibility gap.
              */}
             {NODE_X.map((x) => (
-              <circle key={x} cx={x} cy={4} r={5} fill="var(--commerce-accent)" />
+              <g key={x}>
+                <circle cx={x} cy={4} r={18} fill="url(#one-step-node-glow)" />
+                <circle cx={x} cy={4} r={5} fill="var(--commerce-accent)" />
+              </g>
             ))}
           </svg>
 

@@ -132,7 +132,7 @@ export async function OneTransparency({ reference, configuratorAnchor }: OneTran
                 key={item.label}
                 className={
                   index > 0
-                    ? 'max-w-[16rem] lg:border-l lg:border-[color:var(--commerce-rule)] lg:pl-10'
+                    ? 'max-w-[16rem] lg:border-l lg:border-[color:var(--commerce-rule-strong)] lg:pl-10'
                     : 'max-w-[16rem]'
                 }
               >

@@ -10,7 +10,8 @@ export interface FaqItem {
   category: string;
   question: string;
   answer: string;
-  visual: ReactNode;
+  /** Omit for a text-only row — see the panel's inline style below for why. */
+  visual?: ReactNode;
 }
 
 export interface FaqKnowledgeStackProps {
@@ -75,9 +76,16 @@ export function FaqKnowledgeStack({ items, defaultOpenId }: FaqKnowledgeStackPro
                   transition={{ duration: reduced ? 0 : 0.32, ease: [0.22, 1, 0.36, 1] }}
                   className="overflow-hidden"
                 >
-                  <div className="faq-row-panel">
+                  <div
+                    className="faq-row-panel"
+                    // No visual → one column even at the breakpoint where
+                    // `.faq-row-panel` normally splits in two, so the answer
+                    // takes the full width instead of leaving the other
+                    // track empty next to it.
+                    style={item.visual ? undefined : { gridTemplateColumns: '1fr' }}
+                  >
                     <p className="faq-row-answer">{item.answer}</p>
-                    <div className="faq-row-visual">{item.visual}</div>
+                    {item.visual ? <div className="faq-row-visual">{item.visual}</div> : null}
                   </div>
                 </motion.div>
               ) : null}

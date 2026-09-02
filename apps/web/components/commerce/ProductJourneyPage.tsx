@@ -7,6 +7,8 @@ import { OneHowItWorks } from './one/OneHowItWorks';
 import { OneEvaluationRules } from './one/OneEvaluationRules';
 import { OneAfterSuccess } from './one/OneAfterSuccess';
 import { OneTransparency } from './one/OneTransparency';
+import { OneFaq } from './one/OneFaq';
+import { OneFinalClose } from './one/OneFinalClose';
 import { Reveal } from '../motion/Reveal';
 import { DrawPath } from '../motion/DrawPath';
 import { FAMILY_META, formatMultiple, formatRate, formatSimulatedAmount, formatXof } from './offer-ui';
@@ -379,11 +381,22 @@ export function ProductJourneyPage({
         </section>
       )}
 
-      {isOne ? configuratorBlock : null}
+      {/* The Rules section above already ends on its own bottom padding
+          (`py-20 lg:py-24`); stacking the configurator's own top padding on
+          top of that read as a gap large enough to look like a mistake. This
+          pulls the two together without touching either section's padding
+          directly. */}
+      {isOne ? <div className="-mt-10 lg:-mt-16">{configuratorBlock}</div> : null}
 
       {isOne ? <OneAfterSuccess reference={reference} configuratorAnchor={anchor} /> : null}
 
       {isOne ? <OneTransparency reference={reference} configuratorAnchor={anchor} /> : null}
+
+      {isOne ? <OneFaq reference={reference} /> : null}
+
+      {isOne ? (
+        <OneFinalClose offers={offers} sandboxCheckoutAvailable={sandboxCheckoutAvailable} />
+      ) : null}
 
       {/* ─────────────────────────  Échelle de partage  ─────────────────────
            ONE only: dropped for now — this is Performance-phase detail and
