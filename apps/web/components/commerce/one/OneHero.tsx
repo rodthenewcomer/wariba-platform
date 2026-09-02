@@ -1,7 +1,20 @@
+import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { ArrowRightIcon } from '@wariba/ui';
 import { Reveal } from '../../motion/Reveal';
 import { DrawPath } from '../../motion/DrawPath';
+
+/**
+ * `--wariba-ambient-cobalt`'s default bloom is anchored at the top-right
+ * corner — right, for the shared hero's asymmetric copy-left/ledger-right
+ * split. This hero is centered, so the same off-center glow would sit
+ * mostly outside the readable column. Recentring it, at the same size and
+ * strength, is a scoped override — FLEX and INSTANT keep the original.
+ */
+const CENTERED_AMBIENT = {
+  '--wariba-ambient-cobalt':
+    'radial-gradient(42rem 26rem at 50% -12%, color-mix(in srgb, var(--wariba-color-cobalt-600) 22%, transparent), transparent 68%)',
+} as CSSProperties;
 
 interface OneHeroProps {
   configuratorAnchor: string;
@@ -22,9 +35,14 @@ const FACTS = ['1 évaluation', 'Paiement unique', '0 frais d’activation', 'Pe
  */
 export function OneHero({ configuratorAnchor, rulesAnchor }: OneHeroProps) {
   return (
-    <section className="commerce-hero commerce-ambient">
+    <section className="commerce-hero commerce-ambient" style={CENTERED_AMBIENT}>
       <div className="commerce-shell pb-20 pt-16 lg:pb-28 lg:pt-24">
-        <div className="mx-auto max-w-2xl text-center">
+        {/* `max-w-3xl`, not the usual `max-w-2xl`: at this font size "Un seul
+            paiement." alone measures ~740px, so a narrower column was the
+            actual reason it broke into two lines — `commerce-display`'s own
+            15ch cap was never the bottleneck. `commerce-lead` still caps
+            itself at 62ch regardless, so the paragraph doesn't widen with it. */}
+        <div className="mx-auto max-w-3xl text-center">
           <p className="commerce-kicker justify-center">WARIBA ONE · ÉVALUATION</p>
           <h1 className="commerce-display mx-auto mt-6">
             Une évaluation.
