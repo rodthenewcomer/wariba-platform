@@ -1905,6 +1905,22 @@
 }
 
 /*
+ * ONE-only: `OneStickyCommerceCoordinator` publishes `data-wariba-one-sticky`
+ * the same way `FixedUiCoordinator` publishes `data-wariba-footer` above —
+ * one more state every floating surface can read, not a competing
+ * mechanism. `pending` (before the configurator is reached) and `final`
+ * (the Final Close section is in view) both hide the bar; `active` and the
+ * attribute's absence on every other page leave it to `data-wariba-footer`
+ * alone, unchanged.
+ */
+[data-wariba-one-sticky='pending'] .commerce-mobile-paybar,
+[data-wariba-one-sticky='final'] .commerce-mobile-paybar {
+  transform: translateY(115%);
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/*
  * Desktop's Compare-mode dock.
  *
  * Compare mode drops the right Decision Card to give the matrix full width
@@ -1950,6 +1966,13 @@
     transition:
       transform var(--wariba-motion-panel) var(--wariba-motion-ease-enter),
       visibility 0s;
+  }
+
+  [data-wariba-one-sticky='pending'] .commerce-compare-dock,
+  [data-wariba-one-sticky='final'] .commerce-compare-dock {
+    transform: translateY(115%);
+    visibility: hidden;
+    pointer-events: none;
   }
 }
 

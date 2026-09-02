@@ -9,6 +9,7 @@ import { OneAfterSuccess } from './one/OneAfterSuccess';
 import { OneTransparency } from './one/OneTransparency';
 import { OneFaq } from './one/OneFaq';
 import { OneFinalClose } from './one/OneFinalClose';
+import { OneStickyCommerceCoordinator } from './one/OneStickyCommerceCoordinator';
 import { Reveal } from '../motion/Reveal';
 import { DrawPath } from '../motion/DrawPath';
 import { FAMILY_META, formatMultiple, formatRate, formatSimulatedAmount, formatXof } from './offer-ui';
@@ -134,6 +135,10 @@ export function ProductJourneyPage({
 
   return (
     <>
+      {isOne ? (
+        <OneStickyCommerceCoordinator configuratorAnchor={anchor} finalCloseId="one-final-close" />
+      ) : null}
+
       {/* ─────────────────────────  Héros  ───────────────────────── */}
       {isOne ? (
         <OneHero configuratorAnchor={anchor} rulesAnchor={rulesAnchor} />

@@ -80,7 +80,7 @@ export function OneFinalClose({ offers, sandboxCheckoutAvailable }: OneFinalClos
   );
 
   return (
-    <section className="commerce-hero relative overflow-hidden" style={ONE_ACCENT}>
+    <section id="one-final-close" className="commerce-hero relative overflow-hidden" style={ONE_ACCENT}>
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60rem_36rem_at_78%_18%,color-mix(in_srgb,var(--wariba-accent-copper)_14%,transparent),transparent_62%)]"
