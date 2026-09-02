@@ -188,6 +188,19 @@ export function OfferConfigurator({
   useEffect(() => {
     const target = configuratorEndRef.current;
     if (!target) return;
+
+    let scheduled = false;
+    const checkPosition = () => {
+      scheduled = false;
+      const rect = target.getBoundingClientRect();
+      setScrolledPastConfigurator(rect.top < 0 && rect.bottom < 0);
+    };
+    const scheduleCheck = () => {
+      if (scheduled) return;
+      scheduled = true;
+      requestAnimationFrame(checkPosition);
+    };
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry) return;
@@ -196,7 +209,31 @@ export function OfferConfigurator({
       { threshold: 0 },
     );
     observer.observe(target);
-    return () => observer.disconnect();
+
+    /*
+     * An instant jump — a same-page anchor click, landing on a URL fragment
+     * past this section, or any other programmatic scroll — moves the
+     * scroll position without the observer's callback reliably firing:
+     * verified empirically, not theoretical. Natural wheel/trackpad
+     * scrolling always fired it correctly; `Element.scrollIntoView()`-style
+     * jumps left the dock mounted until some later scroll happened to nudge
+     * it. A passive `scroll` listener re-checks the sentinel's actual
+     * position directly on every scroll — including the one such a jump
+     * itself dispatches — so the observer stops being the only path to a
+     * correct state. `checkPosition` also runs once on mount for the same
+     * reason: a page that loads already scrolled past this point (a URL
+     * fragment on first load) needs the right answer before any scroll
+     * event exists to trigger it.
+     */
+    checkPosition();
+    window.addEventListener('scroll', scheduleCheck, { passive: true });
+    window.addEventListener('resize', scheduleCheck);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('scroll', scheduleCheck);
+      window.removeEventListener('resize', scheduleCheck);
+    };
   }, []);
 
   const attribution = {
