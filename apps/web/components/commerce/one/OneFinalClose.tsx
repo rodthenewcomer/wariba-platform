@@ -114,16 +114,24 @@ export function OneFinalClose({ offers, sandboxCheckoutAvailable }: OneFinalClos
             <div className="relative">
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-0 -z-10 rounded-[var(--wariba-radius-2xl)] bg-[radial-gradient(circle_at_50%_20%,color-mix(in_srgb,var(--wariba-brand-500)_22%,transparent),transparent_70%)] blur-2xl"
+                className="pointer-events-none absolute inset-0 -z-10 rounded-[var(--wariba-radius-2xl)] bg-[radial-gradient(circle_at_50%_20%,color-mix(in_srgb,var(--wariba-brand-500)_26%,transparent),transparent_70%)] blur-2xl"
               />
-              <div className="rounded-[var(--wariba-radius-2xl)] border border-[color:var(--commerce-rule)] bg-[color:var(--commerce-panel)] p-7 sm:p-9">
-                <div className="flex items-center gap-3">
-                  <AccountToken sizeCode={selected.sizeCode} family="one" width={56} />
+              <div className="relative overflow-hidden rounded-[var(--wariba-radius-2xl)] border border-[color:var(--commerce-rule)] bg-[color:var(--commerce-panel)] p-7 shadow-[inset_0_1px_0_var(--commerce-rim-strong)] sm:p-9">
+                {/* The certificate edge — a hairline of the family's own
+                    accent rather than a neutral border, so the object reads
+                    as WARIBA ONE's specifically, not a generic dark card. */}
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,var(--commerce-accent),transparent)]"
+                />
+
+                <div className="flex items-center gap-4">
+                  <AccountToken sizeCode={selected.sizeCode} family="one" width={72} />
                   <div>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[color:var(--commerce-text)]">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-[color:var(--commerce-text)]">
                       WARIBA ONE
                     </p>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--commerce-accent-text)]">
+                    <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--commerce-accent-text)]">
                       Évaluation
                     </p>
                   </div>
@@ -137,15 +145,23 @@ export function OneFinalClose({ offers, sandboxCheckoutAvailable }: OneFinalClos
                     exit={{ opacity: reduced ? 1 : 0 }}
                     transition={{ duration: reduced ? 0 : 0.2, ease: [0.2, 0, 0, 1] }}
                   >
-                    <p className="mt-7 font-mono text-3xl font-bold text-[color:var(--commerce-text)]">
-                      {selected.sizeCode}
-                    </p>
-                    <p className="mt-1 text-xs font-semibold uppercase tracking-[0.1em] text-[color:var(--commerce-text-dim)]">
-                      Compte simulé
-                    </p>
+                    <div className="mt-8 flex items-end justify-between gap-4">
+                      <div>
+                        <p className="font-mono text-2xl font-bold text-[color:var(--commerce-text)]">
+                          {selected.sizeCode}
+                        </p>
+                        <p className="mt-1 text-xs font-semibold uppercase tracking-[0.1em] text-[color:var(--commerce-text-dim)]">
+                          Compte simulé
+                        </p>
+                      </div>
+                    </div>
 
-                    <div className="mt-6 border-t border-[color:var(--commerce-rule)] pt-6">
-                      <p className="font-mono text-3xl font-bold text-[color:var(--commerce-text)]">
+                    <div className="relative mt-6 pt-6">
+                      <span
+                        aria-hidden="true"
+                        className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,var(--commerce-rule-strong),transparent)]"
+                      />
+                      <p className="font-mono text-4xl font-bold tracking-[-0.01em] text-[color:var(--commerce-text)]">
                         {formatXof(selected.upfrontPrice)}
                       </p>
                       <p className="mt-1 text-xs font-semibold uppercase tracking-[0.1em] text-[color:var(--commerce-text-dim)]">
@@ -153,13 +169,29 @@ export function OneFinalClose({ offers, sandboxCheckoutAvailable }: OneFinalClos
                       </p>
                     </div>
 
-                    <div className="mt-6 border-t border-[color:var(--commerce-rule)] pt-6">
-                      <p className="text-sm font-semibold text-[color:var(--commerce-text)]">
-                        Évaluation <span className="text-[color:var(--commerce-text-dim)]">→</span>{' '}
-                        Performance
-                      </p>
+                    <div className="relative mt-6 pt-6">
+                      <span
+                        aria-hidden="true"
+                        className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,var(--commerce-rule-strong),transparent)]"
+                      />
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          aria-hidden="true"
+                          className="size-[7px] rounded-full bg-[color:var(--commerce-accent)]"
+                        />
+                        <span className="h-px w-6 bg-[color:var(--commerce-rule-strong)]" />
+                        <span
+                          aria-hidden="true"
+                          className="size-[7px] rounded-full border border-[color:var(--commerce-rule-strong)]"
+                        />
+                        <p className="text-sm font-semibold text-[color:var(--commerce-text)]">
+                          Évaluation
+                          <span className="mx-1.5 text-[color:var(--commerce-text-dim)]">→</span>
+                          Performance
+                        </p>
+                      </div>
                       {noActivationFee ? (
-                        <p className="mt-2 text-xs text-[color:var(--commerce-text-dim)]">
+                        <p className="mt-3 text-xs text-[color:var(--commerce-text-dim)]">
                           Aucun frais d’activation après réussite
                         </p>
                       ) : null}

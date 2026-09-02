@@ -21,13 +21,18 @@ export interface PublicFooterProps {
  * The WARIBA public footer — Phase 3.4.5A §24–§26, extended for the
  * regulatory-disclosure rebuild.
  *
- * ## Four bands
+ * ## Three bands
  *
- * Closing proposition, navigation + operator identity, the wordmark scene,
- * then a dedicated disclosure band — a real content surface with headings
- * and body-size text, not ten-point grey at the very bottom. The wordmark
- * band ships as before: no image, no canvas, on the critical path of every
- * public route, so it stays cheap.
+ * Closing proposition, navigation + operator identity, then a dedicated
+ * disclosure band — a real content surface with headings and body-size
+ * text, not ten-point grey at the very bottom.
+ *
+ * A fourth band used to sit between navigation and disclosure: a giant
+ * low-opacity "WARIBA" wordmark filling the width of the footer. Every
+ * reference footer that actually reads as premium (ForTraders, FundedNext)
+ * treats brand identity as a small mark next to the nav columns, not a
+ * background scene — the giant version read as filler rather than
+ * confidence. The wordmark in band 2 now carries that job at header scale.
  *
  * ## What the disclosure band is not
  *
@@ -63,9 +68,16 @@ export function PublicFooter({ LinkComponent: Link, showParcoursCta = true }: Pu
         </div>
       ) : null}
 
-      {/* ── Bande 2 : navigation + identité opérateur ── */}
+      {/* ── Bande 2 : identité + navigation + opérateur ── */}
       <div className="mx-auto max-w-[var(--wariba-shell-max)] px-[var(--wariba-shell-gutter)] py-14">
-        <nav aria-label="Pied de page">
+        <Link
+          href="/"
+          className="wariba-focus-ring inline-block rounded-md text-[length:var(--wariba-font-size-heading-md)] font-bold tracking-[-0.03em] text-[color:var(--wariba-on-dark)]"
+        >
+          WARIBA
+        </Link>
+
+        <nav aria-label="Pied de page" className="mt-10">
           <div className="grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-3 lg:grid-cols-5">
             {FOOTER_COLUMNS.map((column) => (
               <div key={column.title}>
@@ -125,29 +137,7 @@ export function PublicFooter({ LinkComponent: Link, showParcoursCta = true }: Pu
         </div>
       </div>
 
-      {/* ── Bande 3 : la scène de marque ── */}
-      <div className="wariba-footer-scene">
-        <div className="relative z-[2] mx-auto max-w-[var(--wariba-shell-max)] px-[var(--wariba-shell-gutter)]">
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 200 200"
-            className="pointer-events-none absolute -left-6 bottom-0 h-[150%] w-auto opacity-[0.07] sm:left-2"
-          >
-            <circle cx="100" cy="100" r="92" fill="none" stroke="#5C7FFF" strokeWidth="1.5" />
-            <circle cx="100" cy="100" r="64" fill="none" stroke="#5C7FFF" strokeWidth="1.5" />
-            <circle cx="100" cy="100" r="34" fill="none" stroke="#5C7FFF" strokeWidth="2" />
-          </svg>
-          <p
-            aria-hidden="true"
-            className="relative select-none text-center font-bold leading-[0.82] tracking-[-0.06em] text-[color:var(--wariba-on-dark)] opacity-[0.16]"
-            style={{ fontSize: 'clamp(4rem, 19vw, 15rem)' }}
-          >
-            WARIBA
-          </p>
-        </div>
-      </div>
-
-      {/* ── Bande 4 : divulgation réglementaire ── */}
+      {/* ── Bande 3 : divulgation réglementaire ── */}
       <div className="border-t border-[color:var(--wariba-seam)] bg-[color:var(--wariba-canvas-deep)]">
         <div className="mx-auto max-w-[var(--wariba-shell-max)] px-[var(--wariba-shell-gutter)] py-12">
           <h2 className="text-[length:var(--wariba-font-size-label-sm)] font-semibold uppercase tracking-[0.14em] text-[color:var(--wariba-on-dark-dim)]">
