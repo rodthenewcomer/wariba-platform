@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { CanonicalOfferReadModel } from '@wariba/application';
 import { AccountToken, PayoutLadder, RiskCorridor } from '@wariba/ui';
 import { OfferConfigurator } from './OfferConfigurator';
+import { OneHero } from './one/OneHero';
 import { Reveal } from '../motion/Reveal';
 import { DrawPath } from '../motion/DrawPath';
 import { FAMILY_META, formatMultiple, formatRate, formatXof } from './offer-ui';
@@ -87,7 +88,9 @@ export function ProductJourneyPage({
   const performance = reference.performanceRules;
   const steps = STEPS[family];
   const isFlex = family === 'WARIBA_FLEX';
+  const isOne = family === 'WARIBA_ONE';
   const anchor = `configurer-${meta.short.toLowerCase()}`;
+  const rulesAnchor = `regle-${meta.short.toLowerCase()}`;
 
   /* The rule that owns the full-bleed scene, per family. */
   const heroRule = evaluation
@@ -107,57 +110,61 @@ export function ProductJourneyPage({
   return (
     <>
       {/* ─────────────────────────  Héros  ───────────────────────── */}
-      <section className="commerce-hero commerce-ambient">
-        <div className="commerce-shell grid gap-12 pb-20 pt-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center lg:pb-28 lg:pt-24">
-          <div>
-            <p className="commerce-kicker">
-              WARIBA {meta.short} · {meta.eyebrow}
-            </p>
-            <h1 className="commerce-display mt-6">{FAMILY_PROMISE[family]}</h1>
-            <p className="commerce-lead mt-6">{meta.description}</p>
-            <div className="mt-9 flex flex-wrap gap-3">
-              <Link href={`#${anchor}`} className="commerce-primary-action">
-                Configurer {meta.short}
-              </Link>
-              <Link href="/offres" className="commerce-secondary-action">
-                Voir les autres parcours
-              </Link>
-            </div>
-          </div>
-
-          <Reveal delay={0.08}>
-            <div className="commerce-hero-ledger">
-              <div className="flex justify-center pb-6">
-                <AccountToken sizeCode="10K" family={FAMILY_TOKEN[family]} width={210} />
+      {isOne ? (
+        <OneHero configuratorAnchor={anchor} rulesAnchor={rulesAnchor} />
+      ) : (
+        <section className="commerce-hero commerce-ambient">
+          <div className="commerce-shell grid gap-12 pb-20 pt-16 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center lg:pb-28 lg:pt-24">
+            <div>
+              <p className="commerce-kicker">
+                WARIBA {meta.short} · {meta.eyebrow}
+              </p>
+              <h1 className="commerce-display mt-6">{FAMILY_PROMISE[family]}</h1>
+              <p className="commerce-lead mt-6">{meta.description}</p>
+              <div className="mt-9 flex flex-wrap gap-3">
+                <Link href={`#${anchor}`} className="commerce-primary-action">
+                  Configurer {meta.short}
+                </Link>
+                <Link href="/offres" className="commerce-secondary-action">
+                  Voir les autres parcours
+                </Link>
               </div>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--wariba-color-ink-300)]">
-                Repère · taille 10K
-              </p>
-              <dl className="mt-5 grid gap-5 sm:grid-cols-2">
-                <div>
-                  <dt>{isFlex ? 'À régler aujourd’hui' : 'Paiement unique'}</dt>
-                  <dd>{formatXof(reference.upfrontPrice)}</dd>
-                </div>
-                <div>
-                  <dt>{evaluation ? 'Objectif' : 'Point de départ'}</dt>
-                  <dd>{evaluation ? formatRate(evaluation.profitTargetRate) : 'Performance'}</dd>
-                </div>
-                <div>
-                  <dt>Limite quotidienne</dt>
-                  <dd>{formatRate(evaluation?.dailyLossRate ?? performance.dailyLossRate)}</dd>
-                </div>
-                <div>
-                  <dt>Exposition totale</dt>
-                  <dd>{formatMultiple(performance.grossExposureMaximumMultiple)}</dd>
-                </div>
-              </dl>
-              <p className="mt-6 border-t border-[color:var(--commerce-rule)] pt-5 text-xs leading-relaxed text-[color:var(--wariba-color-ink-300)]">
-                Environnement de trading simulé. Le nominal n’est ni un dépôt ni du capital confié.
-              </p>
             </div>
-          </Reveal>
-        </div>
-      </section>
+
+            <Reveal delay={0.08}>
+              <div className="commerce-hero-ledger">
+                <div className="flex justify-center pb-6">
+                  <AccountToken sizeCode="10K" family={FAMILY_TOKEN[family]} width={210} />
+                </div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--wariba-color-ink-300)]">
+                  Repère · taille 10K
+                </p>
+                <dl className="mt-5 grid gap-5 sm:grid-cols-2">
+                  <div>
+                    <dt>{isFlex ? 'À régler aujourd’hui' : 'Paiement unique'}</dt>
+                    <dd>{formatXof(reference.upfrontPrice)}</dd>
+                  </div>
+                  <div>
+                    <dt>{evaluation ? 'Objectif' : 'Point de départ'}</dt>
+                    <dd>{evaluation ? formatRate(evaluation.profitTargetRate) : 'Performance'}</dd>
+                  </div>
+                  <div>
+                    <dt>Limite quotidienne</dt>
+                    <dd>{formatRate(evaluation?.dailyLossRate ?? performance.dailyLossRate)}</dd>
+                  </div>
+                  <div>
+                    <dt>Exposition totale</dt>
+                    <dd>{formatMultiple(performance.grossExposureMaximumMultiple)}</dd>
+                  </div>
+                </dl>
+                <p className="mt-6 border-t border-[color:var(--commerce-rule)] pt-5 text-xs leading-relaxed text-[color:var(--wariba-color-ink-300)]">
+                  Environnement de trading simulé. Le nominal n’est ni un dépôt ni du capital confié.
+                </p>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+      )}
 
       {/* ───────────────  Le pont FLEX : les deux montants  ─────────────── */}
       {isFlex ? (
@@ -251,7 +258,7 @@ export function ProductJourneyPage({
       </section>
 
       {/* ─────────────────────────  Scène de règle  ───────────────────────── */}
-      <section className={isFlex ? 'commerce-band' : ''}>
+      <section id={rulesAnchor} className={isFlex ? 'commerce-band' : ''}>
         <div className="commerce-shell py-20 lg:py-24">
           <Reveal>
             <div className="commerce-rule-scene" data-tone={evaluation ? 'accent' : 'deep'}>
