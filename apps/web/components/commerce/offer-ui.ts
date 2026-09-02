@@ -110,6 +110,17 @@ export function formatNominal(amount: string): string {
   return `${Number(amount).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} USD`;
 }
 
+/**
+ * A pre-computed nominal-currency amount (e.g. `evaluationRules.maximumLossAmount`),
+ * labelled with the offer's own `nominalCurrency` rather than hardcoded — never `formatXof`,
+ * which stamps "FCFA" on a figure denominated in the account's simulated currency. FCFA/XOF
+ * is reserved for `upfrontPrice`/`activationPrice`/`totalPriceIfSuccess`, the real commercial
+ * payment; a risk-rule amount is a unit of the simulated nominal, never money paid or owed.
+ */
+export function formatSimulatedAmount(amount: string, currency: string): string {
+  return `${Number(amount).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} ${currency} simulés`;
+}
+
 export function formatRate(value: string): string {
   return `${Number(value).toLocaleString('fr-FR', { style: 'percent', maximumFractionDigits: 2 })}`;
 }

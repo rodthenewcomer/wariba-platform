@@ -1,0 +1,127 @@
+import { Reveal } from '../../motion/Reveal';
+import { DrawPath } from '../../motion/DrawPath';
+
+interface Step {
+  index: string;
+  title: string;
+  body: string;
+}
+
+/**
+ * The real WARIBA ONE lifecycle, not a generic four-step template.
+ *
+ * "Progressez par cycles" used to fill step 04 — that is what happens
+ * *inside* Performance, after ONE is already complete, not something a
+ * visitor needs to understand before buying. Step 04 now stops exactly
+ * where ONE's own job ends: the Performance account gets created.
+ */
+const ONE_STEPS: readonly Step[] = [
+  {
+    index: '01',
+    title: 'Choisissez votre taille',
+    body: 'Sélectionnez votre compte et payez une seule fois. Aucun frais d’activation après réussite.',
+  },
+  {
+    index: '02',
+    title: 'Tradez l’Évaluation',
+    body: 'Utilisez WariX dans l’environnement simulé WARIBA et respectez les limites applicables.',
+  },
+  {
+    index: '03',
+    title: 'Atteignez les conditions',
+    body: 'Atteignez l’objectif avec du profit éligible réalisé et continuez à respecter les règles jusqu’à la finalisation de l’Évaluation.',
+  },
+  {
+    index: '04',
+    title: 'Passez en Performance',
+    body: 'Après réussite et finalisation applicable, votre compte WARIBA Performance est créé sans nouveau frais d’activation.',
+  },
+];
+
+/** x-centre of each of the 4 grid columns, in the line's own 0–1200 viewBox. */
+const NODE_X = [150, 450, 750, 1050] as const;
+
+export function OneHowItWorks() {
+  return (
+    <section className="commerce-band">
+      <div className="commerce-shell py-20 lg:py-24">
+        <Reveal>
+          <p className="commerce-kicker">WARIBA ONE · Comment ça marche</p>
+          <h2 className="commerce-section-title mt-5">
+            De ONE à Performance.
+            <span className="block">En quatre étapes.</span>
+          </h2>
+        </Reveal>
+
+        {/* Desktop: the line is the object — a continuous path with a node
+            per step, not four identical cards. */}
+        <div className="relative mt-16 hidden lg:block">
+          <svg
+            viewBox="0 0 1200 8"
+            preserveAspectRatio="none"
+            className="absolute left-0 top-6 h-2 w-full overflow-visible"
+            aria-hidden="true"
+          >
+            <DrawPath
+              d="M40 4 H 1160"
+              stroke="var(--commerce-rule-strong)"
+              strokeWidth={2}
+              length={1200}
+              duration={1.1}
+            />
+            {/*
+             * Static, not sequentially animated: an SMIL `<animate>` here
+             * would ignore `prefers-reduced-motion` entirely (unlike
+             * `DrawPath`'s CSS-driven line, which already respects it), and
+             * a decorative node marker isn't worth that accessibility gap.
+             */}
+            {NODE_X.map((x) => (
+              <circle key={x} cx={x} cy={4} r={5} fill="var(--commerce-accent)" />
+            ))}
+          </svg>
+
+          <ol className="relative grid gap-5 pt-14 lg:grid-cols-4">
+            {ONE_STEPS.map((step, position) => (
+              <Reveal as="li" key={step.index} delay={0.1 + position * 0.08}>
+                <span className="font-mono text-xs font-bold text-[color:var(--commerce-accent-text)]">
+                  {step.index}
+                </span>
+                <h3 className="mt-3 text-base font-semibold uppercase tracking-[0.04em] text-[color:var(--commerce-text)]">
+                  {step.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-[color:var(--commerce-text-dim)]">
+                  {step.body}
+                </p>
+              </Reveal>
+            ))}
+          </ol>
+        </div>
+
+        {/* Mobile: a vertical progression, not four squeezed columns. */}
+        <ol className="relative mt-12 space-y-8 lg:hidden">
+          <span
+            aria-hidden="true"
+            className="absolute bottom-2 left-[7px] top-2 w-px bg-[color:var(--commerce-rule-strong)]"
+          />
+          {ONE_STEPS.map((step, position) => (
+            <Reveal as="li" key={step.index} delay={0.08 + position * 0.08} className="relative pl-8">
+              <span
+                aria-hidden="true"
+                className="absolute left-0 top-1 size-[15px] rounded-full border-2 border-[color:var(--commerce-canvas)] bg-[color:var(--commerce-accent)]"
+              />
+              <span className="font-mono text-xs font-bold text-[color:var(--commerce-accent-text)]">
+                {step.index}
+              </span>
+              <h3 className="mt-1 text-base font-semibold text-[color:var(--commerce-text)]">
+                {step.title}
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-[color:var(--commerce-text-dim)]">
+                {step.body}
+              </p>
+            </Reveal>
+          ))}
+        </ol>
+      </div>
+    </section>
+  );
+}

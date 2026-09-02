@@ -3,9 +3,11 @@ import type { CanonicalOfferReadModel } from '@wariba/application';
 import { AccountToken, PayoutLadder, RiskCorridor } from '@wariba/ui';
 import { OfferConfigurator } from './OfferConfigurator';
 import { OneHero } from './one/OneHero';
+import { OneHowItWorks } from './one/OneHowItWorks';
+import { OneEvaluationRules } from './one/OneEvaluationRules';
 import { Reveal } from '../motion/Reveal';
 import { DrawPath } from '../motion/DrawPath';
-import { FAMILY_META, formatMultiple, formatRate, formatXof } from './offer-ui';
+import { FAMILY_META, formatMultiple, formatRate, formatSimulatedAmount, formatXof } from './offer-ui';
 
 interface ProductJourneyPageProps {
   family: CanonicalOfferReadModel['productFamily'];
@@ -106,6 +108,25 @@ export function ProductJourneyPage({
         title: 'Évaluation à franchir',
         body: 'Vous commencez directement en Performance. En contrepartie, les limites de risque sont plus resserrées dès le premier jour.',
       };
+
+  /*
+   * For ONE, this is the funnel's first real buying moment — the visitor has
+   * already read the lifecycle and the rules, so the size/price selector
+   * moves up to sit right after them instead of waiting at the very bottom,
+   * behind sections (WariX, Performance, FAQ) that don't exist on this page
+   * yet. FLEX/INSTANT keep the original bottom placement unchanged. This is
+   * the same `OfferConfigurator` either way — a reposition, not a rebuild.
+   */
+  const configuratorBlock = (
+    <div id={anchor}>
+      <OfferConfigurator
+        offers={offers}
+        sandboxCheckoutAvailable={sandboxCheckoutAvailable}
+        initialFamily={family}
+        compact
+      />
+    </div>
+  );
 
   return (
     <>
@@ -211,176 +232,186 @@ export function ProductJourneyPage({
       ) : null}
 
       {/* ─────────────────────────  Le parcours  ───────────────────────── */}
-      <section className={isFlex ? '' : 'commerce-band'}>
-        <div className="commerce-shell py-20 lg:py-24">
-          <Reveal>
-            <p className="commerce-kicker">Le parcours</p>
-            <h2 className="commerce-section-title mt-5">Quatre étapes, dans cet ordre.</h2>
-          </Reveal>
+      {isOne ? (
+        <OneHowItWorks />
+      ) : (
+        <section className={isFlex ? '' : 'commerce-band'}>
+          <div className="commerce-shell py-20 lg:py-24">
+            <Reveal>
+              <p className="commerce-kicker">Le parcours</p>
+              <h2 className="commerce-section-title mt-5">Quatre étapes, dans cet ordre.</h2>
+            </Reveal>
 
-          {/* Le fil qui relie les étapes se dessine à l'entrée : il dit la
-              progression que quatre cartes alignées ne disent pas. */}
-          <div className="relative mt-12">
-            <svg
-              viewBox="0 0 1200 8"
-              preserveAspectRatio="none"
-              className="absolute left-0 top-6 hidden h-2 w-full lg:block"
-              aria-hidden="true"
-            >
-              <DrawPath
-                d="M40 4 H 1160"
-                stroke="var(--wariba-color-cobalt-500)"
-                strokeWidth={2}
-                length={1200}
-                duration={1.1}
-              />
-            </svg>
+            {/* Le fil qui relie les étapes se dessine à l'entrée : il dit la
+                progression que quatre cartes alignées ne disent pas. */}
+            <div className="relative mt-12">
+              <svg
+                viewBox="0 0 1200 8"
+                preserveAspectRatio="none"
+                className="absolute left-0 top-6 hidden h-2 w-full lg:block"
+                aria-hidden="true"
+              >
+                <DrawPath
+                  d="M40 4 H 1160"
+                  stroke="var(--wariba-color-cobalt-500)"
+                  strokeWidth={2}
+                  length={1200}
+                  duration={1.1}
+                />
+              </svg>
 
-            <ol className="relative grid gap-5 lg:grid-cols-4">
-              {steps.map(([index, title, body], position) => (
-                <Reveal as="li" key={index} delay={position * 0.07}>
-                  <article className="commerce-panel h-full p-6">
-                    <span className="flex size-9 items-center justify-center rounded-full border border-[color:var(--commerce-accent-edge)] bg-[color:var(--wariba-color-ink-975)] font-mono text-xs font-bold text-[color:var(--wariba-color-cobalt-300)]">
-                      {index}
-                    </span>
-                    <h3 className="mt-6 text-lg font-semibold text-[color:var(--wariba-color-ink-50)]">
-                      {title}
-                    </h3>
-                    <p className="mt-2 text-sm leading-relaxed text-[color:var(--wariba-color-ink-300)]">
-                      {body}
-                    </p>
-                  </article>
-                </Reveal>
-              ))}
-            </ol>
+              <ol className="relative grid gap-5 lg:grid-cols-4">
+                {steps.map(([index, title, body], position) => (
+                  <Reveal as="li" key={index} delay={position * 0.07}>
+                    <article className="commerce-panel h-full p-6">
+                      <span className="flex size-9 items-center justify-center rounded-full border border-[color:var(--commerce-accent-edge)] bg-[color:var(--wariba-color-ink-975)] font-mono text-xs font-bold text-[color:var(--wariba-color-cobalt-300)]">
+                        {index}
+                      </span>
+                      <h3 className="mt-6 text-lg font-semibold text-[color:var(--wariba-color-ink-50)]">
+                        {title}
+                      </h3>
+                      <p className="mt-2 text-sm leading-relaxed text-[color:var(--wariba-color-ink-300)]">
+                        {body}
+                      </p>
+                    </article>
+                  </Reveal>
+                ))}
+              </ol>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ─────────────────────────  Scène de règle  ───────────────────────── */}
-      <section id={rulesAnchor} className={isFlex ? 'commerce-band' : ''}>
-        <div className="commerce-shell py-20 lg:py-24">
-          <Reveal>
-            <div className="commerce-rule-scene" data-tone={evaluation ? 'accent' : 'deep'}>
-              <p
-                className={
-                  evaluation
-                    ? 'text-[11px] font-bold uppercase tracking-[0.18em] text-white/70'
-                    : 'text-[11px] font-bold uppercase tracking-[0.18em] text-[color:var(--wariba-color-cobalt-300)]'
-                }
-              >
-                {heroRule.kicker}
-              </p>
-              <p
-                className={
-                  evaluation
-                    ? 'commerce-rule-figure mt-4'
-                    : 'commerce-rule-figure mt-4 text-[color:var(--wariba-color-ink-50)]'
-                }
-              >
-                {heroRule.figure}
-              </p>
-              <p
-                className={
-                  evaluation
-                    ? 'mt-4 text-xl font-semibold text-white'
-                    : 'mt-4 text-xl font-semibold text-[color:var(--wariba-color-ink-50)]'
-                }
-              >
-                {heroRule.title}
-              </p>
-              <p
-                className={
-                  evaluation
-                    ? 'mt-3 max-w-xl text-base leading-relaxed text-white/80'
-                    : 'mt-3 max-w-xl text-base leading-relaxed text-[color:var(--wariba-color-ink-300)]'
-                }
-              >
-                {heroRule.body}
-              </p>
-            </div>
-          </Reveal>
+      {isOne ? (
+        <OneEvaluationRules reference={reference} rulesAnchor={rulesAnchor} />
+      ) : (
+        <section id={rulesAnchor} className={isFlex ? 'commerce-band' : ''}>
+          <div className="commerce-shell py-20 lg:py-24">
+            <Reveal>
+              <div className="commerce-rule-scene" data-tone={evaluation ? 'accent' : 'deep'}>
+                <p
+                  className={
+                    evaluation
+                      ? 'text-[11px] font-bold uppercase tracking-[0.18em] text-white/70'
+                      : 'text-[11px] font-bold uppercase tracking-[0.18em] text-[color:var(--wariba-color-cobalt-300)]'
+                  }
+                >
+                  {heroRule.kicker}
+                </p>
+                <p
+                  className={
+                    evaluation
+                      ? 'commerce-rule-figure mt-4'
+                      : 'commerce-rule-figure mt-4 text-[color:var(--wariba-color-ink-50)]'
+                  }
+                >
+                  {heroRule.figure}
+                </p>
+                <p
+                  className={
+                    evaluation
+                      ? 'mt-4 text-xl font-semibold text-white'
+                      : 'mt-4 text-xl font-semibold text-[color:var(--wariba-color-ink-50)]'
+                  }
+                >
+                  {heroRule.title}
+                </p>
+                <p
+                  className={
+                    evaluation
+                      ? 'mt-3 max-w-xl text-base leading-relaxed text-white/80'
+                      : 'mt-3 max-w-xl text-base leading-relaxed text-[color:var(--wariba-color-ink-300)]'
+                  }
+                >
+                  {heroRule.body}
+                </p>
+              </div>
+            </Reveal>
 
-          {/* Le corridor : deux bords, pas une barre. Une barre ne montre que
-              la cible ; ce qui met fin à un compte est l'autre extrémité. */}
-          <Reveal delay={0.08}>
-            <div className="commerce-panel mt-6 p-6 sm:p-8">
-              <p className="text-sm font-semibold text-[color:var(--wariba-color-ink-50)]">
-                Votre corridor, taille 10K
+            {/* Le corridor : deux bords, pas une barre. Une barre ne montre que
+                la cible ; ce qui met fin à un compte est l'autre extrémité. */}
+            <Reveal delay={0.08}>
+              <div className="commerce-panel mt-6 p-6 sm:p-8">
+                <p className="text-sm font-semibold text-[color:var(--wariba-color-ink-50)]">
+                  Votre corridor, taille 10K
+                </p>
+                <p className="mt-1 text-sm text-[color:var(--wariba-color-ink-300)]">
+                  À gauche la limite qui met fin au compte, à droite l’objectif. La bande ambrée est
+                  la Limite quotidienne : elle avertit, elle ne clôt pas.
+                </p>
+                <RiskCorridor
+                  className="mt-6"
+                  floorLabel={`−${formatSimulatedAmount(evaluation?.maximumLossAmount ?? performance.maximumLossAmount, reference.nominalCurrency)}`}
+                  targetLabel={
+                    evaluation
+                      ? `+${formatRate(evaluation.profitTargetRate)}`
+                      : 'Versement disponible'
+                  }
+                  floorCaption="Perte maximale"
+                  targetCaption={evaluation ? 'Objectif' : 'Cycle complet'}
+                  positionPercent={evaluation ? 34 : 22}
+                  dailyBandPercent={26}
+                  currentLabel="Exemple de règle — pas un compte réel"
+                />
+              </div>
+            </Reveal>
+
+            {/* Les autres règles, en pastilles : lisibles d'un coup d'œil. */}
+            <Reveal delay={0.12}>
+              <dl className="mt-6 grid gap-px overflow-hidden rounded-[var(--wariba-radius-2xl)] border border-[color:var(--commerce-rule)] bg-[color:var(--commerce-rule)] sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  ['Meilleure journée', formatRate(performance.bestDayMaximumRate)],
+                  ['Réserve de sécurité', formatRate(performance.permanentBufferRate)],
+                  ['Journées Performance', `${performance.performanceDaysRequired}`],
+                  ['Part finale', formatRate(performance.payoutSplitSchedule.at(-1) ?? '0')],
+                ].map(([label, value]) => (
+                  <div key={label} className="commerce-stat">
+                    <dt>{label}</dt>
+                    <dd>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </Reveal>
+          </div>
+        </section>
+      )}
+
+      {isOne ? configuratorBlock : null}
+
+      {/* ─────────────────────────  Échelle de partage  ─────────────────────
+           ONE only: dropped for now — this is Performance-phase detail and
+           belongs in that family's own later block (per the locked funnel:
+           Hero → Comment ça marche → Règles → Configurateur → WariX → Après
+           réussite/Performance → Transparence → FAQ → Final CTA), not stacked
+           here right after the size selector. FLEX/INSTANT keep it. */}
+      {isOne ? null : (
+        <section className="commerce-performance-island">
+          <div className="commerce-shell grid gap-12 py-20 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-center lg:py-24">
+            <Reveal>
+              <p className="commerce-kicker">Ce que vous gardez</p>
+              <h2 className="commerce-section-title mt-5">Rester paie davantage.</h2>
+              <p className="commerce-lead mt-5">
+                Le barème est attaché à votre compte le jour de l’achat. Un plafond propre à la
+                taille s’applique, et une revue intervient après le cinquième cycle.
               </p>
-              <p className="mt-1 text-sm text-[color:var(--wariba-color-ink-300)]">
-                À gauche la limite qui met fin au compte, à droite l’objectif. La bande ambrée est
-                la Limite quotidienne : elle avertit, elle ne clôt pas.
-              </p>
-              <RiskCorridor
-                className="mt-6"
-                floorLabel={`−${formatXof(evaluation?.maximumLossAmount ?? performance.maximumLossAmount)}`}
-                targetLabel={
-                  evaluation
-                    ? `+${formatRate(evaluation.profitTargetRate)}`
-                    : 'Versement disponible'
-                }
-                floorCaption="Perte maximale"
-                targetCaption={evaluation ? 'Objectif' : 'Cycle complet'}
-                positionPercent={evaluation ? 34 : 22}
-                dailyBandPercent={26}
-                currentLabel="Exemple de règle — pas un compte réel"
-              />
-            </div>
-          </Reveal>
+            </Reveal>
+            <Reveal delay={0.1}>
+              <div className="commerce-panel p-6 sm:p-8">
+                <PayoutLadder
+                  steps={performance.payoutSplitSchedule.map((share, index) => ({
+                    label: `Cycle ${index + 1}`,
+                    share: formatRate(share),
+                    state: index === 0 ? 'current' : 'upcoming',
+                  }))}
+                />
+              </div>
+            </Reveal>
+          </div>
+        </section>
+      )}
 
-          {/* Les autres règles, en pastilles : lisibles d'un coup d'œil. */}
-          <Reveal delay={0.12}>
-            <dl className="mt-6 grid gap-px overflow-hidden rounded-[var(--wariba-radius-2xl)] border border-[color:var(--commerce-rule)] bg-[color:var(--commerce-rule)] sm:grid-cols-2 lg:grid-cols-4">
-              {[
-                ['Meilleure journée', formatRate(performance.bestDayMaximumRate)],
-                ['Réserve de sécurité', formatRate(performance.permanentBufferRate)],
-                ['Journées Performance', `${performance.performanceDaysRequired}`],
-                ['Part finale', formatRate(performance.payoutSplitSchedule.at(-1) ?? '0')],
-              ].map(([label, value]) => (
-                <div key={label} className="commerce-stat">
-                  <dt>{label}</dt>
-                  <dd>{value}</dd>
-                </div>
-              ))}
-            </dl>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ─────────────────────────  Échelle de partage  ───────────────────── */}
-      <section className="commerce-performance-island">
-        <div className="commerce-shell grid gap-12 py-20 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-center lg:py-24">
-          <Reveal>
-            <p className="commerce-kicker">Ce que vous gardez</p>
-            <h2 className="commerce-section-title mt-5">Rester paie davantage.</h2>
-            <p className="commerce-lead mt-5">
-              Le barème est attaché à votre compte le jour de l’achat. Un plafond propre à la taille
-              s’applique, et une revue intervient après le cinquième cycle.
-            </p>
-          </Reveal>
-          <Reveal delay={0.1}>
-            <div className="commerce-panel p-6 sm:p-8">
-              <PayoutLadder
-                steps={performance.payoutSplitSchedule.map((share, index) => ({
-                  label: `Cycle ${index + 1}`,
-                  share: formatRate(share),
-                  state: index === 0 ? 'current' : 'upcoming',
-                }))}
-              />
-            </div>
-          </Reveal>
-        </div>
-      </section>
-
-      <div id={anchor}>
-        <OfferConfigurator
-          offers={offers}
-          sandboxCheckoutAvailable={sandboxCheckoutAvailable}
-          initialFamily={family}
-          compact
-        />
-      </div>
+      {isOne ? null : configuratorBlock}
     </>
   );
 }
