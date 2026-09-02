@@ -286,9 +286,17 @@ export function ProductJourneyPage({
         </section>
       )}
 
+      {/* ONE only: the configurator moves up here, ahead of the full rules
+          detail — a paid-traffic visitor should see the price after
+          understanding the lifecycle, not after reading every risk rule.
+          FLEX/INSTANT keep it at the bottom, unchanged. */}
+      {isOne ? <div className="-mt-10 lg:-mt-14">{configuratorBlock}</div> : null}
+
       {/* ─────────────────────────  Scène de règle  ───────────────────────── */}
       {isOne ? (
-        <OneEvaluationRules reference={reference} rulesAnchor={rulesAnchor} />
+        <div className="-mt-10 lg:-mt-14">
+          <OneEvaluationRules reference={reference} rulesAnchor={rulesAnchor} />
+        </div>
       ) : (
         <section id={rulesAnchor} className={isFlex ? 'commerce-band' : ''}>
           <div className="commerce-shell py-20 lg:py-24">
@@ -380,13 +388,6 @@ export function ProductJourneyPage({
           </div>
         </section>
       )}
-
-      {/* The Rules section above already ends on its own bottom padding
-          (`py-20 lg:py-24`); stacking the configurator's own top padding on
-          top of that read as a gap large enough to look like a mistake. This
-          pulls the two together without touching either section's padding
-          directly. */}
-      {isOne ? <div className="-mt-10 lg:-mt-16">{configuratorBlock}</div> : null}
 
       {isOne ? <OneAfterSuccess reference={reference} configuratorAnchor={anchor} /> : null}
 
