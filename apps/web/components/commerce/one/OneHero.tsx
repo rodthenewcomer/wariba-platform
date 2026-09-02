@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ArrowRightIcon } from '@wariba/ui';
 import { Reveal } from '../../motion/Reveal';
 import { DrawPath } from '../../motion/DrawPath';
+import { FAMILY_ACCENT_VARS } from '../offer-ui';
 
 /**
  * `--wariba-ambient-cobalt`'s default bloom is anchored at the top-right
@@ -15,6 +16,17 @@ const CENTERED_AMBIENT = {
   '--wariba-ambient-cobalt':
     'radial-gradient(42rem 26rem at 50% -12%, color-mix(in srgb, var(--wariba-color-cobalt-600) 22%, transparent), transparent 68%)',
 } as CSSProperties;
+
+/**
+ * ONE's own copper, scoped to just the CTA row and the pathway's peak node
+ * below — not the whole hero. The connecting line stays WARIBA's system
+ * blue on purpose: it's infrastructure (the shape of the journey), while
+ * the "Évaluation" node and the buttons are ONE's own product state. Before
+ * this, the hero used the site's default blue everywhere while the
+ * configurator further down already used copper for ONE — two identities
+ * on the same page.
+ */
+const ONE_ACCENT = FAMILY_ACCENT_VARS.WARIBA_ONE as CSSProperties;
 
 interface OneHeroProps {
   configuratorAnchor: string;
@@ -56,7 +68,7 @@ export function OneHero({ configuratorAnchor, rulesAnchor }: OneHeroProps) {
           <p className="mt-4 text-sm text-[color:var(--commerce-text-dim)]">
             Trading simulé · Paiement unique · Prix en FCFA
           </p>
-          <div className="mt-9 flex flex-wrap justify-center gap-3">
+          <div className="mt-9 flex flex-wrap justify-center gap-3" style={ONE_ACCENT}>
             <Link href={`#${configuratorAnchor}`} className="commerce-primary-action">
               Choisir ONE
               <ArrowRightIcon size="sm" />
@@ -102,11 +114,14 @@ const ONE_STEP_CURVE = 'M40 150 C 210 150, 250 40, 450 40 S 690 150, 860 150';
 function OneStepPath() {
   return (
     <div className="mx-auto max-w-3xl">
+      {/* The tag and the peak below are ONE's own copper — the one state on
+          this curve that belongs to the product, not to WARIBA's system
+          blue the line itself keeps. */}
       <div className="flex flex-col items-center">
-        <span className="rounded-full border border-[color:var(--commerce-accent-edge)] bg-[color:var(--commerce-accent-wash)] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[color:var(--commerce-accent-text)]">
+        <span className="rounded-full border border-[color:var(--wariba-accent-copper-edge)] bg-[color:var(--wariba-accent-copper-wash)] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[color:var(--wariba-accent-copper)]">
           1 étape
         </span>
-        <span aria-hidden="true" className="h-5 w-px bg-[color:var(--commerce-accent-edge)]" />
+        <span aria-hidden="true" className="h-5 w-px bg-[color:var(--wariba-accent-copper-edge)]" />
       </div>
 
       {/*
@@ -119,8 +134,8 @@ function OneStepPath() {
         <svg viewBox="0 -20 900 210" className="h-full w-full" aria-hidden="true">
           <defs>
             <radialGradient id="one-step-peak-glow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="var(--commerce-accent)" stopOpacity="0.5" />
-              <stop offset="100%" stopColor="var(--commerce-accent)" stopOpacity="0" />
+              <stop offset="0%" stopColor="var(--wariba-accent-copper)" stopOpacity="0.5" />
+              <stop offset="100%" stopColor="var(--wariba-accent-copper)" stopOpacity="0" />
             </radialGradient>
           </defs>
 
@@ -147,7 +162,7 @@ function OneStepPath() {
           />
 
           <circle cx="40" cy="150" r="6" fill="var(--commerce-text-dim)" />
-          <circle cx="450" cy="40" r="7" fill="var(--commerce-accent)" />
+          <circle cx="450" cy="40" r="7" fill="var(--wariba-accent-copper)" />
           <circle cx="860" cy="150" r="6" fill="var(--commerce-text-dim)" />
         </svg>
       </div>

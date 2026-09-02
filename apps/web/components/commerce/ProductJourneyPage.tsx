@@ -389,9 +389,9 @@ export function ProductJourneyPage({
         </section>
       )}
 
-      {isOne ? <OneAfterSuccess reference={reference} configuratorAnchor={anchor} /> : null}
+      {isOne ? <OneAfterSuccess reference={reference} /> : null}
 
-      {isOne ? <OneTransparency reference={reference} configuratorAnchor={anchor} /> : null}
+      {isOne ? <OneTransparency reference={reference} /> : null}
 
       {isOne ? <OneFaq reference={reference} /> : null}
 

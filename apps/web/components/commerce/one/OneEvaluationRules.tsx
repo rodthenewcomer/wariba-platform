@@ -18,11 +18,14 @@ interface OneEvaluationRulesProps {
  *    that defines it names exactly this failure mode: the same 8% typed into
  *    an article, a FAQ entry and a React component is three places to
  *    disagree the day the policy changes.
- * 2. Evaluation and Performance numbers are rendered as two separate groups.
- *    The old shared layout put "Meilleure journée", "Réserve de sécurité",
- *    "Journées Performance" and "Part finale" in one grid — a prospect could
- *    read that as four things required to pass the Evaluation, when three of
- *    them only apply once ONE is already complete.
+ * 2. Evaluation and Performance stay separate concepts entirely. The old
+ *    shared layout put "Meilleure journée", "Réserve de sécurité", "Journées
+ *    Performance" and "Part finale" in one grid — a prospect could read that
+ *    as four things required to pass the Evaluation, when three of them only
+ *    apply once ONE is already complete. This component now states only
+ *    that the ruleset changes after success, in one line; the full
+ *    Performance picture is `OneAfterSuccess`'s own section, right after —
+ *    explaining it in both places was duplication, not reinforcement.
  */
 export async function OneEvaluationRules({ reference, rulesAnchor }: OneEvaluationRulesProps) {
   const evaluation = reference.evaluationRules;
@@ -76,32 +79,12 @@ export async function OneEvaluationRules({ reference, rulesAnchor }: OneEvaluati
     targetLabel: `+${formatRateAsSimulatedAmount(evaluation.profitTargetRate, reference.nominalBalance)}`,
   };
 
-  /*
-   * `payoutSplitSchedule` progresses cycle over cycle (80/80/85/85/90 for
-   * ONE 10K, per the payout ladder already rendered lower on this page) —
-   * showing only the last cycle's share as "Part conservée" implied the
-   * trader keeps 90% from the very first payout. The range states both
-   * ends without inventing a single blended number.
-   */
-  const schedule = reference.performanceRules.payoutSplitSchedule;
-  const firstShare = schedule[0];
-  const lastShare = schedule.at(-1);
-  const performancePreview = {
-    reserve: formatRate(reference.performanceRules.permanentBufferRate),
-    performanceDays: `${reference.performanceRules.performanceDaysRequired} par cycle`,
-    shareRange:
-      firstShare !== undefined && lastShare !== undefined && firstShare !== lastShare
-        ? `${formatRate(firstShare)} → ${formatRate(lastShare)}`
-        : formatRate(lastShare ?? '0'),
-  };
-
   return (
     <OneEvaluationRulesInteractive
       rulesAnchor={rulesAnchor}
       sizeLabel={reference.sizeCode}
       rules={rules}
       corridor={corridor}
-      performance={performancePreview}
     />
   );
 }

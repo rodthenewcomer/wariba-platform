@@ -1,5 +1,15 @@
+import type { CSSProperties } from 'react';
 import { Reveal } from '../../motion/Reveal';
 import { DrawPath } from '../../motion/DrawPath';
+import { FAMILY_ACCENT_VARS } from '../offer-ui';
+
+/**
+ * Unlike the hero's pathway — where the line is a generic system shape and
+ * only the "Évaluation" node is ONE's own state — every node here IS the
+ * concrete ONE lifecycle, not shared chrome. The whole section gets ONE's
+ * copper rather than a partial split.
+ */
+const ONE_ACCENT = FAMILY_ACCENT_VARS.WARIBA_ONE as CSSProperties;
 
 interface Step {
   index: string;
@@ -43,7 +53,7 @@ const NODE_X = [150, 450, 750, 1050] as const;
 
 export function OneHowItWorks() {
   return (
-    <section className="commerce-band">
+    <section className="commerce-band" style={ONE_ACCENT}>
       <div className="commerce-shell py-20 lg:py-24">
         <Reveal>
           <p className="commerce-kicker">WARIBA ONE · Comment ça marche</p>

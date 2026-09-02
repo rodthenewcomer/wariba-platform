@@ -1,14 +1,14 @@
-import Link from 'next/link';
+import type { CSSProperties } from 'react';
 import type { CanonicalOfferReadModel } from '@wariba/application';
 import { buildHelpPolicyFacts } from '@wariba/application';
-import { ArrowRightIcon } from '@wariba/ui';
 import { getDb } from '../../../lib/db';
 import { Reveal } from '../../motion/Reveal';
-import { formatXof } from '../offer-ui';
+import { FAMILY_ACCENT_VARS } from '../offer-ui';
+
+const ONE_ACCENT = FAMILY_ACCENT_VARS.WARIBA_ONE as CSSProperties;
 
 interface OneTransparencyProps {
   reference: CanonicalOfferReadModel;
-  configuratorAnchor: string;
 }
 
 interface ConsequenceState {
@@ -42,7 +42,7 @@ const TONE_LABEL = {
  * hasn't made. The Evaluation-not-passed state stops at the one fact that
  * is true today.
  */
-export async function OneTransparency({ reference, configuratorAnchor }: OneTransparencyProps) {
+export async function OneTransparency({ reference }: OneTransparencyProps) {
   const facts = (await buildHelpPolicyFacts(getDb())).facts;
   const noActivationFee = Number(reference.activationPrice) === 0;
 
@@ -58,7 +58,7 @@ export async function OneTransparency({ reference, configuratorAnchor }: OneTran
       tone: 'red',
     },
     {
-      label: 'Évaluation non réussie',
+      label: 'Évaluation non validée',
       body: 'Le compte concerné ne progresse pas vers WARIBA Performance.',
       tone: 'neutral',
     },
@@ -74,19 +74,19 @@ export async function OneTransparency({ reference, configuratorAnchor }: OneTran
   ];
 
   return (
-    <section className="commerce-band">
+    <section className="commerce-band" style={ONE_ACCENT}>
       <div className="commerce-shell py-20 lg:py-24">
         <div className="grid gap-12 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] lg:gap-16">
           <div>
             <Reveal>
               <p className="commerce-kicker">Transparence ONE</p>
               <h2 className="commerce-section-title mt-5">
-                Vous savez aussi
-                <span className="block">ce qui se passe si ça s’arrête.</span>
+                Si l’Évaluation s’arrête,
+                <span className="block">vous savez exactement pourquoi.</span>
               </h2>
               <p className="commerce-lead mt-5">
-                Une limite quotidienne, une perte maximale ou une Évaluation non réussie n’ont pas
-                les mêmes conséquences. WARIBA vous les montre avant de commencer.
+                Une limite quotidienne, une perte maximale et une Évaluation non validée n’ont pas
+                les mêmes conséquences. Tout est défini avant votre premier trade.
               </p>
             </Reveal>
           </div>
@@ -145,26 +145,6 @@ export async function OneTransparency({ reference, configuratorAnchor }: OneTran
               </li>
             ))}
           </ul>
-        </Reveal>
-
-        <Reveal delay={0.36} className="mt-14">
-          <div className="flex flex-wrap items-center justify-between gap-6 rounded-[var(--wariba-radius-2xl)] border border-[color:var(--commerce-rule)] bg-[color:var(--commerce-panel)] p-6 sm:p-8">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--commerce-text-dim)]">
-                Votre ONE
-              </p>
-              <p className="mt-2 text-lg font-semibold text-[color:var(--commerce-text)]">
-                {reference.sizeCode} · {formatXof(reference.upfrontPrice)}
-              </p>
-              <p className="mt-1 text-xs font-semibold uppercase tracking-[0.1em] text-[color:var(--commerce-text-dim)]">
-                Paiement unique
-              </p>
-            </div>
-            <Link href={`#${configuratorAnchor}`} className="commerce-primary-action">
-              Choisir ma taille
-              <ArrowRightIcon size="sm" />
-            </Link>
-          </div>
         </Reveal>
       </div>
     </section>

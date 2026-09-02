@@ -1,14 +1,15 @@
-import Link from 'next/link';
+import type { CSSProperties } from 'react';
 import type { CanonicalOfferReadModel } from '@wariba/application';
 import { buildHelpPolicyFacts } from '@wariba/application';
-import { ArrowRightIcon, CheckIcon } from '@wariba/ui';
+import { CheckIcon } from '@wariba/ui';
 import { getDb } from '../../../lib/db';
 import { Reveal } from '../../motion/Reveal';
-import { formatRate, formatXof } from '../offer-ui';
+import { FAMILY_ACCENT_VARS, formatRate } from '../offer-ui';
+
+const ONE_ACCENT = FAMILY_ACCENT_VARS.WARIBA_ONE as CSSProperties;
 
 interface OneAfterSuccessProps {
   reference: CanonicalOfferReadModel;
-  configuratorAnchor: string;
 }
 
 interface JourneyNode {
@@ -29,7 +30,7 @@ interface JourneyNode {
  * `OneEvaluationRules` already reads from, so a policy change can't leave
  * this section quietly wrong.
  */
-export async function OneAfterSuccess({ reference, configuratorAnchor }: OneAfterSuccessProps) {
+export async function OneAfterSuccess({ reference }: OneAfterSuccessProps) {
   const facts = (await buildHelpPolicyFacts(getDb())).facts;
   const performance = reference.performanceRules;
   const schedule = performance.payoutSplitSchedule;
@@ -45,12 +46,12 @@ export async function OneAfterSuccess({ reference, configuratorAnchor }: OneAfte
   const nodes: readonly JourneyNode[] = [
     {
       label: 'ONE · Évaluation réussie',
-      body: 'Lorsque l’objectif et les conditions applicables sont remplis, la réussite est finalisée selon les règles du compte.',
+      body: 'Objectif atteint, conditions respectées.',
       state: 'done',
     },
     {
       label: 'WARIBA Performance',
-      body: 'Un nouveau compte simulé s’ouvre, avec sa propre réserve, ses propres journées qualifiantes et son propre barème.',
+      body: 'Un nouveau compte simulé, ses propres règles.',
       state: 'ahead',
     },
     {
@@ -67,36 +68,18 @@ export async function OneAfterSuccess({ reference, configuratorAnchor }: OneAfte
     },
     {
       label: 'Conditions du cycle',
-      body: 'Vous restez conforme aux règles de risque applicables à Performance jusqu’à la fin du cycle.',
+      body: 'Règles de risque respectées jusqu’à la fin du cycle.',
       state: 'ahead',
     },
     {
       label: 'Éligibilité payout',
-      body: `Un profit positif ne suffit pas : la demande devient possible une fois la réserve, les journées et les autres conditions du cycle réunies.${shareRange ? ` Ce que vous gardez suit un barème progressif, de ${shareRange}.` : ''}`,
+      body: `Réserve, journées et conditions réunies avant toute demande.${shareRange ? ` Part conservée : ${shareRange}.` : ''}`,
       state: 'ahead',
     },
   ];
 
-  const buyingCard = (
-    <div className="rounded-[var(--wariba-radius-2xl)] border border-[color:var(--commerce-rule)] bg-[color:var(--commerce-panel)] p-6">
-      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--commerce-text-dim)]">
-        WARIBA ONE · {reference.sizeCode}
-      </p>
-      <p className="mt-2 font-mono text-2xl font-bold text-[color:var(--commerce-text)]">
-        {formatXof(reference.upfrontPrice)}
-      </p>
-      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.1em] text-[color:var(--commerce-text-dim)]">
-        Paiement unique
-      </p>
-      <Link href={`#${configuratorAnchor}`} className="commerce-primary-action mt-5 w-full">
-        Choisir ma taille
-        <ArrowRightIcon size="sm" />
-      </Link>
-    </div>
-  );
-
   return (
-    <section className="commerce-band">
+    <section className="commerce-band" style={ONE_ACCENT}>
       <div className="commerce-shell py-20 lg:py-24">
         <div className="grid gap-12 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-16">
           <div>
@@ -112,6 +95,12 @@ export async function OneAfterSuccess({ reference, configuratorAnchor }: OneAfte
               </p>
             </Reveal>
 
+            {/*
+             * No buying moment here on purpose — the page keeps exactly
+             * three: hero, configurator, final close. A CTA on every
+             * section stops reading as premium and starts reading as
+             * anxious.
+             */}
             <Reveal delay={0.1} className="mt-10 border-t border-[color:var(--commerce-rule)] pt-8">
               <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[color:var(--commerce-text-dim)]">
                 Après le cycle final
@@ -123,13 +112,6 @@ export async function OneAfterSuccess({ reference, configuratorAnchor }: OneAfte
                 {facts.maxPayoutCyclesBeforeReview.explanation} Aujourd’hui, ce seuil est fixé à{' '}
                 {facts.maxPayoutCyclesBeforeReview.value ?? 'un nombre publié de cycles'}.
               </p>
-            </Reveal>
-
-            {/* Desktop only here — on mobile this card renders after the
-                journey instead, so the buying moment comes once the visitor
-                has actually read what success unlocks, not before. */}
-            <Reveal delay={0.16} className="mt-10 hidden lg:block">
-              {buyingCard}
             </Reveal>
           </div>
 
@@ -171,10 +153,6 @@ export async function OneAfterSuccess({ reference, configuratorAnchor }: OneAfte
               </Reveal>
             ))}
           </ol>
-
-          <Reveal delay={0.5} className="lg:hidden">
-            {buyingCard}
-          </Reveal>
         </div>
       </div>
     </section>

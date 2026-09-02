@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { ArrowRightIcon, RiskCorridor } from '@wariba/ui';
+import { useState, type CSSProperties } from 'react';
+import { RiskCorridor } from '@wariba/ui';
 import { Reveal } from '../../motion/Reveal';
+import { FAMILY_ACCENT_VARS } from '../offer-ui';
+
+const ONE_ACCENT = FAMILY_ACCENT_VARS.WARIBA_ONE as CSSProperties;
 
 export interface RuleOption {
   id: 'objectif' | 'quotidienne' | 'maximale' | 'meilleureJournee';
@@ -22,18 +24,11 @@ interface CorridorLabels {
   targetLabel: string;
 }
 
-interface PerformancePreview {
-  reserve: string;
-  performanceDays: string;
-  shareRange: string;
-}
-
 interface OneEvaluationRulesInteractiveProps {
   rulesAnchor: string;
   sizeLabel: string;
   rules: FourRuleOptions;
   corridor: CorridorLabels;
-  performance: PerformancePreview;
 }
 
 /**
@@ -49,13 +44,12 @@ export function OneEvaluationRulesInteractive({
   sizeLabel,
   rules,
   corridor,
-  performance,
 }: OneEvaluationRulesInteractiveProps) {
   const [selectedId, setSelectedId] = useState<RuleOption['id']>('maximale');
   const selected = rules.find((rule) => rule.id === selectedId) ?? rules[0];
 
   return (
-    <section id={rulesAnchor}>
+    <section id={rulesAnchor} style={ONE_ACCENT}>
       <div className="commerce-shell py-20 lg:py-24">
         <Reveal>
           <p className="commerce-kicker">Règles de l’Évaluation</p>
@@ -114,31 +108,17 @@ export function OneEvaluationRulesInteractive({
           </div>
         </Reveal>
 
-        <Reveal delay={0.16} className="mt-14">
-          <div className="border-t border-[color:var(--commerce-rule)] pt-10">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[color:var(--commerce-text-dim)]">
-              Après réussite
-            </p>
-            <h3 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-[color:var(--commerce-text)]">
-              Les règles changent en Performance.
-            </h3>
-            <dl className="mt-6 grid gap-px overflow-hidden rounded-[var(--wariba-radius-2xl)] border border-[color:var(--commerce-rule)] bg-[color:var(--commerce-rule)] sm:grid-cols-3">
-              {[
-                ['Réserve de sécurité', performance.reserve],
-                ['Journées Performance', performance.performanceDays],
-                ['Part conservée', performance.shareRange],
-              ].map(([label, value]) => (
-                <div key={label} className="commerce-stat">
-                  <dt>{label}</dt>
-                  <dd>{value}</dd>
-                </div>
-              ))}
-            </dl>
-            <Link href="/programme" className="commerce-secondary-action mt-6">
-              Comprendre Performance
-              <ArrowRightIcon size="sm" />
-            </Link>
-          </div>
+        {/*
+         * Deliberately just one line — the full Performance picture
+         * (réserve, Performance Days, éligibilité, ce que vous gardez) has
+         * its own section right after this one. Explaining it twice was a
+         * side effect of building each section independently; this owns
+         * only the fact that the ruleset itself changes.
+         */}
+        <Reveal delay={0.16} className="mt-14 border-t border-[color:var(--commerce-rule)] pt-8">
+          <p className="text-sm text-[color:var(--commerce-text-dim)]">
+            Après réussite, un nouveau cadre de règles s’applique en Performance.
+          </p>
         </Reveal>
       </div>
     </section>

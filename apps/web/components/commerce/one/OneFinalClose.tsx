@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'motion/react';
@@ -9,7 +9,9 @@ import { AccountToken, ArrowRightIcon } from '@wariba/ui';
 import { useHydratedReducedMotion } from '../../motion/useHydratedReducedMotion';
 import { Reveal } from '../../motion/Reveal';
 import { onOfferSelected } from '../offer-selection-events';
-import { checkoutHref, formatXof, offerByIdentity } from '../offer-ui';
+import { checkoutHref, FAMILY_ACCENT_VARS, formatXof, offerByIdentity } from '../offer-ui';
+
+const ONE_ACCENT = FAMILY_ACCENT_VARS.WARIBA_ONE as CSSProperties;
 
 interface OneFinalCloseProps {
   offers: readonly CanonicalOfferReadModel[];
@@ -78,10 +80,10 @@ export function OneFinalClose({ offers, sandboxCheckoutAvailable }: OneFinalClos
   );
 
   return (
-    <section className="commerce-hero relative overflow-hidden">
+    <section className="commerce-hero relative overflow-hidden" style={ONE_ACCENT}>
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60rem_36rem_at_78%_18%,color-mix(in_srgb,var(--wariba-color-cobalt-600)_14%,transparent),transparent_62%)]"
+        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60rem_36rem_at_78%_18%,color-mix(in_srgb,var(--wariba-accent-copper)_14%,transparent),transparent_62%)]"
       />
       <div className="commerce-shell py-24 lg:py-32">
         <div className="grid gap-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center lg:gap-20">
@@ -92,12 +94,13 @@ export function OneFinalClose({ offers, sandboxCheckoutAvailable }: OneFinalClos
                 Votre parcours ONE
                 <span className="block">commence ici.</span>
               </h2>
+              {/* Everything this could repeat — paiement unique, Évaluation,
+                  pas d'activation — has already had its own section. This
+                  closes instead of re-explaining: it names the three things
+                  the visitor now knows and hands them the one decision left. */}
               <p className="commerce-lead mt-6 max-w-md">
-                Un paiement unique.
-                <br />
-                Une Évaluation.
-                <br />
-                Aucun frais d’activation après réussite.
+                Vous connaissez le prix. Vous connaissez les règles.
+                <span className="block">Il reste à choisir.</span>
               </p>
             </Reveal>
 
@@ -114,7 +117,7 @@ export function OneFinalClose({ offers, sandboxCheckoutAvailable }: OneFinalClos
             <div className="relative">
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-0 -z-10 rounded-[var(--wariba-radius-2xl)] bg-[radial-gradient(circle_at_50%_20%,color-mix(in_srgb,var(--wariba-brand-500)_26%,transparent),transparent_70%)] blur-2xl"
+                className="pointer-events-none absolute inset-0 -z-10 rounded-[var(--wariba-radius-2xl)] bg-[radial-gradient(circle_at_50%_20%,color-mix(in_srgb,var(--wariba-accent-copper)_26%,transparent),transparent_70%)] blur-2xl"
               />
               <div className="relative overflow-hidden rounded-[var(--wariba-radius-2xl)] border border-[color:var(--commerce-rule)] bg-[color:var(--commerce-panel)] p-7 shadow-[inset_0_1px_0_var(--commerce-rim-strong)] sm:p-9">
                 {/* The certificate edge — a hairline of the family's own

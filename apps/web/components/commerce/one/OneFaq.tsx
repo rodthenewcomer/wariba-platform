@@ -1,9 +1,18 @@
+import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import type { CanonicalOfferReadModel } from '@wariba/application';
 import { AccountToken } from '@wariba/ui';
 import { Reveal } from '../../motion/Reveal';
 import { FaqKnowledgeStack, type FaqItem } from '../../marketing/faq/FaqKnowledgeStack';
-import { formatRate } from '../offer-ui';
+import { FAMILY_ACCENT_VARS, formatRate } from '../offer-ui';
+
+/**
+ * Scoped to the left column only, not the whole section: `FaqKnowledgeStack`
+ * is shared with the homepage FAQ and hardcodes WARIBA blue for its own
+ * question numbers/toggle — correct there, and not something this override
+ * can or should reach without touching a component three other pages share.
+ */
+const ONE_ACCENT = FAMILY_ACCENT_VARS.WARIBA_ONE as CSSProperties;
 
 interface OneFaqProps {
   reference: CanonicalOfferReadModel;
@@ -36,7 +45,7 @@ export function OneFaq({ reference }: OneFaqProps) {
       category: 'Paiement',
       question: 'Dois-je payer autre chose après avoir réussi ONE ?',
       answer: noActivationFee
-        ? 'Non. ONE fonctionne avec un paiement unique, et aucun frais d’activation n’est dû après une réussite. Une fois les conditions applicables remplies et la réussite finalisée, le parcours peut continuer vers WARIBA Performance sans nouveau paiement.'
+        ? 'Non. ONE fonctionne avec un paiement unique, sans frais d’activation après réussite. Le parcours continue ensuite vers WARIBA Performance sans nouveau paiement.'
         : 'ONE fonctionne avec un paiement unique. Le montant applicable après une réussite, s’il y en a un, est celui fixé par l’offre choisie au moment de l’achat.',
     },
     {
@@ -52,7 +61,7 @@ export function OneFaq({ reference }: OneFaqProps) {
       number: '03',
       category: 'Règles',
       question: 'Que signifie « Meilleure journée » ?',
-      answer: `La règle Meilleure journée limite la part de votre profit total qu’une seule journée peut représenter. Aujourd’hui, la limite applicable à ONE est de ${bestDayRate} : une seule journée profitable ne peut pas peser plus de ${bestDayRate} de l’ensemble de vos journées gagnantes. Un dépassement ne fait pas perdre le compte, mais bloque le passage en Performance tant que la règle n’est pas respectée.`,
+      answer: `La règle Meilleure journée limite la part de votre profit total qu’une seule journée peut représenter — aujourd’hui ${bestDayRate} pour ONE. Un dépassement ne fait pas perdre le compte, mais bloque le passage en Performance tant que la règle n’est pas respectée.`,
     },
     {
       id: 'one_after_success',
@@ -84,7 +93,7 @@ export function OneFaq({ reference }: OneFaqProps) {
     <section className="commerce-band">
       <div className="commerce-shell py-20 lg:py-24">
         <div className="grid gap-12 lg:grid-cols-[minmax(0,0.62fr)_minmax(0,1fr)] lg:gap-16">
-          <div className="lg:sticky lg:top-24 lg:self-start">
+          <div className="lg:sticky lg:top-24 lg:self-start" style={ONE_ACCENT}>
             <Reveal>
               <p className="commerce-kicker">Dernières questions</p>
               <h2 className="commerce-section-title mt-5">
