@@ -5,6 +5,8 @@ import { OfferConfigurator } from './OfferConfigurator';
 import { OneHero } from './one/OneHero';
 import { OneHowItWorks } from './one/OneHowItWorks';
 import { OneEvaluationRules } from './one/OneEvaluationRules';
+import { OneAfterSuccess } from './one/OneAfterSuccess';
+import { OneTransparency } from './one/OneTransparency';
 import { Reveal } from '../motion/Reveal';
 import { DrawPath } from '../motion/DrawPath';
 import { FAMILY_META, formatMultiple, formatRate, formatSimulatedAmount, formatXof } from './offer-ui';
@@ -378,6 +380,10 @@ export function ProductJourneyPage({
       )}
 
       {isOne ? configuratorBlock : null}
+
+      {isOne ? <OneAfterSuccess reference={reference} configuratorAnchor={anchor} /> : null}
+
+      {isOne ? <OneTransparency reference={reference} configuratorAnchor={anchor} /> : null}
 
       {/* ─────────────────────────  Échelle de partage  ─────────────────────
            ONE only: dropped for now — this is Performance-phase detail and
